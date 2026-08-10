@@ -57,6 +57,8 @@ Regla visual histórica a conservar salvo decisión de diseño posterior:
 - numeración de izquierda a derecha;
 - al completar una fila, continúa en la fila superior.
 
+Cada banca obtiene la imagen del concejal desde `ruta_imagen` en el padrón. No debe existir una asociación hardcodeada entre número de banca y archivo de imagen.
+
 Estados visuales diferenciables:
 
 - ausente;
