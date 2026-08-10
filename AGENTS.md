@@ -1,160 +1,133 @@
-# Instrucciones para agentes de programación
+# AGENTS.md
 
-Este archivo contiene reglas obligatorias para cualquier agente que analice, diseñe o implemente Botonera2.
+## Propósito
 
-## 1. Fuente canónica
+Este repositorio contiene la especificación canónica y, posteriormente, la implementación de Botonera2, nueva versión del sistema de votación del Concejo Deliberante de Puerto Madryn.
 
-La fuente canónica es **este repositorio** y, dentro de él, la documentación de `docs/`.
+Los agentes deben implementar lo documentado aquí; no reconstruir el producto a partir del repositorio histórico.
 
-El repositorio histórico `martinebene/Botonera` NO es una dependencia de desarrollo y no debe utilizarse como sustituto de la especificación.
+## Orden de lectura obligatorio
 
-Solo puede consultarse cuando:
+Antes de proponer o modificar código:
 
-- se necesiten copiar las imágenes de bancas indicadas en `docs/07-configuracion-datos-y-assets.md`;
-- una regla esté marcada como pendiente o requiera validación histórica según `docs/09-fuentes-y-trazabilidad.md` o `docs/10-preguntas-abiertas.md`.
+1. `README.md`
+2. `docs/00-principios-y-alcance.md`
+3. `docs/01-reglas-de-negocio.md`
+4. `docs/02-modelo-de-dominio-y-estados.md`
+5. `docs/03-casos-de-uso.md`
+6. `docs/04-contratos-e-integraciones.md`
+7. `docs/05-frontend-moderacion.md`
+8. `docs/06-frontend-pantalla-recinto.md`
+9. `docs/07-configuracion-datos-y-assets.md`
+10. `docs/08-observabilidad-y-auditoria.md`
+11. `docs/09-fuentes-y-trazabilidad.md`
+12. `docs/10-preguntas-abiertas.md`
+13. `docs/11-criterios-de-aceptacion.md`
 
-Está prohibido copiar o portar código Python, JavaScript, HTML o CSS del sistema anterior como mecanismo de implementación. Botonera2 es una reimplementación desde cero.
+## Autoridad documental
 
-## 2. Jerarquía documental
+- La documentación de Botonera2 es la fuente normativa para la nueva implementación.
+- El repositorio histórico `martinebene/Botonera`, rama `main`, solo puede consultarse cuando esta documentación lo indique para:
+  - descargar imágenes/assets;
+  - validar una regla histórica puntual;
+  - comprobar compatibilidad con el bridge físico existente.
+- No se debe copiar arquitectura, clases, endpoints internos, polling, serialización ni estructura del proyecto histórico por defecto.
+- La rama histórica `v2` no es normativa.
+- Si una implementación antigua contradice Botonera2, manda Botonera2.
 
-Ante contradicciones, aplicar este orden:
+## Arquitectura funcional obligatoria
 
-1. decisiones explícitas más recientes asentadas en `Botonera2`;
-2. `docs/01-reglas-de-negocio.md` y `docs/02-modelo-de-dominio-y-estados.md`;
-3. documentación específica del caso de uso o frontend;
-4. criterios de aceptación;
-5. fuentes históricas citadas, únicamente como evidencia.
+La solución debe mantener separados:
 
-Una contradicción entre una fuente histórica y Botonera2 **no autoriza** a cambiar la documentación ni la regla.
+- backend FastAPI;
+- frontend Nuxt.js de Moderación;
+- frontend Nuxt.js de Pantalla del Recinto;
+- servicio externo de captura/remapeo de dispositivos físicos.
 
-## 3. Orden de lectura mínimo
+El backend es la única autoridad de:
 
-Antes de implementar una tarea funcional:
-
-1. `README.md`;
-2. `AGENTS.md`;
-3. `docs/00-principios-y-alcance.md`;
-4. `docs/01-reglas-de-negocio.md`;
-5. `docs/02-modelo-de-dominio-y-estados.md`;
-6. el documento propietario de la superficie afectada;
-7. `docs/10-preguntas-abiertas.md`;
-8. los escenarios pertinentes de `docs/11-criterios-de-aceptacion.md`.
-
-No es necesario releer todos los documentos para cada cambio si el alcance es inequívoco.
-
-## 4. Arquitectura objetivo obligatoria
-
-La solución tendrá exactamente estas aplicaciones principales:
-
-- backend: **FastAPI**;
-- frontend de operación: **Nuxt.js — Moderación**;
-- frontend público: **Nuxt.js — Pantalla de Recinto**.
-
-El servicio que captura teclados físicos es una **integración externa** y se comunica con el backend por HTTP. No debe incorporar lógica de negocio.
-
-El monitor técnico del sistema histórico no constituye un tercer frontend funcional requerido.
-
-No introducir otra arquitectura principal, framework frontend o backend alternativo sin una decisión documental explícita.
-
-## 5. Reglas que los agentes no pueden decidir
-
-Un agente no puede inventar ni modificar por conveniencia técnica:
-
-- quórum;
-- reglas de mayoría;
-- tratamiento de abstenciones;
-- condiciones de apertura o cierre de votación;
-- condiciones de empate y desempate;
-- mapa de teclas;
-- presencia/ausencia;
+- estado global;
+- sesión;
+- preparación;
+- presencia recibida desde los dispositivos;
+- votaciones y resultados;
 - cola y uso de la palabra;
-- secreto y momento de revelación de votos;
-- formato funcional del Orden del Día;
-- identidad y numeración de bancas.
+- autoridades institucionales;
+- generación de eventos y registros CSV.
 
-Si una decisión aparece en `docs/10-preguntas-abiertas.md`, debe permanecer abierta hasta que sea resuelta por el responsable del producto.
+Los frontends representan estado y envían comandos permitidos. Nunca deciden reglas de negocio.
 
-## 6. Diferenciar requisito de legado
+## Invariantes que no se pueden reinterpretar
 
-No reproducir automáticamente defectos o decisiones accidentales del MVP.
+- Estados globales: `SIN_PREPARAR`, `PREPARANDO`, `SESION_ABIERTA`.
+- El estado operativo se mantiene en memoria y no se restaura después de una caída.
+- Una interrupción técnica obliga a una nueva preparación y nueva apertura reglamentaria.
+- Una sola votación activa por vez.
+- Mayoría simple y mayoría especial son tipos distintos.
+- Mayoría simple: `positivos > negativos`; las abstenciones quedan fuera del cálculo; igualdad produce empate.
+- Mayoría especial: factor explícito y base `PRESENTES` o `CUERPO`; igualdad exacta con el factor aprueba (`>=`).
+- En mayoría especial sobre presentes, la abstención forma parte de votos emitidos y por tanto del denominador.
+- Si falta el voto de algún presente al finalizar manualmente, la votación es `INCONCLUSA`.
+- La pérdida de quórum durante una votación la convierte inmediatamente en `INCONCLUSA`.
+- Una votación cerrada nunca se recalcula.
+- Un voto ordinario emitido es irreversible y no puede ser modificado por Moderación.
+- Presidencia es un rol independiente del rol Concejal. Una persona puede ejercer ambos sin que un rol altere el otro.
+- Presidencia desempata únicamente una mayoría simple `EMPATADA`, desde Moderación, con voto positivo o negativo irreversible.
+- Secretaría Legislativa es un rol institucional sin acciones funcionales en el sistema.
+- Los votos individuales no se revelan en la Pantalla del Recinto hasta que la votación cierre.
+- El Orden del Día es opcional y meramente asistencial.
+- Toda interacción relevante desde `PREPARANDO` hasta cierre/cancelación se escribe de inmediato en tres CSV jerárquicos.
 
-Ejemplos de detalles históricos que NO son por sí solos reglas obligatorias:
+## Dispositivos
 
-- estado mantenido mediante singletons Python;
-- almacenamiento únicamente en RAM;
-- forma exacta de todos los JSON históricos;
-- frontends estáticos;
-- polling de 250/300 ms como única tecnología posible;
-- nombres internos de clases o módulos;
-- errores de serialización o mensajes inconsistentes;
-- peculiaridades de rutas usadas solo por los frontends viejos.
+Mapa funcional vigente:
 
-Sí deben preservarse los comportamientos funcionales y contratos externos que la documentación declare expresamente.
+- `1`: voto positivo;
+- `2`: abstención;
+- `3`: voto negativo;
+- `7`: pedir/retirar palabra; si el concejal está hablando, finalizar su uso;
+- `8`: test visual del dispositivo;
+- `9`: alternar presencia.
 
-## 7. Compatibilidad de hardware
+Durante `PREPARANDO` solo deben producir efecto funcional `8` y `9`.
 
-El contrato externo mínimo a conservar es la recepción de una pulsación identificada por:
+En `SIN_PREPARAR` ninguna pulsación produce efecto funcional ni pertenece a los CSV de una sesión.
 
-```json
-{
-  "dispositivo": "dev01",
-  "tecla": "1"
-}
-```
+Debe preservarse como requisito arquitectónico un futuro **remapeo rápido** de dispositivo a concejal, incluso durante una votación, sin modificar presencia ni votos ya emitidos. El remapeo se registra y afecta solo el estado en memoria; no reescribe automáticamente la configuración base.
 
-El backend debe resolver dispositivo → concejal y aplicar todas las validaciones de negocio. El servicio físico solo detecta, identifica y transmite.
+## Registros y auditoría
 
-No incorporar fingerprints reales, rutas de dispositivos, credenciales ni mapeos institucionales al repositorio.
+- Se generan tres CSV por preparación/sesión.
+- Comparten fecha y hora de inicio en el nombre para evitar colisiones.
+- Nivel 1 contiene L1+L2+L3.
+- Nivel 2 contiene L2+L3.
+- Nivel 3 contiene solo L3.
+- Se escribe inmediatamente cada evento.
+- Hora local del servidor, precisión a segundos.
+- Al cancelar preparación o cerrar sesión se escribe el evento final y los archivos no vuelven a modificarse.
+- Ante caída abrupta, los archivos quedan hasta el último evento efectivamente persistido y no se reparan retrospectivamente.
 
-## 8. Implementación por capas
+## Restricciones de implementación para agentes
 
-Mantener separación conceptual entre:
+Hasta que `docs/10-preguntas-abiertas.md` no cierre las decisiones técnicas:
 
-- dominio: entidades, estados y reglas puras;
-- aplicación: casos de uso y coordinación;
-- API: validación de transporte y DTOs;
-- infraestructura: persistencia, configuración, logging e integraciones;
-- Nuxt: presentación y comandos del usuario.
+- no iniciar scaffold productivo;
+- no elegir por cuenta propia base de datos, transporte realtime, gestor de estado frontend, librerías UI, formato definitivo de configuración, estrategia de despliegue o estructura de monorepo;
+- no introducir persistencia de sesión activa;
+- no introducir autenticación de operador salvo decisión posterior explícita;
+- no sustituir CSV por una base de datos como registro institucional;
+- no agregar edición/corrección de votos;
+- no validar la autoridad o contenido político/administrativo del Orden del Día.
 
-La interfaz no debe recalcular resultados legislativos que sean autoridad del backend. El backend debe ser la única autoridad sobre sesión, presencia, quórum, votos, resultados y uso de la palabra.
+## Calidad esperada
 
-## 9. Pruebas obligatorias
+Cada cambio futuro debe:
 
-Toda regla implementada debe tener pruebas automatizadas cuando sea razonablemente verificable sin interfaz.
+- corresponder a reglas/casos de uso documentados;
+- incluir pruebas proporcionales al riesgo;
+- preservar las invariantes anteriores;
+- mantener backend y frontends desacoplados por contratos claros;
+- evitar secretos y datos reales en el repositorio;
+- mantener trazabilidad entre requisito, implementación y prueba.
 
-Como mínimo:
-
-- pruebas unitarias de reglas de votación y estados;
-- pruebas de integración de los casos de uso y API;
-- pruebas de contrato para la entrada de teclados;
-- pruebas del frontend para estados críticos;
-- recorrido end-to-end de los escenarios de `docs/11-criterios-de-aceptacion.md` antes de considerar una versión liberable.
-
-Las pruebas deben usar datos ficticios. No incorporar datos personales reales del Concejo.
-
-## 10. Cambios documentales
-
-Si una implementación exige una decisión funcional no documentada:
-
-1. no asumirla;
-2. registrar o ampliar la pregunta abierta;
-3. explicar el bloqueo en la entrega.
-
-Cuando una pregunta sea resuelta, actualizar primero el documento propietario, después los criterios de aceptación y finalmente el código.
-
-## 11. Entrega esperada
-
-Cada cambio debe informar:
-
-- objetivo;
-- reglas afectadas;
-- archivos modificados;
-- pruebas ejecutadas;
-- compatibilidad preservada;
-- riesgos o decisiones pendientes.
-
-No presentar como validado aquello que no haya sido probado.
-
-## 12. Seguridad del repositorio histórico
-
-Las referencias históricas existen para trazabilidad, no para navegación indiscriminada. No descargar logs históricos, datos personales, configuraciones operativas ni mapeos físicos si no son indispensables para una tarea explícita.
+Si aparece una contradicción real entre documentos, no adivinar: detener únicamente el alcance afectado y documentar la inconsistencia.
