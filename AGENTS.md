@@ -23,6 +23,7 @@ Antes de proponer o modificar código:
 11. `docs/09-fuentes-y-trazabilidad.md`
 12. `docs/10-preguntas-abiertas.md`
 13. `docs/11-criterios-de-aceptacion.md`
+14. `docs/12-decisiones-tecnicas.md`
 
 ## Autoridad documental
 
@@ -37,12 +38,13 @@ Antes de proponer o modificar código:
 
 ## Arquitectura funcional obligatoria
 
-La solución debe mantener separados:
+La solución debe mantener separados dentro de un **monorepo**:
 
-- backend FastAPI;
-- frontend Nuxt.js de Moderación;
-- frontend Nuxt.js de Pantalla del Recinto;
-- servicio externo de captura/remapeo de dispositivos físicos.
+- `apps/backend`: backend FastAPI;
+- `apps/moderacion`: frontend Nuxt.js de Moderación;
+- `apps/recinto`: frontend Nuxt.js de Pantalla del Recinto;
+- `services/device-bridge`: servicio externo de captura/remapeo de dispositivos físicos;
+- `packages/`: paquetes compartidos únicamente cuando exista una responsabilidad realmente común.
 
 El backend es la única autoridad de:
 
@@ -56,6 +58,25 @@ El backend es la única autoridad de:
 - generación de eventos y registros CSV.
 
 Los frontends representan estado y envían comandos permitidos. Nunca deciden reglas de negocio.
+
+## Stack técnico ya decidido
+
+- Python **3.14**.
+- Dependencias/proyectos Python con **uv** y `uv.lock` versionado.
+- Node.js **24 LTS**.
+- Dependencias JavaScript/TypeScript con **pnpm**, workspaces y `pnpm-lock.yaml` versionado.
+- Backend FastAPI con **un único proceso/worker**.
+- Un único estado operativo en memoria creado durante el ciclo de vida de la aplicación.
+- Toda mutación del estado debe pasar por un mecanismo único de serialización/exclusión.
+- API interna nueva REST bajo `/api/v1`.
+- Esquemas mediante Pydantic y contrato técnico mediante OpenAPI.
+- Comandos/consultas puntuales por REST.
+- Actualizaciones backend -> frontend mediante **Server-Sent Events (SSE)**.
+- Reconexión: snapshot completo REST antes de continuar con SSE.
+- Proyecciones independientes `ModerationState` y `PublicState`.
+- `PublicState` nunca contiene votos individuales durante una votación `EN_CURSO`.
+
+Estas decisiones están desarrolladas en `docs/12-decisiones-tecnicas.md` y no deben reconsiderarse dentro de un work package normal.
 
 ## Invariantes que no se pueden reinterpretar
 
@@ -109,10 +130,11 @@ Debe preservarse como requisito arquitectónico un futuro **remapeo rápido** de
 
 ## Restricciones de implementación para agentes
 
-Hasta que `docs/10-preguntas-abiertas.md` no cierre las decisiones técnicas:
+Hasta que `docs/10-preguntas-abiertas.md` cierre las decisiones técnicas requeridas por el alcance:
 
-- no iniciar scaffold productivo;
-- no elegir por cuenta propia base de datos, transporte realtime, gestor de estado frontend, librerías UI, formato definitivo de configuración, estrategia de despliegue o estructura de monorepo;
+- no iniciar un alcance que dependa de una decisión técnica todavía abierta;
+- no elegir por cuenta propia persistencia auxiliar, formato definitivo de configuración/CSV, librería UI, gestor de estado frontend, estrategia de despliegue o flujo de ramas;
+- no modificar las decisiones DT-001 a DT-008 ya registradas;
 - no introducir persistencia de sesión activa;
 - no introducir autenticación de operador salvo decisión posterior explícita;
 - no sustituir CSV por una base de datos como registro institucional;
