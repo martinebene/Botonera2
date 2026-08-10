@@ -102,7 +102,8 @@ Es el mapa de implementación. Debe contener:
 - secuencia de WPs;
 - dependencias;
 - objetivo breve;
-- estado `PENDIENTE`, `EN_CURSO`, `INTEGRADO` o `BLOQUEADO`.
+- estado `PENDIENTE`, `EN_CURSO`, `INTEGRADO` o `BLOQUEADO`;
+- agente/herramienta asignado cuando un WP esté en ejecución.
 
 No debe duplicar reglas de negocio ni diseño técnico ya documentado.
 
@@ -171,6 +172,7 @@ No se mantendrá inicialmente una matriz global duplicada. Puede agregarse más 
 `.github/pull_request_template.md` exige como mínimo:
 
 - WP implementado;
+- agente/herramienta que lo implementó;
 - qué cambió;
 - qué explícitamente no cambió;
 - criterios de aceptación;
@@ -182,3 +184,87 @@ No se mantendrá inicialmente una matriz global duplicada. Puede agregarse más 
 - riesgos pendientes.
 
 El prompt entregado a un agente puede aportar instrucciones de ejecución, pero **no reemplaza el WP documentado como fuente canónica del alcance**.
+
+## DT-036 - Estrategia multiagente y herramientas
+
+La gobernanza se define por **roles y responsabilidades**, no por una herramienta o modelo concreto.
+
+### Roles
+
+#### Planificación y autoridad documental
+
+La planificación, creación/modificación de WPs, mantenimiento de `PLAN.md` y aprobación de decisiones canónicas se realiza bajo control humano mediante las herramientas de planificación/documentación disponibles.
+
+El agente implementador no redefine unilateralmente su propio alcance ni convierte una decisión abierta en una decisión aprobada.
+
+#### Implementación
+
+Cada WP tiene un único agente implementador responsable.
+
+- **Codex** es el implementador predeterminado.
+- **Claude Code** u **OpenCode** pueden ejecutar un WP cuando convenga por capacidad, disponibilidad, cuota o naturaleza de la tarea.
+- El WP debe permanecer agnóstico respecto de la herramienta concreta: las mismas fuentes, alcance, criterios y pruebas rigen para cualquier implementador.
+- No se fijarán modelos/versiones concretas en la documentación canónica porque cambian con mayor frecuencia que la arquitectura del proyecto.
+- La PR debe registrar qué herramienta/agente ejecutó realmente el WP.
+
+OpenCode se considera un arnés multiproveedor; la independencia de una revisión se evalúa por el agente/modelo efectivo utilizado, no por el nombre de la aplicación contenedora.
+
+#### Revisión
+
+La revisión independiente se define en DT-037. La herramienta de revisión puede ser Codex, Claude Code, OpenCode con otro modelo u otra capacidad equivalente, siempre que cumpla la independencia que se establezca allí.
+
+### Aislamiento obligatorio de trabajo
+
+Dos agentes pueden trabajar en paralelo únicamente sobre WPs independientes y autorizados por `PLAN.md`.
+
+Cada WP en ejecución debe usar:
+
+- rama propia `wp/NNN-descripcion-corta`;
+- **`git worktree` propio**;
+- sesión de agente propia;
+- WP propio.
+
+Está prohibido que dos agentes editen simultáneamente:
+
+- el mismo working tree;
+- la misma rama;
+- el mismo WP.
+
+Ejemplo:
+
+```text
+WP-006 -> worktree A -> wp/006-votacion-simple -> Codex
+WP-008 -> worktree B -> wp/008-uso-palabra -> Claude Code
+WP-009 -> worktree C -> wp/009-cliente-api -> OpenCode
+```
+
+Si aparece una dependencia no prevista o una superposición importante de archivos/contratos, los WPs se serializan o se replantea el PLAN; no se resuelve haciendo trabajar varios agentes sobre el mismo árbol.
+
+### Registro en PLAN
+
+`PLAN.md` debe permitir registrar, como mínimo:
+
+```text
+WP       Estado      Agente
+WP-006   EN_CURSO    Codex
+WP-007   PENDIENTE   -
+WP-008   EN_CURSO    Claude Code
+```
+
+El nombre del agente/herramienta es información operativa, no una decisión arquitectónica permanente.
+
+### Archivos de instrucciones por herramienta
+
+`AGENTS.md` es la fuente común de instrucciones para agentes.
+
+Cuando una herramienta requiera su propio archivo de entrada, este debe ser **mínimo** y remitir a `AGENTS.md` en lugar de duplicar reglas. En particular, `CLAUDE.md` debe limitarse a cargar/remitir a `AGENTS.md` y a indicar que el WP asignado y sus fuentes canónicas gobiernan el alcance.
+
+No deben mantenerse copias completas y divergentes de las mismas reglas en archivos específicos de cada herramienta.
+
+### Automatización agéntica
+
+En la primera etapa no se incorporarán agentes generativos que modifiquen automáticamente PRs desde GitHub Actions.
+
+La CI será determinista. La invocación de agentes para implementar o revisar será deliberada y trazable.
+
+Una automatización futura de agentes requiere una decisión nueva documentada.
