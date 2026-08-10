@@ -1,63 +1,81 @@
 # Botonera2
 
-Reimplementación desde cero del sistema de gestión de sesiones y votación electrónica del Concejo Deliberante de Puerto Madryn.
+Reimplementación desde cero del sistema de votación del Concejo Deliberante de Puerto Madryn.
 
 ## Objetivo
 
-Este repositorio será la **fuente canónica de requisitos y desarrollo** del nuevo sistema. La implementación objetivo estará compuesta por:
+Construir una nueva versión mantenible y verificable compuesta por:
 
-- backend en **FastAPI**;
-- frontend de **Moderación** en **Nuxt.js**;
-- frontend de **Pantalla de Recinto** en **Nuxt.js**;
-- integración con el servicio externo de teclados físicos mediante una API HTTP.
+- backend FastAPI como única autoridad de estado y reglas de negocio;
+- frontend Nuxt.js de Moderación;
+- frontend Nuxt.js de Pantalla del Recinto;
+- servicio/bridge independiente para capturar los teclados físicos y enviar sus pulsaciones al backend.
 
-No se trata de una refactorización del código anterior: la nueva implementación debe construirse desde cero a partir de la documentación de este repositorio.
+La documentación de este repositorio es la especificación canónica para Botonera2 y debe permitir que agentes de programación implementen el sistema sin reinterpretar las reglas institucionales.
 
-## Autoridad de las fuentes
+## Fuentes históricas
 
-Las reglas documentadas aquí fueron reconstruidas principalmente desde el sistema actualmente en producción:
+El sistema actualmente en producción está en `martinebene/Botonera`, rama `main`.
 
-- repositorio histórico: `martinebene/Botonera`;
-- rama productiva analizada: `main`;
-- snapshot de referencia: `537823b4a0045853c74a388058fa3739cf7457a5`.
+Referencia histórica de producción:
+- repositorio: `https://github.com/martinebene/Botonera`
+- rama: `main`
+- snapshot usado para el relevamiento inicial: `537823b4a0045853c74a388058fa3739cf7457a5`
 
-La rama histórica `v2` fue revisada solo como fuente secundaria para detectar inconsistencias e ideas no validadas. **No es fuente normativa de reglas de negocio.**
+Existe además una rama histórica `v2`, no validada en producción. Puede aportar contexto técnico, pero no es fuente normativa.
 
-A partir de la creación de este repositorio, la documentación de `Botonera2` prevalece sobre el código y los documentos del repositorio anterior. Los agentes no deben copiar la implementación histórica ni depender de ella durante el desarrollo.
+### Regla de autoridad
 
-El repositorio anterior podrá consultarse únicamente para:
+1. La documentación vigente de **Botonera2** manda para la nueva implementación.
+2. Para reglas extraídas del sistema anterior, se tomó como fuente de verdad el **código ejecutable de `Botonera/main`**, no su documentación antigua.
+3. `Botonera/v2`, README, manuales, comentarios y documentación histórica sirven solo como contexto salvo referencia expresa.
+4. El repositorio histórico solo debe consultarse en el futuro para descargar assets o validar explícitamente una regla dudosa.
 
-1. descargar las imágenes institucionales de las bancas;
-2. validar una regla cuando esta documentación indique expresamente una duda o una referencia histórica.
+## Ciclo funcional global
 
-Si al consultar el sistema anterior aparece una contradicción con esta documentación, el agente debe detener el cambio funcional y registrar la discrepancia; no debe modificar silenciosamente la regla.
+El sistema tiene tres estados globales:
 
-## Documentación
+`SIN_PREPARAR -> PREPARANDO -> SESION_ABIERTA -> SIN_PREPARAR`
 
-Leer en este orden:
+- `SIN_PREPARAR`: no existe interacción funcional con los dispositivos.
+- `PREPARANDO`: se cargan configuración y concejales, se identifican autoridades, se acredita presencia y se prueban teclados.
+- `SESION_ABIERTA`: se habilitan votaciones y uso de la palabra.
+- Cancelar preparación o cerrar sesión devuelve el sistema a `SIN_PREPARAR`.
 
-1. [`AGENTS.md`](AGENTS.md) — reglas obligatorias para agentes de programación.
-2. [`docs/00-principios-y-alcance.md`](docs/00-principios-y-alcance.md) — alcance y decisiones de base.
-3. [`docs/01-reglas-de-negocio.md`](docs/01-reglas-de-negocio.md) — reglas funcionales extraídas de producción.
-4. [`docs/02-modelo-de-dominio-y-estados.md`](docs/02-modelo-de-dominio-y-estados.md) — entidades, estados y transiciones.
-5. [`docs/03-casos-de-uso.md`](docs/03-casos-de-uso.md) — recorridos operativos.
-6. [`docs/04-contratos-e-integraciones.md`](docs/04-contratos-e-integraciones.md) — límites del backend e integración con hardware.
-7. [`docs/05-frontend-moderacion.md`](docs/05-frontend-moderacion.md) — comportamiento del frontend de moderación.
-8. [`docs/06-frontend-pantalla-recinto.md`](docs/06-frontend-pantalla-recinto.md) — comportamiento de la pantalla pública.
-9. [`docs/07-configuracion-datos-y-assets.md`](docs/07-configuracion-datos-y-assets.md) — configuración, archivos e imágenes.
-10. [`docs/08-observabilidad-y-auditoria.md`](docs/08-observabilidad-y-auditoria.md) — eventos y trazabilidad operativa.
-11. [`docs/09-fuentes-y-trazabilidad.md`](docs/09-fuentes-y-trazabilidad.md) — evidencia de cada grupo de reglas.
-12. [`docs/10-preguntas-abiertas.md`](docs/10-preguntas-abiertas.md) — decisiones que no deben ser inventadas por agentes.
-13. [`docs/11-criterios-de-aceptacion.md`](docs/11-criterios-de-aceptacion.md) — escenarios mínimos que debe superar la nueva implementación.
+El estado operativo es deliberadamente **volátil y en memoria**. Una interrupción técnica no se recupera: reglamentariamente corresponde preparar nuevamente la sala y abrir una nueva sesión.
 
-## Principio central
+## Principios funcionales centrales
 
-**Comportamiento antes que implementación.**
+- Una sola preparación/sesión activa por vez.
+- Una sola votación activa por vez.
+- El backend decide toda transición de negocio.
+- La presencia la cambia únicamente el dispositivo físico del concejal.
+- Cada concejal puede emitir como máximo un voto ordinario por votación y ese voto es irreversible.
+- Presidencia es un rol institucional independiente del rol Concejal.
+- El voto presidencial de desempate existe solo para mayorías simples empatadas.
+- Mayoría simple y mayoría especial son conceptos distintos.
+- Las votaciones públicas mantienen secretos los votos individuales hasta el cierre.
+- Todas las interacciones relevantes se escriben inmediatamente en tres archivos CSV jerárquicos.
+- El Orden del Día es solo una ayuda de carga; no es autoridad para el sistema y no limita qué puede votar el cuerpo.
 
-Los detalles técnicos del sistema anterior —singletons, HTML/JS estático, polling concreto, almacenamiento exclusivamente en memoria, estructura de carpetas o peculiaridades accidentales de su API— no se consideran automáticamente requisitos del nuevo sistema. Solo se preservan cuando representan una regla funcional, una restricción operativa o una integración externa documentada aquí.
+## Lectura obligatoria para agentes
 
-## Estado
+1. `AGENTS.md`
+2. `docs/00-principios-y-alcance.md`
+3. `docs/01-reglas-de-negocio.md`
+4. `docs/02-modelo-de-dominio-y-estados.md`
+5. `docs/03-casos-de-uso.md`
+6. `docs/04-contratos-e-integraciones.md`
+7. `docs/05-frontend-moderacion.md`
+8. `docs/06-frontend-pantalla-recinto.md`
+9. `docs/07-configuracion-datos-y-assets.md`
+10. `docs/08-observabilidad-y-auditoria.md`
+11. `docs/09-fuentes-y-trazabilidad.md`
+12. `docs/10-preguntas-abiertas.md`
+13. `docs/11-criterios-de-aceptacion.md`
 
-Fase actual: **especificación funcional previa a implementación**.
+`docs/10-preguntas-abiertas.md` ya no contiene preguntas reglamentarias principales: desde ahora concentra decisiones técnicas previas a la implementación.
 
-No debe iniciarse la codificación de una regla marcada como abierta hasta que la decisión correspondiente quede asentada en esta documentación.
+## Estado actual
+
+Las reglas de negocio principales fueron relevadas y resueltas antes de iniciar la nueva implementación. Todavía no debe escribirse código de producto hasta cerrar las decisiones técnicas de arquitectura, stack, contratos, estructura del repositorio, pruebas, despliegue y flujo de trabajo con agentes.
