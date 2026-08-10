@@ -1,180 +1,147 @@
-# 10 — Preguntas abiertas y decisiones pendientes
+# 10 - Decisiones técnicas abiertas
 
-Estos puntos **no deben ser decididos por agentes de programación**. Surgen de ambigüedades, defectos posibles o mejoras presentes fuera del código productivo validado.
+Las reglas de negocio principales ya fueron cerradas y están documentadas en `01-reglas-de-negocio.md`.
 
-Cuando se resuelva una pregunta, actualizar primero los documentos funcionales correspondientes y luego este archivo.
+Este archivo contiene únicamente decisiones técnicas que deben resolverse antes de iniciar la implementación productiva con agentes.
 
-## PA-001 — Mayoría especial “sobre presentes”
+Los agentes no deben elegirlas unilateralmente.
 
-**Código de `main`:** usa
+## Prioridad A - Arquitectura base
 
-`positivos / votos_emitidos >= factor`
+### DT-001 Estructura del repositorio
+Definir si Botonera2 será un monorepo y, en ese caso, la estructura canónica para backend FastAPI, frontend Moderación Nuxt, frontend Recinto Nuxt y bridge físico.
 
-**Pregunta:** ¿la regla institucional correcta debe usar realmente votos emitidos o cantidad de concejales presentes al cierre?
+### DT-002 Gestión del entorno Python
+Definir versión de Python, gestor de dependencias/entorno (`uv`, Poetry, pip + venv u otro) y política de lockfile.
 
-Esto importa especialmente si existe cierre forzado o cambios de presencia.
+### DT-003 Gestión del entorno JavaScript
+Definir versión de Node.js, gestor de paquetes (`pnpm`, npm u otro), workspaces y lockfile.
 
-**Estado:** abierta.
+### DT-004 Estado en memoria del backend
+Definir la estructura técnica que mantiene el único estado activo y cómo garantizar serialización de comandos/concurrencia sin introducir recuperación persistente.
 
-## PA-002 — Empate pendiente bloquea una nueva votación
+### DT-005 Topología de procesos
+Definir si FastAPI correrá con un único proceso/worker para proteger el estado en memoria o si se utilizará otra estrategia explícita compatible con esa restricción.
 
-El código conserva una votación empatada para el desempate, pero la validación de apertura solo bloquea otra votación `EN_CURSO`.
+### DT-006 Transporte backend-frontends
+Elegir polling, SSE, WebSocket o combinación, considerando baja latencia, reconexión y proyecciones separadas de Moderación/Público.
 
-**Pregunta:** ¿debe estar prohibido abrir cualquier nueva votación hasta resolver o cancelar el empate pendiente?
+### DT-007 Contratos de API
+Definir estilo REST/comandos, esquemas Pydantic, códigos de error estables, versionado y documentación OpenAPI.
 
-**Recomendación funcional a validar:** sí, porque de otro modo se pierde la referencia operativa al desempate.
+### DT-008 Proyecciones de estado
+Definir DTOs independientes para Moderación y Pantalla del Recinto, especialmente para garantizar secreto de votos desde servidor.
 
-**Estado:** abierta.
+## Prioridad B - Backend y datos
 
-## PA-003 — Cerrar sesión con votación empatada
+### DT-009 Persistencia no operativa
+Definir si además de los CSV se necesita alguna persistencia auxiliar para configuración/históricos o si la primera versión debe operar exclusivamente con archivos + memoria.
 
-**Pregunta:** si existe un empate pendiente, ¿el operador debe estar obligado a resolverlo antes de cerrar sesión, puede cerrar la sesión dejando la votación empatada como resultado final, o debe existir una acción explícita de cancelación/inconclusa?
+No se permite usar una persistencia para restaurar una sesión interrumpida.
 
-**Estado:** abierta.
+### DT-010 Configuración
+Definir formato y ubicación de archivos de configuración y padrón, validación al inicio de preparación y estrategia por entorno.
 
-## PA-004 — Visibilidad de votos en Moderación
+### DT-011 CSV de auditoría
+Definir columnas exactas, delimitador, escape, codificación, formato de timestamp, secuencia y nombres de archivos.
 
-Pantalla pública: voto secreto durante toda la votación.
+### DT-012 Escritura segura de CSV
+Definir estrategia de flush/fsync, locking y manejo de errores de disco para satisfacer escritura inmediata.
 
-Moderación productiva: oculta aproximadamente 4 s y luego puede mostrar votos individuales aun con votación en curso.
+### DT-013 Orden del Día
+Definir si el parseo ocurre en backend o frontend y el contrato técnico para errores de archivo, sin agregar validaciones institucionales.
 
-**Pregunta:** en Botonera2, ¿Moderación debe:
+### DT-014 Remapeo de dispositivos
+Diseñar el mecanismo de remapeo rápido en memoria y su interacción con el bridge físico.
 
-1. mantener voto secreto hasta el cierre;
-2. conservar la conducta de revelación después de 4 s;
-3. tener una opción manual/controlada?
+## Prioridad C - Frontend
 
-**Estado:** abierta.
+### DT-015 Stack Nuxt
+Definir versión de Nuxt/Vue/TypeScript y política de actualización.
 
-## PA-005 — Acreditación antes de abrir sesión
+### DT-016 Librería UI/estilos
+Definir Tailwind, CSS propio, Nuxt UI u otra alternativa, teniendo en cuenta operación en pantalla fija, robustez y mantenimiento.
 
-`main` exige sesión activa para procesar tecla `9`.
+### DT-017 Estado frontend
+Definir si basta con composables/useState o si corresponde Pinia.
 
-`v2` introduce “preparar sesión” para acreditar presencia antes de la apertura formal, pero esa versión no fue validada en producción.
+### DT-018 Cliente API y tiempo real
+Definir capa compartida para API, reconexión, errores y sincronización.
 
-**Pregunta:** ¿Botonera2 debe incorporar un estado PREPARADA/ACREDITACIÓN previo a ABIERTA?
+### DT-019 Componentes compartidos
+Definir cuánto código UI/tipos/cliente API compartirán los dos frontends y dónde vivirá.
 
-**Estado:** abierta. No forma parte del comportamiento canónico inicial hasta decisión.
+### DT-020 Estrategia responsive
+Definir resoluciones objetivo de Moderación y Pantalla del Recinto y comportamiento mínimo ante otras resoluciones.
 
-## PA-006 — Otorgar palabra cuando ya hay orador
+## Prioridad D - Calidad y pruebas
 
-El código permite que la acción de otorgar tome otro concejal de la cola y reemplace la referencia al orador actual.
+### DT-021 Framework de pruebas backend
+Definir pytest y herramientas auxiliares.
 
-**Pregunta:** ¿debe bloquearse “Otorgar” mientras alguien habla, reemplazarse automáticamente, o finalizar primero al orador actual?
+### DT-022 Pruebas frontend
+Definir Vitest/Vue Test Utils u otra combinación.
 
-**Estado:** abierta.
+### DT-023 Pruebas E2E
+Definir Playwright u otra herramienta y qué recorridos deben ejecutarse automáticamente.
 
-## PA-007 — Orador que pasa a ausente
+### DT-024 Simulador de teclados
+Definir una herramienta de desarrollo reproducible para generar pulsaciones sin hardware físico.
 
-La tecla `9` puede marcar ausente al orador actual y el código no le quita automáticamente la palabra.
+### DT-025 CI
+Definir GitHub Actions, checks obligatorios, lint, typecheck y tests por PR.
 
-**Pregunta:** ¿la ausencia debe finalizar automáticamente el uso de la palabra?
+### DT-026 Calidad estática
+Definir Ruff/formatter/type checker para Python y ESLint/Prettier o equivalentes para frontend.
 
-**Estado:** abierta.
+## Prioridad E - Despliegue
 
-## PA-008 — Persistencia de sesiones y votos
+### DT-027 Sistema operativo objetivo
+Confirmar Linux y distribución/versión objetivo de producción.
 
-El MVP mantiene el dominio en memoria y los logs en archivos. Al reiniciar el backend se pierde el estado activo/histórico estructurado.
+### DT-028 Servicio de procesos
+Definir systemd, contenedores Docker u otra estrategia.
 
-**Pregunta:** ¿Botonera2 debe persistir:
+### DT-029 Servido de frontends
+Definir si Nuxt se compila como aplicación estática, SSR o servidor Node, y cómo se publica junto al backend.
 
-- sesiones finalizadas;
-- votaciones;
-- votos;
-- presencia;
-- cola de palabra;
-- estado de una sesión activa para recuperación tras reinicio?
+### DT-030 Proxy/puertos
+Definir Nginx/Caddy/directo, URLs y política CORS/orígenes.
 
-La respuesta condicionará base de datos, recuperación y despliegue.
+### DT-031 Actualizaciones y rollback
+Definir procedimiento seguro para desplegar nuevas versiones sin poner en riesgo la versión operativa.
 
-**Estado:** abierta.
+### DT-032 Backups de registros
+Definir retención/copia externa de los CSV institucionales.
 
-## PA-009 — Recuperación tras caída del backend durante una sesión
+## Prioridad F - Trabajo con agentes
 
-Relacionado con PA-008.
+### DT-033 Modelo de ramas
+Definir rama estable, ramas de trabajo, PR obligatoria y política de merge.
 
-**Pregunta:** ¿se exige recuperar automáticamente una sesión en curso después de reiniciar el servidor, o es aceptable reiniciar operacionalmente la sesión/sistema?
+### DT-034 Tamaño de unidades de trabajo
+Definir cómo descomponer la implementación en work packages pequeños y verificables.
 
-**Estado:** abierta.
+### DT-035 Documentación para agentes
+Definir artefactos adicionales: ADR/DEC técnicas, planes, matrices de trazabilidad, especificaciones de work packages y checklist de entrega.
 
-## PA-010 — Catálogo de tipos de votación
+### DT-036 Agentes/herramientas
+Definir herramientas principales (Codex, Claude Code, OpenCode, etc.), funciones de cada una y cómo evitar que varios agentes modifiquen el mismo alcance simultáneamente.
 
-El frontend productivo ofrece:
+### DT-037 Revisión independiente
+Definir que un agente distinto del implementador revise cada PR crítica y qué fuentes debe usar.
 
-- Ratificación;
-- Despacho OP;
-- Despacho Gob;
-- Despacho AS;
-- Despacho HA;
-- Despacho Eco;
-- Mocion;
-- P. Sobre Tabla;
-- Otro.
+### DT-038 Autoridad de cambios
+Definir qué decisiones puede tomar un agente por sí mismo y cuáles requieren decisión humana/documentada.
 
-**Pregunta:** ¿este catálogo debe ser fijo/configurable y cuál es la ortografía institucional definitiva (`Moción`, `P. Sobre Tabla`, etc.)?
+## Criterio para comenzar a programar
 
-**Estado:** abierta para normalización; preservar valores funcionales hasta resolver.
+No es necesario resolver absolutamente todos los detalles de despliegue antes del primer código, pero sí deben estar cerrados, como mínimo:
 
-## PA-011 — Regla exacta del formato del Orden del Día
+- DT-001 a DT-008;
+- DT-010 a DT-012;
+- DT-015 a DT-019;
+- DT-021 a DT-026;
+- DT-033 a DT-038.
 
-El código productivo usa `;` y un parser simple por línea. Eso no permite un `;` dentro del tema.
-
-**Pregunta:** ¿Botonera2 debe mantener exactamente ese formato simple o adoptar CSV robusto con quoting conservando `;` como delimitador?
-
-**Estado:** abierta en cuanto a robustez. El delimitador funcional vigente es `;`.
-
-## PA-012 — Duraciones visuales
-
-Valores observados:
-
-- cuenta regresiva pública: 4 s;
-- votos/resultados en pantalla tras cierre: aproximadamente 6 s;
-- test de banca: backend aproximadamente 0,6 s.
-
-**Pregunta:** ¿estos valores son requisitos institucionales o deben ser configurables?
-
-**Estado:** abierta. Para caracterización inicial usar los valores observados.
-
-## PA-013 — Resultado de cierre forzado con cero votos y mayoría especial
-
-El MVP puede dividir por cero antes de llegar a la regla `INCONCLUSA`.
-
-**Pregunta funcional:** ¿un cierre sin votos debe resultar siempre `INCONCLUSA` independientemente del tipo de mayoría?
-
-**Recomendación a validar:** sí.
-
-**Estado:** abierta hasta confirmación, aunque Botonera2 no debe reproducir una excepción técnica.
-
-## PA-014 — Identidad de la autoridad de desempate
-
-El MVP registra el desempate sin concejal asociado.
-
-**Pregunta:** ¿para auditoría debe registrarse quién/qué rol emitió la decisión de desempate, aunque siga separada de los votos ordinarios?
-
-**Estado:** abierta.
-
-## PA-015 — Autenticación de Moderación
-
-El MVP opera en LAN sin autenticación en las rutas observadas.
-
-**Pregunta:** ¿Botonera2 debe incorporar autenticación/autorización para comandos de Moderación?
-
-**Estado:** fuera del comportamiento vigente; abierta como requisito de seguridad futuro.
-
-## PA-016 — Técnica de actualización
-
-Polling de 250–300 ms funciona en el MVP.
-
-**Pregunta técnica:** ¿mantener polling o adoptar SSE/WebSocket?
-
-Esta decisión no cambia reglas de negocio y debe resolverse en arquitectura considerando simplicidad, red local y recuperación.
-
-**Estado:** abierta.
-
-## PA-017 — Despliegue de los dos Nuxt
-
-**Pregunta técnica:** ¿se servirán como dos aplicaciones/procesos independientes, builds estáticos detrás de proxy, o mediante otra topología?
-
-Debe seguir habiendo dos superficies independientes aunque compartan componentes/librerías.
-
-**Estado:** abierta.
+Cada decisión resuelta debe dejar de ser una pregunta y convertirse en una decisión técnica documentada antes de que los agentes dependan de ella.
