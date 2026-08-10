@@ -120,14 +120,22 @@ No recibe concejal ni modifica votos ordinarios. Se registra Presidencia vigente
 
 ## 11. Orden del Día
 
-Moderación envía el archivo al backend.
+Moderación envía el archivo al backend y el backend es el único parser.
 
-El backend es el único parser y distingue:
+Contrato de importación canónico:
 
-- error técnico de lectura/formato;
-- datos interpretables.
+```text
+nro_votacion,tipo,tema,tipo_mayoria,factor,base
+```
 
-No valida secuencia, unicidad ni legitimidad institucional del contenido.
+- CSV separado por coma con soporte de quoting CSV normal;
+- `tipo_mayoria` explícito: `SIMPLE | ESPECIAL`;
+- `SIMPLE`: `factor` y `base` vacíos;
+- `ESPECIAL`: `factor` obligatorio y `base = PRESENTES | CUERPO`;
+- el formato histórico de cinco columnas no es compatible ni se adapta automáticamente;
+- no se infiere el tipo de mayoría a partir del factor.
+
+El backend distingue error técnico de lectura/formato de datos interpretables y no valida secuencia, unicidad ni legitimidad institucional del contenido.
 
 ## 12. REST + SSE
 
