@@ -20,22 +20,20 @@ Quedaron resueltas:
 
 - DT-033: modelo trunk-based simple con rama corta por WP, PR obligatoria, CI verde y squash merge;
 - DT-034: WPs pequeños, orientados a un único resultado verificable, con dependencias, alcance, exclusiones, criterios de aceptación y una PR por WP;
-- DT-035: `PLAN.md` + especificación versionada por WP + `DEC-XXX` solo para decisiones transversales relevantes + template de PR; lectura normal `AGENTS.md -> WP -> fuentes canónicas indicadas`.
+- DT-035: `PLAN.md` + especificación versionada por WP + `DEC-XXX` solo para decisiones transversales relevantes + template de PR; lectura normal `AGENTS.md -> WP -> fuentes canónicas indicadas`;
+- DT-036: estrategia multiagente por roles; Codex implementador predeterminado, Claude Code/OpenCode como alternativas; un agente por WP; rama, worktree y sesión propios; paralelismo solo entre WPs independientes; sin automatización generativa en CI inicialmente.
 
 Ver `14-gobernanza-agentes.md`.
 
-### DT-036 Agentes/herramientas
-Definir herramientas principales (Codex, Claude Code, OpenCode, etc.), funciones de cada una y cómo evitar que varios agentes modifiquen el mismo alcance simultáneamente.
-
 ### DT-037 Revisión independiente
-Definir que un agente distinto del implementador revise cada PR crítica y qué fuentes debe usar.
+Definir qué significa independencia entre implementador y revisor, qué PRs deben revisarse obligatoriamente y qué fuentes/evidencias debe inspeccionar el revisor antes de aprobar integración.
 
 ### DT-038 Autoridad de cambios
 Definir qué decisiones puede tomar un agente por sí mismo y cuáles requieren decisión humana/documentada.
 
 ## Criterio para comenzar a programar
 
-Antes del primer scaffold productivo deben estar cerradas DT-036 a DT-038.
+Antes del primer scaffold productivo deben estar cerradas DT-037 y DT-038.
 
 Una vez cerradas, el repositorio tendrá definidas las reglas de negocio, arquitectura, stack, calidad, despliegue y gobernanza mínima necesaria para comenzar implementación incremental con agentes.
 
