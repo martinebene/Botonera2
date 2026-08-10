@@ -1,315 +1,349 @@
-# 01 — Reglas de negocio
+# 01 - Reglas de negocio
 
-Este documento consolida el **comportamiento observado en el código ejecutable de producción** de `martinebene/Botonera`, rama `main`, snapshot `537823b4a0045853c74a388058fa3739cf7457a5`.
+Este documento es normativo.
 
-Los manuales, README, comentarios y demás documentación del repositorio anterior se usan únicamente como contexto. **Si contradicen el comportamiento del código, prevalece el código.**
+## RN-GLOBAL - Ciclo general
 
-Las decisiones que el código no permite determinar con suficiente certeza se encuentran en `10-preguntas-abiertas.md`.
+### RN-GLOBAL-01
+El sistema solo puede estar en `SIN_PREPARAR`, `PREPARANDO` o `SESION_ABIERTA`.
 
-## RN-SES — Sesión
+### RN-GLOBAL-02
+Cancelar la preparación o cerrar la sesión devuelve el sistema a `SIN_PREPARAR` y elimina todo estado operativo en memoria.
 
-### RN-SES-001 — Unicidad
-Solo puede existir **una sesión activa** a la vez.
+### RN-GLOBAL-03
+El estado activo no se persiste para recuperación. Tras un reinicio se vuelve a `SIN_PREPARAR`.
 
-### RN-SES-002 — Apertura
-Para abrir una sesión debe poder cargarse una nómina de concejales válida y no vacía. La sesión recibe un número público y registra su hora de inicio.
+### RN-GLOBAL-04
+Una interrupción técnica no permite continuar la sesión anterior. Debe realizarse una nueva preparación y apertura reglamentaria.
 
-### RN-SES-003 — Datos cargados al abrir
-Al abrir la sesión se incorporan:
+## RN-PREP - Preparación de sala
 
-- concejales;
-- presencia inicial definida en la fuente de datos;
-- quórum configurado;
-- disposición de bancas configurada.
+### RN-PREP-01
+`Preparar sala` carga configuración y padrón, inicia tres CSV, deja a todos los concejales ausentes y habilita únicamente presencia y test físico.
 
-### RN-SES-004 — Cierre
-Una sesión activa puede cerrarse. Si existe una votación `EN_CURSO`, el código productivo fuerza primero su cierre.
+### RN-PREP-02
+Durante `PREPARANDO` deben informarse número de sesión, Presidencia y Secretaría Legislativa.
 
-Después del cierre deja de existir una sesión activa para el resto del sistema.
+### RN-PREP-03
+Una sesión solo puede abrirse si existe quórum y están definidos número de sesión, Presidencia y Secretaría Legislativa.
 
-## RN-CON — Concejales, presencia y dispositivos
+### RN-PREP-04
+Las presencias acreditadas durante `PREPARANDO` se conservan al abrir la sesión.
 
-### RN-CON-001 — Datos mínimos
-Cada concejal posee en el sistema productivo:
+### RN-PREP-05
+Una preparación puede cancelarse. La cancelación se registra y los CSV generados se conservan.
 
-- `dni`;
-- nombre;
-- apellido;
-- bloque;
-- estado presente/ausente;
-- número de banca;
-- identificador lógico del dispositivo de votación.
+### RN-PREP-06
+Toda nueva preparación comienza limpia: sin presencias, cola de palabra, orador, votación ni test previo.
 
-Botonera2 puede usar otro identificador técnico interno, pero debe conservar una identidad inequívoca del concejal y estos datos funcionales.
+## RN-AUT - Autoridades
 
-### RN-CON-002 — Asociación dispositivo → concejal
-Una pulsación solo puede producir una acción si el identificador lógico del dispositivo está asociado a un concejal de la sesión activa.
+### RN-AUT-01
+Presidencia y Secretaría Legislativa se ingresan como texto libre.
 
-### RN-CON-003 — Presencia
-En el código productivo la tecla **`9`** alterna el estado presente/ausente.
+### RN-AUT-02
+Ambas autoridades pueden cambiar durante `PREPARANDO` o `SESION_ABIERTA`, incluso durante una votación. Cada cambio se registra.
 
-El cambio se refleja inmediatamente en el total de presentes.
+### RN-AUT-03
+Presidencia es un rol independiente del rol Concejal. El sistema no debe intentar vincular automáticamente el texto del Presidente con el padrón.
 
-### RN-CON-004 — Presencia durante votación
-La presencia puede cambiar mientras una votación está `EN_CURSO`.
+### RN-AUT-04
+Si una persona que es concejal también ejerce la Presidencia, ambos roles funcionan como identidades funcionales independientes: conserva presencia, quórum, uso de palabra y voto ordinario como concejal, y suma las facultades presidenciales.
 
-Después del cambio se reevalúa la condición de cierre automático de la votación.
+### RN-AUT-05
+El estado presente/ausente de esa persona como concejal no afecta su rol de Presidente.
 
-### RN-CON-005 — Restricciones del ausente
-Un concejal ausente no puede:
+### RN-AUT-06
+Secretaría Legislativa no tiene acciones funcionales en Botonera2 y no puede ser reemplazada por un concejal según el caso de negocio contemplado.
 
-- emitir un voto;
-- solicitar uso de la palabra mediante su teclado.
+## RN-CON - Concejales y padrón
 
-## RN-INP — Mapa de teclas productivo
+### RN-CON-01
+El DNI es el identificador primario del concejal.
 
-Con sesión activa y dispositivo reconocido:
+### RN-CON-02
+Son obligatorios DNI, nombre, apellido, banca y dispositivo de votación.
 
-| Tecla | Acción |
-|---|---|
-| `1` | voto `Positivo` |
-| `2` | voto `Abstención` |
-| `3` | voto `Negativo` |
-| `7` | alternar pedido de palabra; si el concejal es el orador actual, finalizar su uso de palabra |
-| `8` | activar test visual temporal de la banca |
-| `9` | alternar presencia/ausencia |
+### RN-CON-03
+DNI, banca y dispositivo de votación deben ser únicos. Valores vacíos, inválidos o duplicados bloquean la carga. `bloque` puede estar vacío.
 
-Cualquier otra tecla se rechaza como comando no soportado.
+### RN-CON-04
+El padrón se carga al preparar sala y queda congelado hasta finalizar la preparación/sesión.
 
-### RN-INP-001 — Sin sesión activa
-En `main`, si no existe una sesión activa, **todas las pulsaciones son rechazadas antes de interpretar la tecla**.
+### RN-CON-05
+La única excepción futura será el remapeo rápido de dispositivo en memoria, que no modifica el padrón base.
 
-La acreditación previa a la apertura aparece solamente en `v2`; por no estar validada en producción no se adopta como regla de Botonera2 sin decisión explícita.
+## RN-INP - Dispositivos físicos
 
-## RN-VOT — Votaciones
+Mapa funcional:
 
-### RN-VOT-001 — Condiciones de apertura
-Para abrir una votación:
+- `1`: positivo;
+- `2`: abstención;
+- `3`: negativo;
+- `7`: pedir/retirar palabra o terminar uso propio;
+- `8`: test visual;
+- `9`: alternar presencia.
 
-- debe existir una sesión activa;
-- debe haber quórum: `cantidad_presentes >= quorum`;
-- no debe existir otra votación con estado `EN_CURSO`.
+### RN-INP-01
+En `SIN_PREPARAR` ninguna pulsación produce efecto funcional ni se incorpora a los CSV de una sesión.
 
-El comportamiento frente a una votación `EMPATADA` pendiente de desempate tiene una inconsistencia en el MVP y se documenta como pregunta abierta.
+### RN-INP-02
+En `PREPARANDO` solo tienen efecto funcional `8` y `9`.
 
-### RN-VOT-002 — Datos funcionales
-Una votación contiene:
+### RN-INP-03
+El test `8` es puramente visual, debe funcionar durante preparación, sesión y votación, y nunca modifica estado de negocio.
 
-- número;
-- tipo;
-- tema;
-- criterio de cómputo: sobre presentes o sobre el cuerpo;
-- factor de mayoría especial, donde `0` representa mayoría simple;
-- estado;
-- hora de inicio;
-- hora de fin;
-- votos ordinarios emitidos.
+### RN-INP-04
+Moderación no puede emitir presencia ni votos ordinarios en nombre de un concejal.
 
-### RN-VOT-003 — Estados
-Estados implementados:
+## RN-PRE - Presencia y quórum
 
-- `EN_CURSO`;
-- `APROBADA`;
-- `RECHAZADA`;
-- `EMPATADA`;
-- `INCONCLUSA`.
+### RN-PRE-01
+Todos los concejales comienzan ausentes al preparar sala.
 
-### RN-VOT-004 — Condiciones para votar
-Un voto ordinario requiere:
+### RN-PRE-02
+La presencia solo puede alternarse desde el dispositivo asignado al concejal mediante tecla `9`.
 
-- sesión activa;
-- votación `EN_CURSO`;
-- dispositivo asociado a un concejal;
-- concejal presente;
-- concejal sin voto previo en esa votación.
+### RN-PRE-03
+Presidencia no se acredita como autoridad y no cuenta para quórum por ocupar ese rol. Si quien preside además es concejal, cuenta para quórum únicamente por su rol de concejal y su estado de presencia.
 
-### RN-VOT-005 — Un voto por concejal
-Un concejal puede emitir **un único voto ordinario por votación**.
+### RN-PRE-04
+No puede abrirse una sesión sin quórum.
 
-El código productivo no permite cambiar ni reemplazar un voto ya registrado.
+### RN-PRE-05
+Si durante una sesión abierta se pierde quórum y no hay votación en curso, la sesión continúa pero no puede abrirse una nueva votación.
 
-### RN-VOT-006 — Valores
-Valores ordinarios:
+### RN-PRE-06
+Al recuperar automáticamente el quórum, vuelve a habilitarse la apertura de votaciones sin acción adicional.
 
-- `Positivo`;
-- `Negativo`;
-- `Abstención`.
+### RN-PRE-07
+Si se pierde quórum durante una votación `EN_CURSO`, esa votación termina inmediatamente como `INCONCLUSA`.
 
-### RN-VOT-007 — Cierre automático
-Después de registrar cada voto y después de un cambio de presencia, la votación se cierra automáticamente cuando **todos los concejales que están presentes en ese momento figuran entre quienes ya votaron**.
+### RN-PRE-08
+Un concejal puede pasar a ausente después de votar; su voto permanece registrado e inmutable.
 
-Los votos ya registrados permanecen en la votación aunque luego cambie la presencia del concejal.
+### RN-PRE-09
+Un concejal puede pasar de ausente a presente durante una votación y votar normalmente si aún no emitió voto.
 
-### RN-VOT-008 — Cierre forzado
-Moderación puede cerrar manualmente una votación `EN_CURSO` antes de que voten todos los presentes.
+### RN-PRE-10
+Si un concejal ya votó, se ausenta y luego vuelve a presentarse durante la misma votación, continúa considerado como ya votado y no puede votar nuevamente.
 
-Los presentes que no votaron se identifican en el registro operativo.
+### RN-PRE-11
+Cambiar presencia durante una votación puede provocar cierre automático si todos los concejales que continúan presentes ya emitieron su voto.
 
-### RN-VOT-009 — Mayoría simple
-Con factor de mayoría `0`:
+## RN-VOT - Votaciones
 
-- positivos > negativos → `APROBADA`;
-- positivos < negativos → `RECHAZADA`;
-- positivos = negativos → `EMPATADA`.
+### RN-VOT-01
+Solo puede existir una votación activa por vez.
 
-Las abstenciones no se agregan a positivos ni negativos para esta comparación.
+### RN-VOT-02
+No puede abrirse una votación sin sesión abierta ni quórum.
 
-### RN-VOT-010 — Mayoría especial sobre cuerpo
-Con factor especial `f > 0` y cómputo sobre cuerpo, el código ejecuta:
+### RN-VOT-03
+Una votación abierta es inmutable: número, tipo, tema, tipo de mayoría, factor y base no pueden editarse. Para corregirla debe finalizarse como `INCONCLUSA` y abrirse otra.
 
-`votos_positivos / cantidad_total_concejales >= f`
+### RN-VOT-04
+Número de votación y número de sesión son datos externos. El sistema no valida secuencia, unicidad ni repetición.
 
-Si se cumple → `APROBADA`; si no → `RECHAZADA`.
+### RN-VOT-05
+Cada concejal puede emitir un solo voto ordinario por votación. Es irreversible y no puede corregirse desde Moderación.
 
-### RN-VOT-011 — Mayoría especial sobre presentes: comportamiento exacto del MVP
-Con factor especial `f > 0` y cómputo sobre presentes, el código ejecuta:
+### RN-VOT-06
+Una votación se cierra automáticamente cuando todos los concejales actualmente presentes ya votaron.
 
-`votos_positivos / votos_emitidos >= f`
+### RN-VOT-07
+Moderación puede finalizar una votación en cualquier momento. Si no se completó normalmente, termina `INCONCLUSA`.
 
-Este es el comportamiento que debe caracterizarse antes de cualquier cambio. Su equivalencia semántica con “sobre presentes” depende de cómo se cierre la votación y se registra como punto a confirmar.
+### RN-VOT-08
+La finalización manual anticipada exige motivo obligatorio y dicho motivo se registra.
 
-### RN-VOT-012 — Resultado inconcluso
-Después del cálculo anterior, el código reemplaza el resultado por `INCONCLUSA` si se cumple al menos una condición:
+### RN-VOT-09
+No existe estado `PAUSADA` ni `CANCELADA`. Una cancelación operativa se representa como finalización `INCONCLUSA`.
 
-- `votos_emitidos < cantidad_concejales_presentes`;
-- `votos_emitidos < quorum`;
-- `votos_emitidos == 0`.
+### RN-VOT-10
+Una votación `INCONCLUSA` terminó definitivamente. Para volver a tratar el asunto debe abrirse otra votación.
 
-Esta regla afecta especialmente al cierre forzado.
+### RN-VOT-11
+Los votos emitidos antes de una votación `INCONCLUSA` permanecen registrados individualmente.
 
-### RN-VOT-013 — Empate y desempate
-Una mayoría simple puede terminar `EMPATADA`.
+### RN-VOT-12
+Una votación cerrada nunca se recalcula por cambios posteriores de presencia.
 
-Moderación dispone de una acción de desempate:
+### RN-VOT-13
+Cerrar la sesión con una votación `EN_CURSO` provoca primero su finalización; si faltan votos queda `INCONCLUSA`, y luego se cierra la sesión.
 
-- desempate positivo → `APROBADA`;
-- desempate negativo → `RECHAZADA`.
+### RN-VOT-14
+Una votación empatada bloquea la apertura de otra hasta resolverse o hasta que se cierre la sesión.
 
-En el MVP el desempate:
+### RN-VOT-15
+Si se cierra la sesión con una votación `EMPATADA`, esa votación pasa a `INCONCLUSA` y luego se cierra la sesión.
 
-- no se incorpora a la lista de votos ordinarios;
-- no está asociado a un concejal;
-- fija la hora de fin;
-- finaliza la votación pendiente.
+## RN-MAY - Mayorías
 
-Botonera2 debe conservar al menos la distinción funcional entre votos ordinarios y decisión de desempate.
+### RN-MAY-01
+`SIMPLE` y `ESPECIAL` son tipos de mayoría distintos. Una mayoría simple no se representa como factor `0.5`.
 
-## RN-PAL — Uso de la palabra
+### RN-MAY-02 - Mayoría simple
+Se consideran únicamente votos positivos y negativos:
 
-### RN-PAL-001 — Pedido
-Un concejal presente que presiona `7`, y que no es el orador actual, alterna su pertenencia a la cola:
+- positivos > negativos: `APROBADA`;
+- positivos < negativos: `RECHAZADA`;
+- positivos = negativos: `EMPATADA`.
 
-- si no estaba en cola, se agrega al final;
-- si ya estaba en cola, se retira.
+Las abstenciones se excluyen del cálculo de mayoría simple.
 
-### RN-PAL-002 — FIFO
-La cola es **FIFO**: primero en ingresar, primero en salir cuando Moderación otorga la palabra.
+### RN-MAY-03
+Solo una mayoría simple puede terminar `EMPATADA` y requerir desempate presidencial.
 
-### RN-PAL-003 — Otorgamiento
-Moderación toma al primer concejal de la cola y lo establece como orador actual.
+### RN-MAY-04 - Mayoría especial
+Tiene factor explícito y base de cálculo `PRESENTES` o `CUERPO`.
 
-Si la cola está vacía, no se asigna orador.
+### RN-MAY-05
+Una mayoría especial aprueba cuando el cociente aplicable es `>= factor`. Alcanzar exactamente el umbral aprueba.
 
-El comportamiento si ya existe un orador y se vuelve a ejecutar “otorgar” debe definirse explícitamente para Botonera2.
+### RN-MAY-06 - Especial sobre presentes
+El denominador son los votos emitidos, incluyendo abstenciones.
 
-### RN-PAL-004 — Finalización
-Moderación puede quitar la palabra al orador actual.
+### RN-MAY-07
+Aunque el cálculo anterior use votos emitidos, una finalización manual con presentes sin votar es `INCONCLUSA`; por tanto, un resultado ordinario solo se consolida cuando votaron todos los presentes.
 
-Además, si el propio orador presiona `7`, finaliza su uso de la palabra.
+### RN-MAY-08 - Especial sobre cuerpo
+El denominador es la cantidad total de concejales del cuerpo cargado para la preparación. Presidencia no se suma por su rol institucional.
 
-## RN-OD — Orden del Día
+### RN-MAY-09
+Una mayoría especial nunca utiliza voto presidencial de desempate.
 
-### RN-OD-001 — Función
-El Orden del Día es una ayuda local de Moderación para precargar parámetros de una votación. Cargar o seleccionar una fila no modifica por sí solo el estado del backend.
+### RN-MAY-10
+Una finalización sin votos debe producir `INCONCLUSA` sin errores matemáticos.
 
-### RN-OD-002 — Formato ejecutado por el frontend productivo
-El código productivo de Moderación espera cinco columnas separadas por **punto y coma (`;`)**:
+## RN-DES - Desempate presidencial
 
-`nro_votacion;tipo;tema;factor_de_mayoria;respecto`
+### RN-DES-01
+Solo está disponible cuando una votación de mayoría simple está `EMPATADA`.
 
-Cada fila debe tener exactamente cinco campos.
+### RN-DES-02
+El voto de Presidencia se emite desde el frontend de Moderación, no desde teclado físico.
 
-### RN-OD-003 — Validación observada
-- `nro_votacion`: solo dígitos y no vacío;
-- `tema`: no vacío;
-- `tipo`: se normaliza contra tipos conocidos; si no coincide se usa `Otro`;
-- `respecto`: `Presentes` o `Cuerpo`, sin distinguir mayúsculas;
-- `factor_de_mayoria`: vacío o `0` significa mayoría simple; de lo contrario debe ser un decimal entre 0 y 1 usando punto;
-- no se acepta `%`;
-- no se acepta coma decimal.
+### RN-DES-03
+Presidencia debe elegir positivo o negativo; no existe abstención en desempate.
 
-Si una fila es inválida, se rechaza el archivo completo y la tabla queda vacía.
+### RN-DES-04
+El voto de desempate es irreversible.
 
-### RN-OD-004 — Tipos canónicos observados
-- `Ratificación`;
-- `Despacho OP`;
-- `Despacho Gob`;
-- `Despacho AS`;
-- `Despacho HA`;
-- `Despacho Eco`;
-- `Mocion`;
-- `P. Sobre Tabla`;
-- `Otro`.
+### RN-DES-05
+Si quien preside además es concejal y ya emitió su voto ordinario, igualmente puede emitir el desempate: son roles independientes.
 
-### RN-OD-005 — Selección
-Seleccionar una fila copia sus valores al formulario de votación. El operador debe ejecutar después la apertura explícita.
+### RN-DES-06
+La pérdida posterior de quórum mientras una votación ya está `EMPATADA` no invalida el empate ni impide el desempate.
 
-## RN-REC — Recinto y bancas
+### RN-DES-07
+El registro debe indicar explícitamente el sentido del voto presidencial y el resultado final.
 
-### RN-REC-001 — Disposición configurable
-La disposición se expresa como filas con cantidad de columnas.
+## RN-PAL - Uso de la palabra
 
-Para renderizar el recinto correctamente, la suma de posiciones debe coincidir con la cantidad de concejales cargados.
+### RN-PAL-01
+Solo un concejal presente puede pedir palabra.
 
-### RN-REC-002 — Numeración de bancas
-La banca `1` se ubica abajo a la izquierda. La numeración continúa de izquierda a derecha, completa esa fila y sigue en la fila inmediatamente superior, avanzando de abajo hacia arriba.
+### RN-PAL-02
+La tecla `7` alterna al concejal en la cola FIFO de pedidos.
 
-### RN-REC-003 — Imagen por banca
-Cada número de banca tiene asociada una imagen institucional utilizada por las interfaces.
+### RN-PAL-03
+Si quien pulsa `7` está actualmente usando la palabra, finaliza su propio uso.
 
-### RN-REC-004 — Estados visuales de banca
-La vista debe poder distinguir al menos:
+### RN-PAL-04
+Otorgar palabra cuando ya existe un orador finaliza automáticamente al actual y entrega la palabra al siguiente de la cola.
 
-- ausente;
-- orador actual;
-- test visual temporal;
-- voto individual cuando su visualización esté permitida.
+### RN-PAL-05
+Si el orador pasa a ausente, pierde automáticamente el uso de la palabra.
 
-## RN-VIS — Secreto y visualización de votos
+### RN-PAL-06
+Si un concejal en cola pasa a ausente, se elimina automáticamente de la cola.
 
-### RN-VIS-001 — Pantalla pública
-Mientras una votación está `EN_CURSO`, la Pantalla de Recinto **no muestra los votos individuales**.
+### RN-PAL-07
+Los pedidos y usos de palabra continúan funcionando durante una votación. Es una situación normal: pueden justificar votos o formular mociones mientras la votación sigue recibiendo votos.
 
-También oculta visualmente los eventos que podrían revelar votos individuales durante ese período.
+### RN-PAL-08
+Si una moción obliga a modificar el tratamiento de una votación en curso, Moderación debe finalizar la votación como `INCONCLUSA` y continuar la sesión según lo resuelto.
 
-### RN-VIS-002 — Revelación posterior al cierre
-Una vez cerrada la votación, la Pantalla de Recinto muestra los votos individuales y el resultado durante aproximadamente **6 segundos**, y luego limpia los votos de las bancas.
+## RN-OD - Orden del Día
 
-### RN-VIS-003 — Cuenta regresiva
-Al comenzar una nueva votación, la Pantalla de Recinto muestra una cuenta regresiva visual de **4 segundos**. Esto es una regla de presentación observada, no una demora para aceptar votos: el backend puede registrar votos desde que la votación queda `EN_CURSO`.
+### RN-OD-01
+El Orden del Día es opcional y sirve exclusivamente como asistencia para ahorrar carga manual.
 
-### RN-VIS-004 — Moderación
-El frontend productivo de Moderación tiene un comportamiento diferente: mantiene inicialmente los votos ocultos por unos **4 segundos** y después puede mostrar los votos aun estando la votación en curso.
+### RN-OD-02
+El sistema solo valida que el archivo sea técnicamente interpretable. No valida contenido, numeración, secuencia, repetición ni corrección institucional.
 
-Este comportamiento no debe trasladarse automáticamente a Botonera2 sin confirmar la política deseada para el operador; se registra como decisión abierta.
+### RN-OD-03
+Un archivo ilegible se rechaza sin impedir preparar, abrir sesión ni crear votaciones manuales.
 
-## RN-LOG — Eventos
+### RN-OD-04
+Seleccionar un punto copia sus datos al formulario y Moderación puede modificarlos antes de abrir la votación.
 
-### RN-LOG-001 — Categorías observadas
-El sistema registra eventos al menos de:
+### RN-OD-05
+Moderación puede crear votaciones fuera del Orden del Día y tratar los puntos cargados en cualquier orden.
 
-- sesión;
-- votación;
-- voto;
-- entrada de teclado;
-- uso de la palabra.
+## RN-LOG - Registro electrónico
 
-### RN-LOG-002 — Niveles
-El MVP utiliza tres niveles:
+### RN-LOG-01
+Al iniciar `PREPARANDO` se crean tres archivos CSV jerárquicos asociados a esa preparación/sesión.
 
-- nivel 1: detalle completo;
-- nivel 2: intermedio;
-- nivel 3: eventos principales.
+### RN-LOG-02
+Los nombres contienen fecha y hora local de inicio para evitar superposición entre varias sesiones del mismo día.
 
-### RN-LOG-003 — Visualización
-Los frontends pueden filtrar eventos por nivel. La Pantalla de Recinto no debe revelar mediante eventos información de votos mientras la votación está en curso.
+### RN-LOG-03
+Nivel 1 contiene eventos L1+L2+L3; nivel 2 contiene L2+L3; nivel 3 contiene solo L3.
+
+### RN-LOG-04
+Cada evento se escribe inmediatamente en disco.
+
+### RN-LOG-05
+Se utiliza hora local del servidor con precisión de segundos.
+
+### RN-LOG-06
+El orden secuencial en que el backend procesa y registra interacciones constituye el orden oficial del sistema.
+
+### RN-LOG-07
+Cancelar preparación y cerrar sesión escriben un evento final y cierran definitivamente los tres archivos.
+
+### RN-LOG-08
+Ante caída abrupta, los CSV quedan hasta el último evento persistido y no se modifican retrospectivamente.
+
+### RN-LOG-09
+Los archivos cerrados no son editables desde Botonera2. Pueden ser corregidos externamente si el procedimiento institucional lo requiere.
+
+### RN-LOG-10
+La profundidad y categorías de eventos deben conservar la lógica funcional de la implementación vigente, adaptada a CSV y extendida con las nuevas reglas documentadas.
+
+## RN-CFG - Configuración
+
+### RN-CFG-01
+Quórum, tipos de votación, temporizadores, disposición de bancas y demás configuración se cargan al iniciar `PREPARANDO` y quedan congelados hasta finalizar.
+
+### RN-CFG-02
+Cambiar archivos de configuración en disco durante una sesión no altera el estado activo.
+
+### RN-CFG-03
+Los tipos de votación se administran mediante archivo de configuración, no desde la interfaz cotidiana.
+
+### RN-CFG-04
+La visibilidad de votos individuales en Moderación utiliza un retardo configurable.
+
+### RN-CFG-05
+Los temporizadores de pantalla son configurables. Valores iniciales de referencia: 4 segundos para retardo/cuenta regresiva y 6 segundos para permanencia del resultado.
+
+## RN-MAP - Remapeo pendiente
+
+### RN-MAP-01
+Debe contemplarse arquitectónicamente un mecanismo de remapeo rápido de dispositivo a concejal ante una falla física.
+
+### RN-MAP-02
+Podrá ejecutarse durante una sesión e incluso durante una votación.
+
+### RN-MAP-03
+No modifica presencia, voto ya emitido ni identidad del concejal.
+
+### RN-MAP-04
+Se registra como evento.
+
+### RN-MAP-05
+Afecta únicamente el mapeo operativo en memoria y no modifica automáticamente el archivo base.
