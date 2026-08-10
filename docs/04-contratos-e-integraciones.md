@@ -10,18 +10,7 @@ Los frontends y el bridge físico envían comandos/intenciones y reciben estado/
 
 ## 2. Bridge de dispositivos físicos
 
-La implementación histórica envía pulsaciones al backend mediante:
-
-`POST /entradas/tecla`
-
-con cuerpo conceptual:
-
-```json
-{
-  "dispositivo": "dev05",
-  "tecla": "1"
-}
-```
+La implementación histórica envía pulsaciones al backend mediante `POST /entradas/tecla` con un identificador lógico de dispositivo y tecla.
 
 Botonera2 debe preservar inicialmente una vía compatible o proveer una migración explícita para no bloquear el hardware existente.
 
@@ -31,7 +20,7 @@ Botonera2 debe preservar inicialmente una vía compatible o proveer una migraci�
 - normalizar teclas;
 - resolver fingerprint físico -> identificador lógico;
 - enviar pulsación al backend;
-- en el futuro, facilitar remapeo operativo rápido.
+- ejecutar/capturar remapeo rápido físico -> lógico solicitado desde Moderación a través del backend.
 
 ### Responsabilidades que NO pertenecen al bridge
 
@@ -56,185 +45,149 @@ El backend interpreta:
 - `8`: test;
 - `9`: presencia.
 
-La misma pulsación puede ser aceptada o rechazada según el estado global y el estado del concejal.
+La misma pulsación puede ser aceptada o rechazada según estado global y concejal.
 
-En `SIN_PREPARAR` ninguna pulsación tiene efecto funcional.
-
-En `PREPARANDO` solo `8` y `9` tienen efecto funcional.
+En `SIN_PREPARAR` ninguna pulsación tiene efecto funcional. En `PREPARANDO` solo `8` y `9` tienen efecto funcional.
 
 ## 4. API nueva
 
-La API interna de Botonera2 será REST y estará versionada bajo:
+La API interna será REST bajo `/api/v1`.
 
-`/api/v1`
+FastAPI + Pydantic definen esquemas de entrada/salida y OpenAPI generado por FastAPI es el contrato HTTP técnico canónico.
 
-FastAPI + Pydantic definen los esquemas de entrada y salida. OpenAPI generado por FastAPI es la definición técnica canónica del contrato HTTP.
+Los errores de dominio exponen identificadores estables legibles por máquina.
 
-Los errores de dominio deben exponer identificadores estables legibles por máquina y no depender únicamente de textos humanos.
+## 5. Entrada física
 
-Los nombres exactos de cada recurso/ruta se fijarán al implementar el contrato concreto, respetando estas capacidades y sin copiar automáticamente las rutas históricas.
-
-## 5. Respuesta conceptual de entrada física
-
-El contrato debe permitir al bridge/diagnóstico distinguir al menos:
+La respuesta al bridge/diagnóstico permite distinguir al menos:
 
 - aceptada/rechazada;
-- motivo estable y legible por máquina;
-- dispositivo;
+- motivo estable;
+- dispositivo lógico;
 - tecla;
 - concejal cuando corresponda;
 - resultado funcional relevante cuando corresponda.
 
 ## 6. Comandos de Moderación requeridos
 
-El contrato backend debe ofrecer capacidades equivalentes a:
+El backend debe ofrecer capacidades equivalentes a:
 
-- preparar sala;
-- cancelar preparación;
-- actualizar número de sesión durante preparación;
-- actualizar Presidencia;
-- actualizar Secretaría Legislativa;
-- abrir sesión;
-- cerrar sesión;
+- preparar/cancelar preparación;
+- actualizar número de sesión, Presidencia y Secretaría;
+- abrir/cerrar sesión;
 - cargar/descartar Orden del Día;
-- abrir votación;
-- finalizar votación con motivo;
-- emitir voto presidencial de desempate;
-- otorgar palabra;
-- quitar palabra;
-- consultar estado;
-- consultar eventos/proyección de registro;
-- futuro remapeo rápido de dispositivo.
+- abrir/finalizar votación;
+- emitir desempate presidencial;
+- otorgar/quitar palabra;
+- consultar estado/eventos;
+- iniciar/confirmar remapeo rápido cuando se implemente.
 
-## 7. Proyección para Moderación
+## 7. Proyecciones
 
-El backend generará un DTO/proyección específico **ModerationState**.
+### ModerationState
 
-Debe exponer como mínimo:
+Incluye estado global, preparación/sesión, autoridades, concejales/bancas/presencia/test, quórum, votación, votos cuando corresponda, palabra, Orden del Día, eventos y capacidades de operación.
 
-- estado global;
-- datos de preparación/sesión;
-- Presidencia y Secretaría;
-- concejales, bancas, presencia y test;
-- cantidad de presentes, quórum y diferencia;
-- votación activa y estado;
-- votos individuales según la política temporal configurada;
-- cola y orador;
-- Orden del Día cargado;
-- eventos aptos para Moderación;
-- capacidades/comandos actualmente habilitados o información suficiente para representarlos sin duplicar reglas de negocio.
+### PublicState
 
-## 8. Proyección pública
+Es independiente. Durante `EN_CURSO` no contiene votos individuales, eventos que los revelen ni datos que permitan inferirlos.
 
-El backend generará un DTO/proyección independiente **PublicState**.
+El secreto temporal se garantiza en servidor.
 
-Durante una votación `EN_CURSO`, `PublicState` no debe contener:
+## 8. Votaciones
 
-- votos individuales;
-- eventos cuyo contenido revele votos;
-- cualquier dato que permita inferirlos directamente.
-
-El secreto temporal del voto se garantiza desde servidor. No se acepta entregar información secreta al navegador público para ocultarla luego mediante JavaScript o CSS.
-
-## 9. Votaciones
-
-El comando de apertura debe poder expresar explícitamente:
+La apertura expresa explícitamente:
 
 - número externo;
 - tipo;
 - tema;
 - `tipo_mayoria = SIMPLE | ESPECIAL`;
-- para especial: factor;
-- para especial: base `PRESENTES | CUERPO`.
+- para especial: factor y base `PRESENTES | CUERPO`.
 
-No usar `factor=0` o `factor=0.5` para inferir una mayoría simple.
+No inferir mayoría simple a partir de un factor. Una votación abierta es inmutable.
 
-Una vez abierta, la votación es inmutable.
+## 9. Finalización manual
 
-## 10. Finalización manual
+Existe un único comando conceptual `finalizar votacion`, con motivo obligatorio. La finalización anticipada produce `INCONCLUSA` según las reglas de negocio.
 
-Debe ser un único comando conceptual `finalizar votacion` y requerir motivo no vacío.
-
-No existe una operación reglamentaria separada de “cancelar” que produzca otro estado. Toda finalización anticipada no normal produce `INCONCLUSA`.
-
-## 11. Desempate presidencial
+## 10. Desempate presidencial
 
 Solo disponible para votación `SIMPLE` y `EMPATADA`.
 
-Entrada conceptual:
+Entrada: `POSITIVO` o `NEGATIVO`.
 
-- `POSITIVO` o `NEGATIVO`.
+No recibe concejal ni modifica votos ordinarios. Se registra Presidencia vigente, sentido y resultado.
 
-No recibe concejal ni modifica el listado de votos ordinarios.
+## 11. Orden del Día
 
-La identidad de quien ocupa Presidencia surge del estado institucional actual y se registra junto con la decisión.
+Moderación envía el archivo al backend.
 
-## 12. Orden del Día
+El backend es el único parser y distingue:
 
-La carga es una ayuda para Moderación.
-
-El componente que la procese debe distinguir:
-
-- error técnico de formato/lectura;
+- error técnico de lectura/formato;
 - datos interpretables.
 
-No debe validar secuencia, unicidad o legitimidad institucional del contenido.
+No valida secuencia, unicidad ni legitimidad institucional del contenido.
 
-La ubicación técnica definitiva del parser permanece abierta en DT-013.
+## 12. REST + SSE
 
-## 13. Sincronización frontend/backend
+REST se utiliza para comandos, snapshots y consultas puntuales. SSE se utiliza para actualizaciones backend -> frontend.
 
-Se utilizará **REST + Server-Sent Events (SSE)**.
+Flujo:
 
-### REST
+1. obtener snapshot completo;
+2. abrir stream SSE correspondiente;
+3. aplicar actualizaciones ordenadas;
+4. ante reconexión o duda de sincronización, recuperar snapshot antes de continuar.
 
-Se utiliza para:
+No se usa polling periódico como mecanismo normal ni WebSocket salvo decisión futura documentada.
 
-- comandos de Moderación;
-- pulsaciones del bridge;
-- snapshot completo inicial;
-- consultas puntuales.
+## 13. Cliente compartido
 
-### SSE
+`packages/api-client/` concentra:
 
-Se utiliza para notificar cambios de estado desde backend hacia Moderación y Recinto.
+- tipos derivados de OpenAPI;
+- REST;
+- SSE;
+- reconexión;
+- snapshot;
+- errores estables;
+- control de secuencia/sincronización.
 
-Flujo obligatorio de reconexión:
-
-1. cargar/reconectar;
-2. obtener snapshot completo por REST;
-3. suscribirse al stream SSE correspondiente;
-4. aplicar actualizaciones mientras la conexión permanezca válida;
-5. ante duda de sincronización o reconexión, volver a obtener snapshot completo.
-
-Moderación y Recinto deben consumir proyecciones separadas.
-
-No se usará polling periódico como transporte normal de estado ni WebSocket salvo decisión técnica posterior que reemplace explícitamente DT-006.
+Los componentes no duplican estas responsabilidades.
 
 ## 14. Concurrencia
 
-El backend debe imponer un orden determinista a comandos/pulsaciones concurrentes mediante un único mecanismo de serialización/exclusión sobre el estado activo.
+El backend impone un orden determinista mediante un único mecanismo de serialización/exclusión sobre el estado activo.
 
-El orden aceptado y persistido constituye el orden oficial del sistema.
+El orden aceptado y persistido es el orden oficial. Producción usa un solo proceso/worker.
 
-El backend productivo se ejecutará con un único proceso/worker para garantizar que exista una sola copia del estado en memoria.
+## 15. Auditoría CSV
 
-## 15. Registros CSV
+Los frontends no escriben CSV.
 
-Los frontends no escriben los CSV.
+El backend persiste los eventos obligatorios en el conjunto L1/L2/L3 con formato:
 
-El backend debe persistir cada evento aceptado/relevante inmediatamente y controlar la apertura/cierre de los tres archivos asociados a una preparación.
+`seq;timestamp;level;tag;event_code;message`
 
-La estructura exacta de columnas y mecanismo de escritura permanece abierta en DT-011/DT-012 sin alterar las reglas de niveles L1/L2/L3.
+Cada persistencia utiliza escritura síncrona, `flush` y `fsync`. Si la auditoría obligatoria no puede garantizarse, el backend no confirma nuevas mutaciones como exitosas.
 
-## 16. Reinicio
+## 16. Remapeo rápido
 
-No existe endpoint ni flujo de “recuperar sesión”. Tras un reinicio, el backend inicia en `SIN_PREPARAR`.
+Modelo:
 
-La existencia de CSV anteriores nunca debe hacer que se reconstruya automáticamente una preparación o sesión.
+```text
+fingerprint físico -> device-bridge -> identificador lógico -> backend -> concejal
+```
 
-## 17. Tipos compartidos
+El remapeo reemplaza en el bridge el fingerprint físico asociado a un identificador lógico existente.
 
-Cuando sea práctico, los tipos TypeScript consumidos por Nuxt deben generarse o derivarse de OpenAPI en lugar de mantener copias manuales de los modelos Pydantic.
+La UI inicia la operación por backend; nunca habla directamente con el bridge. El cambio no altera presencia, votos, identidad ni padrón.
 
-La herramienta concreta de generación se decidirá junto con DT-018/DT-019.
+## 17. Reinicio
+
+No existe flujo de recuperación. Tras reinicio el backend inicia en `SIN_PREPARAR`; CSV previos nunca reconstruyen estado.
+
+## 18. Tipos compartidos
+
+Cuando sea práctico, los tipos TypeScript se generan/derivan de OpenAPI y se consumen a través de `packages/api-client/`, evitando copias manuales de modelos Pydantic.
