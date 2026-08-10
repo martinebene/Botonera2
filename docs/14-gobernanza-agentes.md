@@ -2,7 +2,7 @@
 
 Este documento registra las decisiones cerradas sobre ramas, unidades de trabajo, documentación operativa, herramientas agénticas, revisión y autoridad de cambios.
 
-Las decisiones todavía abiertas permanecen en `10-preguntas-abiertas.md`.
+Las decisiones técnicas DT-001 a DT-038 están cerradas. Cualquier decisión transversal nueva que aparezca durante la implementación se gestiona mediante la política `DEC-XXX` definida aquí y en `docs/decisions/README.md`.
 
 ## DT-033 - Modelo de ramas
 
@@ -124,6 +124,7 @@ Cada WP es el contrato operativo de trabajo del agente. Debe declarar como míni
 - invariantes/restricciones;
 - documentación a actualizar;
 - hallazgos fuera de alcance;
+- decisiones que requieran escalamiento;
 - checklist de entrega.
 
 `docs/work-packages/TEMPLATE.md` es la plantilla inicial obligatoria.
@@ -321,3 +322,87 @@ La PR debe registrar:
 - modelo efectivo cuando sea relevante para demostrar independencia;
 - resultado de la revisión;
 - hallazgos pendientes o confirmación de que no existen BLOQUEANTES/IMPORTANTES abiertos.
+
+## DT-038 - Autoridad de cambios y autonomía del agente
+
+Los agentes tienen **autonomía técnica local dentro del WP**, pero no tienen autoridad para cambiar reglas, contratos globales, decisiones canónicas ni el alcance aprobado.
+
+### Decisiones que el implementador puede tomar autónomamente
+
+Siempre que respeten el WP, las fuentes canónicas, los contratos y el comportamiento observable, el agente puede decidir sin aprobación adicional:
+
+- nombres de variables, funciones, clases y símbolos internos;
+- organización razonable en módulos, helpers y funciones privadas;
+- algoritmos internos equivalentes;
+- estructura concreta de las pruebas requeridas;
+- mensajes internos de diagnóstico que no formen parte de un contrato estable;
+- refactors locales estrictamente necesarios para completar el WP;
+- corrección de defectos encontrados dentro del alcance autorizado;
+- detalles de implementación que no cambien comportamiento observable, contratos, dependencias ni decisiones globales.
+
+No debe solicitar aprobación humana para microdecisiones de código que pertenecen claramente a esta categoría.
+
+### Decisiones que requieren escalamiento y aprobación humana/documentada
+
+El agente **no puede decidir unilateralmente**:
+
+- crear, cambiar o reinterpretar una regla de negocio;
+- cambiar cualquiera de las decisiones DT-001 a DT-038;
+- redistribuir responsabilidades entre backend, frontends, bridge u otros componentes;
+- cambiar arquitectura o estrategia global;
+- crear o modificar un contrato público/API, DTO compartido o semántica OpenAPI fuera de lo autorizado explícitamente por el WP;
+- cambiar formatos canónicos de configuración, padrón, Orden del Día o CSV de auditoría;
+- cambiar niveles o semántica institucional de auditoría;
+- agregar una **nueva dependencia directa** de producto o tooling no prevista por el WP/configuración ya aprobada;
+- introducir base de datos, persistencia operativa o recuperación de sesión;
+- cambiar estrategia de concurrencia, REST/SSE, secreto temporal de votos o seguridad;
+- cambiar stack, testing, calidad estática, CI o despliegue;
+- modificar `AGENTS.md`, decisiones canónicas o el alcance/criterios del WP para facilitar la implementación;
+- incorporar trabajo sustancial fuera del WP;
+- eliminar, relajar, desactivar o reescribir una prueba/criterio de aceptación con el objetivo de hacer pasar la CI en lugar de corregir el defecto.
+
+Una dependencia directa nueva requiere aprobación aunque sea pequeña. El agente debe preferir primero el stack ya aprobado o la biblioteca estándar cuando sea razonable.
+
+### Forma de escalamiento
+
+Cuando aparezca una decisión reservada, el agente debe registrar de forma concisa:
+
+```text
+Decisión requerida:
+Motivo:
+Alternativas:
+Impacto:
+Recomendación:
+Alcance bloqueado:
+```
+
+Si la cuestión es transversal o tiene consecuencias futuras relevantes, puede proponer crear un `DEC-XXX`, pero **no puede aprobarlo ni tratarlo como vigente por sí mismo**.
+
+### Bloqueo mínimo
+
+Una decisión pendiente no debe detener innecesariamente todo el WP.
+
+El agente debe:
+
+- detener únicamente la parte que dependa de la decisión;
+- continuar trabajo independiente que pueda completarse con seguridad y sin asumir la respuesta;
+- dejar claramente identificado qué quedó bloqueado;
+- no introducir una solución provisional que condicione silenciosamente la decisión humana posterior.
+
+### Hallazgos fuera de alcance
+
+Un defecto o mejora detectado fuera del WP se documenta como hallazgo. No se implementa salvo que sea estrictamente necesario para cumplir el WP y esa ampliación haya sido autorizada documentalmente.
+
+### Regla de precedencia
+
+Cuando exista duda entre autonomía local y cambio reservado, se considera reservado si existe riesgo razonable de alterar:
+
+- comportamiento observable;
+- contrato entre componentes;
+- regla institucional;
+- arquitectura;
+- dependencia;
+- operación/despliegue;
+- criterio de aceptación.
+
+En ese caso se escala la decisión en lugar de inferir autoridad.
