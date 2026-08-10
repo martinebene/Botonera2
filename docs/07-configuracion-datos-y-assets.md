@@ -52,11 +52,13 @@ Son configuración de instalación y no constantes de negocio.
 
 ## 5. Padrón de concejales
 
-Esquema histórico de referencia:
+Contrato canónico de Botonera2:
 
-`dni,nombre,apellido,bloque,presente,banca,dispositivo_votacion`
+```text
+dni,nombre,apellido,bloque,banca,dispositivo_votacion,ruta_imagen
+```
 
-Para Botonera2:
+Reglas:
 
 - `dni`: obligatorio, identificador primario, único;
 - `nombre`: obligatorio;
@@ -64,7 +66,11 @@ Para Botonera2:
 - `bloque`: puede estar vacío;
 - `banca`: obligatoria, válida y única;
 - `dispositivo_votacion`: obligatorio y único;
-- cualquier valor histórico de `presente` se ignora funcionalmente al preparar: todos comienzan ausentes.
+- `ruta_imagen`: obligatoria y debe ser una ruta interna del propio sistema, no una URL externa.
+
+La presencia **no forma parte del archivo de padrón**: es un dato operativo dinámico y toda preparación comienza con todos los concejales ausentes.
+
+La cantidad de filas del padrón debe coincidir exactamente con la cantidad total de bancas definida por la disposición configurada en `system.toml` (suma de `room.rows`). Las bancas deben ser únicas, estar dentro de esa capacidad y cubrir completamente la disposición configurada.
 
 Un padrón inválido bloquea `Preparar sala`.
 
@@ -162,6 +168,8 @@ Fuente autorizada para descargar imágenes existentes:
 `app/web/static/bancas/`
 
 Incluye imágenes `1.png` a `12.png` usadas para representación de bancas.
+
+Botonera2 no debe hardcodear la imagen por número de banca. La ruta interna correspondiente a cada concejal se declara en `ruta_imagen` dentro de `concejales.csv`.
 
 Los agentes pueden copiar esos assets cuando implementen la interfaz. No deben copiar el frontend histórico completo para obtenerlos.
 
