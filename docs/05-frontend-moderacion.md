@@ -1,228 +1,184 @@
-# 05 — Frontend Nuxt: Moderación
+# 05 - Frontend de Moderación
 
-## 1. Propósito
+Frontend Nuxt.js para el operador único del sistema. No contiene reglas de negocio: representa estado y envía comandos al backend.
 
-Interfaz operativa utilizada por quien conduce o asiste la sesión. Debe permitir comandar el sistema y comprender su estado sin acceder a herramientas técnicas del backend.
+## 1. Estados globales
 
-La implementación será una aplicación **Nuxt.js** independiente de la Pantalla de Recinto.
+### SIN_PREPARAR
+Debe ofrecer como acción principal `Preparar sala`.
 
-## 2. Responsabilidades
+No debe mostrar controles de votación, palabra o presencia manual.
 
-Moderación debe permitir:
+### PREPARANDO
+Debe permitir:
 
-- abrir y cerrar sesión;
-- visualizar presentes, total y diferencia respecto del quórum;
-- configurar y abrir una votación;
-- cerrar una votación forzadamente;
-- visualizar su estado y resultado;
-- resolver un empate;
-- cargar y seleccionar filas del Orden del Día;
-- observar el plano del recinto y presencia;
-- observar la cola de uso de la palabra;
-- otorgar y quitar palabra;
-- observar eventos filtrados por nivel;
-- conocer el estado de conexión con el backend.
+- ver padrón y disposición de bancas;
+- cargar/editar número de sesión;
+- cargar/editar Presidencia;
+- cargar/editar Secretaría Legislativa;
+- observar acreditaciones físicas;
+- observar test de dispositivos;
+- ver quórum y faltantes;
+- cargar Orden del Día opcional;
+- abrir sesión cuando backend lo habilite;
+- cancelar preparación.
 
-## 3. Organización funcional observada
+### SESION_ABIERTA
+Debe permitir:
 
-El frontend productivo está organizado en cuatro áreas. Botonera2 debe conservar estas agrupaciones funcionales; el diseño visual puede evolucionar sin perder claridad operativa.
+- ver y cambiar Presidencia/Secretaría;
+- ver presencia y quórum;
+- operar votaciones;
+- operar uso de palabra;
+- utilizar Orden del Día como asistencia;
+- ver eventos;
+- cerrar sesión;
+- en el futuro, remapear dispositivos.
 
-### Área 1 — Comandos
+## 2. Organización funcional
 
-Contiene:
+Se conserva como referencia útil la división de la interfaz vigente en cuatro áreas, sin obligar a copiar su HTML/CSS:
 
-- número de sesión;
-- Abrir sesión;
-- Cerrar sesión;
-- presentes / total;
-- diferencia respecto del quórum;
-- número de votación;
-- tipo;
-- factor de mayoría;
-- criterio Presentes/Cuerpo;
-- tema;
-- Abrir votación;
-- Cerrar votación;
-- resumen de estado;
-- acciones de desempate cuando corresponde.
+1. comandos y estado de sesión/votación;
+2. Orden del Día;
+3. recinto/bancas + uso de palabra;
+4. eventos.
 
-### Área 2 — Orden del Día
+La implementación Nuxt puede reorganizar visualmente estas áreas si mejora la operación sin perder información ni simultaneidad.
 
-Contiene:
+## 3. Preparación
 
-- Cargar CSV;
-- Limpiar;
-- información de archivo/cantidad de filas;
-- tabla de número, tipo, tema, factor y respecto;
-- selección de fila para copiar datos al formulario de votación.
+El operador no puede marcar presencia manualmente.
 
-El archivo se procesa localmente en el navegador; seleccionar una fila no ejecuta una acción en el backend.
+Cada banca debe reflejar:
 
-### Área 3 — Estado del recinto
+- presente/ausente;
+- test visual temporal;
+- dispositivo lógico cuando resulte útil para diagnóstico.
 
-Contiene:
+Debe ser evidente si falta quórum y cuántos concejales faltan.
 
-- disposición gráfica de bancas;
-- presencia/ausencia;
-- test visual;
-- indicación del orador;
-- indicación de votos según la política de visibilidad definida para Moderación;
-- cola de pedidos de palabra;
-- botones Otorgar palabra / Quitar palabra.
+## 4. Autoridades
 
-### Área 4 — Eventos
+Presidencia y Secretaría son texto libre.
 
-Contiene consola o lista de eventos y selector de nivel:
+Pueden modificarse durante preparación o sesión, incluso durante una votación.
 
-- Principales → equivalente a L3;
-- Intermedios → L2 y L3;
-- Sistema → L1, L2 y L3.
+La interfaz no debe intentar decidir si el texto de Presidencia coincide con un concejal ni modificar el estado de ese concejal.
 
-Debe conservar scroll interno; el crecimiento del historial no debe deformar el resto de la pantalla.
+## 5. Apertura de sesión
 
-## 4. Estados de la interfaz
+El botón solo debe ser funcional cuando el backend confirme:
 
-### Sin sesión
+- quórum;
+- número de sesión informado;
+- Presidencia informada;
+- Secretaría informada.
 
-- formulario de número de sesión editable;
-- acción Abrir sesión disponible;
-- datos de recinto/votación sin estado activo;
-- no mostrar una sesión ficticia.
+La interfaz puede explicar qué condición falta, pero la validación definitiva es del backend.
 
-### Sesión abierta, sin votación
+## 6. Orden del Día
 
-- número de sesión fijado al estado backend;
-- presencia y quórum visibles;
-- formulario de votación editable;
-- acciones de palabra disponibles;
-- recinto actualizado.
+Debe permitir:
 
-### Votación EN_CURSO
+- cargar CSV;
+- informar errores técnicos de lectura/formato;
+- listar puntos cargados;
+- seleccionar un punto para precargar el formulario;
+- editar todos los campos precargados antes de abrir;
+- crear una votación manual sin usar el listado;
+- seleccionar puntos en cualquier orden.
 
-- parámetros de la votación actual deben reflejar el backend y no permitir editarse como si fueran otra votación;
-- mostrar cantidad de votos emitidos;
-- Cerrar votación disponible;
-- no ofrecer apertura de otra votación activa;
-- presencia y palabra siguen representándose según las reglas de negocio.
+No debe presentar advertencias por números repetidos, secuencia u otras cuestiones institucionales que Botonera2 no valida.
 
-### Votación EMPATADA
+## 7. Formulario de votación
 
-- mostrar claramente que requiere desempate;
-- ofrecer únicamente las decisiones de desempate pertinentes: Positivo / Negativo;
-- no presentar el empate como resultado final normal.
-
-### Votación finalizada
-
-- mostrar resultado y conteos durante un tiempo suficiente para operación;
-- luego permitir preparar la siguiente votación;
-- no borrar del backend la votación histórica por limpiar el formulario.
-
-### Sin conexión
-
-- indicar explícitamente pérdida de conexión;
-- no inventar cambios de estado;
-- al reconectar, reconstruir desde el backend.
-
-## 5. Quórum
-
-La interfaz productiva muestra la **diferencia**:
-
-`presentes - quorum`
-
-Ejemplos:
-
-- `+2`: dos presentes por encima del mínimo;
-- `0`: quórum exacto;
-- `-1`: falta un concejal.
-
-Debe distinguir visualmente si hay o no quórum, sin que el color sea la única señal.
-
-## 6. Formulario de votación
-
-Campos mínimos:
+Campos conceptuales:
 
 - número;
-- tipo;
+- tipo configurable;
 - tema;
-- factor de mayoría;
-- Presentes/Cuerpo.
+- tipo de mayoría `SIMPLE` o `ESPECIAL`;
+- si es especial: factor;
+- si es especial: base `PRESENTES` o `CUERPO`.
 
-### Factor
+La UI debe dejar visualmente claro que mayoría simple no equivale a factor 0,5.
 
-- vacío puede tratarse en UI como mayoría simple y enviarse al backend como `0`;
-- el backend realiza la validación autoritativa;
-- la UI puede normalizar entrada decimal para conveniencia, pero no debe alterar silenciosamente el valor con una semántica diferente.
+Una vez abierta, los datos se muestran como inmutables.
 
-## 7. Orden del Día
+## 8. Votación en curso
 
-La UI debe implementar las reglas `RN-OD-*`.
+Debe mostrar:
 
-Requisitos importantes:
+- tema/tipo/número;
+- regla de mayoría;
+- presencia y quórum actual;
+- cantidad de votos recibidos;
+- votos individuales después del retardo configurable de Moderación;
+- palabra/orador en paralelo.
 
-- carga local;
-- rechazo atómico del archivo inválido;
-- selección visible de fila;
-- copia de valores sin apertura automática;
-- tipo no reconocido → `Otro` según comportamiento vigente;
-- factor vacío/0 → mayoría simple.
+No existe pausa. Los concejales pueden pedir/usarla palabra mientras continúan llegando votos.
 
-## 8. Recinto en Moderación
+## 9. Finalizar votación
 
-Debe usar la disposición definida por backend/configuración.
+Existe una sola acción conceptual `Finalizar votación`.
 
-Numeración:
+Puede usarse en cualquier momento de `EN_CURSO` y debe exigir un motivo no vacío.
 
-- banca 1 abajo-izquierda;
-- izquierda → derecha;
-- continuar de abajo → arriba.
+El backend decide el resultado, normalmente `INCONCLUSA` si se finaliza antes de completar.
 
-Validar que cantidad de posiciones coincida con cantidad de concejales. Si no coincide, mostrar error operativo en esa zona sin romper el resto de la interfaz.
+La interfaz no ofrece edición de votos ni modificación de una votación abierta.
 
-## 9. Uso de la palabra
+## 10. Empate y Presidencia
 
-Mostrar cola en orden FIFO.
+Cuando una mayoría simple queda `EMPATADA`:
 
-El orador actual debe ser distinguible en el plano del recinto y no aparecer simultáneamente en la cola.
+- se bloquea abrir otra votación;
+- Moderación debe mostrar controles de desempate `POSITIVO` / `NEGATIVO`;
+- no hay abstención;
+- debe mostrar claramente quién figura actualmente como Presidencia;
+- una vez enviado, el desempate es irreversible.
 
-Los controles de otorgar/quitar son comandos al backend; la UI no debe manipular la cola localmente como autoridad.
+Si se cierra la sesión sin desempatar, el backend convertirá la votación a `INCONCLUSA`.
 
-## 10. Eventos
+## 11. Uso de la palabra
 
-La interfaz puede acumular localmente eventos ya recibidos para facilitar visualización, pero debe deduplicarlos mediante un identificador/secuencia.
+Debe mostrar:
 
-El backend debe ser la fuente de los eventos.
+- orador actual;
+- cola FIFO;
+- controles para otorgar y quitar palabra.
 
-## 11. Estado local permitido
+Otorgar con alguien hablando reemplaza automáticamente al orador actual por el siguiente de la cola.
 
-Puede existir estado puramente de interfaz, por ejemplo:
+Los cambios de presencia pueden quitar automáticamente concejales de la cola o del uso actual.
 
-- archivo de Orden del Día cargado;
-- fila seleccionada;
-- filtro de eventos;
-- apertura/cierre de paneles;
-- notificaciones visuales.
+## 12. Eventos
 
-No debe existir como autoridad local:
+Debe mostrar una proyección legible de eventos recientes, independiente de los archivos CSV completos.
 
-- sesión;
-- presencia;
-- votación;
-- votos;
-- resultado;
-- cola de palabra;
-- orador.
+El crecimiento del listado debe usar scroll interno y **no aumentar la altura de los demás cuadrantes/áreas de la interfaz**.
 
-## 12. Requisitos de robustez
+## 13. Reconexión
 
-- ninguna lista debe aumentar la altura global de la pantalla indefinidamente;
-- usar scroll interno donde corresponda;
-- una respuesta lenta no debe iniciar múltiples bucles duplicados de actualización;
-- los botones deben prevenir dobles envíos accidentales mientras una acción equivalente está pendiente;
-- los errores de una sección no deben dejar inutilizable toda la interfaz;
-- debe ser usable en la resolución del puesto de operación definida durante implementación.
+Al recargar o recuperar conexión debe reconstruir toda la interfaz desde el estado actual del backend.
 
-## 13. Política de visualización de votos en Moderación
+No debe depender de variables locales para saber si existe sesión/votación activa.
 
-El MVP de `main` oculta inicialmente los votos unos 4 segundos y luego puede mostrarlos durante la votación. La Pantalla pública, en cambio, mantiene secreto hasta el cierre.
+## 14. Errores
 
-Esta diferencia queda **pendiente de confirmación** para Botonera2. No implementar una política nueva por inferencia; consultar `10-preguntas-abiertas.md`.
+Los errores funcionales deben presentarse con mensajes claros, basados en identificadores estables del backend.
+
+No se debe ocultar un rechazo de comando ni simular localmente que una acción tuvo éxito.
+
+## 15. Remapeo rápido pendiente
+
+La arquitectura visual debe reservar la posibilidad de una operación rápida de reemplazo de dispositivo:
+
+- elegir concejal;
+- asociar nuevo dispositivo lógico;
+- confirmar;
+- mostrar que el cambio es temporal/en memoria;
+- no alterar presencia ni votos.
+
+El diseño definitivo se resolverá después.
