@@ -27,6 +27,15 @@ WP-XXX - Título
 
 - [ ] Checks aplicables verdes.
 
+## Revisión independiente
+
+- Revisor: Codex / Claude Code / OpenCode / otro.
+- Modelo efectivo si resulta relevante para demostrar independencia: indicar o `No aplica`.
+- [ ] Revisión independiente completada cuando corresponde.
+- [ ] No quedan hallazgos BLOQUEANTES pendientes.
+- [ ] No quedan hallazgos IMPORTANTES pendientes.
+- Hallazgos MENORES pendientes o `Ninguno`.
+
 ## Documentación
 
 - [ ] Documentación canónica/WP actualizada cuando corresponde.
