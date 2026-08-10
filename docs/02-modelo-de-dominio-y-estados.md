@@ -1,237 +1,247 @@
-# 02 — Modelo de dominio y estados
+# 02 - Modelo de dominio y estados
 
-Este documento describe el modelo conceptual que debe preservar Botonera2. No obliga a copiar las clases del MVP.
+Este documento define el modelo conceptual. No prescribe clases, ORM, tablas ni estructura de módulos.
 
-## 1. Entidades principales
+## 1. EstadoGlobal
 
-### Concejal
+Valores válidos:
 
-Representa a una persona habilitada para participar de una sesión.
+- `SIN_PREPARAR`
+- `PREPARANDO`
+- `SESION_ABIERTA`
 
-Atributos funcionales mínimos:
+Transiciones:
 
-- identificador único;
-- nombre;
-- apellido;
-- bloque;
-- número de banca;
-- identificador lógico del dispositivo de votación;
-- estado de presencia dentro de la sesión.
+- `SIN_PREPARAR -> PREPARANDO`: `Preparar sala`.
+- `PREPARANDO -> SIN_PREPARAR`: cancelar preparación.
+- `PREPARANDO -> SESION_ABIERTA`: abrir sesión con quórum y datos obligatorios.
+- `SESION_ABIERTA -> SIN_PREPARAR`: cerrar sesión.
+- reinicio técnico desde cualquier estado -> `SIN_PREPARAR`.
 
-La presencia es un estado de la participación en la sesión, aunque el MVP la almacene dentro del objeto Concejal.
+No existe recuperación automática de estado activo.
 
-### Sesión
+## 2. Preparacion
 
-Agregado que contiene el desarrollo operativo de una sesión del Concejo.
+Existe únicamente en `PREPARANDO` y luego se convierte conceptualmente en el contexto operativo de la sesión abierta.
 
-Atributos mínimos:
+Contiene como mínimo:
 
-- número de sesión;
-- estado;
-- hora de inicio;
-- hora de cierre;
-- concejales participantes;
-- quórum requerido;
+- fecha/hora de inicio;
+- número de sesión propuesto;
+- Presidencia;
+- Secretaría Legislativa;
+- configuración congelada;
+- padrón congelado;
+- presencias actuales;
+- referencias a los tres CSV activos.
+
+Todos los concejales comienzan ausentes.
+
+## 3. Sesion
+
+Representa una sesión formal abierta.
+
+Atributos conceptuales mínimos:
+
+- número informado externamente;
+- fecha/hora de apertura;
+- Presidencia actual;
+- Secretaría Legislativa actual;
+- concejales cargados;
+- presencia actual;
+- quórum configurado;
 - disposición de bancas;
 - votaciones realizadas;
-- cola de pedidos de palabra;
-- orador actual.
+- cola de palabra;
+- orador actual;
+- votación activa, si existe.
 
-### Votación
+El número no es validado por unicidad ni secuencia.
 
-Pertenece a una sesión.
+## 4. Concejal
 
-Atributos mínimos:
+Atributos conceptuales:
 
-- identificador interno;
-- número público;
-- tipo;
+- DNI, identidad primaria;
+- nombre;
+- apellido;
+- bloque opcional;
+- banca;
+- dispositivo lógico asignado;
+- presencia actual;
+- estado visual temporal de test.
+
+DNI, banca y dispositivo deben ser únicos dentro del padrón cargado.
+
+La condición de concejal no se modifica si la misma persona ejerce además Presidencia.
+
+## 5. AutoridadPresidencia
+
+Rol institucional representado por texto libre.
+
+No se enlaza automáticamente con un Concejal.
+
+Responsabilidad funcional única en el dominio:
+
+- emitir desde Moderación un voto extraordinario de desempate positivo o negativo cuando una votación de mayoría simple se encuentra `EMPATADA`.
+
+Si la persona que preside también es concejal, ambos roles son independientes.
+
+## 6. SecretariaLegislativa
+
+Rol institucional representado por texto libre. No ejecuta comandos de negocio; su valor y sus cambios deben registrarse.
+
+## 7. Votacion
+
+Atributos conceptuales mínimos:
+
+- identificador interno técnico;
+- número externo, no validado;
+- tipo configurable;
 - tema;
-- criterio de mayoría;
-- factor de mayoría;
+- tipo de mayoría: `SIMPLE` o `ESPECIAL`;
+- para `ESPECIAL`: factor y base `PRESENTES`/`CUERPO`;
 - estado;
-- hora de inicio;
-- hora de fin;
+- hora de apertura/cierre;
 - votos ordinarios;
-- decisión de desempate, cuando corresponda.
+- si corresponde, voto presidencial de desempate;
+- motivo de finalización manual cuando corresponda.
 
-### Voto ordinario
+### Estados
 
-Asocia:
+- `EN_CURSO`
+- `APROBADA`
+- `RECHAZADA`
+- `EMPATADA`
+- `INCONCLUSA`
 
-- una votación;
-- un concejal;
-- un valor (`Positivo`, `Negativo`, `Abstención`);
-- hora de emisión.
+No existen `PAUSADA` ni `CANCELADA`.
 
-La combinación votación + concejal debe ser única.
+### Transiciones principales
 
-### Pedido de palabra
+`EN_CURSO -> APROBADA|RECHAZADA|EMPATADA`
+cuando votaron todos los presentes y el resultado puede calcularse.
 
-El MVP representa la cola directamente mediante concejales. Botonera2 puede modelarla como entidad o relación explícita siempre que conserve:
+`EN_CURSO -> INCONCLUSA`
+por pérdida de quórum o finalización manual antes de completar normalmente.
 
-- orden FIFO;
-- identidad del concejal;
-- posibilidad de retirar el pedido;
-- transición a orador actual.
+`EMPATADA -> APROBADA|RECHAZADA`
+por voto presidencial de desempate.
 
-### Evento operativo
+`EMPATADA -> INCONCLUSA`
+al cerrar la sesión sin resolver el empate.
 
-Registro de una acción o hecho relevante del sistema.
+Una votación en estado final nunca vuelve a abrirse ni se recalcula.
 
-Debe poder expresar como mínimo:
+## 8. TipoMayoria
 
-- secuencia u orden;
-- fecha/hora;
-- nivel;
-- categoría;
-- descripción;
-- datos estructurados cuando resulten útiles para auditoría.
+### SIMPLE
 
-## 2. Máquina de estados de Sesión
+No tiene factor numérico.
 
-Modelo funcional mínimo:
+- positivos > negativos: aprobada;
+- positivos < negativos: rechazada;
+- positivos = negativos: empatada.
 
-```text
-SIN_SESION
-   |
-   | abrir sesión
-   v
-ABIERTA
-   |
-   | cerrar sesión
-   v
-CERRADA / finalizada
-```
+Abstenciones fuera del cálculo.
 
-Para operación en vivo solo existe una sesión activa a la vez.
+### ESPECIAL
 
-En el MVP, después del cierre la referencia activa se elimina. Botonera2 puede persistir sesiones finalizadas; eso no cambia la regla de unicidad de la sesión activa.
+Tiene:
 
-## 3. Máquina de estados de Votación
+- `factor`;
+- `base = PRESENTES | CUERPO`.
 
-```text
-                 +--------------+
-                 |   EN_CURSO   |
-                 +--------------+
-                    |   |   |
-          cierre    |   |   | cierre con empate
-                    |   |   v
-                    |   | +------------+
-                    |   | |  EMPATADA  |
-                    |   | +------------+
-                    |   |       |
-                    |   |       | desempate +/-
-                    |   |       v
-                    |   | APROBADA / RECHAZADA
-                    |   |
-                    |   +----> INCONCLUSA
-                    |
-                    +-------> APROBADA / RECHAZADA
-```
+Aprueba con cociente `>= factor`.
 
-Estados terminales normales:
+`PRESENTES`: denominador = votos emitidos, incluyendo abstenciones.
 
-- `APROBADA`;
-- `RECHAZADA`;
-- `INCONCLUSA`.
+`CUERPO`: denominador = cantidad total de concejales cargados.
 
-`EMPATADA` es un estado intermedio pendiente de decisión de desempate.
+Una mayoría especial no puede requerir desempate presidencial.
 
-## 4. Transiciones de Votación
+## 9. VotoOrdinario
 
-### Crear → EN_CURSO
+Representa el voto de un concejal.
 
-Precondiciones:
+- vinculado por DNI al concejal;
+- valor `POSITIVO`, `NEGATIVO` o `ABSTENCION`;
+- uno por concejal/votación;
+- irreversible;
+- permanece aunque el concejal pase a ausente;
+- nunca puede cargarse o corregirse desde Moderación.
 
-- sesión activa;
-- quórum suficiente;
-- ninguna otra votación activa según la política final definida para empate pendiente.
+## 10. VotoDesempate
 
-### EN_CURSO → resultado
+Representa una decisión del rol Presidencia, no un voto ordinario de concejal.
 
-Puede dispararse por:
+- solo en votación simple `EMPATADA`;
+- valor `POSITIVO` o `NEGATIVO`;
+- ingresado desde Moderación;
+- irreversible;
+- debe quedar registrado explícitamente.
 
-- voto que completa a todos los presentes;
-- cambio de presencia que hace que todos los presentes restantes ya hayan votado;
-- cierre manual de Moderación;
-- cierre de sesión que fuerza el cierre de una votación en curso.
+No debe agregarse como si fuera otro voto ordinario dentro del conteo de concejales.
 
-El resultado se calcula con las reglas de `01-reglas-de-negocio.md`.
+## 11. Presencia
 
-### EMPATADA → APROBADA / RECHAZADA
+Estado dinámico de cada concejal: presente/ausente.
 
-Solo mediante decisión de desempate de Moderación.
+Se modifica solo por tecla `9` del dispositivo asignado.
 
-## 5. Estado de presencia
+Puede cambiar durante la sesión y durante una votación.
 
-Cada participante tiene:
+La pérdida de quórum en `EN_CURSO` finaliza inmediatamente la votación como `INCONCLUSA`.
 
-```text
-AUSENTE <---- tecla 9 ----> PRESENTE
-```
+## 12. ColaUsoPalabra
 
-En `main` esta transición solo se procesa cuando existe una sesión activa.
+Estructura conceptual FIFO.
 
-Una transición de presencia durante una votación en curso obliga a reevaluar el cierre automático, pero no elimina votos ya registrados.
+Estados posibles de un concejal respecto de palabra:
 
-## 6. Estado de uso de la palabra
+- sin solicitud;
+- esperando;
+- en uso.
 
-Para un concejal presente que no es orador:
+Un ausente no puede permanecer esperando ni en uso.
 
-```text
-SIN_PEDIDO -- tecla 7 --> EN_COLA
-EN_COLA    -- tecla 7 --> SIN_PEDIDO
-```
+Pedir y usar palabra es independiente de que exista una votación en curso.
 
-Para la cola:
+## 13. OrdenDelDia
 
-```text
-EN_COLA -- otorgar palabra --> ORADOR_ACTUAL
-```
+Colección opcional y temporal de propuestas de votación precargadas.
 
-Para el orador:
+No es fuente de autoridad institucional para el sistema. Un elemento seleccionado se transforma en datos editables del formulario antes de abrir la votación.
 
-```text
-ORADOR_ACTUAL -- quitar palabra --> SIN_PEDIDO
-ORADOR_ACTUAL -- tecla 7 --------> SIN_PEDIDO
-```
+## 14. EventoRegistro
 
-El comportamiento de “otorgar palabra” cuando ya existe orador se define en `10-preguntas-abiertas.md`.
+Representa una interacción o transición persistida en los CSV.
 
-## 7. Invariantes
+Campos mínimos conceptuales:
 
-El diseño debe hacer cumplir explícitamente:
+- timestamp local a segundos;
+- nivel L1/L2/L3;
+- categoría/tag;
+- mensaje o datos suficientes para reconstruir el hecho;
+- secuencia/orden determinista cuando sea necesario técnicamente.
 
-1. máximo una sesión activa;
-2. máximo una votación realmente activa para recepción de votos;
-3. máximo un voto ordinario por concejal y votación;
-4. un dispositivo lógico debe resolver a como máximo un concejal participante de la sesión;
-5. una banca debe identificar como máximo a un concejal dentro de la disposición de una sesión;
-6. un concejal no debe aparecer dos veces simultáneamente en la cola de palabra;
-7. un orador no debe permanecer además en la cola;
-8. el backend es autoridad sobre estados y transiciones;
-9. los frontends nunca deben inferir un resultado diferente al entregado por el backend.
+La estructura CSV exacta se decidirá técnicamente, pero debe preservar la semántica de tres niveles acumulativos.
 
-## 8. Datos derivados
+## 15. MapeoDispositivo
 
-No necesitan persistirse como autoridad si pueden calcularse de forma consistente:
+Asocia un dispositivo lógico a un concejal.
 
-- cantidad total de concejales;
-- cantidad de presentes;
-- diferencia respecto del quórum;
-- conteo de positivos/negativos/abstenciones;
-- si todos los presentes ya votaron;
-- resultado textual para UI.
+Normalmente proviene de la configuración congelada al preparar. El futuro remapeo rápido podrá cambiar esta asociación en memoria sin modificar la identidad, presencia o votos del concejal.
 
-## 9. Legado que no debe copiarse
+## 16. Invariantes
 
-No son parte del modelo canónico:
-
-- contadores `_next_id` en memoria;
-- referencia desde `Votacion` al singleton `SesionService`;
-- serialización de objetos de dominio directamente desde FastAPI;
-- guardar `disposicion_bancas` como string JSON dentro de la sesión;
-- utilizar un `deque` concreto como contrato externo.
-
-Botonera2 debe expresar las mismas reglas con un modelo explícito, tipado y testeable.
+- máximo una preparación/sesión activa;
+- máximo una votación activa;
+- una votación empatada bloquea otra;
+- un voto ordinario por concejal/votación;
+- sesión solo abre con quórum y autoridades completas;
+- votación solo abre con sesión y quórum;
+- pérdida de quórum en votación => `INCONCLUSA`;
+- ninguna transición cerrada se revierte;
+- estado activo solo en memoria;
+- frontends no son autoridad de dominio.
