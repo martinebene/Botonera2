@@ -64,6 +64,8 @@ El operador no puede marcar presencia manualmente.
 
 Cada banca debe reflejar:
 
+- identidad del concejal;
+- imagen indicada por `ruta_imagen` en el padrón, sin hardcodear una imagen por número de banca;
 - presente/ausente;
 - test visual temporal;
 - dispositivo lógico cuando resulte útil para diagnóstico.
