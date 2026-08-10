@@ -23,9 +23,14 @@ Debe rechazarse preparar si existe:
 - DNI vacío/duplicado;
 - nombre o apellido vacío;
 - banca inválida/vacía/duplicada;
-- dispositivo vacío/duplicado.
+- dispositivo vacío/duplicado;
+- `ruta_imagen` vacía o externa al sistema;
+- cantidad de concejales distinta de la cantidad total de bancas definida por la disposición configurada;
+- bancas que no cubran completamente la disposición configurada.
 
 Bloque vacío debe ser aceptado.
+
+El archivo de padrón no contiene un campo de presencia: todos los concejales comienzan ausentes en cada preparación.
 
 ## CA-004 Autoridades obligatorias
 
@@ -252,7 +257,7 @@ Los votos individuales en Moderación solo deben revelarse según el retardo con
 
 ## CA-053 Registros nuevos por preparación
 
-Dos preparaciones iniciadas el mismo día deben generar nombres diferentes mediante fecha+hora de inicio.
+Cada preparación debe generar un conjunto de nombres diferente. Si el nombre correspondiente al segundo real de inicio ya existe, el nuevo conjunto usa, solo a efectos del nombre, el primer segundo posterior libre; nunca sobrescribe archivos existentes y los timestamps internos conservan la hora real.
 
 ## CA-054 Niveles acumulativos
 
