@@ -1,38 +1,47 @@
 # 10 - Decisiones técnicas abiertas
 
-Las reglas de negocio principales ya están cerradas en `01-reglas-de-negocio.md`.
+Las reglas de negocio principales y las decisiones técnicas previas a la implementación están cerradas.
 
-Las decisiones técnicas aprobadas se registran en:
+Las decisiones aprobadas se registran en:
 
 - `12-decisiones-tecnicas.md` para arquitectura, backend/datos, frontend y calidad;
 - `13-despliegue-y-operacion.md` para despliegue/operación;
-- `14-gobernanza-agentes.md` para trabajo con agentes.
+- `14-gobernanza-agentes.md` para ramas, WPs, herramientas agénticas, revisión y autoridad.
 
-Este archivo contiene **únicamente decisiones técnicas todavía abiertas**. Los agentes no deben resolverlas unilateralmente.
+## Estado actual
 
-## Arquitectura, backend/datos, frontend, calidad y despliegue ya cerrados
+**No existen decisiones técnicas previas abiertas.**
 
-Quedaron resueltas DT-001 a DT-032.
+Quedaron resueltas DT-001 a DT-038.
 
-## Gobernanza de agentes
+La implementación puede comenzar únicamente mediante los Work Packages versionados en `docs/work-packages/` y la secuencia aprobada en `docs/implementation/PLAN.md`.
 
-Quedaron resueltas:
+## Decisiones nuevas durante la implementación
 
-- DT-033: modelo trunk-based simple con rama corta por WP, PR obligatoria, CI verde y squash merge;
-- DT-034: WPs pequeños, orientados a un único resultado verificable, con dependencias, alcance, exclusiones, criterios de aceptación y una PR por WP;
-- DT-035: `PLAN.md` + especificación versionada por WP + `DEC-XXX` solo para decisiones transversales relevantes + template de PR; lectura normal `AGENTS.md -> WP -> fuentes canónicas indicadas`;
-- DT-036: estrategia multiagente por roles; Codex implementador predeterminado, Claude Code/OpenCode como alternativas; un agente por WP; rama, worktree y sesión propios; paralelismo solo entre WPs independientes; sin automatización generativa en CI inicialmente;
-- DT-037: revisión independiente obligatoria para PRs de implementación y cambios canónicos relevantes; preferencia por otra familia de modelo; revisor en modo solo lectura; sin integración con hallazgos BLOQUEANTES o IMPORTANTES pendientes.
+Este cierre no significa que nunca puedan aparecer decisiones nuevas.
 
-Ver `14-gobernanza-agentes.md`.
+Si durante un WP surge una cuestión que:
 
-### DT-038 Autoridad de cambios
-Definir qué decisiones puede tomar un agente por sí mismo y cuáles requieren decisión humana/documentada.
+- modifica arquitectura, contratos o responsabilidades;
+- cambia una decisión DT ya aprobada;
+- incorpora una dependencia directa no prevista;
+- altera reglas, criterios de aceptación, formatos canónicos, seguridad, auditoría, CI o despliegue;
+- tiene consecuencias transversales o futuras relevantes;
 
-## Criterio para comenzar a programar
+el agente no debe resolverla unilateralmente.
 
-Antes del primer scaffold productivo debe estar cerrada DT-038.
+Debe escalarla según DT-038 y, cuando corresponda, documentarla mediante un `DEC-XXX` aprobado antes de continuar el alcance afectado.
 
-Una vez cerrada, el repositorio tendrá definidas las reglas de negocio, arquitectura, stack, calidad, despliegue y gobernanza mínima necesaria para comenzar implementación incremental con agentes.
+## Criterio de inicio de programación
 
-Cada decisión aprobada debe retirarse de este archivo y trasladarse a documentación canónica antes de que los agentes dependan de ella.
+Las condiciones documentales mínimas previas quedaron satisfechas.
+
+Antes de ejecutar un WP concreto todavía deben cumplirse sus condiciones operativas:
+
+1. el WP debe existir y estar aprobado en `docs/work-packages/`;
+2. sus dependencias deben estar integradas o expresamente autorizadas;
+3. debe tener rama y `git worktree` propios;
+4. debe registrarse el agente implementador cuando pase a `EN_CURSO`;
+5. la entrega debe pasar CI y revisión independiente antes de integrarse.
+
+El hecho de que DT-001 a DT-038 estén cerradas **no autoriza a un agente a improvisar trabajo fuera del PLAN o de un WP aprobado**.
