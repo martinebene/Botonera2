@@ -6,7 +6,25 @@ La configuración operacional se carga al iniciar `PREPARANDO` y queda congelada
 
 Los cambios posteriores en disco no afectan una ejecución activa.
 
-## 2. Configuración mínima
+La primera versión no utiliza base de datos: estado operativo en memoria, configuración en archivos, padrón en CSV y auditoría en CSV.
+
+## 2. Estructura de configuración
+
+Estructura inicial canónica:
+
+```text
+config/
+├── system.toml
+└── concejales.csv
+
+services/device-bridge/
+└── config/
+    └── devices.json
+```
+
+`system.toml` concentra configuración funcional/técnica del backend; `concejales.csv` contiene el padrón; `devices.json` pertenece exclusivamente al bridge físico.
+
+## 3. Configuración mínima de `system.toml`
 
 Debe poder definir, como mínimo:
 
@@ -15,13 +33,14 @@ Debe poder definir, como mínimo:
 - disposición de bancas;
 - tipos de votación permitidos para asistencia de carga;
 - retardo para mostrar votos individuales en Moderación;
-- temporizador inicial visual de votación;
+- temporizador/efecto visual inicial de votación;
 - tiempo de permanencia del resultado público;
 - directorio de registros CSV;
-- assets de bancas/recinto que corresponda;
-- parámetros técnicos del bridge que finalmente pertenezcan a su propio componente.
+- assets de bancas/recinto cuando corresponda.
 
-## 3. Valores actuales de referencia
+Cada parámetro debe tener nombre semántico explícito. No reutilizar una única constante para temporizadores que representen comportamientos distintos aunque inicialmente compartan valor.
+
+## 4. Valores actuales de referencia
 
 La instalación histórica usa:
 
@@ -29,9 +48,9 @@ La instalación histórica usa:
 - disposición por filas: 3, 4 y 5 bancas;
 - total histórico: 12 concejales.
 
-Estos valores son configuración de la instalación y no deben quedar dispersos como constantes de negocio.
+Son configuración de instalación y no constantes de negocio.
 
-## 4. Padrón de concejales
+## 5. Padrón de concejales
 
 Esquema histórico de referencia:
 
@@ -49,15 +68,15 @@ Para Botonera2:
 
 Un padrón inválido bloquea `Preparar sala`.
 
-## 5. Congelamiento del padrón
+## 6. Congelamiento del padrón
 
 Una vez iniciada la preparación, el conjunto de concejales y sus datos base no cambia durante esa preparación/sesión.
 
-El remapeo rápido futuro será una excepción limitada a la asociación operativa dispositivo-concejal en memoria.
+El reemplazo urgente de un teclado **no modifica el padrón ni la relación lógica concejal-dispositivo del backend**. Se resuelve en el bridge reasignando un nuevo fingerprint físico al mismo identificador lógico.
 
-## 6. Tipos de votación
+## 7. Tipos de votación
 
-Deben provenir de archivo de configuración y no de código rígido ni de una pantalla administrativa cotidiana.
+Deben provenir de `system.toml` y no de código rígido ni de una pantalla administrativa cotidiana.
 
 Lista histórica de referencia:
 
@@ -71,20 +90,20 @@ Lista histórica de referencia:
 - P. Sobre Tabla
 - Otro
 
-La lista definitiva instalada podrá cambiar sin modificar código.
+La lista instalada puede cambiar sin modificar código.
 
 El tipo es descriptivo y no reemplaza el campo explícito `tipo de mayoría`.
 
-## 7. Mayorías
+## 8. Mayorías
 
-La configuración/formulario debe representar explícitamente:
+La configuración/formulario representa explícitamente:
 
 - `SIMPLE`, sin factor;
 - `ESPECIAL`, con factor y base `PRESENTES` o `CUERPO`.
 
 No inferir mayoría simple a partir de factor 0, 0.5 ni valores nulos.
 
-## 8. Temporizadores
+## 9. Temporizadores
 
 Configurables.
 
@@ -93,9 +112,7 @@ Valores iniciales acordados:
 - 4 s para retardo/cuenta regresiva visual inicial y referencia de visibilidad en Moderación;
 - 6 s para permanencia del resultado en Pantalla del Recinto.
 
-La semántica exacta de cada parámetro debe quedar nombrada explícitamente en la configuración para no acoplar temporizadores distintos accidentalmente.
-
-## 9. Orden del Día
+## 10. Orden del Día
 
 Formato histórico actual de referencia:
 
@@ -105,11 +122,11 @@ Separador `;`.
 
 Su función es exclusivamente asistencial.
 
-Botonera2 debe validar solo que pueda interpretar técnicamente el archivo. No debe imponer unicidad, secuencia ni legitimidad de los valores.
+El archivo se envía al backend, que realiza el parseo y valida solo que pueda interpretarlo técnicamente. No impone unicidad, secuencia ni legitimidad de valores.
 
-Si el archivo no puede leerse, la carga falla pero la sesión puede operar completamente con votaciones manuales.
+Si no puede leerse, la carga falla pero la sesión puede operar completamente con votaciones manuales.
 
-## 10. Assets históricos
+## 11. Assets históricos
 
 Fuente autorizada para descargar imágenes existentes:
 
@@ -119,21 +136,39 @@ Fuente autorizada para descargar imágenes existentes:
 
 Incluye imágenes `1.png` a `12.png` usadas para representación de bancas.
 
-Los agentes pueden copiar esos assets cuando se implemente la interfaz. No deben copiar el frontend histórico completo para obtenerlos.
+Los agentes pueden copiar esos assets cuando implementen la interfaz. No deben copiar el frontend histórico completo para obtenerlos.
 
-## 11. Mapeo físico
+## 12. Mapeo físico
 
-La relación fingerprint físico -> dispositivo lógico pertenece al bridge de teclados.
+Responsabilidades separadas:
 
-El backend trabaja con identificadores lógicos de dispositivo y la asociación lógica dispositivo -> concejal cargada para la preparación.
+```text
+fingerprint físico -> device-bridge -> identificador lógico -> backend -> concejal
+```
 
-El futuro remapeo rápido:
+`devices.json` contiene la asociación física del bridge.
 
-- modifica solo esta asociación en memoria;
+El backend recibe identificadores lógicos y conserva estable durante la preparación la asociación lógica cargada desde el padrón.
+
+El remapeo rápido:
+
+- reemplaza en el bridge el fingerprint físico asociado a un identificador lógico existente;
 - puede ocurrir durante votación;
+- no altera presencia, votos ni identidad del concejal;
 - se registra;
-- no modifica automáticamente archivos base.
+- no modifica automáticamente los archivos base;
+- se inicia desde Moderación a través del backend, nunca mediante conexión directa del navegador al bridge.
 
-## 12. Autoridades
+## 13. Autoridades
 
 Presidencia y Secretaría Legislativa no forman parte del padrón ni de la configuración fija. Se ingresan como texto libre en cada preparación y pueden cambiar durante la sesión.
+
+## 14. Dependencias y versiones
+
+- Python: 3.14, gestionado con `uv` y `uv.lock`.
+- Node.js: 24 LTS.
+- JavaScript/TypeScript: `pnpm` workspaces y `pnpm-lock.yaml`.
+- Frontends: Nuxt 4 + TypeScript estricto.
+- Estilos: Tailwind CSS v4 + componentes propios.
+
+Las actualizaciones de dependencias deben ser deliberadas y revisadas; nunca una actualización automática de producción.
