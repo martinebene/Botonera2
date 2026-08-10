@@ -1,5 +1,7 @@
 # Plan de implementación
 
+**Estado del PLAN: APROBADO**
+
 Este archivo es el mapa canónico de implementación incremental de Botonera2.
 
 No reemplaza las reglas de negocio, decisiones técnicas ni documentos propietarios. Su función es ordenar los Work Packages (WP), declarar dependencias y reflejar su estado.
@@ -23,6 +25,7 @@ No reemplaza las reglas de negocio, decisiones técnicas ni documentos propietar
 - Las decisiones nuevas reservadas por DT-038 deben escalarse antes de continuar la parte afectada.
 - El agente/herramienta asignado es información operativa y puede cambiar entre WPs; no forma parte de la arquitectura permanente del producto.
 - Todo WP de implementación requiere CI aplicable verde y revisión independiente antes de integrarse.
+- La aprobación de este PLAN aprueba la secuencia y dependencias generales; cada `WP-XXX.md` debe estar individualmente `APROBADO` antes de pasar a `EN_CURSO`.
 
 ## Fase 1 - Fundaciones reproducibles
 
@@ -33,7 +36,7 @@ No reemplaza las reglas de negocio, decisiones técnicas ni documentos propietar
 | WP-003 | Implementar carga/validación/congelamiento de configuración y padrón | PENDIENTE | WP-001 | - |
 | WP-004 | Implementar motor de auditoría CSV seguro y testeable | PENDIENTE | WP-001 | - |
 
-WP-002, WP-003 y WP-004 pueden ejecutarse en paralelo después de integrar WP-001 porque sus responsabilidades son independientes y sus contratos quedarán delimitados en sus respectivos WPs.
+WP-002, WP-003 y WP-004 pueden ejecutarse en paralelo después de integrar WP-001 porque sus responsabilidades son independientes y sus contratos quedan delimitados en sus respectivos WPs.
 
 ## Fase 2 - Ciclo de sala, entradas y sesión
 
@@ -115,6 +118,10 @@ La trazabilidad se mantiene en cada WP y PR, no mediante una matriz duplicada pe
 
 Antes de ejecutar WP-001:
 
-1. revisar y aprobar este PLAN;
-2. revisar y aprobar los primeros WPs versionados;
-3. solo entonces marcar WP-001 como `EN_CURSO`, asignar agente, crear rama/worktree y comenzar implementación.
+1. aprobar individualmente `WP-001.md`;
+2. marcar WP-001 como `EN_CURSO` en este PLAN;
+3. asignar agente implementador;
+4. crear rama y `git worktree` propios;
+5. comenzar implementación únicamente con el alcance aprobado de WP-001.
+
+WP-002 puede permanecer en borrador hasta antes de su ejecución; WP-003 y WP-004 ya cuentan con aprobación documental pero dependen de WP-001 integrado.
