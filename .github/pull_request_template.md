@@ -2,6 +2,11 @@
 
 WP-XXX - Título
 
+## Agente implementador
+
+- Herramienta/agente utilizado: Codex / Claude Code / OpenCode / otro.
+- Modelo efectivo si resulta relevante para trazabilidad: indicar o `No aplica`.
+
 ## Qué cambió
 
 - Resumen concreto del resultado implementado.
