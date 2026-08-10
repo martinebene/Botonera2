@@ -42,6 +42,22 @@ La lista orienta el alcance pero no sustituye las reglas y exclusiones anteriore
 ## Invariantes y restricciones
 
 - Reglas que este WP no puede alterar.
+- Restricciones de DT-038 aplicables al alcance.
+
+## Decisiones que requieren escalamiento
+
+Si aparece una decisión reservada por DT-038, no resolverla unilateralmente. Registrar:
+
+```text
+Decisión requerida:
+Motivo:
+Alternativas:
+Impacto:
+Recomendación:
+Alcance bloqueado:
+```
+
+Detener únicamente la parte dependiente y continuar trabajo independiente seguro.
 
 ## Documentación a actualizar
 
@@ -54,9 +70,12 @@ Registrar aquí trabajo detectado que no debe incorporarse silenciosamente a est
 ## Checklist de entrega
 
 - [ ] Alcance implementado sin ampliaciones no autorizadas.
+- [ ] No se introdujeron decisiones reservadas por DT-038 sin aprobación.
 - [ ] Criterios de aceptación cumplidos.
 - [ ] Pruebas obligatorias agregadas/actualizadas y verdes.
+- [ ] No se relajaron pruebas ni criterios para hacer pasar CI.
 - [ ] Calidad estática y builds aplicables verdes.
 - [ ] Documentación actualizada.
 - [ ] Hallazgos fuera de alcance registrados.
 - [ ] PR vinculada a este WP.
+- [ ] Revisión independiente completada antes de integración.
