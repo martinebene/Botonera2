@@ -114,17 +114,44 @@ Valores iniciales acordados:
 
 ## 10. Orden del Día
 
-Formato histórico actual de referencia:
+Su función es exclusivamente asistencial. Moderación envía el archivo al backend y el backend es el único componente que lo parsea.
 
-`nro_votacion;tipo;tema;factor_de_mayoria;respecto`
+### Formato canónico Botonera2
 
-Separador `;`.
+Botonera2 acepta **únicamente** el nuevo CSV explícito:
 
-Su función es exclusivamente asistencial.
+```text
+nro_votacion,tipo,tema,tipo_mayoria,factor,base
+```
 
-El archivo se envía al backend, que realiza el parseo y valida solo que pueda interpretarlo técnicamente. No impone unicidad, secuencia ni legitimidad de valores.
+Reglas del contrato:
 
-Si no puede leerse, la carga falla pero la sesión puede operar completamente con votaciones manuales.
+- formato CSV estándar con separador coma `,` y soporte de campos entre comillas cuando el contenido incluya comas;
+- encabezado obligatorio con esas seis columnas y ese significado;
+- `nro_votacion`: número externo usado para precargar el formulario; no se valida secuencia ni unicidad institucional;
+- `tipo`: texto descriptivo que se copia al formulario;
+- `tema`: texto descriptivo;
+- `tipo_mayoria`: `SIMPLE` o `ESPECIAL`;
+- si `tipo_mayoria = SIMPLE`, `factor` y `base` deben estar vacíos;
+- si `tipo_mayoria = ESPECIAL`, `factor` debe contener un valor numérico válido para la misma regla que utiliza la apertura manual de votación y `base` debe ser `PRESENTES` o `CUERPO`;
+- el parser puede normalizar mayúsculas/minúsculas de los valores enumerados, pero el modelo normalizado interno debe usar los valores canónicos anteriores;
+- no se infiere `SIMPLE` desde `factor=0`, factor vacío ni ningún otro valor.
+
+El backend valida únicamente la legibilidad y coherencia técnica necesarias para interpretar este contrato. No impone unicidad, secuencia ni legitimidad institucional de los puntos.
+
+Si el archivo no puede interpretarse, se rechaza la carga completa pero la sesión sigue pudiendo operar mediante votaciones manuales.
+
+### Incompatibilidad deliberada con el formato histórico
+
+El formato histórico de producción utilizaba cinco columnas:
+
+```text
+nro_votacion,tipo,tema,factor_de_mayoria,respecto
+```
+
+Ese formato **no es aceptado por Botonera2**. Debe convertirse al formato canónico antes de la importación.
+
+No se implementará un adaptador automático que interprete `factor=0` o vacío como mayoría simple. Esta incompatibilidad evita reintroducir en la nueva arquitectura la semántica histórica implícita que DT-039 decidió eliminar.
 
 ## 11. Assets históricos
 
