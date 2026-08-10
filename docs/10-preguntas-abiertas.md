@@ -6,9 +6,9 @@ Las decisiones técnicas aprobadas se registran en `12-decisiones-tecnicas.md`.
 
 Este archivo contiene **únicamente decisiones técnicas todavía abiertas**. Los agentes no deben resolverlas unilateralmente.
 
-## Arquitectura, backend/datos y frontend ya cerrados
+## Arquitectura, backend/datos, frontend y calidad ya cerrados
 
-Quedaron resueltas DT-001 a DT-020. Ver `12-decisiones-tecnicas.md`.
+Quedaron resueltas DT-001 a DT-026. Ver `12-decisiones-tecnicas.md`.
 
 Resumen:
 
@@ -21,35 +21,21 @@ Resumen:
 - proyecciones separadas Moderación/Recinto;
 - sin base de datos inicial;
 - configuración `system.toml` + padrón CSV + `devices.json` del bridge;
-- auditoría CSV estructurada con `flush` + `fsync` y fallo cerrado;
+- auditoría CSV con `flush` + `fsync` y fallo cerrado;
 - Orden del Día parseado en backend;
-- remapeo físico->lógico dentro del device-bridge;
+- remapeo físico→lógico dentro del device-bridge;
 - Nuxt 4 + TypeScript estricto;
 - Tailwind CSS v4 + componentes propios;
 - sin Pinia inicialmente;
 - cliente API compartido REST/SSE;
-- compartición frontend mínima y explícita;
-- Full HD como referencia, con diseño responsive no dependiente del hardware actual.
-
-## Prioridad D - Calidad y pruebas
-
-### DT-021 Framework de pruebas backend
-Definir pytest y herramientas auxiliares para unitarias, servicios de dominio, API e integración.
-
-### DT-022 Pruebas frontend
-Definir Vitest/Vue Test Utils u otra combinación para componentes, composables y cliente compartido.
-
-### DT-023 Pruebas E2E
-Definir Playwright u otra herramienta y qué recorridos críticos deben ejecutarse automáticamente.
-
-### DT-024 Simulador de teclados
-Definir una herramienta de desarrollo reproducible para generar pulsaciones sin hardware físico y cubrir concurrencia/casos de error.
-
-### DT-025 CI
-Definir GitHub Actions, checks obligatorios, lint, typecheck, tests y política de bloqueo de merge por PR.
-
-### DT-026 Calidad estática
-Definir Ruff/formatter/type checker para Python y ESLint/Prettier o equivalentes para frontend.
+- compartición frontend mínima;
+- Full HD como referencia con diseño responsive;
+- pytest + HTTPX + AnyIO;
+- Vitest + Nuxt Test Utils + Vue Test Utils;
+- Playwright E2E en Chromium con Full HD y 1366×768 inicialmente;
+- simulador CLI reproducible de dispositivos;
+- GitHub Actions por PR;
+- Ruff + Pyright / ESLint + Prettier + typecheck.
 
 ## Prioridad E - Despliegue
 
@@ -93,11 +79,8 @@ Definir qué decisiones puede tomar un agente por sí mismo y cuáles requieren 
 
 ## Criterio para comenzar a programar
 
-Antes del primer scaffold productivo deben estar cerradas, como mínimo:
+Antes del primer scaffold productivo deben estar cerradas, como mínimo, DT-033 a DT-038.
 
-- DT-021 a DT-026;
-- DT-033 a DT-038.
-
-Las decisiones DT-027 a DT-032 deben resolverse antes del despliegue productivo y conviene cerrarlas antes si condicionan la estructura inicial.
+Las decisiones DT-027 a DT-032 conviene cerrarlas antes del scaffold porque pueden condicionar estructura de build, configuración y scripts de despliegue.
 
 Cada decisión aprobada debe retirarse de este archivo y trasladarse a `12-decisiones-tecnicas.md` antes de que los agentes dependan de ella.
