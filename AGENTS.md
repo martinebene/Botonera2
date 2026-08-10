@@ -112,7 +112,7 @@ Principios principales:
 - no desplegar deliberadamente durante preparación/sesión;
 - CSV institucionales conservados localmente en la primera versión.
 
-## Gobernanza cerrada DT-033 a DT-036
+## Gobernanza cerrada DT-033 a DT-038
 
 Ver `docs/14-gobernanza-agentes.md`.
 
@@ -130,7 +130,10 @@ Ver `docs/14-gobernanza-agentes.md`.
 - Está prohibido compartir working tree, rama o WP entre agentes simultáneos.
 - La herramienta/modelo concreto no forma parte de la arquitectura permanente; debe registrarse en la PR.
 - No se automatizan agentes generativos dentro de CI en la primera etapa.
-- `AGENTS.md` es la fuente común de instrucciones; archivos específicos de herramienta deben remitir aquí y no duplicar reglas.
+- Toda PR de implementación requiere revisión independiente en modo solo lectura.
+- Se prefiere otra familia de modelo para revisar; no puede integrarse una PR con hallazgos BLOQUEANTES o IMPORTANTES pendientes.
+- El implementador tiene autonomía sobre detalles internos locales que no cambien comportamiento observable, contratos, dependencias ni decisiones globales.
+- Las decisiones reservadas por DT-038 requieren aprobación humana/documentada antes de continuar el alcance afectado.
 
 ## Invariantes que no se pueden reinterpretar
 
@@ -188,9 +191,39 @@ Ante falla, el bridge reasigna un nuevo fingerprint al **mismo identificador ló
 - Al cancelar preparación/cerrar sesión se escribe evento final y los archivos quedan cerrados.
 - Ante caída abrupta, quedan hasta el último evento efectivamente persistido y no se reparan retrospectivamente.
 
+## Autonomía y escalamiento
+
+El agente puede resolver microdecisiones internas de código dentro del WP: nombres, helpers, módulos privados, algoritmos equivalentes, tests y refactors locales que no alteren comportamiento observable ni contratos.
+
+Debe escalar antes de:
+
+- cambiar reglas de negocio o decisiones DT cerradas;
+- modificar arquitectura o responsabilidades entre componentes;
+- cambiar contratos públicos/API/DTO compartidos fuera de lo autorizado por el WP;
+- cambiar formatos canónicos de configuración, padrón, Orden del Día o auditoría;
+- agregar una dependencia directa nueva no prevista;
+- introducir persistencia/recuperación, cambiar concurrencia, REST/SSE, secreto de votos o seguridad;
+- cambiar stack, testing, CI, calidad o despliegue;
+- ampliar el WP, modificar criterios de aceptación o documentación canónica para facilitar la implementación;
+- relajar/eliminar tests o criterios para hacer pasar la CI.
+
+Formato mínimo de escalamiento:
+
+```text
+Decisión requerida:
+Motivo:
+Alternativas:
+Impacto:
+Recomendación:
+Alcance bloqueado:
+```
+
+Solo debe detenerse la parte dependiente de esa decisión; el trabajo independiente seguro puede continuar.
+
 ## Restricciones de implementación para agentes
 
-- No iniciar un alcance que dependa de una decisión aún abierta en `docs/10-preguntas-abiertas.md`.
+- No trabajar fuera de un WP aprobado y registrado en PLAN.
+- No iniciar un WP cuyas dependencias no estén satisfechas salvo autorización explícita documentada.
 - No ampliar silenciosamente el WP asignado.
 - No modificar decisiones cerradas por iniciativa propia.
 - No introducir base de datos ni persistencia de sesión activa.
@@ -202,6 +235,7 @@ Ante falla, el bridge reasigna un nuevo fingerprint al **mismo identificador ló
 - No conectar frontends directamente al device-bridge.
 - No diseñar UI dependiente exclusivamente de 1920×1080.
 - No ejecutar dos agentes sobre el mismo working tree, rama o WP.
+- No integrar una PR sin CI aplicable verde y revisión independiente aprobatoria.
 
 Si aparece trabajo fuera de alcance, registrarlo en el WP/PR como hallazgo. Si aparece una decisión transversal nueva, detener solo el alcance afectado y elevarla para posible `DEC-XXX`.
 
