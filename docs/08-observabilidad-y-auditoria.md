@@ -6,6 +6,8 @@ El registro electrónico forma parte del comportamiento funcional del sistema, n
 
 Desde `PREPARANDO` hasta cancelación/cierre deben registrarse inmediatamente las interacciones relevantes.
 
+La primera versión no usa base de datos para auditoría ni para recuperar estado.
+
 ## 2. Tres niveles acumulativos
 
 Se conserva la lógica de profundidad de la implementación actual:
@@ -22,70 +24,90 @@ Interpretación general:
 
 La asignación concreta de cada evento debe conservar el espíritu de producción y extenderlo para cubrir las nuevas reglas.
 
-## 3. Formato
+## 3. Formato CSV canónico
 
-Botonera2 utilizará **CSV**, no los `.txt` de la versión histórica.
+Botonera2 utiliza **CSV** con:
 
-La estructura exacta de columnas es una decisión técnica pendiente, pero debe permitir como mínimo representar:
+```text
+seq;timestamp;level;tag;event_code;message
+```
 
-- timestamp;
-- nivel;
-- categoría/tag;
-- descripción/datos del evento;
-- orden inequívoco entre eventos procesados.
+Reglas:
 
-No es necesario convertir los CSV en una base de datos ni usarlos para restaurar estado.
+- delimitador `;`;
+- UTF-8 con BOM;
+- timestamp `AAAA-MM-DD HH:MM:SS`;
+- hora local del servidor;
+- precisión a segundos;
+- `seq` monotónico dentro de la preparación/sesión;
+- `event_code` estable y legible por máquina;
+- `message` legible por personas.
 
-## 4. Ciclo de archivos
+Los códigos estructurados no reemplazan la descripción humana.
 
-Al ejecutar `Preparar sala`:
+## 4. Ciclo y nombres de archivos
 
-1. tomar fecha/hora local del servidor;
-2. crear un identificador de nombre basado en esa fecha y hora;
-3. abrir tres CSV nuevos;
-4. registrar el inicio de preparación.
+Al ejecutar `Preparar sala` se toma fecha/hora local del servidor y se crea un conjunto nuevo:
 
-El nombre debe incluir hora para permitir varias preparaciones/sesiones en el mismo día sin superposición.
+```text
+logs/
+└── AAAA-MM-DD/
+    ├── AAAA-MM-DD_HH-MM-SS-L1.csv
+    ├── AAAA-MM-DD_HH-MM-SS-L2.csv
+    └── AAAA-MM-DD_HH-MM-SS-L3.csv
+```
+
+La hora en el nombre evita superposición entre múltiples preparaciones/sesiones del mismo día.
 
 Al cancelar preparación o cerrar sesión:
 
-- escribir el evento final;
-- cerrar el conjunto;
-- no volver a modificar esos archivos desde Botonera2.
+- se escribe el evento final;
+- se cierra el conjunto;
+- Botonera2 no vuelve a modificar esos archivos.
 
-## 5. Persistencia inmediata
+## 5. Persistencia inmediata y durabilidad
 
-Cada evento debe escribirse cuando ocurre, no acumularse hasta el cierre.
+Cada evento se escribe sin acumularlo hasta el cierre.
 
-Objetivo: si hay una falla técnica, conservar todo lo que efectivamente sucedió hasta la última escritura exitosa.
+Por cada persistencia obligatoria se realiza, bajo el mecanismo que serializa las operaciones del backend:
 
-## 6. Interrupciones
+1. escritura de la fila;
+2. `flush`;
+3. `fsync`.
 
-Ante caída abrupta:
+Una operación que requiera registro no debe confirmarse como exitosa antes de garantizar la persistencia definida.
 
-- no existe oportunidad garantizada de escribir un evento de cierre;
+## 6. Fallo cerrado de auditoría
+
+Si durante `PREPARANDO` o `SESION_ABIERTA` deja de ser posible garantizar escritura en los CSV:
+
+- el sistema debe exponer una falla técnica grave a Moderación;
+- no debe continuar aceptando nuevas operaciones que muten estado como si la auditoría siguiera disponible;
+- no debe confirmar parcialmente una operación cuyos registros obligatorios no pudieron persistirse coherentemente.
+
+El detalle de la transición técnica a modo de fallo debe implementarse sin inventar un nuevo estado reglamentario de sesión.
+
+## 7. Interrupciones abruptas
+
+Ante caída del proceso/equipo:
+
+- no existe garantía de poder escribir un evento final;
 - los CSV quedan terminados en el último evento persistido;
-- al reiniciar no se buscan ni reparan los archivos anteriores;
+- al reiniciar no se buscan ni reparan archivos anteriores;
 - no se agrega retrospectivamente una marca de interrupción;
 - el sistema vuelve a `SIN_PREPARAR`.
 
-## 7. Tiempo
-
-- zona: hora local del servidor;
-- precisión reglamentaria requerida: segundos;
-- formato exacto de timestamp: decisión técnica, pero debe ser inequívoco y ordenable.
-
 ## 8. Orden de eventos
 
-Las entradas concurrentes deben serializarse en el backend.
+Las entradas concurrentes se serializan en el backend.
 
 El orden en que el backend acepta, procesa y persiste los eventos es el orden oficial del sistema.
 
-Si técnicamente se utiliza un número de secuencia, debe ser monotónico dentro de la ejecución correspondiente.
+`seq` representa ese orden dentro del conjunto de archivos de una preparación/sesión.
 
-## 9. Categorías mínimas a cubrir
+## 9. Categorías mínimas
 
-La implementación debe registrar apropiadamente, según nivel:
+Deben registrarse apropiadamente, según nivel:
 
 - inicio/cancelación de preparación;
 - cambios de Presidencia;
@@ -102,46 +124,50 @@ La implementación debe registrar apropiadamente, según nivel:
 - autocierre;
 - pérdida de quórum;
 - finalización manual y motivo;
-- resultado de votación;
+- resultado;
 - empate;
 - voto presidencial de desempate explícito `POSITIVO/NEGATIVO`;
 - resultado posterior al desempate;
-- remapeo de dispositivo cuando se implemente;
+- remapeo físico de dispositivo cuando se implemente;
 - errores técnicos relevantes.
 
-## 10. Identidad de concejales en registros
+## 10. Identidad de concejales
 
-La implementación histórica usa principalmente nombre, apellido y número de banca en mensajes funcionales.
+La implementación histórica usa principalmente nombre, apellido y banca en mensajes funcionales.
 
-Botonera2 debe conservar como mínimo esa legibilidad humana. El formato CSV puede añadir DNI estructurado si resulta útil técnicamente, pero no debe reducir el registro a identificadores opacos.
+Botonera2 conserva como mínimo esa legibilidad humana en `message`. Los códigos/estructuras internas no deben reducir el registro a identificadores opacos.
 
-La decisión de columnas exactas se cerrará antes de implementar el logger.
+Las seis columnas canónicas son suficientes para la primera versión; información adicional del evento puede expresarse de forma consistente en `message` y mediante `event_code`.
 
 ## 11. Presidencia
 
-El desempate debe registrar explícitamente:
+El desempate registra explícitamente:
 
-- quién figuraba como Presidencia en ese momento;
+- quién figuraba como Presidencia;
 - sentido `POSITIVO` o `NEGATIVO`;
 - resultado final.
 
-No debe registrarse como si fuera un voto ordinario de banca.
+No se registra como voto ordinario de banca.
 
-## 12. Proyección de eventos a frontends
+## 12. Remapeo
 
-Los CSV son el registro persistente; los frontends pueden consumir una proyección reciente en memoria.
+El evento de remapeo debe permitir reconstruir qué identificador lógico fue reasignado desde qué fingerprint físico hacia qué nuevo fingerprint, sin alterar ni reescribir votos/presencia del concejal asociado.
+
+## 13. Proyección de eventos a frontends
+
+Los CSV son el registro persistente; los frontends consumen una proyección reciente en memoria.
 
 No se exige conservar el buffer histórico de 20 eventos de la versión anterior.
 
-La proyección pública debe filtrar cualquier evento que revele un voto individual mientras la votación está `EN_CURSO`.
+La proyección pública filtra cualquier evento que revele un voto individual mientras la votación está `EN_CURSO`.
 
-## 13. Edición posterior
+## 14. Edición posterior
 
-Botonera2 no ofrecerá edición de archivos cerrados.
+Botonera2 no ofrece edición de archivos cerrados.
 
 Una corrección externa institucional puede existir fuera del sistema, pero Botonera2 no reabre ni reescribe automáticamente registros históricos.
 
-## 14. Referencia histórica
+## 15. Referencia histórica
 
 La implementación actual usa:
 
@@ -151,4 +177,4 @@ La implementación actual usa:
 - líneas `HH:MM:SS | Lx | TAG | mensaje`;
 - escritura inmediata.
 
-Botonera2 conserva esa semántica, adaptándola a CSV y a un conjunto de archivos por preparación/sesión identificado por fecha y hora.
+Botonera2 conserva esa semántica de profundidad y la adapta al formato CSV estructurado definido aquí.
