@@ -16,23 +16,12 @@ Quedaron resueltas DT-001 a DT-032.
 
 ## Gobernanza de agentes
 
-### DT-033 Modelo de ramas — CERRADA
+Quedaron resueltas:
 
-Modelo trunk-based simple:
-
-- `main` como única rama estable de integración;
-- sin commits directos a `main`;
-- rama corta por Work Package: `wp/NNN-descripcion-corta`;
-- PR obligatoria;
-- CI verde antes de integrar;
-- squash merge;
-- eliminación de la rama luego del merge;
-- sin `develop` ni GitFlow.
+- DT-033: modelo trunk-based simple con rama corta por WP, PR obligatoria, CI verde y squash merge;
+- DT-034: WPs pequeños, orientados a un único resultado verificable, con dependencias, alcance, exclusiones, criterios de aceptación y una PR por WP.
 
 Ver `14-gobernanza-agentes.md`.
-
-### DT-034 Tamaño de unidades de trabajo
-Definir cómo descomponer la implementación en work packages pequeños y verificables.
 
 ### DT-035 Documentación para agentes
 Definir artefactos adicionales: decisiones técnicas, planes, matrices de trazabilidad, especificaciones de work packages y checklist de entrega.
@@ -48,7 +37,7 @@ Definir qué decisiones puede tomar un agente por sí mismo y cuáles requieren 
 
 ## Criterio para comenzar a programar
 
-Antes del primer scaffold productivo deben estar cerradas DT-034 a DT-038.
+Antes del primer scaffold productivo deben estar cerradas DT-035 a DT-038.
 
 Una vez cerradas, el repositorio tendrá definidas las reglas de negocio, arquitectura, stack, calidad, despliegue y gobernanza mínima necesaria para comenzar implementación incremental con agentes.
 
