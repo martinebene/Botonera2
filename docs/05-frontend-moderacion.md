@@ -1,8 +1,20 @@
 # 05 - Frontend de Moderación
 
-Frontend Nuxt.js para el operador único del sistema. No contiene reglas de negocio: representa estado y envía comandos al backend.
+Frontend **Nuxt 4 + TypeScript estricto**, con Tailwind CSS v4 y componentes propios, destinado al operador único del sistema. No contiene reglas de negocio: representa estado y envía comandos al backend.
 
-## 1. Estados globales
+El estado autoritativo vive en FastAPI. La primera versión no usa Pinia: la proyección recibida y el estado visual local se manejan con composables/primitives de Vue/Nuxt.
+
+## 1. Sincronización
+
+- snapshot completo por REST al cargar/reconectar;
+- actualizaciones por SSE;
+- comandos por REST `/api/v1`;
+- cliente común en `packages/api-client/`;
+- ante reconexión SSE se recupera snapshot antes de asumir continuidad.
+
+La UI no reconstruye reglas de negocio localmente.
+
+## 2. Estados globales
 
 ### SIN_PREPARAR
 Debe ofrecer como acción principal `Preparar sala`.
@@ -33,11 +45,11 @@ Debe permitir:
 - utilizar Orden del Día como asistencia;
 - ver eventos;
 - cerrar sesión;
-- en el futuro, remapear dispositivos.
+- ejecutar el remapeo rápido cuando se implemente.
 
-## 2. Organización funcional
+## 3. Organización funcional
 
-Se conserva como referencia útil la división de la interfaz vigente en cuatro áreas, sin obligar a copiar su HTML/CSS:
+Se conserva como referencia útil la división vigente en cuatro áreas, sin obligar a copiar su HTML/CSS:
 
 1. comandos y estado de sesión/votación;
 2. Orden del Día;
@@ -46,7 +58,7 @@ Se conserva como referencia útil la división de la interfaz vigente en cuatro 
 
 La implementación Nuxt puede reorganizar visualmente estas áreas si mejora la operación sin perder información ni simultaneidad.
 
-## 3. Preparación
+## 4. Preparación
 
 El operador no puede marcar presencia manualmente.
 
@@ -58,15 +70,15 @@ Cada banca debe reflejar:
 
 Debe ser evidente si falta quórum y cuántos concejales faltan.
 
-## 4. Autoridades
+## 5. Autoridades
 
 Presidencia y Secretaría son texto libre.
 
 Pueden modificarse durante preparación o sesión, incluso durante una votación.
 
-La interfaz no debe intentar decidir si el texto de Presidencia coincide con un concejal ni modificar el estado de ese concejal.
+La interfaz no intenta decidir si el texto de Presidencia coincide con un concejal ni modifica su estado.
 
-## 5. Apertura de sesión
+## 6. Apertura de sesión
 
 El botón solo debe ser funcional cuando el backend confirme:
 
@@ -77,21 +89,21 @@ El botón solo debe ser funcional cuando el backend confirme:
 
 La interfaz puede explicar qué condición falta, pero la validación definitiva es del backend.
 
-## 6. Orden del Día
+## 7. Orden del Día
 
 Debe permitir:
 
-- cargar CSV;
+- cargar CSV y enviarlo al backend para parseo;
 - informar errores técnicos de lectura/formato;
-- listar puntos cargados;
+- listar puntos devueltos;
 - seleccionar un punto para precargar el formulario;
 - editar todos los campos precargados antes de abrir;
-- crear una votación manual sin usar el listado;
+- crear una votación manual;
 - seleccionar puntos en cualquier orden.
 
-No debe presentar advertencias por números repetidos, secuencia u otras cuestiones institucionales que Botonera2 no valida.
+No debe advertir por números repetidos, secuencia u otras cuestiones institucionales que Botonera2 no valida.
 
-## 7. Formulario de votación
+## 8. Formulario de votación
 
 Campos conceptuales:
 
@@ -102,11 +114,11 @@ Campos conceptuales:
 - si es especial: factor;
 - si es especial: base `PRESENTES` o `CUERPO`.
 
-La UI debe dejar visualmente claro que mayoría simple no equivale a factor 0,5.
+La UI debe dejar claro que mayoría simple no equivale a factor 0,5.
 
-Una vez abierta, los datos se muestran como inmutables.
+Una vez abierta, los datos son inmutables.
 
-## 8. Votación en curso
+## 9. Votación en curso
 
 Debe mostrar:
 
@@ -119,29 +131,29 @@ Debe mostrar:
 
 No existe pausa. Los concejales pueden pedir/usarla palabra mientras continúan llegando votos.
 
-## 9. Finalizar votación
+## 10. Finalizar votación
 
 Existe una sola acción conceptual `Finalizar votación`.
 
-Puede usarse en cualquier momento de `EN_CURSO` y debe exigir un motivo no vacío.
+Puede usarse en cualquier momento de `EN_CURSO` y exige motivo no vacío.
 
 El backend decide el resultado, normalmente `INCONCLUSA` si se finaliza antes de completar.
 
 La interfaz no ofrece edición de votos ni modificación de una votación abierta.
 
-## 10. Empate y Presidencia
+## 11. Empate y Presidencia
 
 Cuando una mayoría simple queda `EMPATADA`:
 
 - se bloquea abrir otra votación;
-- Moderación debe mostrar controles de desempate `POSITIVO` / `NEGATIVO`;
+- Moderación muestra controles `POSITIVO` / `NEGATIVO`;
 - no hay abstención;
-- debe mostrar claramente quién figura actualmente como Presidencia;
-- una vez enviado, el desempate es irreversible.
+- muestra quién figura como Presidencia;
+- el desempate es irreversible.
 
-Si se cierra la sesión sin desempatar, el backend convertirá la votación a `INCONCLUSA`.
+Si se cierra la sesión sin desempatar, el backend convierte la votación a `INCONCLUSA`.
 
-## 11. Uso de la palabra
+## 12. Uso de la palabra
 
 Debe mostrar:
 
@@ -153,32 +165,50 @@ Otorgar con alguien hablando reemplaza automáticamente al orador actual por el 
 
 Los cambios de presencia pueden quitar automáticamente concejales de la cola o del uso actual.
 
-## 12. Eventos
+## 13. Eventos
 
-Debe mostrar una proyección legible de eventos recientes, independiente de los archivos CSV completos.
+Debe mostrar una proyección legible de eventos recientes, independiente de los CSV completos.
 
-El crecimiento del listado debe usar scroll interno y **no aumentar la altura de los demás cuadrantes/áreas de la interfaz**.
+El crecimiento del listado usa scroll interno y **no aumenta la altura de las demás áreas**.
 
-## 13. Reconexión
+## 14. Remapeo rápido
 
-Al recargar o recuperar conexión debe reconstruir toda la interfaz desde el estado actual del backend.
+La operación futura se inicia desde Moderación pero se ejecuta técnicamente a través de backend + `device-bridge`.
 
-No debe depender de variables locales para saber si existe sesión/votación activa.
+Flujo conceptual:
 
-## 14. Errores
+1. identificar la banca/concejal afectado y su identificador lógico actual;
+2. iniciar modo de reemplazo;
+3. el bridge detecta/captura el nuevo teclado físico;
+4. reasigna el nuevo fingerprint al **mismo identificador lógico**;
+5. confirmar visualmente el éxito.
 
-Los errores funcionales deben presentarse con mensajes claros, basados en identificadores estables del backend.
+No cambia concejal, presencia, votos ni padrón y no conecta el navegador directamente con el bridge.
 
-No se debe ocultar un rechazo de comando ni simular localmente que una acción tuvo éxito.
+## 15. Responsive y hardware
 
-## 15. Remapeo rápido pendiente
+Resolución de referencia actual: **1920×1080 (Full HD)**.
 
-La arquitectura visual debe reservar la posibilidad de una operación rápida de reemplazo de dispositivo:
+No es una dependencia rígida. La interfaz debe:
 
-- elegir concejal;
-- asociar nuevo dispositivo lógico;
-- confirmar;
-- mostrar que el cambio es temporal/en memoria;
-- no alterar presencia ni votos.
+- conservar funcionalidad ante resoluciones menores razonables y cambios de escala;
+- evitar solapamientos y controles inaccesibles;
+- usar layouts fluidos/grid/flex y límites mínimos/máximos apropiados;
+- usar scroll interno en áreas extensas;
+- mantener información crítica visible y legible.
 
-El diseño definitivo se resolverá después.
+No se aceptan soluciones que solo funcionen correctamente con coordenadas/tamaños fijos para Full HD.
+
+## 16. Reconexión
+
+Al recargar o recuperar conexión debe reconstruir toda la interfaz desde `ModerationState` del backend.
+
+No depende de variables locales para determinar sesión/votación activa.
+
+## 17. Errores
+
+Los errores funcionales se presentan con mensajes claros basados en identificadores estables del backend.
+
+No se oculta un rechazo ni se simula localmente que una acción tuvo éxito.
+
+Si el backend informa que la auditoría obligatoria no puede persistirse, debe mostrarse como condición técnica grave y bloquear visualmente nuevas acciones que el backend no acepte.
