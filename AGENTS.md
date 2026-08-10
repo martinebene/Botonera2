@@ -6,32 +6,50 @@ Este repositorio contiene la especificación canónica y, posteriormente, la imp
 
 Los agentes deben implementar lo documentado aquí; no reconstruir el producto a partir del repositorio histórico.
 
-## Orden de lectura obligatorio
+## Flujo de lectura obligatorio para implementación
 
-Antes de proponer o modificar código:
+Para un Work Package normal, antes de proponer o modificar código:
 
-1. `README.md`
-2. `docs/00-principios-y-alcance.md`
-3. `docs/01-reglas-de-negocio.md`
-4. `docs/02-modelo-de-dominio-y-estados.md`
-5. `docs/03-casos-de-uso.md`
-6. `docs/04-contratos-e-integraciones.md`
-7. `docs/05-frontend-moderacion.md`
-8. `docs/06-frontend-pantalla-recinto.md`
-9. `docs/07-configuracion-datos-y-assets.md`
-10. `docs/08-observabilidad-y-auditoria.md`
-11. `docs/09-fuentes-y-trazabilidad.md`
-12. `docs/10-preguntas-abiertas.md`
-13. `docs/11-criterios-de-aceptacion.md`
-14. `docs/12-decisiones-tecnicas.md`
+1. leer `AGENTS.md`;
+2. leer el `docs/work-packages/WP-XXX.md` asignado;
+3. leer únicamente las fuentes canónicas y secciones que ese WP declare obligatorias;
+4. inspeccionar el código, contratos y pruebas directamente necesarios para ese alcance.
+
+No recorrer indiscriminadamente toda la documentación o todo el monorepo cuando el WP ya delimita el contexto necesario.
+
+Los agentes de planificación, auditoría global, revisión transversal o resolución de contradicciones pueden necesitar ampliar el contexto según su tarea.
+
+## Documentos de orientación global
+
+Cuando una tarea requiera reconstrucción global, las fuentes principales son:
+
+- `README.md`;
+- `docs/00-principios-y-alcance.md`;
+- `docs/01-reglas-de-negocio.md`;
+- `docs/02-modelo-de-dominio-y-estados.md`;
+- `docs/03-casos-de-uso.md`;
+- `docs/04-contratos-e-integraciones.md`;
+- `docs/05-frontend-moderacion.md`;
+- `docs/06-frontend-pantalla-recinto.md`;
+- `docs/07-configuracion-datos-y-assets.md`;
+- `docs/08-observabilidad-y-auditoria.md`;
+- `docs/09-fuentes-y-trazabilidad.md`;
+- `docs/10-preguntas-abiertas.md`;
+- `docs/11-criterios-de-aceptacion.md`;
+- `docs/12-decisiones-tecnicas.md`;
+- `docs/13-despliegue-y-operacion.md`;
+- `docs/14-gobernanza-agentes.md`;
+- `docs/implementation/PLAN.md`.
 
 ## Autoridad documental
 
 - La documentación de Botonera2 es la fuente normativa para la nueva implementación.
-- El repositorio histórico `martinebene/Botonera`, rama `main`, solo puede consultarse cuando esta documentación lo indique para descargar assets, validar una regla histórica puntual o comprobar compatibilidad con el bridge físico existente.
+- El WP asignado define el alcance operativo, pero no puede contradecir reglas o decisiones canónicas.
+- El repositorio histórico `martinebene/Botonera`, rama `main`, solo puede consultarse cuando la documentación/WP lo indique para descargar assets, validar una regla histórica puntual o comprobar compatibilidad con el bridge físico existente.
 - No copiar arquitectura, clases, endpoints internos, polling, serialización ni estructura histórica por defecto.
 - La rama histórica `v2` no es normativa.
 - Si una implementación antigua contradice Botonera2, manda Botonera2.
+- El prompt de ejecución no reemplaza la especificación versionada del WP ni puede ampliar silenciosamente su alcance.
 
 ## Arquitectura funcional obligatoria
 
@@ -49,7 +67,7 @@ El backend es la única autoridad de estado global, preparación, sesión, prese
 
 Los frontends representan estado y envían comandos permitidos. Nunca deciden reglas de negocio.
 
-## Stack técnico cerrado DT-001 a DT-020
+## Stack técnico cerrado DT-001 a DT-026
 
 - Python **3.14** con **uv** y `uv.lock`.
 - Node.js **24 LTS** con **pnpm workspaces** y `pnpm-lock.yaml`.
@@ -71,9 +89,40 @@ Los frontends representan estado y envían comandos permitidos. Nunca deciden re
 - Sin Pinia inicialmente; estado frontend mediante composables/primitives.
 - `packages/api-client/` concentra REST/SSE/reconexión/tipos.
 - Compartición de UI mínima, no una librería común extensa preventiva.
-- 1920×1080 es resolución de referencia, no dependencia rígida; ambos frontends deben ser adaptables a hardware/resoluciones razonables.
+- 1920×1080 es resolución de referencia, no dependencia rígida; ambos frontends deben ser adaptables.
+- pytest + HTTPX + AnyIO para backend.
+- Vitest + Nuxt Test Utils + Vue Test Utils para frontend.
+- Playwright para E2E críticos.
+- GitHub Actions por PR.
+- Ruff + Pyright en Python; ESLint + Prettier + `nuxt typecheck` en frontend.
 
-Estas decisiones están desarrolladas en `docs/12-decisiones-tecnicas.md` y no deben reconsiderarse dentro de un work package normal.
+Estas decisiones están desarrolladas en `docs/12-decisiones-tecnicas.md` y no deben reconsiderarse dentro de un WP normal.
+
+## Despliegue cerrado DT-027 a DT-032
+
+Ver `docs/13-despliegue-y-operacion.md`.
+
+Principios principales:
+
+- Linux Mint 22.3 Cinnamon como plataforma de referencia;
+- systemd nativo;
+- Nuxt SPA estáticas;
+- Nginx y mismo origen para frontends/API;
+- releases inmutables con `current` y rollback;
+- no desplegar deliberadamente durante preparación/sesión;
+- CSV institucionales conservados localmente en la primera versión.
+
+## Gobernanza cerrada DT-033 a DT-035
+
+Ver `docs/14-gobernanza-agentes.md`.
+
+- `main` es la única rama estable de integración.
+- Cada WP usa rama corta `wp/NNN-descripcion-corta` y una PR.
+- WPs pequeños, con un único resultado verificable.
+- `docs/implementation/PLAN.md` ordena WPs y dependencias.
+- `docs/work-packages/WP-XXX.md` es el contrato versionado del trabajo.
+- `docs/decisions/DEC-XXX-*.md` se reserva para decisiones nuevas realmente transversales/relevantes.
+- `.github/pull_request_template.md` define el mínimo de entrega de cada PR.
 
 ## Invariantes que no se pueden reinterpretar
 
@@ -113,8 +162,6 @@ En `SIN_PREPARAR` ninguna pulsación produce efecto funcional ni pertenece a CSV
 
 ### Remapeo rápido
 
-La relación técnica es:
-
 ```text
 fingerprint físico -> device-bridge -> identificador lógico -> backend -> concejal
 ```
@@ -135,28 +182,30 @@ Ante falla, el bridge reasigna un nuevo fingerprint al **mismo identificador ló
 
 ## Restricciones de implementación para agentes
 
-Hasta cerrar las decisiones técnicas requeridas por el alcance en `docs/10-preguntas-abiertas.md`:
+- No iniciar un alcance que dependa de una decisión aún abierta en `docs/10-preguntas-abiertas.md`.
+- No ampliar silenciosamente el WP asignado.
+- No modificar decisiones cerradas por iniciativa propia.
+- No introducir base de datos ni persistencia de sesión activa.
+- No sustituir stack, transporte, testing, calidad o despliegue sin decisión documentada.
+- No introducir autenticación de operador salvo decisión explícita.
+- No sustituir CSV como registro institucional.
+- No agregar edición/corrección de votos.
+- No validar autoridad o contenido político/administrativo del Orden del Día.
+- No conectar frontends directamente al device-bridge.
+- No diseñar UI dependiente exclusivamente de 1920×1080.
 
-- no iniciar un alcance que dependa de una decisión aún abierta;
-- no modificar DT-001 a DT-020 por iniciativa propia;
-- no introducir base de datos ni persistencia de sesión activa;
-- no sustituir `uv`, `pnpm`, REST+SSE, Nuxt 4, Tailwind v4 o la estrategia de estado sin decisión documentada;
-- no introducir autenticación de operador salvo decisión explícita;
-- no sustituir CSV como registro institucional;
-- no agregar edición/corrección de votos;
-- no validar autoridad o contenido político/administrativo del Orden del Día;
-- no conectar los frontends directamente al device-bridge;
-- no diseñar una UI dependiente exclusivamente de 1920×1080.
+Si aparece trabajo fuera de alcance, registrarlo en el WP/PR como hallazgo. Si aparece una decisión transversal nueva, detener solo el alcance afectado y elevarla para posible `DEC-XXX`.
 
 ## Calidad esperada
 
-Cada cambio futuro debe:
+Cada cambio debe:
 
-- corresponder a reglas/casos de uso documentados;
+- corresponder al WP y a fuentes canónicas indicadas;
+- cumplir criterios de aceptación;
 - incluir pruebas proporcionales al riesgo;
 - preservar invariantes;
 - mantener backend/frontends desacoplados por contratos claros;
 - evitar secretos y datos reales;
-- mantener trazabilidad entre requisito, implementación y prueba.
+- mantener trazabilidad `requisito -> WP -> aceptación -> prueba -> PR`.
 
 Si aparece una contradicción real entre documentos, no adivinar: detener únicamente el alcance afectado y documentar la inconsistencia.
