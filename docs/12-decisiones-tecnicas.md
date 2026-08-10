@@ -282,9 +282,30 @@ Los checks deberán convertirse en obligatorios para integrar cuando se cierre l
 
 En CI estas herramientas verifican; no autocorrigen ni modifican código.
 
+## DT-039 - Formato canónico del CSV de Orden del Día
+
+Botonera2 utilizará exclusivamente un **nuevo contrato explícito** de Orden del Día:
+
+```text
+nro_votacion,tipo,tema,tipo_mayoria,factor,base
+```
+
+Reglas:
+
+- CSV con separador coma y quoting CSV estándar;
+- `tipo_mayoria` debe representar explícitamente `SIMPLE` o `ESPECIAL`;
+- para `SIMPLE`, `factor` y `base` deben estar vacíos;
+- para `ESPECIAL`, `factor` es obligatorio y `base` debe ser `PRESENTES` o `CUERPO`;
+- el parser backend puede normalizar mayúsculas/minúsculas de valores enumerados, pero el modelo interno utiliza los valores canónicos;
+- no se infiere mayoría simple desde `factor=0`, factor vacío ni otro valor;
+- el formato histórico de cinco columnas `nro_votacion,tipo,tema,factor_de_mayoria,respecto` **no es aceptado** y debe convertirse externamente antes de importar;
+- Botonera2 no implementará adaptador automático de compatibilidad para ese formato histórico.
+
+El detalle del contrato vive en `docs/07-configuracion-datos-y-assets.md` y debe regir WP-016 y la UI de Orden del Día.
+
 ## Consecuencias para los agentes
 
-DT-001 a DT-026 están cerradas. Los agentes no deben, sin una nueva decisión documentada:
+DT-001 a DT-026 y DT-039 están cerradas. Los agentes no deben, sin una nueva decisión documentada:
 
 - dividir el sistema en repositorios independientes;
 - sustituir `uv`, `pnpm`, Nuxt 4 o Tailwind v4;
@@ -294,6 +315,7 @@ DT-001 a DT-026 están cerradas. Los agentes no deben, sin una nueva decisión d
 - sustituir REST + SSE por WebSockets;
 - entregar al frontend público el DTO completo de Moderación;
 - parsear el Orden del Día exclusivamente en frontend;
+- aceptar el formato histórico de Orden del Día o inferir mayoría desde el factor;
 - aceptar mutaciones si la auditoría obligatoria no puede persistirse;
 - implementar remapeo cambiando votos, presencia o identidad;
 - introducir Pinia o una librería UI extensa por iniciativa propia;
