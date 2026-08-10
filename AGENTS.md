@@ -112,17 +112,25 @@ Principios principales:
 - no desplegar deliberadamente durante preparación/sesión;
 - CSV institucionales conservados localmente en la primera versión.
 
-## Gobernanza cerrada DT-033 a DT-035
+## Gobernanza cerrada DT-033 a DT-036
 
 Ver `docs/14-gobernanza-agentes.md`.
 
 - `main` es la única rama estable de integración.
 - Cada WP usa rama corta `wp/NNN-descripcion-corta` y una PR.
 - WPs pequeños, con un único resultado verificable.
-- `docs/implementation/PLAN.md` ordena WPs y dependencias.
+- `docs/implementation/PLAN.md` ordena WPs, dependencias, estado y agente asignado.
 - `docs/work-packages/WP-XXX.md` es el contrato versionado del trabajo.
 - `docs/decisions/DEC-XXX-*.md` se reserva para decisiones nuevas realmente transversales/relevantes.
 - `.github/pull_request_template.md` define el mínimo de entrega de cada PR.
+- Codex es el implementador predeterminado; Claude Code y OpenCode son alternativas válidas por WP.
+- Un WP tiene un único agente implementador.
+- Cada WP `EN_CURSO` usa rama, `git worktree` y sesión de agente propios.
+- Dos agentes solo pueden trabajar en paralelo sobre WPs independientes autorizados por PLAN.
+- Está prohibido compartir working tree, rama o WP entre agentes simultáneos.
+- La herramienta/modelo concreto no forma parte de la arquitectura permanente; debe registrarse en la PR.
+- No se automatizan agentes generativos dentro de CI en la primera etapa.
+- `AGENTS.md` es la fuente común de instrucciones; archivos específicos de herramienta deben remitir aquí y no duplicar reglas.
 
 ## Invariantes que no se pueden reinterpretar
 
@@ -193,6 +201,7 @@ Ante falla, el bridge reasigna un nuevo fingerprint al **mismo identificador ló
 - No validar autoridad o contenido político/administrativo del Orden del Día.
 - No conectar frontends directamente al device-bridge.
 - No diseñar UI dependiente exclusivamente de 1920×1080.
+- No ejecutar dos agentes sobre el mismo working tree, rama o WP.
 
 Si aparece trabajo fuera de alcance, registrarlo en el WP/PR como hallazgo. Si aparece una decisión transversal nueva, detener solo el alcance afectado y elevarla para posible `DEC-XXX`.
 
