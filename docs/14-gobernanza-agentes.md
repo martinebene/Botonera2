@@ -19,7 +19,7 @@ Botonera2 utilizará un modelo **trunk-based simple** con `main` como única ram
 - No se permite que dos agentes implementen simultáneamente sobre la misma rama.
 - Todo cambio de producto entra mediante Pull Request.
 - La CI definida para el alcance debe estar verde antes de integrar.
-- La política de revisión independiente se completa en DT-037.
+- La revisión independiente definida en DT-037 debe estar completada antes de integrar una PR de implementación.
 - El merge se realiza mediante **squash merge**, dejando un único commit final trazable al WP.
 - El título del PR y el commit resultante deben incluir el identificador del WP.
 - Después del merge se elimina la rama de trabajo.
@@ -181,7 +181,8 @@ No se mantendrá inicialmente una matriz global duplicada. Puede agregarse más 
 - documentación actualizada;
 - decisiones/desviaciones;
 - hallazgos fuera de alcance;
-- riesgos pendientes.
+- riesgos pendientes;
+- evidencia de revisión independiente cuando corresponda.
 
 El prompt entregado a un agente puede aportar instrucciones de ejecución, pero **no reemplaza el WP documentado como fuente canónica del alcance**.
 
@@ -211,7 +212,7 @@ OpenCode se considera un arnés multiproveedor; la independencia de una revisió
 
 #### Revisión
 
-La revisión independiente se define en DT-037. La herramienta de revisión puede ser Codex, Claude Code, OpenCode con otro modelo u otra capacidad equivalente, siempre que cumpla la independencia que se establezca allí.
+La herramienta de revisión puede ser Codex, Claude Code, OpenCode con otro modelo u otra capacidad equivalente, siempre que cumpla DT-037.
 
 ### Aislamiento obligatorio de trabajo
 
@@ -224,47 +225,99 @@ Cada WP en ejecución debe usar:
 - sesión de agente propia;
 - WP propio.
 
-Está prohibido que dos agentes editen simultáneamente:
+Está prohibido que dos agentes editen simultáneamente el mismo working tree, la misma rama o el mismo WP.
 
-- el mismo working tree;
-- la misma rama;
-- el mismo WP.
-
-Ejemplo:
-
-```text
-WP-006 -> worktree A -> wp/006-votacion-simple -> Codex
-WP-008 -> worktree B -> wp/008-uso-palabra -> Claude Code
-WP-009 -> worktree C -> wp/009-cliente-api -> OpenCode
-```
-
-Si aparece una dependencia no prevista o una superposición importante de archivos/contratos, los WPs se serializan o se replantea el PLAN; no se resuelve haciendo trabajar varios agentes sobre el mismo árbol.
+Si aparece una dependencia no prevista o una superposición importante de archivos/contratos, los WPs se serializan o se replantea el PLAN.
 
 ### Registro en PLAN
 
-`PLAN.md` debe permitir registrar, como mínimo:
-
-```text
-WP       Estado      Agente
-WP-006   EN_CURSO    Codex
-WP-007   PENDIENTE   -
-WP-008   EN_CURSO    Claude Code
-```
-
-El nombre del agente/herramienta es información operativa, no una decisión arquitectónica permanente.
+`PLAN.md` debe permitir registrar agente/herramienta asignado para cada WP en ejecución. El nombre del agente es información operativa, no una decisión arquitectónica permanente.
 
 ### Archivos de instrucciones por herramienta
 
-`AGENTS.md` es la fuente común de instrucciones para agentes.
-
-Cuando una herramienta requiera su propio archivo de entrada, este debe ser **mínimo** y remitir a `AGENTS.md` en lugar de duplicar reglas. En particular, `CLAUDE.md` debe limitarse a cargar/remitir a `AGENTS.md` y a indicar que el WP asignado y sus fuentes canónicas gobiernan el alcance.
-
-No deben mantenerse copias completas y divergentes de las mismas reglas en archivos específicos de cada herramienta.
+`AGENTS.md` es la fuente común de instrucciones para agentes. Cuando una herramienta requiera su propio archivo de entrada, este debe ser mínimo y remitir a `AGENTS.md` en lugar de duplicar reglas.
 
 ### Automatización agéntica
 
-En la primera etapa no se incorporarán agentes generativos que modifiquen automáticamente PRs desde GitHub Actions.
+En la primera etapa no se incorporarán agentes generativos que modifiquen automáticamente PRs desde GitHub Actions. La CI será determinista y la invocación de agentes para implementar o revisar será deliberada y trazable.
 
-La CI será determinista. La invocación de agentes para implementar o revisar será deliberada y trazable.
+## DT-037 - Revisión independiente obligatoria
 
-Una automatización futura de agentes requiere una decisión nueva documentada.
+Toda Pull Request de implementación debe recibir una **revisión independiente** antes de integrarse.
+
+### Independencia
+
+- El revisor no puede ser la misma sesión/agente que implementó el WP.
+- Se prefiere utilizar una **familia de modelo diferente** de la utilizada por el implementador.
+- Ejemplos preferidos: Codex implementa → Claude revisa; Claude implementa → Codex revisa.
+- OpenCode cuenta como herramienta independiente solo si el modelo/agente efectivo usado para revisar es diferente del implementador.
+- Cambiar únicamente de aplicación o arnés manteniendo el mismo modelo no constituye por sí solo una revisión independiente suficiente.
+
+La independencia se evalúa por el agente/modelo efectivo y la sesión de trabajo, no por el nombre comercial del cliente utilizado.
+
+### Modalidad de revisión
+
+El revisor actúa en **modo de solo lectura** sobre el alcance revisado. No implementa correcciones directamente en la rama del WP.
+
+Debe reconstruir el contexto desde:
+
+1. `AGENTS.md`;
+2. el `WP-XXX.md` correspondiente;
+3. las fuentes canónicas indicadas por el WP;
+4. el diff completo entre `main` y la rama/PR;
+5. las pruebas agregadas o modificadas;
+6. los resultados de CI disponibles.
+
+### Alcance mínimo de la revisión
+
+Debe evaluar, según corresponda:
+
+- cumplimiento exacto del objetivo, alcance y exclusiones del WP;
+- reglas de negocio e invariantes afectadas;
+- cambios fuera de alcance;
+- errores funcionales y casos límite;
+- concurrencia y estado en memoria;
+- contratos/API y compatibilidad entre componentes;
+- secreto temporal de votos;
+- auditoría y persistencia obligatoria;
+- seguridad y exposición accidental de datos;
+- regresiones;
+- calidad y suficiencia de las pruebas;
+- documentación y trazabilidad.
+
+### Severidades
+
+Los hallazgos se clasifican al menos como:
+
+- **BLOQUEANTE**: impide integración; compromete corrección, invariantes, seguridad, auditoría, contratos esenciales o capacidad de operar/probar el WP.
+- **IMPORTANTE**: defecto significativo o incumplimiento del WP que debe corregirse antes de integrar.
+- **MENOR**: mejora o defecto de bajo impacto que puede corregirse antes de integrar o registrarse explícitamente como seguimiento cuando no comprometa aceptación.
+
+Una PR **no puede integrarse con hallazgos BLOQUEANTES o IMPORTANTES pendientes**.
+
+### Ciclo de corrección
+
+Si el revisor encuentra problemas:
+
+1. el implementador corrige en la misma rama del WP;
+2. se vuelven a ejecutar las pruebas/CI aplicables;
+3. el mismo revisor independiente puede volver a revisar;
+4. se repite hasta que no queden hallazgos BLOQUEANTES o IMPORTANTES abiertos.
+
+El revisor no pierde independencia por revisar sucesivas correcciones mientras no se convierta en implementador de esas correcciones.
+
+### Qué cambios requieren esta revisión
+
+- Toda PR de implementación de un WP.
+- Cambios canónicos relevantes de arquitectura, contratos, auditoría, CI o despliegue, aunque tengan poco código.
+
+Cambios administrativos puramente menores pueden quedar exentos cuando no modifiquen comportamiento, arquitectura, contratos ni reglas. La exención debe ser evidente y no utilizarse para eludir la revisión de cambios sustantivos.
+
+### Evidencia
+
+La PR debe registrar:
+
+- herramienta/agente revisor;
+- modelo efectivo cuando sea relevante para demostrar independencia;
+- resultado de la revisión;
+- hallazgos pendientes o confirmación de que no existen BLOQUEANTES/IMPORTANTES abiertos.
