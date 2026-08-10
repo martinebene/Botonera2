@@ -1,114 +1,129 @@
-# 00 — Principios y alcance
+# 00 - Principios y alcance
 
-## 1. Propósito
+## 1. Producto
 
-Botonera2 reemplazará mediante una implementación nueva al sistema de gestión de sesiones y votación electrónica actualmente operativo en el Concejo Deliberante de Puerto Madryn.
+Botonera2 es el sistema que asiste la preparación, desarrollo, votación, uso de la palabra y registro electrónico de una sesión del Concejo Deliberante de Puerto Madryn.
 
-El objetivo de esta fase documental es separar con claridad:
+No reemplaza la documentación oficial del Concejo ni interpreta su contenido. Su función es gestionar interacciones operativas y registrar lo ocurrido.
 
-- **qué debe hacer el sistema**;
-- **qué comportamiento está comprobado en producción**;
-- **qué aspectos del MVP son solo detalles técnicos históricos**;
-- **qué decisiones todavía requieren definición**.
+## 2. Actores y superficies
 
-## 2. Alcance funcional
+### Moderación
 
-El sistema debe cubrir:
+Operador único, sin identificación individual en esta versión. Utiliza el frontend de Moderación para:
 
-1. gestión de una sesión legislativa activa;
-2. carga de la nómina de concejales y asignación de banca/dispositivo;
-3. acreditación de presencia durante una sesión;
-4. cálculo y visualización de quórum;
-5. apertura, desarrollo y cierre de votaciones;
-6. mayoría simple y mayoría especial;
-7. cómputo de mayoría especial respecto de presentes o cuerpo;
-8. abstenciones;
-9. empate y voto de desempate;
-10. cierre automático y cierre forzado de votaciones;
-11. pedidos, cola y otorgamiento de uso de la palabra;
-12. recepción de pulsaciones desde dispositivos físicos externos;
-13. carga local de Orden del Día para agilizar la moderación;
-14. visualización del recinto, presencia, palabra y resultados;
-15. registro de eventos operativos;
-16. dos interfaces independientes: Moderación y Pantalla de Recinto.
+- preparar/cancelar sala;
+- indicar número de sesión;
+- informar Presidencia y Secretaría Legislativa;
+- abrir/cerrar sesión;
+- cargar Orden del Día como asistencia;
+- abrir/finalizar votaciones;
+- resolver desempates presidenciales;
+- otorgar/quitar palabra;
+- cambiar Presidencia o Secretaría;
+- visualizar estado y eventos;
+- ejecutar, en el futuro, remapeo rápido de dispositivos.
 
-## 3. Arquitectura objetivo fijada
+### Concejales
 
-### Backend
+Interactúan exclusivamente mediante sus dispositivos físicos para:
 
-- FastAPI.
-- Autoridad única del estado y de las reglas de negocio.
-- Expone comandos y lecturas a los dos frontends y a la integración de teclados.
+- acreditar/retirar presencia;
+- probar el dispositivo;
+- pedir/retirar palabra o terminar su propio uso;
+- emitir voto ordinario cuando corresponda.
 
-### Frontend 1 — Moderación
+Moderación no puede acreditar presencia ni votar en nombre de un concejal.
 
-- Nuxt.js.
-- Uso operativo por la autoridad o personal de sesión.
-- Permite comandar sesión, votaciones y palabra, además de visualizar estado y eventos.
+### Presidencia
 
-### Frontend 2 — Pantalla de Recinto
+Rol institucional independiente de cualquier eventual rol de Concejal de la persona que lo ejerza.
 
-- Nuxt.js.
-- Solo lectura funcional.
-- Destinada a proyección pública en el recinto.
-- Debe respetar especialmente el secreto de los votos mientras la votación esté en curso.
+El sistema solo necesita saber quién preside y permitir el voto extraordinario de desempate cuando una mayoría simple termina empatada.
 
-### Integración de teclados
+### Secretaría Legislativa
 
-- Servicio externo al backend.
-- Detecta dispositivos físicos y transforma su identidad física en un identificador lógico.
-- Envía pulsaciones al backend mediante HTTP.
-- No decide si una tecla puede o no producir una acción.
+Rol institucional informativo. Debe identificarse y sus cambios registrarse, pero no ejecuta acciones funcionales dentro de Botonera2.
 
-## 4. Fuera de alcance inicial
+### Pantalla del Recinto
 
-No se considera requisito extraído del MVP:
+Frontend público y de solo lectura. Informa el estado de sesión, presencia, votaciones, uso de palabra y eventos aptos para exposición pública sin vulnerar el secreto temporal de votos individuales.
 
-- autenticación o autorización de usuarios;
-- operación por Internet;
-- multi-organismo o multi-tenant;
-- múltiples sesiones simultáneas;
-- múltiples votaciones simultáneas;
-- firma digital;
-- expediente electrónico;
-- almacenamiento histórico consultable mediante UI;
-- edición de concejales desde la interfaz;
-- administración de dispositivos físicos desde Nuxt;
-- un tercer frontend de monitor técnico.
+### Bridge de dispositivos
 
-Estos puntos requieren una decisión propia antes de incorporarse.
+Servicio separado que traduce entradas físicas a identificadores lógicos y las entrega al backend. No decide reglas de negocio.
 
-## 5. Reimplementación limpia
+## 3. Componentes objetivo
 
-La nueva solución no debe portar la estructura interna del MVP. Debe conservar el comportamiento expresamente documentado y puede mejorar:
+- Backend: FastAPI.
+- Moderación: Nuxt.js.
+- Pantalla del Recinto: Nuxt.js.
+- Bridge físico: componente separado del backend.
 
-- tipado;
-- separación de responsabilidades;
-- validaciones;
-- pruebas;
-- persistencia;
-- serialización;
-- manejo de errores;
-- contrato entre backend y Nuxt;
-- observabilidad;
-- mantenibilidad.
+Las decisiones técnicas concretas aún pendientes se concentran en `10-preguntas-abiertas.md`.
 
-Una mejora técnica no puede cambiar el resultado funcional de una regla sin decisión previa.
+## 4. Autoridad de estado
 
-## 6. Fuente histórica
+El backend es la única autoridad sobre el estado funcional.
 
-Fuente primaria de extracción:
+Los frontends no deben inferir ni aplicar reglas reglamentarias localmente. Pueden mantener únicamente estado de presentación que no cambie el resultado funcional.
 
-- `martinebene/Botonera`, rama `main`, snapshot `537823b4a0045853c74a388058fa3739cf7457a5`.
+## 5. Ciclo global
 
-Fuente secundaria no normativa:
+Únicos estados globales:
 
-- `martinebene/Botonera`, rama `v2`, snapshot `9330812aaed93bc79e5043d3d34061c6aa19a7a0`.
+`SIN_PREPARAR -> PREPARANDO -> SESION_ABIERTA -> SIN_PREPARAR`
 
-La rama `v2` contiene comportamientos y una refactorización no validados en producción. Ninguna diferencia de `v2` se adopta automáticamente.
+### SIN_PREPARAR
 
-## 7. Regla de interpretación
+- No hay padrón operativo cargado.
+- No hay interacción funcional con teclados.
+- No existen archivos CSV de sesión/preparación activos.
 
-Cuando código productivo, comentarios y manual histórico discrepan, para reconstruir el comportamiento vigente se tomó como evidencia principal **el camino ejecutable de `main`**. Las discrepancias relevantes se registran en `docs/09-fuentes-y-trazabilidad.md` y `docs/10-preguntas-abiertas.md`.
+### PREPARANDO
 
-Desde este momento, las reglas consolidadas de Botonera2 pasan a ser la fuente canónica.
+- Se carga configuración y padrón.
+- Todos los concejales comienzan ausentes.
+- Se informan Presidencia y Secretaría Legislativa.
+- Se crean los tres CSV.
+- Se habilitan presencia (`9`) y test (`8`).
+- No hay voto ni uso de palabra.
+- La sesión solo puede abrirse cuando haya quórum y estén completos número y autoridades.
+
+### SESION_ABIERTA
+
+- Continúa dinámica la presencia.
+- Se habilitan votaciones y uso de palabra.
+- Las autoridades pueden cambiar en cualquier momento.
+- Al cerrar se vuelve a `SIN_PREPARAR`.
+
+Cancelar `PREPARANDO` también vuelve a `SIN_PREPARAR`.
+
+## 6. Volatilidad deliberada
+
+El estado operativo se conserva solamente en memoria.
+
+Una caída del backend durante preparación o sesión provoca pérdida del estado. Al reiniciar se vuelve a `SIN_PREPARAR`.
+
+Esto es intencional: ante una interrupción técnica de una sesión, el reglamento exige preparar nuevamente la sala y abrir una nueva sesión; las presencias no deben suponerse iguales a las anteriores.
+
+Los CSV persistidos hasta la caída permanecen como evidencia histórica y no se modifican retrospectivamente.
+
+## 7. Documentación oficial externa
+
+Número de sesión, número de votación, contenido y orden del Orden del Día son responsabilidad de la documentación oficial/física del Concejo.
+
+Botonera2:
+
+- recibe esos datos;
+- no valida secuencia ni unicidad;
+- no decide si el contenido es correcto;
+- permite votar asuntos fuera del Orden del Día;
+- permite alterar el orden práctico de tratamiento;
+- registra exactamente las acciones realizadas.
+
+## 8. Fuente histórica
+
+Para extraer el comportamiento vigente se utilizó el código de `martinebene/Botonera`, rama `main`.
+
+La implementación histórica no define la arquitectura futura. Solo conserva valor como fuente de assets, compatibilidad física y validación puntual documentada.
