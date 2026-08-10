@@ -11,7 +11,7 @@ Construir una nueva versión mantenible y verificable compuesta por:
 - frontend Nuxt.js de Pantalla del Recinto;
 - servicio/bridge independiente para capturar los teclados físicos y enviar sus pulsaciones al backend.
 
-La documentación de este repositorio es la especificación canónica para Botonera2 y debe permitir que agentes de programación implementen el sistema sin reinterpretar las reglas institucionales.
+La documentación de este repositorio es la especificación canónica para Botonera2 y debe permitir que agentes de programación implementen el sistema sin reinterpretar las reglas institucionales ni técnicas ya decididas.
 
 ## Fuentes históricas
 
@@ -58,6 +58,24 @@ El estado operativo es deliberadamente **volátil y en memoria**. Una interrupci
 - Todas las interacciones relevantes se escriben inmediatamente en tres archivos CSV jerárquicos.
 - El Orden del Día es solo una ayuda de carga; no es autoridad para el sistema y no limita qué puede votar el cuerpo.
 
+## Arquitectura técnica base aprobada
+
+Botonera2 será un **monorepo** con separación entre backend, los dos frontends y el bridge físico.
+
+Decisiones ya cerradas:
+
+- Python 3.14 + `uv`;
+- Node.js 24 LTS + `pnpm` workspaces;
+- FastAPI con un único proceso/worker y un único estado operativo en memoria;
+- API REST nueva versionada bajo `/api/v1`;
+- Pydantic/OpenAPI como contrato técnico;
+- REST para comandos y snapshots;
+- Server-Sent Events (SSE) para actualizaciones backend -> frontend;
+- proyecciones separadas `ModerationState` y `PublicState`;
+- secreto temporal de votos protegido desde backend.
+
+Ver `docs/12-decisiones-tecnicas.md`.
+
 ## Lectura obligatoria para agentes
 
 1. `AGENTS.md`
@@ -73,9 +91,12 @@ El estado operativo es deliberadamente **volátil y en memoria**. Una interrupci
 11. `docs/09-fuentes-y-trazabilidad.md`
 12. `docs/10-preguntas-abiertas.md`
 13. `docs/11-criterios-de-aceptacion.md`
+14. `docs/12-decisiones-tecnicas.md`
 
-`docs/10-preguntas-abiertas.md` ya no contiene preguntas reglamentarias principales: desde ahora concentra decisiones técnicas previas a la implementación.
+`docs/10-preguntas-abiertas.md` contiene únicamente decisiones técnicas todavía pendientes. Cada decisión cerrada debe trasladarse a `docs/12-decisiones-tecnicas.md`.
 
 ## Estado actual
 
-Las reglas de negocio principales fueron relevadas y resueltas antes de iniciar la nueva implementación. Todavía no debe escribirse código de producto hasta cerrar las decisiones técnicas de arquitectura, stack, contratos, estructura del repositorio, pruebas, despliegue y flujo de trabajo con agentes.
+Las reglas de negocio y la arquitectura técnica base DT-001 a DT-008 están cerradas.
+
+Todavía no debe iniciarse el scaffold productivo hasta cerrar las decisiones mínimas restantes de configuración/CSV, stack frontend, calidad/pruebas y flujo de trabajo con agentes indicadas en `docs/10-preguntas-abiertas.md`.
