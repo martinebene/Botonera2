@@ -11,7 +11,7 @@ Botonera2 utilizará un modelo **trunk-based simple** con `main` como única ram
 ### Reglas
 
 - `main` debe mantenerse siempre integrable.
-- No se permiten commits directos a `main`.
+- No se permiten commits directos a `main` durante la implementación productiva.
 - Cada **Work Package (WP)** se implementa en una rama corta propia.
 - Convención inicial de ramas: `wp/NNN-descripcion-corta`.
 - Cada rama nace desde `main` actualizado.
@@ -28,20 +28,6 @@ Botonera2 utilizará un modelo **trunk-based simple** con `main` como única ram
 ### No adoptar
 
 No se utilizará GitFlow, una rama `develop` permanente ni ramas de integración largas. La coordinación se hace mediante WPs pequeños y PRs cortas contra `main`.
-
-### Ejemplo
-
-```text
-main
-  ↓
-wp/003-auditoria-csv
-  ↓ implementación + tests
-Pull Request
-  ↓ CI + revisión
-squash merge
-  ↓
-main
-```
 
 ## DT-034 - Tamaño de los Work Packages
 
@@ -77,16 +63,6 @@ No se impondrán límites rígidos de líneas o cantidad de archivos.
 
 Los WPs pueden declarar dependencias explícitas entre sí. Un WP dependiente no debe comenzar sobre supuestos de otro WP todavía no integrado salvo que el plan de trabajo lo autorice expresamente.
 
-Ejemplo:
-
-```text
-WP-006 - Votación simple
-depende de:
-- WP-002 - Estado global
-- WP-004 - Auditoría
-- WP-005 - Presencia y quórum
-```
-
 ### Una PR por WP
 
 Cada WP termina en una única Pull Request.
@@ -97,17 +73,112 @@ Si durante la implementación aparece trabajo necesario pero fuera del alcance a
 - lo registra como hallazgo o candidato a un WP separado;
 - solo modifica el alcance si existe una decisión humana/documentada que lo autorice.
 
-### Ejemplos de granularidad adecuada
+## DT-035 - Documentación operativa para agentes
+
+La implementación se coordinará mediante una estructura documental **explícita pero liviana**. No se mantendrán matrices o documentos redundantes sin una necesidad concreta.
+
+### Artefactos canónicos
 
 ```text
-WP-001 Inicializar monorepo y toolchains
-WP-002 Implementar modelo de estado global
-WP-003 Implementar preparación de sala
-WP-004 Implementar auditoría CSV
-WP-005 Implementar presencia y quórum
-WP-006 Implementar votación simple
-WP-007 Implementar mayoría especial
-WP-008 Implementar uso de la palabra
+docs/
+├── implementation/
+│   └── PLAN.md
+├── work-packages/
+│   ├── TEMPLATE.md
+│   ├── WP-001.md
+│   └── ...
+└── decisions/
+    ├── README.md
+    └── DEC-NNN-....md
+
+.github/
+└── pull_request_template.md
 ```
 
-No son adecuados WPs excesivamente amplios como `Implementar todo el backend`, ni micro-WPs sin resultado verificable independiente como `Crear enum X` salvo que formen parte de una corrección aislada plenamente justificable.
+### `docs/implementation/PLAN.md`
+
+Es el mapa de implementación. Debe contener:
+
+- secuencia de WPs;
+- dependencias;
+- objetivo breve;
+- estado `PENDIENTE`, `EN_CURSO`, `INTEGRADO` o `BLOQUEADO`.
+
+No debe duplicar reglas de negocio ni diseño técnico ya documentado.
+
+### `docs/work-packages/WP-XXX.md`
+
+Cada WP es el contrato operativo de trabajo del agente. Debe declarar como mínimo:
+
+- identificador y título;
+- objetivo;
+- resultado esperado;
+- dependencias;
+- **fuentes canónicas obligatorias y secciones propietarias del alcance**;
+- alcance;
+- fuera de alcance;
+- componentes previsiblemente afectados;
+- criterios de aceptación;
+- pruebas obligatorias;
+- invariantes/restricciones;
+- documentación a actualizar;
+- hallazgos fuera de alcance;
+- checklist de entrega.
+
+`docs/work-packages/TEMPLATE.md` es la plantilla inicial obligatoria.
+
+### Lectura de contexto por agentes
+
+Para un WP normal, el agente no debe cargar de forma indiscriminada toda la documentación del proyecto.
+
+Orden normal:
+
+1. `AGENTS.md`;
+2. el `WP-XXX.md` asignado;
+3. únicamente las fuentes canónicas y secciones indicadas por ese WP;
+4. código/contratos directamente necesarios para el alcance.
+
+Un agente de planificación, auditoría global o resolución de una contradicción puede necesitar un contexto documental más amplio.
+
+### Decisiones `DEC-XXX`
+
+`docs/decisions/` se reserva para decisiones nuevas que aparezcan durante la implementación y que tengan consecuencias arquitectónicas, contractuales o transversales relevantes.
+
+No se creará un DEC para cada detalle local de implementación.
+
+Un DEC corresponde cuando la decisión, por ejemplo:
+
+- afecta a más de un WP/componente;
+- modifica una decisión técnica ya aprobada;
+- establece un contrato global nuevo;
+- presenta alternativas relevantes con consecuencias futuras;
+- requiere aprobación humana antes de continuar.
+
+La política detallada está en `docs/decisions/README.md`.
+
+### Trazabilidad
+
+La trazabilidad principal se mantiene dentro del propio flujo:
+
+```text
+regla/requisito -> WP -> criterio de aceptación -> prueba -> PR
+```
+
+No se mantendrá inicialmente una matriz global duplicada. Puede agregarse más adelante si el volumen del proyecto la vuelve útil.
+
+### Pull Requests
+
+`.github/pull_request_template.md` exige como mínimo:
+
+- WP implementado;
+- qué cambió;
+- qué explícitamente no cambió;
+- criterios de aceptación;
+- pruebas ejecutadas;
+- estado de CI;
+- documentación actualizada;
+- decisiones/desviaciones;
+- hallazgos fuera de alcance;
+- riesgos pendientes.
+
+El prompt entregado a un agente puede aportar instrucciones de ejecución, pero **no reemplaza el WP documentado como fuente canónica del alcance**.
