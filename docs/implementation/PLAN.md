@@ -64,11 +64,11 @@ WP-011 y WP-012 pueden ejecutarse en paralelo después de WP-010.
 | WP | Objetivo | Estado | Depende de | Agente |
 |---|---|---|---|---|
 | WP-015 | Implementar cola y uso de la palabra | PENDIENTE | WP-008, WP-006 | - |
-| WP-016 | Implementar parser backend de Orden del Día y contrato de carga | BLOQUEADO | WP-002, DT-039 | - |
+| WP-016 | Implementar parser backend de Orden del Día y contrato de carga | PENDIENTE | WP-002 | - |
 | WP-017 | Implementar snapshots `ModerationState`/`PublicState`, secreto temporal y streams SSE | PENDIENTE | WP-013, WP-014, WP-015 | - |
 | WP-018 | Implementar paquete TypeScript `api-client` derivado de OpenAPI con REST/SSE/reconexión | PENDIENTE | WP-017 | - |
 
-WP-015 puede ejecutarse en paralelo con parte del núcleo de votación después de WP-008. WP-016 se desbloquea al cerrar DT-039.
+WP-015 y WP-016 pueden ejecutarse en paralelo con otros WPs cuando sus dependencias estén integradas. WP-016 debe respetar el contrato explícito de Orden del Día cerrado en DT-039.
 
 ## Fase 5 - Hardware y bridge
 
@@ -116,6 +116,5 @@ La trazabilidad se mantiene en cada WP y PR, no mediante una matriz duplicada pe
 Antes de ejecutar WP-001:
 
 1. revisar y aprobar este PLAN;
-2. revisar los primeros WPs versionados;
-3. cerrar DT-039 para desbloquear WP-016 antes de llegar a ese alcance;
-4. solo entonces marcar WP-001 como `EN_CURSO`, asignar agente, crear rama/worktree y comenzar implementación.
+2. revisar y aprobar los primeros WPs versionados;
+3. solo entonces marcar WP-001 como `EN_CURSO`, asignar agente, crear rama/worktree y comenzar implementación.
