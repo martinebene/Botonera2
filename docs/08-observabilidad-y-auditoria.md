@@ -47,7 +47,7 @@ Los códigos estructurados no reemplazan la descripción humana.
 
 ## 4. Ciclo y nombres de archivos
 
-Al ejecutar `Preparar sala` se toma fecha/hora local del servidor y se crea un conjunto nuevo:
+Al ejecutar `Preparar sala` se toma fecha/hora local real del servidor y se crea un conjunto nuevo:
 
 ```text
 logs/
@@ -57,7 +57,11 @@ logs/
     └── AAAA-MM-DD_HH-MM-SS-L3.csv
 ```
 
-La hora en el nombre evita superposición entre múltiples preparaciones/sesiones del mismo día.
+La marca temporal del nombre se usa para evitar superposición entre múltiples preparaciones/sesiones del mismo día.
+
+Si excepcionalmente ya existe un conjunto con la marca correspondiente al segundo real de inicio, **no se agrega un sufijo**. Solo a efectos del nombre se avanza la marca un segundo y se repite hasta encontrar el primer segundo libre. Si ese avance cambia de fecha, se utiliza también la carpeta correspondiente a la fecha nominal resultante.
+
+Esta corrección de nombre no altera la hora real de la preparación ni los timestamps internos de los eventos, que siempre conservan la hora real del servidor.
 
 Al cancelar preparación o cerrar sesión:
 
