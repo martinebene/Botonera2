@@ -6,79 +6,47 @@ Las decisiones técnicas aprobadas se registran en `12-decisiones-tecnicas.md`.
 
 Este archivo contiene **únicamente decisiones técnicas todavía abiertas**. Los agentes no deben resolverlas unilateralmente.
 
-## Arquitectura base ya cerrada
+## Arquitectura, backend/datos y frontend ya cerrados
 
-Quedaron resueltas DT-001 a DT-008:
+Quedaron resueltas DT-001 a DT-020. Ver `12-decisiones-tecnicas.md`.
+
+Resumen:
 
 - monorepo;
 - Python 3.14 + `uv`;
 - Node.js 24 LTS + `pnpm` workspaces;
-- estado operativo único en memoria;
-- un solo proceso/worker FastAPI;
-- REST + Server-Sent Events (SSE);
+- estado único en memoria y un worker FastAPI;
+- REST + SSE;
 - API `/api/v1` con Pydantic/OpenAPI;
-- proyecciones separadas para Moderación y Recinto.
-
-Ver `12-decisiones-tecnicas.md`.
-
-## Prioridad B - Backend y datos
-
-### DT-009 Persistencia no operativa
-Definir si además de los CSV se necesita alguna persistencia auxiliar para configuración/históricos o si la primera versión debe operar exclusivamente con archivos + memoria.
-
-No se permite usar una persistencia para restaurar una sesión interrumpida.
-
-### DT-010 Configuración
-Definir formato y ubicación de archivos de configuración y padrón, validación al inicio de preparación y estrategia por entorno.
-
-### DT-011 CSV de auditoría
-Definir columnas exactas, delimitador, escape, codificación, timestamp, secuencia y nombres definitivos de archivos.
-
-### DT-012 Escritura segura de CSV
-Definir estrategia de flush/fsync, locking y manejo de errores de disco para satisfacer la regla de escritura inmediata.
-
-### DT-013 Orden del Día
-Definir dónde ocurre el parseo y el contrato técnico de errores de archivo, sin agregar validaciones institucionales.
-
-### DT-014 Remapeo de dispositivos
-Diseñar el mecanismo de remapeo rápido en memoria y su interacción con el bridge físico.
-
-## Prioridad C - Frontend
-
-### DT-015 Stack Nuxt
-Definir versión de Nuxt/Vue/TypeScript y política de actualización.
-
-### DT-016 Librería UI/estilos
-Definir Tailwind, CSS propio, Nuxt UI u otra alternativa, teniendo en cuenta operación en pantalla fija, robustez y mantenimiento.
-
-### DT-017 Estado frontend
-Definir si basta con composables/useState o si corresponde Pinia.
-
-### DT-018 Cliente API y tiempo real
-Definir capa compartida para REST, SSE, reconexión, errores y sincronización de snapshots.
-
-### DT-019 Componentes compartidos
-Definir cuánto código UI/tipos/cliente API compartirán los dos frontends y dónde vivirá.
-
-### DT-020 Estrategia responsive
-Definir resoluciones objetivo de Moderación y Pantalla del Recinto y comportamiento mínimo ante otras resoluciones.
+- proyecciones separadas Moderación/Recinto;
+- sin base de datos inicial;
+- configuración `system.toml` + padrón CSV + `devices.json` del bridge;
+- auditoría CSV estructurada con `flush` + `fsync` y fallo cerrado;
+- Orden del Día parseado en backend;
+- remapeo físico->lógico dentro del device-bridge;
+- Nuxt 4 + TypeScript estricto;
+- Tailwind CSS v4 + componentes propios;
+- sin Pinia inicialmente;
+- cliente API compartido REST/SSE;
+- compartición frontend mínima y explícita;
+- Full HD como referencia, con diseño responsive no dependiente del hardware actual.
 
 ## Prioridad D - Calidad y pruebas
 
 ### DT-021 Framework de pruebas backend
-Definir pytest y herramientas auxiliares.
+Definir pytest y herramientas auxiliares para unitarias, servicios de dominio, API e integración.
 
 ### DT-022 Pruebas frontend
-Definir Vitest/Vue Test Utils u otra combinación.
+Definir Vitest/Vue Test Utils u otra combinación para componentes, composables y cliente compartido.
 
 ### DT-023 Pruebas E2E
-Definir Playwright u otra herramienta y qué recorridos deben ejecutarse automáticamente.
+Definir Playwright u otra herramienta y qué recorridos críticos deben ejecutarse automáticamente.
 
 ### DT-024 Simulador de teclados
-Definir una herramienta de desarrollo reproducible para generar pulsaciones sin hardware físico.
+Definir una herramienta de desarrollo reproducible para generar pulsaciones sin hardware físico y cubrir concurrencia/casos de error.
 
 ### DT-025 CI
-Definir GitHub Actions, checks obligatorios, lint, typecheck y tests por PR.
+Definir GitHub Actions, checks obligatorios, lint, typecheck, tests y política de bloqueo de merge por PR.
 
 ### DT-026 Calidad estática
 Definir Ruff/formatter/type checker para Python y ESLint/Prettier o equivalentes para frontend.
@@ -127,11 +95,9 @@ Definir qué decisiones puede tomar un agente por sí mismo y cuáles requieren 
 
 Antes del primer scaffold productivo deben estar cerradas, como mínimo:
 
-- DT-010 a DT-012;
-- DT-015 a DT-019;
 - DT-021 a DT-026;
 - DT-033 a DT-038.
 
-DT-009, DT-013, DT-014 y las decisiones de despliegue deben resolverse antes de implementar el alcance que dependa de ellas.
+Las decisiones DT-027 a DT-032 deben resolverse antes del despliegue productivo y conviene cerrarlas antes si condicionan la estructura inicial.
 
 Cada decisión aprobada debe retirarse de este archivo y trasladarse a `12-decisiones-tecnicas.md` antes de que los agentes dependan de ella.
