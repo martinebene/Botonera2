@@ -1,308 +1,301 @@
-# 11 — Criterios de aceptación
+# 11 - Criterios de aceptación
 
-Estos escenarios constituyen la base de pruebas de caracterización de Botonera2. Deben automatizarse en backend siempre que sea posible y complementarse con pruebas de interfaz.
+Estos criterios deben convertirse progresivamente en pruebas automáticas. Son independientes de la arquitectura técnica elegida.
 
-Los nombres y datos personales usados en tests deben ser ficticios.
+## CA-001 Estado inicial
 
-## CA-SES-01 — No abrir dos sesiones
+Dado un backend recién iniciado, el estado debe ser `SIN_PREPARAR`, sin sesión activa, votación activa ni CSV abiertos.
 
-**Dado** una sesión activa
-**Cuando** Moderación intenta abrir otra
-**Entonces** la operación se rechaza y la sesión original permanece activa.
+## CA-002 Preparar sala
 
-## CA-SES-02 — Abrir sin concejales
+Al preparar correctamente:
 
-**Dado** que la fuente de concejales no existe o está vacía
-**Cuando** se intenta abrir sesión
-**Entonces** la operación se rechaza y no queda sesión activa.
+- pasa a `PREPARANDO`;
+- carga configuración/padrón;
+- todos los concejales quedan ausentes;
+- se crean tres CSV nuevos;
+- solo presencia y test físico están habilitados.
 
-## CA-SES-03 — Cierre normal
+## CA-003 Padrón inválido
 
-**Dado** una sesión activa sin votación en curso
-**Cuando** se cierra
-**Entonces** deja de existir sesión activa y las pulsaciones posteriores se rechazan.
+Debe rechazarse preparar si existe:
 
-## CA-SES-04 — Cierre con votación en curso
+- DNI vacío/duplicado;
+- nombre o apellido vacío;
+- banca inválida/vacía/duplicada;
+- dispositivo vacío/duplicado.
 
-**Dado** una sesión activa con votación `EN_CURSO`
-**Cuando** se cierra la sesión
-**Entonces** la votación se cierra forzadamente antes del cierre de sesión y queda un resultado coherente.
+Bloque vacío debe ser aceptado.
 
-## CA-INP-01 — Dispositivo desconocido
+## CA-004 Autoridades obligatorias
 
-**Dado** una sesión activa
-**Cuando** llega una pulsación desde un identificador no asignado
-**Entonces** no cambia ningún estado y la entrada se rechaza como dispositivo no asignado.
+No puede abrirse sesión sin número, Presidencia, Secretaría Legislativa y quórum.
 
-## CA-INP-02 — Sin sesión
+## CA-005 Acreditación
 
-**Dado** que no existe sesión activa
-**Cuando** llega cualquier tecla, incluida `9`
-**Entonces** la entrada se rechaza según el comportamiento productivo de `main`.
+En `PREPARANDO`, tecla `9` alterna presencia y esa presencia se conserva al abrir sesión.
 
-Este escenario cambiará solo si se resuelve PA-005 incorporando preparación/acreditación.
+Moderación no puede cambiarla manualmente.
 
-## CA-PRE-01 — Alternar presencia
+## CA-006 Test
 
-**Dado** un concejal presente
-**Cuando** su dispositivo envía `9`
-**Entonces** queda ausente y disminuye el total de presentes.
+Tecla `8` produce únicamente el indicador visual temporal y funciona en `PREPARANDO`, `SESION_ABIERTA` y durante votación sin modificar otro estado.
 
-**Cuando** vuelve a enviar `9`
-**Entonces** queda presente y aumenta el total.
+## CA-007 Pulsaciones SIN_PREPARAR
 
-## CA-PRE-02 — Ausente no vota
+Toda tecla recibida en `SIN_PREPARAR` carece de efecto funcional y no se agrega a los CSV de una preparación inexistente.
 
-**Dado** un concejal ausente y una votación en curso
-**Cuando** envía `1`, `2` o `3`
-**Entonces** el voto no se registra.
+## CA-008 Cancelar preparación
 
-## CA-PRE-03 — Ausente no pide palabra
+Debe registrar cancelación, cerrar los tres CSV y volver a `SIN_PREPARAR`. Una nueva preparación comienza limpia y crea archivos diferentes.
 
-**Dado** un concejal ausente
-**Cuando** envía `7`
-**Entonces** no entra en la cola.
+## CA-009 Apertura con quórum
 
-## CA-VOT-01 — No abrir sin sesión
+Con datos obligatorios y quórum, abrir sesión cambia a `SESION_ABIERTA` y conserva presentes.
 
-**Dado** que no hay sesión activa
-**Cuando** Moderación intenta abrir una votación
-**Entonces** se rechaza.
+## CA-010 Pérdida de quórum sin votación
 
-## CA-VOT-02 — No abrir sin quórum
+La sesión permanece abierta, pero no se puede abrir votación. Al recuperar quórum, se vuelve a habilitar automáticamente.
 
-**Dado** quórum 7 y solo 6 presentes
-**Cuando** se intenta abrir una votación
-**Entonces** se rechaza por falta de quórum.
+## CA-011 Autoridades variables
 
-## CA-VOT-03 — Un voto por concejal
+Presidencia y Secretaría pueden cambiar durante preparación o sesión, incluso en votación, y cada cambio se registra sin alterar a ningún concejal.
 
-**Dado** una votación `EN_CURSO` y un concejal presente
-**Cuando** vota Positivo
-**Y luego** intenta votar nuevamente
-**Entonces** existe un único voto ordinario y el segundo intento se rechaza.
+## CA-012 Independencia Presidencia/Concejal
 
-## CA-VOT-04 — Mapeo de teclas
+Si el texto de Presidencia coincide con una persona que también es concejal:
 
-En votación `EN_CURSO`:
+- no se realiza enlace automático;
+- su estado de presencia/voto como concejal funciona normalmente;
+- puede votar ordinariamente como concejal y luego desempatar como Presidente.
 
-- tecla `1` registra `Positivo`;
-- tecla `2` registra `Abstención`;
-- tecla `3` registra `Negativo`.
+## CA-013 Orden del Día opcional
 
-## CA-VOT-05 — Mayoría simple aprobada
+Debe poder abrirse sesión y realizarse votaciones sin cargar Orden del Día.
 
-**Dado** 7 presentes, todos votan
-**Y** el resultado es 4 Positivos, 3 Negativos, 0 Abstenciones
-**Entonces** la votación termina `APROBADA`.
+## CA-014 Orden del Día inválido
 
-## CA-VOT-06 — Mayoría simple rechazada
+Un archivo técnicamente ilegible debe producir error de carga sin bloquear la sesión ni las votaciones manuales.
 
-**Dado** 7 presentes, todos votan
-**Y** el resultado es 3 Positivos, 4 Negativos
-**Entonces** termina `RECHAZADA`.
+## CA-015 Orden del Día como asistencia
 
-## CA-VOT-07 — Mayoría simple empatada
+Seleccionar un punto debe copiar sus datos a un formulario editable. Debe permitirse tratar puntos en cualquier orden y crear propuestas fuera del archivo.
 
-**Dado** 7 presentes, todos votan
-**Y** hay 3 Positivos, 3 Negativos y 1 Abstención
-**Entonces** termina `EMPATADA` porque positivos y negativos son iguales.
+## CA-016 Numeración externa
 
-## CA-VOT-08 — Desempate positivo
+El backend debe aceptar números de sesión/votación repetidos o fuera de secuencia sin considerarlos error de negocio.
 
-**Dado** una votación `EMPATADA`
-**Cuando** Moderación ejecuta desempate Positivo
-**Entonces** termina `APROBADA` y la decisión no aparece como voto ordinario de un concejal.
+## CA-017 Abrir votación sin quórum
 
-## CA-VOT-09 — Desempate negativo
+Debe rechazarse.
 
-Igual al anterior, pero la decisión Negativa produce `RECHAZADA`.
+## CA-018 Una votación activa
 
-## CA-VOT-10 — Mayoría especial sobre cuerpo
+Debe rechazarse una segunda apertura si existe `EN_CURSO` o `EMPATADA` pendiente.
 
-**Dado** cuerpo total de 12 y factor `0.66`
-**Cuando** hay 8 votos Positivos
-**Entonces** `8/12 >= 0.66` y el criterio especial se considera cumplido.
+## CA-019 Inmutabilidad de votación
 
-**Cuando** hay 7 Positivos
-**Entonces** `7/12 < 0.66` y se considera no cumplido.
+Después de abrir, no deben poder cambiarse número, tema, tipo ni regla de mayoría.
 
-La aplicación posterior de `INCONCLUSA` debe evaluarse según presentes, quórum y votos emitidos.
+## CA-020 Voto ordinario
 
-## CA-VOT-11 — Mayoría especial sobre presentes, caracterización del MVP
+Con sesión/votación activa y concejal presente:
 
-Hasta resolver PA-001:
+- 1 registra positivo;
+- 2 registra abstención;
+- 3 registra negativo.
 
-**Dado** factor `0.66`
-**Y** una votación que cierra con 9 votos emitidos
-**Y** 6 son Positivos
-**Entonces** la caracterización del MVP evalúa `6/9 >= 0.66`.
+Cada aceptación se registra inmediatamente.
 
-El test debe dejar explícito que el denominador observado es `votos_emitidos`.
+## CA-021 Voto ausente
 
-## CA-VOT-12 — Autocierre por último voto
+Un concejal ausente no puede votar.
 
-**Dado** 7 presentes y 6 de ellos ya votaron
-**Cuando** vota el séptimo
-**Entonces** la votación deja de estar `EN_CURSO` automáticamente y calcula resultado.
+## CA-022 Voto único
 
-## CA-VOT-13 — Autocierre por ausencia
+Un segundo intento del mismo concejal en la misma votación debe rechazarse sin alterar el primer voto.
 
-**Dado** 8 presentes
-**Y** 7 ya votaron
-**Y** el único presente sin votar pasa a ausente con tecla `9`
-**Entonces** se cumple que todos los presentes actuales ya votaron y la votación se cierra automáticamente.
+## CA-023 Voto irreversible
 
-## CA-VOT-14 — Voto previo no se borra al ausentarse
+No debe existir operación de Moderación ni física que cambie/elimine un voto aceptado.
 
-**Dado** un concejal que ya votó
-**Cuando** pasa a ausente
-**Entonces** su voto sigue formando parte de la votación.
+## CA-024 Ausencia posterior al voto
 
-## CA-VOT-15 — Cierre forzado incompleto
+Si un concejal vota y luego se ausenta, el voto permanece. Si vuelve a presentarse, sigue figurando como ya votado.
 
-**Dado** 8 presentes, quórum 7 y solo 5 votos emitidos
-**Cuando** Moderación fuerza el cierre
-**Entonces** el resultado termina `INCONCLUSA` porque faltaron presentes por votar y los votos emitidos son inferiores al quórum.
+## CA-025 Incorporación durante votación
 
-## CA-VOT-16 — Cierre con cero votos
+Un concejal ausente que pasa a presente durante `EN_CURSO` puede votar si todavía no lo hizo.
 
-**Dado** una votación en curso sin votos
-**Cuando** se fuerza el cierre
-**Entonces** Botonera2 no debe producir una excepción técnica. El resultado funcional definitivo depende de PA-013; la caracterización esperada es `INCONCLUSA`.
+## CA-026 Autocierre
 
-## CA-PAL-01 — Encolar pedido
+Cuando todos los concejales actualmente presentes votaron, debe cerrarse automáticamente sin confirmación de Moderación.
 
-**Dado** un concejal presente fuera de la cola
-**Cuando** presiona `7`
-**Entonces** se agrega al final.
+## CA-027 Mayoría simple positiva
 
-## CA-PAL-02 — Retirar pedido
+Con votos positivos > negativos, debe resultar `APROBADA` independientemente de la cantidad de abstenciones.
 
-**Dado** un concejal ya en cola
-**Cuando** presiona `7`
-**Entonces** sale de la cola.
+Ejemplo: 4 positivos, 3 negativos, 3 abstenciones => `APROBADA`.
 
-## CA-PAL-03 — Orden FIFO
+## CA-028 Mayoría simple negativa
 
-**Dado** que A pide palabra antes que B
-**Cuando** Moderación otorga palabra
-**Entonces** A pasa a ser orador y B queda primero en cola.
+Con positivos < negativos => `RECHAZADA`.
 
-## CA-PAL-04 — El orador finaliza con tecla 7
+## CA-029 Empate simple
 
-**Dado** que A es orador
-**Cuando** A presiona `7`
-**Entonces** deja de ser orador y no se agrega a la cola.
+Con positivos = negativos => `EMPATADA`, aunque existan abstenciones.
 
-## CA-PAL-05 — Quitar palabra desde Moderación
+## CA-030 Mayoría especial distinta de simple
 
-**Dado** un orador actual
-**Cuando** Moderación ejecuta Quitar palabra
-**Entonces** deja de existir orador actual.
+Una especial con factor `0.5` debe calcularse como especial y no usar la regla `positivos > negativos`.
 
-## CA-TST-01 — Test visual
+## CA-031 Especial sobre presentes
 
-**Dado** sesión activa y dispositivo reconocido
-**Cuando** se envía tecla `8`
-**Entonces** solo la banca asociada muestra el indicador temporal de test y no cambia presencia, voto ni palabra.
+Ejemplo: 10 votos emitidos, 6 positivos, 3 negativos, 1 abstención, factor 0.6 => `APROBADA` porque `6/10 >= 0.6`.
 
-## CA-OD-01 — Archivo válido
+La abstención integra el denominador.
 
-**Dado** un archivo con cabecera:
+## CA-032 Igualdad de umbral
 
-`nro_votacion;tipo;tema;factor_de_mayoria;respecto`
+Si el cociente es exactamente igual al factor especial, debe aprobar.
 
-**Y** filas válidas
-**Cuando** se carga
-**Entonces** se muestran todas las filas.
+## CA-033 Especial sobre cuerpo
 
-## CA-OD-02 — Rechazo atómico
+Con 12 concejales cargados y factor 2/3, 8 positivos deben satisfacer el umbral aunque haya menos presentes, siempre que la votación pueda cerrar normalmente conforme a quórum/completitud.
 
-**Dado** un archivo donde una fila es inválida
-**Cuando** se carga
-**Entonces** no queda ninguna fila cargada.
+Presidencia no agrega una unidad al denominador por ocupar ese rol.
 
-## CA-OD-03 — Tipo desconocido
+## CA-034 Finalización anticipada
 
-**Dado** una fila válida cuyo tipo no coincide con el catálogo
-**Entonces** el tipo resultante es `Otro`.
+Moderación puede finalizar en cualquier momento, incluso con cero votos, pero debe proporcionar motivo.
 
-## CA-OD-04 — Selección no abre votación
+Si no votaron todos los presentes => `INCONCLUSA`.
 
-**Dado** una fila seleccionada
-**Entonces** sus datos aparecen en el formulario
-**Y** el backend no crea votación hasta la acción explícita Abrir votación.
+No debe existir división por cero.
 
-## CA-REC-01 — Disposición de 12 bancas
+## CA-035 Pérdida de quórum durante votación
 
-Con la configuración histórica 3+4+5:
+Al caer presentes por debajo del quórum en `EN_CURSO`, debe pasar inmediatamente a `INCONCLUSA` y conservar votos previos.
 
-- fila 1 inferior: bancas 1–3;
-- fila 2: bancas 4–7;
-- fila 3 superior: bancas 8–12;
-- dentro de cada fila la numeración va izquierda → derecha.
+## CA-036 Inconclusa irreversible
 
-## CA-REC-02 — Disposición inconsistente
+Recuperar quórum posteriormente no debe reabrir ni recalcular esa votación.
 
-**Dado** que la suma de posiciones no coincide con concejales
-**Entonces** el frontend muestra error controlado en el recinto y no asigna personas a posiciones arbitrarias.
+## CA-037 Empate bloqueante
 
-## CA-PUB-01 — Voto secreto mientras está en curso
+Mientras haya `EMPATADA`, debe rechazarse abrir otra votación.
 
-**Dado** una votación `EN_CURSO`
-**Y** votos ya registrados
-**Entonces** Pantalla de Recinto no muestra identidad/valor de esos votos.
+## CA-038 Desempate presidencial
 
-Idealmente la respuesta de backend para esa superficie tampoco los contiene.
+Una simple `EMPATADA` debe permitir desde Moderación únicamente `POSITIVO` o `NEGATIVO`.
 
-## CA-PUB-02 — Eventos no filtran el secreto
+Debe cambiar a `APROBADA`/`RECHAZADA`, ser irreversible y registrar explícitamente Presidente, sentido y resultado.
 
-Durante `EN_CURSO`, la Pantalla pública no muestra eventos que permitan inferir qué concejal votó qué valor.
+## CA-039 Desempate no ordinario
 
-## CA-PUB-03 — Revelación al cierre
+El voto presidencial no debe incrementar la cantidad de votos ordinarios ni asociarse a una banca.
 
-**Dado** que una votación acaba de finalizar
-**Entonces** Pantalla de Recinto muestra temporalmente cada voto por banca y el resultado.
+## CA-040 Especial sin desempate
 
-Como referencia de caracterización, la ventana observada es aproximadamente 6 s.
+Una votación `ESPECIAL` nunca debe entrar en flujo de desempate presidencial.
 
-## CA-PUB-04 — Limpieza posterior
+## CA-041 Empate y pérdida posterior de quórum
 
-Pasada la ventana de resultado, las bancas vuelven a no mostrar el voto anterior.
+Si la votación ya terminó `EMPATADA`, una pérdida posterior de quórum no debe transformarla en inconclusa ni impedir que Presidencia desempate.
 
-## CA-PUB-05 — Cuenta regresiva
+## CA-042 Cerrar sesión con EN_CURSO
 
-Al comenzar una nueva votación la Pantalla pública muestra una cuenta regresiva visual de 4 s sin bloquear la recepción de votos en backend.
+Debe finalizar primero la votación; si faltan votos debe quedar `INCONCLUSA`; luego cerrar sesión.
 
-## CA-CON-01 — Recarga de frontend
+## CA-043 Cerrar sesión con EMPATADA
 
-**Dado** una sesión y votación en curso
-**Cuando** se recarga uno de los frontends
-**Entonces** reconstruye su vista desde backend y no modifica la sesión.
+Debe convertirla a `INCONCLUSA`, cerrar sesión y volver a `SIN_PREPARAR`.
 
-## CA-CON-02 — Frontends independientes
+## CA-044 Pedido de palabra
 
-Cerrar o reiniciar Pantalla de Recinto no afecta Moderación ni backend, y viceversa.
+Concejal presente pulsa 7 => entra al final de la cola. Nueva pulsación => sale.
 
-## CA-CON-03 — Reconexión
+## CA-045 Uso propio
 
-Tras una pérdida temporal de conexión, la UI debe volver a un estado consistente a partir del backend sin requerir reconstrucción manual de los votos/cola/presencia.
+Si el orador pulsa 7, debe terminar su propio uso.
 
-## CA-CONC-01 — Doble pulsación concurrente
+## CA-046 Otorgar con orador existente
 
-Dos requests casi simultáneos del mismo concejal para votar deben producir como máximo un voto válido.
+Debe finalizar al orador actual y otorgar al siguiente de la cola.
 
-## CA-CONC-02 — Doble apertura concurrente
+## CA-047 Ausencia y palabra
 
-Dos requests casi simultáneos para abrir sesión o votación deben preservar la invariante de una sola activa.
+Si pasa a ausente:
 
-## Criterio de liberación funcional
+- en cola => se elimina;
+- hablando => se finaliza su uso.
 
-Una versión candidata no se considera equivalente al sistema vigente hasta que:
+## CA-048 Palabra durante votación
 
-1. todos los escenarios no marcados como dependientes de preguntas abiertas pasen;
-2. las preguntas abiertas que afecten esa versión estén resueltas;
-3. se haya ejecutado un recorrido end-to-end con teclados reales o un emulador que use exactamente el contrato `/entradas/tecla`;
-4. se haya verificado Moderación y Pantalla de Recinto simultáneamente;
-5. se haya probado cierre automático, forzado, empate y pérdida/reconexión de interfaz.
+Debe ser posible pedir, retirar, otorgar y finalizar palabra sin pausar ni detener la recepción de votos.
+
+## CA-049 Moción que afecta votación
+
+Moderación debe poder finalizarla manualmente con motivo; queda `INCONCLUSA`; luego puede abrir otra votación conforme al nuevo tratamiento.
+
+## CA-050 Pantalla pública secreta
+
+Durante `EN_CURSO`, la proyección pública no debe contener votos individuales ni eventos que los revelen, aunque se inspeccione la respuesta de red.
+
+## CA-051 Revelado posterior
+
+Al cerrarse, la Pantalla del Recinto puede recibir/mostrar votos individuales y resultado durante el tiempo configurado.
+
+## CA-052 Moderación con retardo
+
+Los votos individuales en Moderación solo deben revelarse según el retardo configurable vigente para esa preparación.
+
+## CA-053 Registros nuevos por preparación
+
+Dos preparaciones iniciadas el mismo día deben generar nombres diferentes mediante fecha+hora de inicio.
+
+## CA-054 Niveles acumulativos
+
+Un evento L1 aparece solo en CSV1; L2 en CSV1+CSV2; L3 en CSV1+CSV2+CSV3.
+
+## CA-055 Escritura inmediata
+
+Después de una interacción aceptada relevante, el registro correspondiente debe estar persistido sin esperar al cierre de sesión.
+
+## CA-056 Cierre de archivos
+
+Tras cancelar preparación/cerrar sesión, esos CSV no deben volver a modificarse por Botonera2.
+
+## CA-057 Caída técnica
+
+Tras reiniciar durante preparación/sesión:
+
+- estado `SIN_PREPARAR`;
+- no reconstruir sesión anterior;
+- CSV previos intactos hasta el último evento ya escrito.
+
+## CA-058 Orden concurrente
+
+Dos pulsaciones concurrentes deben producir un orden único y consistente de procesamiento/registro; no deben corromper el estado ni los archivos.
+
+## CA-059 Configuración congelada
+
+Cambiar archivos de configuración/padrón en disco durante una sesión no debe modificar la ejecución activa.
+
+## CA-060 Remapeo futuro
+
+Cuando se implemente el remapeo rápido, cambiar dispositivo durante una votación no debe modificar presencia, identidad ni votos previos y debe generar evento de registro.
+
+## Criterios técnicos mínimos futuros
+
+Además de estos escenarios funcionales, antes de integrar código deberá exigirse:
+
+- pruebas unitarias del dominio/backend;
+- pruebas de integración de API;
+- pruebas de componentes frontend donde aporten valor;
+- E2E de recorridos críticos;
+- simulador de entradas físicas para CI/desarrollo;
+- lint/typecheck/format automatizados;
+- ausencia de secretos y datos reales en el repositorio;
+- compatibilidad con el despliegue objetivo definido;
+- trazabilidad de PR con reglas/casos de uso afectados.
