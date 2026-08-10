@@ -19,12 +19,10 @@ Quedaron resueltas DT-001 a DT-032.
 Quedaron resueltas:
 
 - DT-033: modelo trunk-based simple con rama corta por WP, PR obligatoria, CI verde y squash merge;
-- DT-034: WPs pequeños, orientados a un único resultado verificable, con dependencias, alcance, exclusiones, criterios de aceptación y una PR por WP.
+- DT-034: WPs pequeños, orientados a un único resultado verificable, con dependencias, alcance, exclusiones, criterios de aceptación y una PR por WP;
+- DT-035: `PLAN.md` + especificación versionada por WP + `DEC-XXX` solo para decisiones transversales relevantes + template de PR; lectura normal `AGENTS.md -> WP -> fuentes canónicas indicadas`.
 
 Ver `14-gobernanza-agentes.md`.
-
-### DT-035 Documentación para agentes
-Definir artefactos adicionales: decisiones técnicas, planes, matrices de trazabilidad, especificaciones de work packages y checklist de entrega.
 
 ### DT-036 Agentes/herramientas
 Definir herramientas principales (Codex, Claude Code, OpenCode, etc.), funciones de cada una y cómo evitar que varios agentes modifiquen el mismo alcance simultáneamente.
@@ -37,7 +35,7 @@ Definir qué decisiones puede tomar un agente por sí mismo y cuáles requieren 
 
 ## Criterio para comenzar a programar
 
-Antes del primer scaffold productivo deben estar cerradas DT-035 a DT-038.
+Antes del primer scaffold productivo deben estar cerradas DT-036 a DT-038.
 
 Una vez cerradas, el repositorio tendrá definidas las reglas de negocio, arquitectura, stack, calidad, despliegue y gobernanza mínima necesaria para comenzar implementación incremental con agentes.
 
