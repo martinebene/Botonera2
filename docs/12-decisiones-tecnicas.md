@@ -24,6 +24,7 @@ Botonera2/
 ├── config/
 ├── docs/
 ├── scripts/
+├── tools/
 └── ...
 ```
 
@@ -48,73 +49,44 @@ Los cuatro componentes funcionales deben permanecer separados aunque vivan en el
 
 El backend tendrá **un único estado operativo en memoria** por ejecución.
 
-Principios:
-
 - se crea durante el ciclo de vida de FastAPI;
 - representa `SIN_PREPARAR`, `PREPARANDO` o `SESION_ABIERTA` y sus entidades activas;
 - no se restaura desde disco después de una caída;
-- toda mutación de negocio pasa por servicios/comandos del backend;
-- comandos y pulsaciones concurrentes se serializan mediante un mecanismo único de exclusión/ordenamiento;
-- el orden aceptado por ese mecanismo es el orden oficial que luego se registra.
-
-No se permite distribuir el estado activo entre procesos independientes sin una futura decisión técnica que reemplace explícitamente esta arquitectura.
+- toda mutación pasa por servicios/comandos del backend;
+- comandos y pulsaciones concurrentes se serializan mediante un mecanismo único;
+- el orden aceptado es el orden oficial y el persistido.
 
 ## DT-005 - Un solo proceso/worker de FastAPI
 
-La ejecución productiva del backend utilizará **un único proceso/worker**.
-
-Varios workers crearían estados independientes incompatibles con las invariantes de sesión y votación. La capacidad requerida es pequeña y acotada; no se busca escalar horizontalmente el estado operativo.
+La ejecución productiva del backend utilizará **un único proceso/worker**. Varios workers crearían estados independientes incompatibles con el estado único en memoria.
 
 ## DT-006 - Transporte frontend/backend
 
-Se utilizará:
+Se utilizará **REST** para comandos, snapshots y consultas puntuales, y **Server-Sent Events (SSE)** para cambios de estado backend → frontend.
 
-- **REST** para comandos y consultas puntuales;
-- **Server-Sent Events (SSE)** para cambios de estado enviados desde backend a los frontends.
+Al cargar o reconectar, cada frontend obtiene primero un snapshot completo por REST y luego mantiene su stream SSE. Ante duda de sincronización se vuelve a obtener snapshot completo.
 
-Flujo:
-
-1. al cargar o reconectar, el frontend solicita snapshot completo por REST;
-2. luego mantiene una suscripción SSE;
-3. los comandos de Moderación se envían mediante REST;
-4. ante pérdida/reconexión del stream, el cliente obtiene nuevamente un snapshot completo antes de continuar;
-5. Moderación y Recinto reciben proyecciones diferentes.
-
-No se usará polling periódico como mecanismo normal ni WebSocket salvo decisión futura documentada.
+No se usará polling periódico como mecanismo normal ni WebSocket salvo nueva decisión documentada.
 
 ## DT-007 - Contrato de API
 
-La API interna nueva será **REST versionada bajo `/api/v1`**.
+La API interna nueva será REST versionada bajo `/api/v1`.
 
 - FastAPI + Pydantic definen esquemas de entrada/salida.
 - OpenAPI generado por FastAPI es la definición técnica canónica del contrato HTTP.
 - Los errores de dominio incluyen identificadores estables legibles por máquina.
 - Se distinguen comandos que mutan estado de consultas/proyecciones.
-- Los contratos TypeScript deben derivarse de OpenAPI cuando sea práctico, evitando duplicar modelos manualmente.
-
-La compatibilidad transitoria con el bridge histórico puede mantener una ruta adaptadora distinta; no obliga a copiar endpoints internos antiguos.
+- Los contratos TypeScript deben derivarse de OpenAPI cuando sea práctico.
 
 ## DT-008 - Proyecciones separadas de estado
 
-El backend genera al menos:
-
-- **ModerationState**: información necesaria para operar, incluyendo votos individuales cuando la política temporal configurada lo permita;
-- **PublicState**: información apta para Pantalla del Recinto.
+El backend genera al menos `ModerationState` y `PublicState`.
 
 Durante `EN_CURSO`, `PublicState` no contiene votos individuales ni eventos/datos capaces de revelarlos. El secreto temporal se garantiza en servidor.
 
 ## DT-009 - Sin base de datos en la primera versión
 
-La primera versión operará con:
-
-- estado activo en memoria;
-- configuración en archivos;
-- padrón en CSV;
-- auditoría institucional en tres CSV.
-
-No se incorporará PostgreSQL, SQLite ni otra base de datos. Una futura necesidad de histórico consultable o configuración administrable requerirá una decisión técnica nueva.
-
-Ninguna persistencia futura podrá usarse implícitamente para reconstruir una sesión interrumpida sin cambiar explícitamente la regla de negocio correspondiente.
+La primera versión operará con estado activo en memoria, configuración en archivos, padrón en CSV y auditoría institucional en tres CSV. No se incorporará PostgreSQL, SQLite ni otra base de datos.
 
 ## DT-010 - Configuración por archivos
 
@@ -130,32 +102,13 @@ services/device-bridge/
     └── devices.json
 ```
 
-### `system.toml`
+`system.toml` contiene, como mínimo, quórum, disposición de bancas, tipos descriptivos de votación, temporizadores y directorio de registros. `concejales.csv` contiene el padrón. `devices.json` pertenece al bridge y contiene la relación fingerprints físicos → dispositivos lógicos.
 
-Contiene configuración funcional/técnica del backend, incluyendo como mínimo:
-
-- quórum;
-- disposición de bancas;
-- tipos descriptivos de votación;
-- retardo para mostrar votos en Moderación;
-- cuenta regresiva/efecto inicial público;
-- permanencia del resultado público;
-- directorio de registros;
-- otras opciones explícitamente documentadas.
-
-### `concejales.csv`
-
-Contiene el padrón. Se valida al iniciar `PREPARANDO`; un padrón inválido bloquea la preparación.
-
-### `devices.json`
-
-Pertenece al `device-bridge` y contiene la relación entre fingerprints físicos y dispositivos lógicos.
-
-La configuración funcional y el padrón se cargan al iniciar `PREPARANDO` y quedan congelados hasta cancelar preparación/cerrar sesión. El remapeo físico del bridge es una excepción operativa explícita.
+Configuración funcional y padrón se cargan al iniciar `PREPARANDO` y quedan congelados hasta cancelar preparación/cerrar sesión.
 
 ## DT-011 - Formato de los CSV de auditoría
 
-Cada preparación crea un conjunto nuevo dentro de una carpeta por día, con fecha y hora de inicio en el nombre:
+Cada preparación crea:
 
 ```text
 logs/
@@ -165,7 +118,7 @@ logs/
     └── AAAA-MM-DD_HH-MM-SS-L3.csv
 ```
 
-Columnas canónicas iniciales:
+Columnas:
 
 ```text
 seq;timestamp;level;tag;event_code;message
@@ -173,159 +126,177 @@ seq;timestamp;level;tag;event_code;message
 
 Reglas:
 
-- delimitador: `;`;
-- codificación: **UTF-8 con BOM** para interoperabilidad directa con herramientas como Excel;
-- timestamp: `AAAA-MM-DD HH:MM:SS`, hora local del servidor;
-- `seq`: secuencia monotónica dentro de la preparación/sesión;
-- `level`: 1, 2 o 3;
-- `tag`: categoría funcional/técnica;
-- `event_code`: identificador estable y legible por máquina;
-- `message`: descripción humana legible.
-
-La jerarquía sigue siendo acumulativa: L1 recibe eventos L1+L2+L3; L2 recibe L2+L3; L3 recibe solo L3.
+- delimitador `;`;
+- UTF-8 con BOM;
+- timestamp `AAAA-MM-DD HH:MM:SS`, hora local;
+- `seq` monotónica dentro de la preparación/sesión;
+- L1 recibe L1+L2+L3, L2 recibe L2+L3 y L3 recibe solo L3.
 
 ## DT-012 - Escritura segura y fallo cerrado
 
-Cada evento se persiste de forma síncrona bajo el mecanismo de serialización del backend:
+Cada evento se persiste de forma síncrona bajo el mecanismo de serialización del backend: escritura, `flush` y `fsync` antes de considerar completada la operación funcional asociada.
 
-1. escribir la fila correspondiente;
-2. ejecutar `flush`;
-3. ejecutar `fsync` para forzar persistencia al sistema de archivos antes de considerar completada la operación funcional asociada.
-
-El volumen esperado permite priorizar integridad frente a throughput.
-
-Si durante `PREPARANDO` o `SESION_ABIERTA` el backend pierde la capacidad de garantizar escritura de auditoría, debe entrar en **fallo cerrado** para nuevas operaciones que muten estado y exponer una condición técnica grave a Moderación. No debe continuar aceptando silenciosamente interacciones institucionales sin registro garantizado.
-
-El diseño concreto debe evitar que un fallo al escribir un nivel produzca una falsa confirmación de una operación parcialmente auditada.
+Si durante `PREPARANDO` o `SESION_ABIERTA` no puede garantizarse la auditoría, el backend entra en **fallo cerrado** para nuevas mutaciones y expone una condición técnica grave a Moderación.
 
 ## DT-013 - Orden del Día procesado por backend
 
-El CSV de Orden del Día se carga desde Moderación y se envía al backend.
-
-El backend:
-
-- lee/parsea el archivo;
-- valida solo legibilidad y formato técnico interpretable;
-- devuelve los puntos normalizados para asistencia de UI o un error técnico estable;
-- no valida secuencia, unicidad ni legitimidad institucional del contenido.
-
-El parser debe quedar testeado en backend y no duplicarse en Nuxt.
+Moderación envía el CSV al backend. El backend lo parsea, valida solo legibilidad/formato técnico, devuelve puntos normalizados o error técnico estable y no valida secuencia, unicidad ni legitimidad institucional.
 
 ## DT-014 - Remapeo físico en el device-bridge
 
-El identificador lógico que conoce el backend permanece estable.
-
-Modelo:
+El identificador lógico conocido por backend permanece estable:
 
 ```text
-teclado físico (fingerprint) -> device-bridge -> identificador lógico (ej. dev05) -> backend -> concejal
+teclado físico (fingerprint) -> device-bridge -> identificador lógico (devXX) -> backend -> concejal
 ```
 
-Ante falla de un teclado, el remapeo rápido sustituye **el fingerprint físico asociado al mismo identificador lógico** dentro del bridge.
+Ante falla, el remapeo sustituye el fingerprint físico asociado al mismo identificador lógico dentro del bridge. No cambia concejal, presencia ni votos; puede ocurrir durante una votación; se registra y no reescribe automáticamente la configuración base.
 
-Consecuencias:
-
-- no cambia la identidad del concejal;
-- no cambia presencia;
-- no cambia votos ya emitidos;
-- puede ocurrir incluso durante una votación;
-- no requiere modificar el padrón cargado en backend;
-- queda registrado institucional/técnicamente;
-- no reescribe automáticamente la configuración base salvo una futura decisión explícita.
-
-La operación se inicia desde Moderación a través del backend; el frontend no se conecta directamente al bridge. El contrato backend↔bridge para ejecutar/capturar el remapeo se definirá dentro del work package correspondiente sin cambiar esta responsabilidad.
+La operación se inicia desde Moderación a través del backend; el frontend no se conecta directamente al bridge.
 
 ## DT-015 - Stack Nuxt
 
-- **Nuxt 4** en la última versión estable seleccionada al crear el scaffold.
-- Vue 3 gestionado por el ecosistema/dependencias de Nuxt.
-- TypeScript en modo estricto.
-- `nuxt typecheck` forma parte de los controles obligatorios.
-- Las versiones resueltas quedan congeladas por `pnpm-lock.yaml`.
-- Actualizaciones de dependencias se realizan de forma deliberada mediante PR; no se actualizan automáticamente en producción.
+- Nuxt 4 en la versión estable seleccionada al crear el scaffold.
+- Vue 3 gestionado por Nuxt.
+- TypeScript estricto.
+- `nuxt typecheck` obligatorio.
+- Versiones congeladas por `pnpm-lock.yaml`.
+- Actualizaciones de dependencias deliberadas mediante PR.
 
 ## DT-016 - Tailwind CSS y componentes propios
 
-Los dos frontends utilizarán **Tailwind CSS v4** y componentes Vue/Nuxt propios.
-
-No se incorporará Nuxt UI como dependencia inicial. La interfaz de Botonera2 es específica para operación institucional y pantalla fija; se prioriza control visual, bajo acoplamiento y facilidad de auditoría.
-
-Puede utilizarse CSS propio complementario cuando Tailwind no sea la herramienta adecuada.
+Los frontends utilizarán **Tailwind CSS v4** y componentes Vue/Nuxt propios. No se incorporará Nuxt UI inicialmente. Puede utilizarse CSS propio complementario.
 
 ## DT-017 - Estado frontend sin Pinia inicialmente
 
-No se usará Pinia en la primera versión salvo que aparezca una necesidad concreta documentada.
-
-Principio:
-
-- el estado autoritativo vive en FastAPI;
-- cada frontend mantiene la proyección recibida y estado local puramente visual mediante composables, `useState`, `ref` y primitives de Vue/Nuxt;
-- no se duplican máquinas de estado de negocio en el navegador.
+El estado autoritativo vive en FastAPI. Cada frontend mantiene la proyección recibida y estado local visual mediante composables, `useState`, `ref` y primitives de Vue/Nuxt. No se usará Pinia inicialmente salvo necesidad futura documentada.
 
 ## DT-018 - Cliente API compartido
 
-Existirá un paquete compartido, inicialmente:
-
-```text
-packages/api-client/
-```
-
-Responsabilidades:
-
-- tipos derivados de OpenAPI;
-- cliente REST;
-- manejo uniforme de errores y códigos de dominio;
-- cliente SSE;
-- reconexión;
-- recuperación de snapshot completo;
-- control de secuencia/sincronización;
-- utilidades comunes de contrato.
-
-Los componentes no deben implementar de forma dispersa sus propios flujos de `$fetch`/SSE para las mismas operaciones.
+Existirá `packages/api-client/` con tipos derivados de OpenAPI, cliente REST, errores uniformes, SSE, reconexión, recuperación de snapshot y control de sincronización.
 
 ## DT-019 - Compartición frontend mínima y explícita
 
-Se compartirá solo infraestructura y elementos genuinamente comunes entre Moderación y Recinto.
-
-`packages/frontend-shared/` puede incluir:
-
-- algoritmo/representación de disposición de bancas;
-- utilidades visuales comunes;
-- assets comunes;
-- tipos auxiliares no generados por OpenAPI;
-- componentes realmente idénticos cuando exista esa necesidad.
-
-No se construirá preventivamente una gran librería UI común. Moderación y Recinto tienen objetivos operativos y visuales diferentes.
+`packages/frontend-shared/` contendrá únicamente elementos genuinamente comunes: disposición de bancas, utilidades, assets y componentes realmente idénticos. No se construirá una gran librería UI común preventivamente.
 
 ## DT-020 - Estrategia responsive y hardware de referencia
 
-El hardware actual de Moderación y Pantalla del Recinto es **Full HD (1920×1080)**. Esa resolución es referencia de diseño y pruebas visuales, no requisito rígido.
+El hardware actual es Full HD 1920×1080, pero esa resolución es solo referencia.
 
-Principios:
+Las interfaces deben adaptarse a cambios razonables de monitor, resolución, escala del sistema operativo y navegador. Moderación debe conservar funcionalidad sin solapamientos; paneles extensos usan scroll interno. Recinto prioriza composición 16:9 pero responde de forma controlada ante otras relaciones de aspecto.
 
-- las interfaces deben adaptarse a cambios razonables de monitor, resolución, escala del sistema operativo y configuración del navegador;
-- no usar coordenadas o tamaños absolutos que hagan depender la funcionalidad de 1920×1080;
-- Moderación debe conservar todas las capacidades y evitar solapamientos/crecimiento destructivo en resoluciones menores razonables;
-- listas y paneles extensos utilizan scroll interno cuando corresponda;
-- Pantalla del Recinto prioriza la composición 16:9 pero debe responder de manera controlada ante otras relaciones de aspecto;
-- texto, bancas, indicadores y controles críticos deben mantener legibilidad y jerarquía visual;
-- los tests de frontend/E2E deben incluir al menos Full HD y una o más resoluciones alternativas definidas al implementar pruebas.
+Los tests deben incluir Full HD y al menos una resolución alternativa.
 
-El cambio futuro de hardware no debe requerir cambiar reglas de negocio ni reescribir la interfaz.
+## DT-021 - Pruebas backend
+
+Se utilizarán **pytest + HTTPX + AnyIO**.
+
+La suite debe cubrir:
+
+- reglas de dominio con pruebas unitarias puras;
+- servicios/comandos;
+- API FastAPI;
+- comportamiento asíncrono cuando corresponda;
+- serialización/concurrencia;
+- SSE y reconstrucción de estado;
+- casos de aceptación reglamentarios.
+
+No se fija un porcentaje de coverage como objetivo principal. La cobertura de reglas, invariantes y criterios de aceptación tiene prioridad sobre una métrica arbitraria de líneas.
+
+## DT-022 - Pruebas frontend
+
+Se utilizarán:
+
+- **Vitest**;
+- **`@nuxt/test-utils`**;
+- **Vue Test Utils**.
+
+Se probarán especialmente composables, cliente API, reconexión, transformación de estado, controles habilitados/deshabilitados, secreto temporal de votos y componentes con lógica. No es objetivo testear cada clase visual de Tailwind.
+
+## DT-023 - Pruebas E2E
+
+Se utilizará **Playwright**.
+
+Inicialmente los E2E críticos se ejecutarán en Chromium, incluyendo al menos:
+
+- 1920×1080;
+- 1366×768.
+
+Los recorridos críticos incluyen preparación, acreditación, apertura, votación, autocierre, empate/desempate, pérdida de quórum, palabra, reconexión y secreto de votos en Recinto.
+
+La matriz de navegadores puede ampliarse si cambia el hardware real o aparece una necesidad concreta.
+
+## DT-024 - Simulador de dispositivos
+
+Existirá una herramienta de desarrollo reproducible:
+
+```text
+tools/
+└── device-simulator/
+```
+
+Será inicialmente una **CLI**, no una GUI.
+
+Debe permitir:
+
+- emitir pulsaciones por dispositivo lógico;
+- ejecutar escenarios declarativos reproducibles;
+- automatizar casos normales, errores y concurrencia;
+- ser utilizable por desarrolladores, agentes y pruebas sin hardware físico.
+
+Los escenarios podrán residir en archivos versionados, por ejemplo votación simple, empate, pérdida de quórum y concurrencia.
+
+## DT-025 - Integración continua
+
+Se utilizará **GitHub Actions** en cada Pull Request.
+
+Checks conceptuales separados:
+
+```text
+backend-quality
+backend-tests
+frontend-quality
+frontend-tests
+build
+e2e-critical
+```
+
+La CI debe cubrir como mínimo Ruff, Pyright, pytest, ESLint, Nuxt/TypeScript typecheck, Vitest, build de ambos frontends y Playwright E2E críticos.
+
+Los checks deberán convertirse en obligatorios para integrar cuando se cierre la política de ramas/protecciones. Las Actions usarán permisos mínimos y los tests normales no dependerán de secretos.
+
+## DT-026 - Calidad estática y formato
+
+### Python
+
+- **Ruff** como linter;
+- **Ruff formatter**;
+- **Pyright** como type checker.
+
+### Nuxt/TypeScript
+
+- **`@nuxt/eslint`** con configuración moderna/flat;
+- **Prettier** para formato;
+- `nuxt typecheck`;
+- TypeScript estricto.
+
+En CI estas herramientas verifican; no autocorrigen ni modifican código.
 
 ## Consecuencias para los agentes
 
-DT-001 a DT-020 están cerradas. Los agentes no deben, sin una nueva decisión documentada:
+DT-001 a DT-026 están cerradas. Los agentes no deben, sin una nueva decisión documentada:
 
 - dividir el sistema en repositorios independientes;
-- sustituir `uv`, `pnpm`, Nuxt 4 o Tailwind v4 por otras bases;
+- sustituir `uv`, `pnpm`, Nuxt 4 o Tailwind v4;
 - introducir una base de datos;
-- ejecutar múltiples workers del backend;
+- ejecutar múltiples workers;
 - reintroducir polling como sincronización principal;
 - sustituir REST + SSE por WebSockets;
 - entregar al frontend público el DTO completo de Moderación;
 - parsear el Orden del Día exclusivamente en frontend;
 - aceptar mutaciones si la auditoría obligatoria no puede persistirse;
-- implementar el remapeo cambiando votos, presencia o identidad del concejal;
+- implementar remapeo cambiando votos, presencia o identidad;
 - introducir Pinia o una librería UI extensa por iniciativa propia;
-- asumir que la UI solo funcionará a 1920×1080.
+- asumir que la UI solo funcionará a 1920×1080;
+- sustituir el stack de testing o calidad por iniciativa propia;
+- omitir tests de reglas modificadas o evitar la CI obligatoria definida para el alcance.
