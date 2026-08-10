@@ -1,299 +1,237 @@
-# 03 — Casos de uso
+# 03 - Casos de uso
 
-Los casos de uso describen comportamiento observable. No fijan la estructura interna del código.
+Los casos de uso describen comportamiento observable. Los nombres de endpoints, componentes o clases se decidirán después.
 
-## CU-01 — Abrir sesión
+## CU-01 Preparar sala
+
+**Actor:** Moderación.
+
+**Precondición:** estado `SIN_PREPARAR`.
+
+**Flujo:**
+1. Cargar configuración y padrón.
+2. Validar datos obligatorios y unicidad del padrón.
+3. Congelar configuración/padrón para esta preparación.
+4. Poner a todos los concejales ausentes.
+5. Crear los tres CSV con fecha/hora de inicio.
+6. Pasar a `PREPARANDO`.
+7. Permitir cargar número de sesión, Presidencia y Secretaría.
+8. Habilitar solo presencia y test desde dispositivos.
+
+## CU-02 Cancelar preparación
+
+**Actor:** Moderación.
+
+Registra motivo/evento de cancelación, cierra definitivamente los tres CSV y vuelve a `SIN_PREPARAR`.
+
+## CU-03 Acreditar o retirar presencia
+
+**Actor:** Concejal mediante dispositivo.
+
+En `PREPARANDO` o `SESION_ABIERTA`, tecla `9` alterna su presencia.
+
+Consecuencias:
+- recalcular cantidad de presentes y quórum;
+- si está en cola/orador y pasa a ausente, retirarlo;
+- si hay votación `EN_CURSO`, aplicar pérdida de quórum o autocierre según corresponda.
+
+## CU-04 Probar dispositivo
+
+**Actor:** Concejal mediante dispositivo.
+
+Tecla `8` activa una señal visual temporal de su banca. Funciona en preparación, sesión y votación y no cambia ningún estado de negocio.
+
+## CU-05 Abrir sesión
 
 **Actor:** Moderación.
 
 **Precondiciones:**
+- `PREPARANDO`;
+- quórum alcanzado;
+- número de sesión informado;
+- Presidencia informada;
+- Secretaría Legislativa informada.
 
-- no existe otra sesión activa;
-- la configuración necesaria está disponible;
-- existe una nómina no vacía de concejales.
+Conserva las presencias ya acreditadas y pasa a `SESION_ABIERTA`.
 
-**Entrada:** número de sesión.
-
-**Flujo:**
-
-1. Moderación solicita apertura.
-2. El backend carga los concejales y configuración de la sesión.
-3. Crea la sesión activa.
-4. Registra hora de inicio.
-5. Publica el nuevo estado a las interfaces.
-6. Registra evento de apertura.
-
-**Resultado:** sesión activa con presencia inicial, quórum y bancas disponibles.
-
-**Rechazos:** sesión ya activa, fuente de concejales inexistente o vacía, configuración inválida.
-
-## CU-02 — Cerrar sesión
+## CU-06 Cambiar autoridades
 
 **Actor:** Moderación.
 
-**Precondición:** existe sesión activa.
+Puede cambiar Presidencia o Secretaría en preparación o sesión, incluso durante votación. El cambio se registra y no altera las reglas de concejales ni votaciones.
 
-**Flujo:**
-
-1. Moderación solicita cierre.
-2. Si existe una votación `EN_CURSO`, se ejecuta su cierre forzado.
-3. Se registra hora de cierre de la sesión.
-4. La sesión deja de estar activa.
-5. Se registra evento.
-6. Los frontends pasan al estado sin sesión activa.
-
-**Resultado:** no pueden procesarse nuevas acciones legislativas de teclado hasta una nueva sesión.
-
-## CU-03 — Cambiar presencia
-
-**Actor:** Concejal mediante teclado.
-
-**Entrada externa:** dispositivo + tecla `9`.
-
-**Precondiciones de `main`:**
-
-- existe sesión activa;
-- dispositivo asociado a un concejal.
-
-**Flujo:**
-
-1. El backend identifica al concejal.
-2. Invierte presente/ausente.
-3. Recalcula cantidad de presentes y quórum mostrado.
-4. Si existe votación `EN_CURSO`, reevalúa su cierre automático.
-5. Registra evento.
-
-**Resultado:** todas las vistas reflejan la nueva presencia.
-
-## CU-04 — Abrir votación
+## CU-07 Cerrar sesión
 
 **Actor:** Moderación.
 
-**Entradas:**
+Si hay votación `EN_CURSO`, se finaliza primero; si no estaba completa queda `INCONCLUSA`.
 
-- número;
-- tipo;
-- tema;
-- factor de mayoría;
-- criterio `Presentes` o `Cuerpo`.
+Si hay votación `EMPATADA`, pasa a `INCONCLUSA`.
+
+Luego se registra cierre, se cierran los CSV y se vuelve a `SIN_PREPARAR`.
+
+## CU-08 Cargar Orden del Día
+
+**Actor:** Moderación.
+
+Carga opcional de CSV para precargar votaciones.
+
+Solo se exige formato técnicamente interpretable. Un archivo inválido se rechaza sin bloquear el resto del sistema.
+
+## CU-09 Seleccionar punto del Orden del Día
+
+**Actor:** Moderación.
+
+Copia los datos del punto a un formulario editable. El operador puede modificar cualquier campo antes de abrir la votación.
+
+Los puntos pueden seleccionarse en cualquier orden.
+
+## CU-10 Crear votación manual
+
+**Actor:** Moderación.
+
+Permite cargar una votación no incluida en el Orden del Día.
+
+El sistema no valida secuencia ni unicidad de número de votación.
+
+## CU-11 Abrir votación
+
+**Actor:** Moderación.
 
 **Precondiciones:**
-
-- sesión activa;
-- quórum suficiente;
-- sin otra votación activa según la política final.
-
-**Flujo:**
-
-1. Backend valida condiciones.
-2. Crea votación `EN_CURSO`.
-3. Registra hora de inicio.
-4. La agrega al historial de la sesión.
-5. Registra evento.
-6. Pantallas pasan a modo votación.
-
-**Resultado:** se aceptan votos ordinarios válidos.
-
-## CU-05 — Emitir voto ordinario
-
-**Actor:** Concejal mediante teclado.
-
-**Entradas:**
-
-- `1` → Positivo;
-- `2` → Abstención;
-- `3` → Negativo.
-
-**Precondiciones:**
-
-- sesión activa;
-- votación `EN_CURSO`;
-- dispositivo reconocido;
-- concejal presente;
-- concejal aún no votó.
-
-**Flujo:**
-
-1. Se identifica concejal y valor.
-2. Se valida elegibilidad.
-3. Se registra voto y hora.
-4. Se registra evento.
-5. Se evalúa si todos los presentes ya votaron.
-6. Si corresponde, se cierra automáticamente y calcula resultado.
-
-**Rechazos:** sin sesión, sin votación, ausente, dispositivo desconocido, voto duplicado o tecla inválida.
-
-## CU-06 — Cierre automático de votación
-
-**Disparador:** último voto necesario o cambio de presencia.
-
-**Precondición:** votación `EN_CURSO` y todos los presentes actuales incluidos entre quienes votaron.
-
-**Flujo:**
-
-1. Se cuentan votos.
-2. Se calcula mayoría simple o especial.
-3. Se aplica la regla de `INCONCLUSA` cuando corresponda.
-4. Se fija hora de fin.
-5. Si queda `EMPATADA`, permanece pendiente de desempate.
-6. En otro resultado se considera finalizada.
-7. Se registra evento de resultado.
-
-## CU-07 — Cerrar votación forzadamente
-
-**Actor:** Moderación.
-
-**Precondiciones:** sesión activa y votación `EN_CURSO`.
-
-**Flujo:**
-
-1. Se identifican presentes sin voto.
-2. Se calcula el resultado con los votos existentes.
-3. Se aplica regla de `INCONCLUSA`.
-4. Se fija hora de fin.
-5. Se registra evento incluyendo presentes sin voto.
-
-**Resultado:** la votación deja de recibir votos.
-
-## CU-08 — Desempatar votación
-
-**Actor:** Moderación.
-
-**Precondición:** votación pendiente en estado `EMPATADA`.
-
-**Entrada:** decisión Positiva o Negativa.
-
-**Flujo:**
-
-1. Backend valida que exista empate pendiente.
-2. Registra la decisión de desempate separada de los votos ordinarios.
-3. Positiva → `APROBADA`; Negativa → `RECHAZADA`.
-4. Fija hora de finalización si corresponde.
-5. Registra evento.
-
-**Resultado:** votación finalizada.
-
-## CU-09 — Solicitar o retirar uso de la palabra
-
-**Actor:** Concejal mediante tecla `7`.
-
-**Precondiciones:** sesión activa, dispositivo reconocido, concejal presente.
-
-**Flujo si no es orador:**
-
-- fuera de cola → se agrega al final;
-- dentro de cola → se retira.
-
-**Flujo si es orador:** finaliza su propio uso de la palabra.
-
-**Resultado:** vistas actualizadas y evento registrado.
-
-## CU-10 — Otorgar palabra
-
-**Actor:** Moderación.
-
-**Precondición:** sesión activa.
-
-**Flujo normal:**
-
-1. Toma el primer concejal de la cola.
-2. Lo elimina de la cola.
-3. Lo establece como orador actual.
-4. Actualiza visualización de la banca.
-5. Registra evento.
-
-**Cola vacía:** no se asigna orador y se registra el intento.
-
-## CU-11 — Quitar palabra
-
-**Actor:** Moderación.
-
-**Precondición:** sesión activa.
-
-**Flujo:** si existe orador actual, deja de serlo y se registra evento. Si no existe, no cambia estado.
-
-## CU-12 — Activar test visual de banca
-
-**Actor:** Concejal/técnico mediante tecla `8`.
-
-**Precondiciones de `main`:** sesión activa y dispositivo reconocido.
-
-**Flujo:**
-
-1. Se activa temporalmente un indicador visual de la banca correspondiente.
-2. El estado se publica a las pantallas.
-3. El indicador se desactiva automáticamente.
-
-**Duración observada en backend:** aproximadamente 0,6 s.
-
-El test no modifica presencia, palabra ni votaciones.
-
-## CU-13 — Cargar Orden del Día
-
-**Actor:** Moderación.
-
-**Entrada:** archivo CSV local.
-
-**Flujo:**
-
-1. El frontend lee el archivo localmente.
-2. Valida cabecera, cinco columnas y contenido.
-3. Si todo es válido, muestra las filas.
-4. Si cualquier fila es inválida, rechaza toda la carga y vacía la tabla.
-
-**Resultado:** datos disponibles solo en el frontend hasta seleccionar una fila.
-
-## CU-14 — Seleccionar ítem del Orden del Día
-
-**Actor:** Moderación.
-
-**Precondición:** Orden del Día válido cargado.
-
-**Flujo:**
-
-1. Operador selecciona una fila.
-2. Se copian número, tipo, tema, factor y criterio al formulario de votación.
-3. El operador puede revisar los datos.
-4. La votación solo se crea cuando ejecuta “Abrir votación”.
-
-## CU-15 — Consultar estado operativo
-
-**Actor:** ambos frontends.
-
-El backend debe permitir obtener una proyección coherente del estado actual que incluya lo necesario para representar:
-
-- existencia y datos de sesión;
-- concejales y presencia;
+- sesión abierta;
 - quórum;
-- disposición de bancas;
-- votación actual/última e historial necesario;
-- votos cuando la superficie esté autorizada a recibirlos;
-- cola y orador;
-- eventos permitidos.
+- ninguna votación activa o empatada pendiente;
+- datos de votación completos y técnicamente válidos.
 
-Botonera2 no debe depender necesariamente del gran JSON exacto de `/estados/estado_global` del MVP.
+Al abrir, los datos quedan inmutables.
 
-## CU-16 — Pantalla pública durante votación
+## CU-12 Emitir voto ordinario
 
-**Actor:** Pantalla de Recinto.
+**Actor:** Concejal presente mediante su dispositivo.
 
-**Flujo:**
+- `1`: positivo.
+- `2`: abstención.
+- `3`: negativo.
 
-1. Detecta una votación `EN_CURSO`.
-2. Muestra datos generales de la votación.
-3. Mantiene ocultos los votos individuales.
-4. Evita mostrar eventos que revelen votos.
-5. Puede mostrar la cuenta regresiva inicial de presentación.
-6. Al cierre muestra resultado y votos individuales por la ventana temporal definida.
-7. Luego limpia la indicación de voto de cada banca.
+Solo durante `EN_CURSO`. Un concejal que ya votó no puede volver a votar aunque se ausente y regrese.
 
-## CU-17 — Pérdida temporal de conexión de frontend
+Cada voto aceptado se persiste inmediatamente.
 
-**Actor:** Nuxt Moderación / Nuxt Pantalla.
+## CU-13 Autocerrar votación
 
-**Comportamiento requerido:**
+Después de cada voto o cambio de presencia, si todos los concejales actualmente presentes ya votaron y se mantiene quórum, calcular el resultado y cerrar automáticamente.
 
-- la caída de un frontend no altera el backend;
-- la interfaz indica pérdida de conexión;
-- al reconectar reconstruye la vista desde el estado autoritativo del backend;
-- no debe depender de conservar estado local crítico para reconstruir la sesión.
+Mayoría simple puede quedar `EMPATADA`; mayoría especial no.
+
+## CU-14 Finalizar votación manualmente
+
+**Actor:** Moderación.
+
+Disponible en cualquier momento de `EN_CURSO`, incluso sin votos.
+
+Exige motivo obligatorio.
+
+Si la votación no estaba completa, resultado `INCONCLUSA`.
+
+No existe estado `CANCELADA`.
+
+## CU-15 Finalizar por pérdida de quórum
+
+Si durante `EN_CURSO` la presencia cae por debajo del quórum, finalizar inmediatamente como `INCONCLUSA`, conservar todos los votos emitidos y registrar el evento.
+
+## CU-16 Calcular mayoría simple
+
+Al cierre normal:
+
+- positivos > negativos => `APROBADA`;
+- positivos < negativos => `RECHAZADA`;
+- igualdad => `EMPATADA`.
+
+Abstenciones excluidas del cálculo.
+
+## CU-17 Calcular mayoría especial
+
+Al cierre normal:
+
+- base `PRESENTES`: positivos / votos emitidos, incluyendo abstenciones;
+- base `CUERPO`: positivos / total de concejales cargados;
+- aprueba si `cociente >= factor`.
+
+Si la finalización es anticipada con presentes sin votar, prevalece `INCONCLUSA`.
+
+## CU-18 Desempatar mayoría simple
+
+**Actor:** Presidencia a través de Moderación.
+
+**Precondición:** votación simple `EMPATADA`.
+
+El operador selecciona positivo o negativo. No existe abstención. La decisión es irreversible, se registra explícitamente y produce `APROBADA` o `RECHAZADA`.
+
+El voto de Presidencia no se agrega al conteo de votos ordinarios.
+
+## CU-19 Pedir/retirar palabra
+
+**Actor:** Concejal presente.
+
+Tecla `7`:
+- si no espera, entra al final de la cola FIFO;
+- si ya espera, retira su pedido;
+- si está hablando, termina su propio uso.
+
+Funciona también durante una votación.
+
+## CU-20 Otorgar palabra
+
+**Actor:** Moderación.
+
+Si hay orador actual, finalizarlo automáticamente. Luego otorgar al primero de la cola.
+
+Si no hay solicitudes, no se crea orador.
+
+## CU-21 Quitar palabra
+
+**Actor:** Moderación.
+
+Finaliza al orador actual y registra el hecho.
+
+## CU-22 Ausencia durante palabra
+
+Al pasar a ausente:
+- si estaba en cola, quitarlo;
+- si estaba hablando, finalizar automáticamente su uso.
+
+## CU-23 Moción durante votación
+
+Los concejales pueden usar la palabra mientras sigue `EN_CURSO`. Si una moción aprobada obliga a alterar la votación, Moderación debe finalizarla manualmente como `INCONCLUSA` con motivo y continuar según lo decidido fuera de esa votación.
+
+## CU-24 Mostrar estado a Moderación
+
+Mostrar estado global, autoridades, presencia/quórum, votación, votos según política configurada, Orden del Día, cola/orador y eventos.
+
+## CU-25 Mostrar estado al Recinto
+
+Proyección de solo lectura que nunca expone votos individuales mientras `EN_CURSO`.
+
+Al cerrar muestra resultado/votos durante el tiempo configurado y luego limpia la presentación transitoria.
+
+## CU-26 Reconexión de frontend
+
+Cualquier frontend que recargue o reconecte debe poder reconstruir su vista consultando el backend; no depende de haber observado los eventos anteriores.
+
+## CU-27 Remapear dispositivo (requisito pendiente de diseño)
+
+**Actor:** Moderación/operación técnica.
+
+Ante falla física, reasignar rápidamente otro dispositivo al mismo concejal, incluso durante votación.
+
+No cambia presencia, identidad ni votos emitidos. Se registra y solo modifica el mapeo en memoria.
+
+## CU-28 Interrupción técnica
+
+Si el backend reinicia durante preparación o sesión:
+
+1. los CSV anteriores quedan hasta el último evento escrito;
+2. no se modifican ni reparan retrospectivamente;
+3. el estado reinicia en `SIN_PREPARAR`;
+4. no se continúa la sesión anterior.
