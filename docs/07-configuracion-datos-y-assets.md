@@ -1,166 +1,139 @@
-# 07 — Configuración, datos y assets
+# 07 - Configuración, datos y assets
 
 ## 1. Principio
 
-Botonera2 debe distinguir entre:
+La configuración operacional se carga al iniciar `PREPARANDO` y queda congelada hasta cancelar preparación o cerrar sesión.
 
-- configuración del sistema;
-- datos institucionales variables;
-- datos de una sesión;
-- assets visuales.
+Los cambios posteriores en disco no afectan una ejecución activa.
 
-No debe incorporar datos reales sensibles en fixtures, pruebas o documentación técnica.
+## 2. Configuración mínima
 
-## 2. Configuración observada en producción
+Debe poder definir, como mínimo:
 
-El `config.json` de `main` contiene conceptualmente:
-
-- ruta de archivo de concejales;
-- directorio de logs;
+- fuente/padrón de concejales;
 - quórum;
-- disposición de bancas.
-
-El valor productivo observado de quórum es `7`, pero **quórum es configuración**, no una constante de dominio embebida en código.
-
-La disposición observada es:
-
-```json
-{
-  "filas": [
-    { "fila": 3, "columnas": 5 },
-    { "fila": 2, "columnas": 4 },
-    { "fila": 1, "columnas": 3 }
-  ]
-}
-```
-
-Esto suma 12 bancas.
-
-Botonera2 debe validar:
-
-- filas válidas;
-- columnas positivas;
-- bancas suficientes y no duplicadas;
-- consistencia con la nómina de concejales de la sesión.
-
-## 3. Fuente de concejales
-
-El MVP carga un CSV con columnas:
-
-```text
-dni,nombre,apellido,bloque,presente,banca,dispositivo_votacion
-```
-
-Comportamiento observado:
-
-- filas sin `dni` se ignoran;
-- `presente` reconoce variantes como `true`, `1`, `si`, `sí`, `yes`;
-- banca inválida termina como `0` en el MVP;
-- campos de texto se recortan con `trim`/`strip`.
-
-### Requisito para Botonera2
-
-La nueva implementación no debe copiar silenciosamente tolerancias peligrosas como convertir una banca inválida en `0`.
-
-Debe validar explícitamente los datos antes de permitir abrir una sesión y reportar errores comprensibles.
-
-La fuente inicial puede seguir siendo archivo si eso simplifica la primera versión, pero la persistencia definitiva es una decisión técnica separada.
-
-## 4. Datos reales
-
-No duplicar en esta documentación:
-
-- DNI reales;
-- mapeos físicos de teclados;
-- fingerprints;
-- logs de sesiones reales.
-
-Las pruebas deben usar concejales ficticios.
-
-## 5. Identificador lógico de dispositivo
-
-El backend trabaja con identificadores lógicos como:
-
-```text
-dev01
-dev02
-...
-```
-
-El servicio físico mantiene por separado la relación fingerprint físico → identificador lógico.
-
-Botonera2 solo necesita conocer el identificador lógico para resolver la relación con el concejal.
-
-## 6. Mapeo físico
-
-En el código productivo del servicio de teclados, el mapeo se guarda fuera del backend en:
-
-`devices_services/teclados_fisicos/data/mapeo_teclados.json`
-
-No copiar ese archivo ni sus valores reales a Botonera2.
-
-## 7. Assets de bancas
-
-### Fuente histórica autorizada
-
-Las imágenes vigentes pueden descargarse desde:
-
-- repositorio: `martinebene/Botonera`;
-- rama: `main`;
-- snapshot de referencia: `537823b4a0045853c74a388058fa3739cf7457a5`;
-- ruta: `app/web/static/bancas/`;
-- archivos observados: `1.png` a `12.png`.
-
-Estas imágenes son una de las dos razones expresamente autorizadas para consultar el repositorio anterior.
-
-### Regla de incorporación
-
-Cuando comience la implementación:
-
-1. descargar solo los assets necesarios;
-2. incorporarlos al nuevo repositorio en una ubicación propia del frontend/shared assets;
-3. conservar correspondencia nombre/número de banca;
-4. no importar HTML, CSS o JS junto con las imágenes;
-5. documentar la procedencia en el commit o archivo de assets.
-
-## 8. Orden del Día
-
-El archivo del Orden del Día es un dato operativo local del frontend, no configuración permanente del sistema.
-
-Formato canónico inicial extraído del código productivo:
-
-```text
-nro_votacion;tipo;tema;factor_de_mayoria;respecto
-```
-
-No versionar órdenes del día reales dentro de Botonera2.
-
-Para pruebas, usar archivos ficticios mínimos que cubran:
-
-- mayoría simple;
-- mayoría especial;
-- Presentes;
-- Cuerpo;
-- tipo conocido;
-- tipo desconocido → Otro;
-- archivo inválido.
-
-## 9. Rutas y entorno
-
-El MVP depende fuertemente de rutas relativas y del directorio actual de ejecución. Eso es un detalle técnico legado, no un requisito.
-
-Botonera2 debe resolver configuración y rutas de forma reproducible desde entornos de desarrollo y producción.
-
-## 10. Configuración que deberá quedar explícita
-
-Como mínimo:
-
-- quórum;
-- fuente de concejales;
 - disposición de bancas;
-- configuración de persistencia;
-- política de logs;
-- origen permitido de los frontends/CORS si se despliegan separados;
-- endpoint y credenciales solo si alguna integración futura las requiere.
+- tipos de votación permitidos para asistencia de carga;
+- retardo para mostrar votos individuales en Moderación;
+- temporizador inicial visual de votación;
+- tiempo de permanencia del resultado público;
+- directorio de registros CSV;
+- assets de bancas/recinto que corresponda;
+- parámetros técnicos del bridge que finalmente pertenezcan a su propio componente.
 
-No incluir secretos en Git.
+## 3. Valores actuales de referencia
+
+La instalación histórica usa:
+
+- quórum: 7;
+- disposición por filas: 3, 4 y 5 bancas;
+- total histórico: 12 concejales.
+
+Estos valores son configuración de la instalación y no deben quedar dispersos como constantes de negocio.
+
+## 4. Padrón de concejales
+
+Esquema histórico de referencia:
+
+`dni,nombre,apellido,bloque,presente,banca,dispositivo_votacion`
+
+Para Botonera2:
+
+- `dni`: obligatorio, identificador primario, único;
+- `nombre`: obligatorio;
+- `apellido`: obligatorio;
+- `bloque`: puede estar vacío;
+- `banca`: obligatoria, válida y única;
+- `dispositivo_votacion`: obligatorio y único;
+- cualquier valor histórico de `presente` se ignora funcionalmente al preparar: todos comienzan ausentes.
+
+Un padrón inválido bloquea `Preparar sala`.
+
+## 5. Congelamiento del padrón
+
+Una vez iniciada la preparación, el conjunto de concejales y sus datos base no cambia durante esa preparación/sesión.
+
+El remapeo rápido futuro será una excepción limitada a la asociación operativa dispositivo-concejal en memoria.
+
+## 6. Tipos de votación
+
+Deben provenir de archivo de configuración y no de código rígido ni de una pantalla administrativa cotidiana.
+
+Lista histórica de referencia:
+
+- Ratificación
+- Despacho OP
+- Despacho Gob
+- Despacho AS
+- Despacho HA
+- Despacho Eco
+- Mocion
+- P. Sobre Tabla
+- Otro
+
+La lista definitiva instalada podrá cambiar sin modificar código.
+
+El tipo es descriptivo y no reemplaza el campo explícito `tipo de mayoría`.
+
+## 7. Mayorías
+
+La configuración/formulario debe representar explícitamente:
+
+- `SIMPLE`, sin factor;
+- `ESPECIAL`, con factor y base `PRESENTES` o `CUERPO`.
+
+No inferir mayoría simple a partir de factor 0, 0.5 ni valores nulos.
+
+## 8. Temporizadores
+
+Configurables.
+
+Valores iniciales acordados:
+
+- 4 s para retardo/cuenta regresiva visual inicial y referencia de visibilidad en Moderación;
+- 6 s para permanencia del resultado en Pantalla del Recinto.
+
+La semántica exacta de cada parámetro debe quedar nombrada explícitamente en la configuración para no acoplar temporizadores distintos accidentalmente.
+
+## 9. Orden del Día
+
+Formato histórico actual de referencia:
+
+`nro_votacion;tipo;tema;factor_de_mayoria;respecto`
+
+Separador `;`.
+
+Su función es exclusivamente asistencial.
+
+Botonera2 debe validar solo que pueda interpretar técnicamente el archivo. No debe imponer unicidad, secuencia ni legitimidad de los valores.
+
+Si el archivo no puede leerse, la carga falla pero la sesión puede operar completamente con votaciones manuales.
+
+## 10. Assets históricos
+
+Fuente autorizada para descargar imágenes existentes:
+
+`martinebene/Botonera`, rama `main`, ruta histórica:
+
+`app/web/static/bancas/`
+
+Incluye imágenes `1.png` a `12.png` usadas para representación de bancas.
+
+Los agentes pueden copiar esos assets cuando se implemente la interfaz. No deben copiar el frontend histórico completo para obtenerlos.
+
+## 11. Mapeo físico
+
+La relación fingerprint físico -> dispositivo lógico pertenece al bridge de teclados.
+
+El backend trabaja con identificadores lógicos de dispositivo y la asociación lógica dispositivo -> concejal cargada para la preparación.
+
+El futuro remapeo rápido:
+
+- modifica solo esta asociación en memoria;
+- puede ocurrir durante votación;
+- se registra;
+- no modifica automáticamente archivos base.
+
+## 12. Autoridades
+
+Presidencia y Secretaría Legislativa no forman parte del padrón ni de la configuración fija. Se ingresan como texto libre en cada preparación y pueden cambiar durante la sesión.
