@@ -1,31 +1,35 @@
 # 10 - Decisiones técnicas abiertas
 
-Las reglas de negocio principales y las decisiones técnicas DT-001 a DT-038 están cerradas.
+Las reglas de negocio y las decisiones técnicas previas al inicio de implementación están cerradas.
 
 Las decisiones aprobadas se registran en:
 
 - `12-decisiones-tecnicas.md` para arquitectura, backend/datos, frontend y calidad;
 - `13-despliegue-y-operacion.md` para despliegue/operación;
-- `14-gobernanza-agentes.md` para ramas, WPs, herramientas agénticas, revisión y autoridad.
+- `14-gobernanza-agentes.md` para ramas, WPs, herramientas agénticas, revisión y autoridad;
+- `07-configuracion-datos-y-assets.md` para el contrato canónico de datos/configuración, incluido Orden del Día.
 
-Durante la construcción del PLAN se identificó una decisión contractual adicional que debe cerrarse antes de implementar el alcance afectado.
+## Estado actual
 
-## DT-039 - Esquema del CSV de Orden del Día
+No existen decisiones técnicas previas abiertas que bloqueen el inicio de `WP-001`.
 
-La versión histórica utiliza:
+DT-039 quedó cerrada: Botonera2 utiliza exclusivamente el nuevo formato explícito de CSV de Orden del Día y **no ofrece compatibilidad automática con el formato histórico**.
+
+Contrato canónico:
 
 ```text
-nro_votacion;tipo;tema;factor_de_mayoria;respecto
+nro_votacion,tipo,tema,tipo_mayoria,factor,base
 ```
 
-Botonera2 distingue explícitamente:
+Reglas principales:
 
-- mayoría `SIMPLE`, sin factor/base;
-- mayoría `ESPECIAL`, con `factor` y base `PRESENTES | CUERPO`.
+- `tipo_mayoria = SIMPLE | ESPECIAL`;
+- para `SIMPLE`, `factor` y `base` deben estar vacíos;
+- para `ESPECIAL`, `factor` es obligatorio y `base = PRESENTES | CUERPO`;
+- no se infiere mayoría simple desde `factor=0`, campo vacío ni otro valor;
+- el formato histórico `nro_votacion,tipo,tema,factor_de_mayoria,respecto` debe convertirse externamente al nuevo formato antes de importarse.
 
-Debe definirse el contrato de archivo que utilizará Botonera2 y si se ofrecerá compatibilidad de lectura con el formato histórico.
-
-Esta decisión bloquea únicamente `WP-016 - Parser backend de Orden del Día` y los alcances que dependan de él. El resto del PLAN puede continuar.
+Ver detalle en `docs/07-configuracion-datos-y-assets.md` y DT-039 en `docs/12-decisiones-tecnicas.md`.
 
 ## Decisiones nuevas durante la implementación
 
@@ -42,8 +46,6 @@ el agente no debe resolverla unilateralmente.
 Debe escalarla según DT-038 y, cuando corresponda, documentarla mediante un `DEC-XXX` aprobado antes de continuar el alcance afectado.
 
 ## Criterio de inicio de programación
-
-DT-039 no bloquea WP-001 ni los WPs independientes de Orden del Día.
 
 Antes de ejecutar un WP concreto deben cumplirse sus condiciones operativas:
 
