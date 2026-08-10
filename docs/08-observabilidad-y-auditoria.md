@@ -1,175 +1,154 @@
-# 08 — Observabilidad y auditoría
+# 08 - Observabilidad y auditoría
 
-## 1. Objetivo
+## 1. Principio institucional
 
-El sistema opera durante sesiones reales. Debe permitir comprender qué ocurrió sin depender exclusivamente de lo que muestra un navegador en ese instante.
+El registro electrónico forma parte del comportamiento funcional del sistema, no es solo diagnóstico técnico.
 
-## 2. Eventos funcionales mínimos
+Desde `PREPARANDO` hasta cancelación/cierre deben registrarse inmediatamente las interacciones relevantes.
 
-Registrar al menos:
+## 2. Tres niveles acumulativos
 
-### Sesión
+Se conserva la lógica de profundidad de la implementación actual:
 
-- apertura exitosa;
-- intento de apertura rechazado;
-- cierre;
-- intento de cierre inválido.
+- archivo nivel 1: eventos L1 + L2 + L3;
+- archivo nivel 2: eventos L2 + L3;
+- archivo nivel 3: solo eventos L3.
 
-### Presencia
+Interpretación general:
 
-- concejal presente;
-- concejal ausente;
-- intento inválido cuando corresponda.
+- **L1:** máximo detalle técnico/operativo;
+- **L2:** operación normal, entradas, rechazos y diagnóstico útil;
+- **L3:** hechos institucionales y funcionales importantes.
 
-### Votación
+La asignación concreta de cada evento debe conservar el espíritu de producción y extenderlo para cubrir las nuevas reglas.
 
-- apertura;
-- rechazo de apertura por falta de sesión;
-- rechazo por falta de quórum;
-- rechazo por otra votación activa;
-- cierre automático;
-- cierre forzado;
-- resultado;
+## 3. Formato
+
+Botonera2 utilizará **CSV**, no los `.txt` de la versión histórica.
+
+La estructura exacta de columnas es una decisión técnica pendiente, pero debe permitir como mínimo representar:
+
+- timestamp;
+- nivel;
+- categoría/tag;
+- descripción/datos del evento;
+- orden inequívoco entre eventos procesados.
+
+No es necesario convertir los CSV en una base de datos ni usarlos para restaurar estado.
+
+## 4. Ciclo de archivos
+
+Al ejecutar `Preparar sala`:
+
+1. tomar fecha/hora local del servidor;
+2. crear un identificador de nombre basado en esa fecha y hora;
+3. abrir tres CSV nuevos;
+4. registrar el inicio de preparación.
+
+El nombre debe incluir hora para permitir varias preparaciones/sesiones en el mismo día sin superposición.
+
+Al cancelar preparación o cerrar sesión:
+
+- escribir el evento final;
+- cerrar el conjunto;
+- no volver a modificar esos archivos desde Botonera2.
+
+## 5. Persistencia inmediata
+
+Cada evento debe escribirse cuando ocurre, no acumularse hasta el cierre.
+
+Objetivo: si hay una falla técnica, conservar todo lo que efectivamente sucedió hasta la última escritura exitosa.
+
+## 6. Interrupciones
+
+Ante caída abrupta:
+
+- no existe oportunidad garantizada de escribir un evento de cierre;
+- los CSV quedan terminados en el último evento persistido;
+- al reiniciar no se buscan ni reparan los archivos anteriores;
+- no se agrega retrospectivamente una marca de interrupción;
+- el sistema vuelve a `SIN_PREPARAR`.
+
+## 7. Tiempo
+
+- zona: hora local del servidor;
+- precisión reglamentaria requerida: segundos;
+- formato exacto de timestamp: decisión técnica, pero debe ser inequívoco y ordenable.
+
+## 8. Orden de eventos
+
+Las entradas concurrentes deben serializarse en el backend.
+
+El orden en que el backend acepta, procesa y persiste los eventos es el orden oficial del sistema.
+
+Si técnicamente se utiliza un número de secuencia, debe ser monotónico dentro de la ejecución correspondiente.
+
+## 9. Categorías mínimas a cubrir
+
+La implementación debe registrar apropiadamente, según nivel:
+
+- inicio/cancelación de preparación;
+- cambios de Presidencia;
+- cambios de Secretaría Legislativa;
+- apertura/cierre de sesión;
+- pulsaciones físicas recibidas durante una preparación/sesión;
+- presencia/ausencia;
+- test de dispositivo cuando corresponda al nivel detallado;
+- pedidos/retiros de palabra;
+- otorgamiento/finalización de palabra;
+- apertura de votación;
+- voto ordinario individual;
+- rechazos de voto/interacción;
+- autocierre;
+- pérdida de quórum;
+- finalización manual y motivo;
+- resultado de votación;
 - empate;
-- desempate.
+- voto presidencial de desempate explícito `POSITIVO/NEGATIVO`;
+- resultado posterior al desempate;
+- remapeo de dispositivo cuando se implemente;
+- errores técnicos relevantes.
 
-### Voto
+## 10. Identidad de concejales en registros
 
-- voto registrado;
-- intento duplicado;
-- intento sin votación;
-- intento de ausente.
+La implementación histórica usa principalmente nombre, apellido y número de banca en mensajes funcionales.
 
-### Uso de la palabra
+Botonera2 debe conservar como mínimo esa legibilidad humana. El formato CSV puede añadir DNI estructurado si resulta útil técnicamente, pero no debe reducir el registro a identificadores opacos.
 
-- pedido;
-- retiro de pedido;
-- otorgamiento;
-- finalización;
-- intento de otorgar con cola vacía.
+La decisión de columnas exactas se cerrará antes de implementar el logger.
 
-### Entrada física
+## 11. Presidencia
 
-- dispositivo;
-- tecla;
-- aceptación/rechazo;
-- motivo.
+El desempate debe registrar explícitamente:
 
-## 3. Niveles observados
+- quién figuraba como Presidencia en ese momento;
+- sentido `POSITIVO` o `NEGATIVO`;
+- resultado final.
 
-El MVP usa:
+No debe registrarse como si fuera un voto ordinario de banca.
 
-- `L1`: detalle completo;
-- `L2`: eventos intermedios;
-- `L3`: eventos principales.
+## 12. Proyección de eventos a frontends
 
-Botonera2 puede conservar esos nombres o modelar severidad/categoría de forma más estructurada. Si la UI mantiene los filtros Principales / Intermedios / Sistema, debe existir un mapeo inequívoco.
+Los CSV son el registro persistente; los frontends pueden consumir una proyección reciente en memoria.
 
-## 4. Estructura recomendada
+No se exige conservar el buffer histórico de 20 eventos de la versión anterior.
 
-No guardar únicamente una línea de texto. Cada evento debería tener al menos:
+La proyección pública debe filtrar cualquier evento que revele un voto individual mientras la votación está `EN_CURSO`.
 
-```text
-id o secuencia
-fecha_hora
-nivel
-categoria
-codigo
-mensaje
-contexto estructurado opcional
-```
+## 13. Edición posterior
 
-Ejemplo conceptual:
+Botonera2 no ofrecerá edición de archivos cerrados.
 
-```json
-{
-  "seq": 1234,
-  "timestamp": "...",
-  "nivel": 3,
-  "categoria": "VOTACION",
-  "codigo": "votacion_cerrada",
-  "mensaje": "Votación Nº37 completada",
-  "datos": {
-    "estado": "APROBADA",
-    "positivos": 7,
-    "negativos": 3,
-    "abstenciones": 2
-  }
-}
-```
+Una corrección externa institucional puede existir fuera del sistema, pero Botonera2 no reabre ni reescribe automáticamente registros históricos.
 
-## 5. Orden y deduplicación
+## 14. Referencia histórica
 
-Los frontends deben poder determinar si un evento ya fue recibido.
+La implementación actual usa:
 
-Por eso los eventos expuestos a UI requieren un ID o secuencia monotónica dentro del ámbito elegido.
+- `L1 -> archivo 1`;
+- `L2 -> archivos 1 y 2`;
+- `L3 -> archivos 1, 2 y 3`;
+- líneas `HH:MM:SS | Lx | TAG | mensaje`;
+- escritura inmediata.
 
-El MVP usa una secuencia incremental en RAM y un buffer circular de los últimos 20 eventos. El número `20` no es requisito; sí lo son:
-
-- orden estable;
-- deduplicación;
-- recuperación razonable de eventos recientes.
-
-## 6. Persistencia
-
-El MVP escribe archivos diarios separados por nivel. Botonera2 puede cambiar la implementación, pero debe conservar una forma persistente de auditoría para hechos relevantes de sesión.
-
-La estrategia definitiva de persistencia general se decidirá en arquitectura técnica.
-
-## 7. Privacidad del voto durante la votación
-
-Los eventos no deben provocar una fuga del voto secreto en la Pantalla de Recinto.
-
-Recomendación fuerte:
-
-- no enviar a la proyección pública eventos con identidad + valor de voto mientras la votación esté `EN_CURSO`;
-- no confiar solo en esconder texto con CSS.
-
-Moderación tendrá la política de visibilidad que se defina expresamente.
-
-## 8. Logs técnicos vs eventos de negocio
-
-Separar conceptualmente:
-
-### Eventos de negocio
-
-Comprensibles para operación y auditoría de sesión.
-
-### Logs técnicos
-
-- stack traces;
-- errores HTTP;
-- conexiones;
-- consultas/persistencia;
-- tiempos;
-- fallos de infraestructura.
-
-No exponer stack traces ni detalles técnicos sensibles en las interfaces públicas.
-
-## 9. Timestamps
-
-Todos los hechos relevantes deben tener fecha/hora consistente.
-
-Para almacenamiento es preferible usar timestamps con zona horaria o UTC y convertir a hora local de Argentina en UI. No depender de strings sin zona si luego se necesitará auditoría histórica.
-
-## 10. Correlación
-
-Cuando sea posible, asociar eventos con:
-
-- sesión;
-- votación;
-- concejal;
-- dispositivo lógico;
-- request/acción.
-
-Esto facilita reconstruir incidentes sin recurrir al código antiguo.
-
-## 11. Errores operativos
-
-Los frontends deben presentar errores accionables, pero los eventos persistentes deben contener suficiente detalle para diagnóstico posterior.
-
-Ejemplo: “No hay quórum” para el operador; internamente registrar presentes, quórum requerido y operación intentada.
-
-## 12. No incorporar datos históricos
-
-Los logs existentes en `martinebene/Botonera` son evidencia operativa histórica y **no deben copiarse** a Botonera2 como documentación, fixtures ni ejemplos.
+Botonera2 conserva esa semántica, adaptándola a CSV y a un conjunto de archivos por preparación/sesión identificado por fecha y hora.
