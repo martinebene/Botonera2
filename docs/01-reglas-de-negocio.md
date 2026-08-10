@@ -62,15 +62,24 @@ Secretaría Legislativa no tiene acciones funcionales en Botonera2 y no puede se
 El DNI es el identificador primario del concejal.
 
 ### RN-CON-02
-Son obligatorios DNI, nombre, apellido, banca y dispositivo de votación.
+Son obligatorios DNI, nombre, apellido, banca, dispositivo de votación y ruta interna de imagen.
 
 ### RN-CON-03
 DNI, banca y dispositivo de votación deben ser únicos. Valores vacíos, inválidos o duplicados bloquean la carga. `bloque` puede estar vacío.
 
 ### RN-CON-04
-El padrón se carga al preparar sala y queda congelado hasta finalizar la preparación/sesión.
+La cantidad de concejales del padrón debe coincidir exactamente con la cantidad total de bancas definida por la disposición configurada. Las bancas deben ser únicas, válidas y cubrir completamente esa disposición.
 
 ### RN-CON-05
+Cada concejal debe tener una `ruta_imagen` interna al sistema. No se utiliza una asociación de imágenes hardcodeada por número de banca.
+
+### RN-CON-06
+La presencia es un dato exclusivamente dinámico y no forma parte del archivo de padrón. Toda preparación comienza con todos los concejales ausentes.
+
+### RN-CON-07
+El padrón se carga al preparar sala y queda congelado hasta finalizar la preparación/sesión.
+
+### RN-CON-08
 La única excepción futura será el remapeo rápido de dispositivo en memoria, que no modifica el padrón base.
 
 ## RN-INP - Dispositivos físicos
@@ -288,7 +297,7 @@ Moderación puede crear votaciones fuera del Orden del Día y tratar los puntos 
 Al iniciar `PREPARANDO` se crean tres archivos CSV jerárquicos asociados a esa preparación/sesión.
 
 ### RN-LOG-02
-Los nombres contienen fecha y hora local de inicio para evitar superposición entre varias sesiones del mismo día.
+Los nombres contienen fecha y hora local de inicio con precisión de segundos. Si excepcionalmente el nombre correspondiente a ese segundo ya existe, solo a efectos del nombre del nuevo conjunto se avanza un segundo, repitiendo hasta encontrar un nombre libre. Los timestamps internos de los eventos conservan siempre la hora real.
 
 ### RN-LOG-03
 Nivel 1 contiene eventos L1+L2+L3; nivel 2 contiene L2+L3; nivel 3 contiene solo L3.
