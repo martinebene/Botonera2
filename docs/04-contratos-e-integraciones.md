@@ -1,231 +1,203 @@
-# 04 — Contratos e integraciones
+# 04 - Contratos e integraciones
 
-Este documento define los límites funcionales que la implementación debe respetar. Salvo el contrato externo de teclados, no obliga a conservar las rutas exactas del MVP.
+Este documento define responsabilidades de integración. Los nombres definitivos de endpoints y el transporte de actualización en tiempo real siguen siendo decisiones técnicas.
 
-## 1. Principio de autoridad
+## 1. Regla general
 
-El backend FastAPI es la única autoridad sobre:
+Toda transición de negocio se ejecuta en el backend FastAPI.
 
-- sesión activa;
-- presencia;
-- quórum;
-- votación activa;
-- elegibilidad para votar;
-- votos registrados;
-- cálculo del resultado;
-- empate y desempate;
-- cola de palabra;
-- orador actual;
-- eventos de negocio.
+Los frontends y el bridge físico envían comandos/intenciones y reciben estado/proyecciones; no resuelven reglas localmente.
 
-Los frontends envían comandos y representan proyecciones; no duplican estas reglas como fuente de verdad.
+## 2. Bridge de dispositivos físicos
 
-## 2. Integración externa de teclados
+La implementación histórica envía pulsaciones al backend mediante:
 
-### Contrato mínimo a conservar
+`POST /entradas/tecla`
 
-El servicio de captura debe poder enviar al backend una pulsación con esta semántica:
+con cuerpo conceptual:
 
 ```json
 {
-  "dispositivo": "dev01",
+  "dispositivo": "dev05",
   "tecla": "1"
 }
 ```
 
-En el MVP productivo el endpoint es:
+Botonera2 debe preservar inicialmente una vía compatible o proveer una migración explícita para no bloquear el hardware existente.
 
-`POST /entradas/tecla`
+### Responsabilidades del bridge
 
-Por compatibilidad con el servicio físico existente, Botonera2 debe **mantener este endpoint y cuerpo**, al menos durante la migración inicial, salvo que se modifique también de forma coordinada el servicio de teclados.
+- detectar dispositivos físicos;
+- normalizar teclas;
+- resolver fingerprint físico -> identificador lógico;
+- enviar pulsación al backend;
+- en el futuro, facilitar remapeo operativo rápido.
 
-### Responsabilidades del servicio físico
+### Responsabilidades que NO pertenecen al bridge
 
-- detectar dispositivo físico;
-- identificarlo mediante su mapeo;
-- traducirlo a identificador lógico como `dev01`;
-- detectar la tecla;
-- enviar el evento HTTP.
+- presencia;
+- quórum;
+- validez de voto;
+- cierre de votación;
+- uso de palabra;
+- resultado;
+- registro institucional.
 
-### Responsabilidades que NO pertenecen al servicio físico
+Todo ello pertenece al backend.
 
-- decidir si hay sesión;
-- comprobar presencia;
-- decidir qué significa legislativamente una tecla;
-- validar voto duplicado;
-- calcular quórum;
-- calcular resultados;
-- administrar palabra.
+## 3. Semántica de pulsaciones
 
-## 3. Resultado de procesar una tecla
+El backend interpreta:
 
-La API debe responder de manera estructurada indicando como mínimo:
+- `1`: positivo;
+- `2`: abstención;
+- `3`: negativo;
+- `7`: palabra;
+- `8`: test;
+- `9`: presencia.
 
-- si la entrada fue aceptada;
-- motivo o código de resultado;
+La misma pulsación puede ser aceptada o rechazada según el estado global y el estado del concejal.
+
+En `SIN_PREPARAR` ninguna pulsación tiene efecto funcional.
+
+En `PREPARANDO` solo `8` y `9` tienen efecto funcional.
+
+## 4. Respuesta conceptual de entrada
+
+El contrato debe permitir al bridge/diagnóstico distinguir al menos:
+
+- aceptada/rechazada;
+- motivo estable y legible por máquina;
 - dispositivo;
 - tecla;
-- concejal cuando haya sido resuelto;
-- dato funcional adicional cuando corresponda, por ejemplo valor de voto.
+- concejal cuando corresponda;
+- resultado funcional relevante cuando corresponda.
 
-Códigos funcionales que deben poder distinguirse:
+Los identificadores de error deben ser estables y no depender de textos de interfaz.
 
-- `no_hay_sesion_abierta`;
-- `dispositivo_no_asignado`;
-- `concejal_ausente`;
-- `no_hay_votacion_abierta`;
-- `concejal_ya_voto`;
-- `voto_registrado`;
-- `cambio_presencia`;
-- `tecla_uso_palabra`;
-- `fin_uso_palabra`;
-- `tecla_no_soportada`;
-- test visual aceptado.
+## 5. Comandos de Moderación requeridos
 
-Los nombres exactos pueden normalizarse en Botonera2 siempre que el servicio consumidor no dependa de ellos.
+El contrato backend debe ofrecer capacidades equivalentes a:
 
-## 4. Capacidades requeridas de la API de Moderación
-
-El backend debe exponer operaciones equivalentes a:
-
+- preparar sala;
+- cancelar preparación;
+- actualizar número de sesión durante preparación;
+- actualizar Presidencia;
+- actualizar Secretaría Legislativa;
 - abrir sesión;
 - cerrar sesión;
+- cargar/descartar Orden del Día;
 - abrir votación;
-- cerrar votación forzadamente;
-- resolver desempate positivo/negativo;
+- finalizar votación con motivo;
+- emitir voto presidencial de desempate;
 - otorgar palabra;
-- quitar palabra.
+- quitar palabra;
+- consultar estado;
+- consultar eventos/proyección de registro;
+- futuro remapeo rápido de dispositivo.
 
-Las rutas históricas de `main` son:
+No se exige conservar los nombres de rutas del sistema histórico salvo compatibilidad física explícita.
 
-```text
-POST /moderacion/abrir_sesion
-POST /moderacion/cerrar_sesion
-POST /moderacion/abrir_votacion
-POST /moderacion/cerrar_votacion
-POST /moderacion/voto_desempate
-POST /moderacion/otorgar_uso_palabra
-POST /moderacion/quitar_uso_palabra
-```
+## 6. Proyección para Moderación
 
-Estas rutas son evidencia del comportamiento actual, no obligación arquitectónica para los dos Nuxt nuevos. Si se reemplazan, ambos frontends deben migrar en conjunto y el contrato nuevo debe documentarse antes de implementarse.
+Debe exponer como mínimo:
 
-## 5. Datos mínimos para abrir votación
+- estado global;
+- datos de preparación/sesión;
+- Presidencia y Secretaría;
+- concejales, bancas, presencia y test;
+- cantidad de presentes, quórum y diferencia;
+- votación activa y estado;
+- votos individuales según la política temporal configurada;
+- cola y orador;
+- Orden del Día cargado;
+- eventos aptos para Moderación;
+- capacidades/comandos actualmente habilitados o información suficiente para derivarlos sin duplicar reglas.
 
-La operación debe recibir conceptualmente:
+## 7. Proyección pública
 
-```json
-{
-  "numero": 37,
-  "tipo": "Despacho OP",
-  "tema": "...",
-  "computa_sobre_los_presentes": true,
-  "factor_mayoria_especial": 0.66
-}
-```
+Se recomienda una proyección/API diferenciada de la de Moderación.
 
-Reglas:
+Debe impedir desde el backend que durante `EN_CURSO` se expongan:
 
-- `numero`: entero público de votación;
-- `tipo`: texto/catálogo definido;
-- `tema`: texto;
-- `computa_sobre_los_presentes`: `true` para Presentes, `false` para Cuerpo;
-- `factor_mayoria_especial`: `0` para mayoría simple; valor > 0 para mayoría especial.
+- votos individuales;
+- eventos cuyo texto revele votos;
+- cualquier dato que permita inferirlos directamente.
 
-Botonera2 debería definir DTOs (Data Transfer Objects, objetos de transferencia de datos) explícitos y validados para estos contratos.
+La seguridad temporal del voto no debe depender únicamente de ocultar elementos en JavaScript/CSS.
 
-## 6. Lecturas requeridas por los frontends
+## 8. Votaciones
 
-Los Nuxt necesitan al menos las siguientes proyecciones conceptuales.
+El comando de apertura debe poder expresar explícitamente:
 
-### Estado general de sesión
-
-- hay/no hay sesión;
-- número;
-- hora de inicio;
-- total de concejales;
-- presentes;
-- quórum;
-- disposición de bancas;
-- concejales y estados visuales;
-- cola de palabra;
-- orador.
-
-### Estado de votación
-
-- identificador;
-- número;
+- número externo;
 - tipo;
 - tema;
-- factor;
-- criterio Presentes/Cuerpo;
-- estado;
-- hora de inicio/fin;
-- conteos;
-- votos individuales solo cuando la proyección/superficie esté autorizada a recibirlos.
+- `tipo_mayoria = SIMPLE | ESPECIAL`;
+- para especial: factor;
+- para especial: base `PRESENTES | CUERPO`.
 
-### Eventos
+No usar `factor=0` o `factor=0.5` para inferir una mayoría simple.
 
-- secuencia/ID;
-- hora;
-- nivel;
-- categoría;
-- mensaje;
-- datos estructurados opcionales.
+Una vez abierta, la votación es inmutable.
 
-## 7. Separación de proyecciones por seguridad funcional
+## 9. Finalización manual
 
-La Pantalla de Recinto no debería depender de recibir datos secretos para luego esconderlos solo con CSS.
+Debe ser un único comando conceptual `finalizar votacion` y requerir motivo no vacío.
 
-Objetivo recomendado para Botonera2:
+No existe una operación reglamentaria separada de “cancelar” que produzca otro estado. Toda finalización anticipada no normal produce `INCONCLUSA`.
 
-- Moderación recibe la información operativa que necesite según política aprobada;
-- Pantalla pública recibe una proyección que **no incluya votos individuales mientras la votación esté `EN_CURSO`**;
-- al cierre, el backend habilita esos datos durante el estado de resultado si así lo requiere la UI.
+## 10. Desempate presidencial
 
-Esto reduce el riesgo de revelar votos por consola, herramientas del navegador o errores de render.
+Solo disponible para votación `SIMPLE` y `EMPATADA`.
 
-## 8. Actualización en tiempo real
+Entrada conceptual:
 
-El MVP usa polling cada 250–300 ms. Lo que debe preservarse funcionalmente es:
+- `POSITIVO` o `NEGATIVO`.
 
-- actualización perceptiblemente inmediata;
-- recuperación automática ante desconexión temporal;
-- reconstrucción desde el backend;
-- ausencia de estado crítico exclusivamente local en los frontends.
+No recibe concejal ni modifica el listado de votos ordinarios.
 
-La implementación puede elegir polling, Server-Sent Events, WebSocket u otra técnica, pero esa decisión debe tomarse explícitamente en la arquitectura técnica y probarse bajo la red local real.
+La identidad de quien ocupa Presidencia surge del estado institucional actual y se registra junto con la decisión.
 
-## 9. Idempotencia y concurrencia
+## 11. Orden del Día
 
-Botonera2 debe manejar explícitamente eventos cercanos o repetidos.
+La carga es una ayuda del frontend de Moderación.
 
-En particular:
+El backend/servicio que la procese debe distinguir:
 
-- dos pulsaciones rápidas del mismo voto no pueden crear dos votos;
-- dos solicitudes simultáneas de apertura no pueden crear dos sesiones/votaciones activas;
-- un cierre concurrente con el último voto debe producir un único estado terminal coherente;
-- una pulsación que llega después del cierre debe ser rechazada de forma determinística.
+- error técnico de formato/lectura;
+- datos interpretables.
 
-## 10. Errores
+No debe validar secuencia, unicidad o legitimidad institucional del contenido.
 
-La API nueva debe diferenciar:
+## 12. Actualización de estado
 
-- error de validación del request;
-- rechazo por regla de negocio;
-- recurso/estado inexistente;
-- fallo interno.
+Polling, Server-Sent Events (SSE), WebSocket u otra estrategia todavía son decisiones técnicas.
 
-No debe depender de textos humanos como única forma de distinguir causas.
+Cualquiera que se elija debe garantizar:
 
-## 11. Datos sensibles
+- reconstrucción completa tras recarga;
+- baja latencia adecuada para votación presencial;
+- orden consistente de eventos;
+- tolerancia a reconexión;
+- que la lógica no dependa de que un frontend haya permanecido conectado.
 
-No exponer ni persistir innecesariamente en los frontends:
+## 13. Concurrencia
 
-- fingerprints físicos de dispositivos;
-- rutas `/dev/input/...`;
-- datos de infraestructura;
-- secretos;
-- información personal que no sea necesaria para la interfaz.
+El backend debe imponer un orden determinista a comandos/pulsaciones concurrentes. El orden aceptado y persistido constituye el orden oficial del sistema.
 
-El identificador lógico `devXX` es suficiente para el contrato de negocio con el servicio físico.
+Esto debe resolverse de forma compatible con el modelo de estado único en memoria.
+
+## 14. Registros CSV
+
+Los frontends no escriben los CSV.
+
+El backend debe persistir cada evento aceptado/relevante inmediatamente y controlar la apertura/cierre de los tres archivos asociados a una preparación.
+
+La estructura exacta de columnas y mecanismo de escritura se definirá técnicamente sin alterar las reglas de niveles L1/L2/L3.
+
+## 15. Reinicio
+
+No existe endpoint ni flujo de “recuperar sesión”. Tras un reinicio, el backend inicia en `SIN_PREPARAR`.
+
+La existencia de CSV anteriores nunca debe hacer que se reconstruya automáticamente una preparación o sesión.
