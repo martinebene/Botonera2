@@ -1,6 +1,6 @@
 # 04 - Contratos e integraciones
 
-Este documento define responsabilidades de integración. Los nombres definitivos de endpoints y el transporte de actualización en tiempo real siguen siendo decisiones técnicas.
+Este documento define responsabilidades de integración y las decisiones técnicas ya cerradas para los contratos entre componentes.
 
 ## 1. Regla general
 
@@ -62,7 +62,19 @@ En `SIN_PREPARAR` ninguna pulsación tiene efecto funcional.
 
 En `PREPARANDO` solo `8` y `9` tienen efecto funcional.
 
-## 4. Respuesta conceptual de entrada
+## 4. API nueva
+
+La API interna de Botonera2 será REST y estará versionada bajo:
+
+`/api/v1`
+
+FastAPI + Pydantic definen los esquemas de entrada y salida. OpenAPI generado por FastAPI es la definición técnica canónica del contrato HTTP.
+
+Los errores de dominio deben exponer identificadores estables legibles por máquina y no depender únicamente de textos humanos.
+
+Los nombres exactos de cada recurso/ruta se fijarán al implementar el contrato concreto, respetando estas capacidades y sin copiar automáticamente las rutas históricas.
+
+## 5. Respuesta conceptual de entrada física
 
 El contrato debe permitir al bridge/diagnóstico distinguir al menos:
 
@@ -73,9 +85,7 @@ El contrato debe permitir al bridge/diagnóstico distinguir al menos:
 - concejal cuando corresponda;
 - resultado funcional relevante cuando corresponda.
 
-Los identificadores de error deben ser estables y no depender de textos de interfaz.
-
-## 5. Comandos de Moderación requeridos
+## 6. Comandos de Moderación requeridos
 
 El contrato backend debe ofrecer capacidades equivalentes a:
 
@@ -96,9 +106,9 @@ El contrato backend debe ofrecer capacidades equivalentes a:
 - consultar eventos/proyección de registro;
 - futuro remapeo rápido de dispositivo.
 
-No se exige conservar los nombres de rutas del sistema histórico salvo compatibilidad física explícita.
+## 7. Proyección para Moderación
 
-## 6. Proyección para Moderación
+El backend generará un DTO/proyección específico **ModerationState**.
 
 Debe exponer como mínimo:
 
@@ -112,21 +122,21 @@ Debe exponer como mínimo:
 - cola y orador;
 - Orden del Día cargado;
 - eventos aptos para Moderación;
-- capacidades/comandos actualmente habilitados o información suficiente para derivarlos sin duplicar reglas.
+- capacidades/comandos actualmente habilitados o información suficiente para representarlos sin duplicar reglas de negocio.
 
-## 7. Proyección pública
+## 8. Proyección pública
 
-Se recomienda una proyección/API diferenciada de la de Moderación.
+El backend generará un DTO/proyección independiente **PublicState**.
 
-Debe impedir desde el backend que durante `EN_CURSO` se expongan:
+Durante una votación `EN_CURSO`, `PublicState` no debe contener:
 
 - votos individuales;
-- eventos cuyo texto revele votos;
+- eventos cuyo contenido revele votos;
 - cualquier dato que permita inferirlos directamente.
 
-La seguridad temporal del voto no debe depender únicamente de ocultar elementos en JavaScript/CSS.
+El secreto temporal del voto se garantiza desde servidor. No se acepta entregar información secreta al navegador público para ocultarla luego mediante JavaScript o CSS.
 
-## 8. Votaciones
+## 9. Votaciones
 
 El comando de apertura debe poder expresar explícitamente:
 
@@ -141,13 +151,13 @@ No usar `factor=0` o `factor=0.5` para inferir una mayoría simple.
 
 Una vez abierta, la votación es inmutable.
 
-## 9. Finalización manual
+## 10. Finalización manual
 
 Debe ser un único comando conceptual `finalizar votacion` y requerir motivo no vacío.
 
 No existe una operación reglamentaria separada de “cancelar” que produzca otro estado. Toda finalización anticipada no normal produce `INCONCLUSA`.
 
-## 10. Desempate presidencial
+## 11. Desempate presidencial
 
 Solo disponible para votación `SIMPLE` y `EMPATADA`.
 
@@ -159,45 +169,72 @@ No recibe concejal ni modifica el listado de votos ordinarios.
 
 La identidad de quien ocupa Presidencia surge del estado institucional actual y se registra junto con la decisión.
 
-## 11. Orden del Día
+## 12. Orden del Día
 
-La carga es una ayuda del frontend de Moderación.
+La carga es una ayuda para Moderación.
 
-El backend/servicio que la procese debe distinguir:
+El componente que la procese debe distinguir:
 
 - error técnico de formato/lectura;
 - datos interpretables.
 
 No debe validar secuencia, unicidad o legitimidad institucional del contenido.
 
-## 12. Actualización de estado
+La ubicación técnica definitiva del parser permanece abierta en DT-013.
 
-Polling, Server-Sent Events (SSE), WebSocket u otra estrategia todavía son decisiones técnicas.
+## 13. Sincronización frontend/backend
 
-Cualquiera que se elija debe garantizar:
+Se utilizará **REST + Server-Sent Events (SSE)**.
 
-- reconstrucción completa tras recarga;
-- baja latencia adecuada para votación presencial;
-- orden consistente de eventos;
-- tolerancia a reconexión;
-- que la lógica no dependa de que un frontend haya permanecido conectado.
+### REST
 
-## 13. Concurrencia
+Se utiliza para:
 
-El backend debe imponer un orden determinista a comandos/pulsaciones concurrentes. El orden aceptado y persistido constituye el orden oficial del sistema.
+- comandos de Moderación;
+- pulsaciones del bridge;
+- snapshot completo inicial;
+- consultas puntuales.
 
-Esto debe resolverse de forma compatible con el modelo de estado único en memoria.
+### SSE
 
-## 14. Registros CSV
+Se utiliza para notificar cambios de estado desde backend hacia Moderación y Recinto.
+
+Flujo obligatorio de reconexión:
+
+1. cargar/reconectar;
+2. obtener snapshot completo por REST;
+3. suscribirse al stream SSE correspondiente;
+4. aplicar actualizaciones mientras la conexión permanezca válida;
+5. ante duda de sincronización o reconexión, volver a obtener snapshot completo.
+
+Moderación y Recinto deben consumir proyecciones separadas.
+
+No se usará polling periódico como transporte normal de estado ni WebSocket salvo decisión técnica posterior que reemplace explícitamente DT-006.
+
+## 14. Concurrencia
+
+El backend debe imponer un orden determinista a comandos/pulsaciones concurrentes mediante un único mecanismo de serialización/exclusión sobre el estado activo.
+
+El orden aceptado y persistido constituye el orden oficial del sistema.
+
+El backend productivo se ejecutará con un único proceso/worker para garantizar que exista una sola copia del estado en memoria.
+
+## 15. Registros CSV
 
 Los frontends no escriben los CSV.
 
 El backend debe persistir cada evento aceptado/relevante inmediatamente y controlar la apertura/cierre de los tres archivos asociados a una preparación.
 
-La estructura exacta de columnas y mecanismo de escritura se definirá técnicamente sin alterar las reglas de niveles L1/L2/L3.
+La estructura exacta de columnas y mecanismo de escritura permanece abierta en DT-011/DT-012 sin alterar las reglas de niveles L1/L2/L3.
 
-## 15. Reinicio
+## 16. Reinicio
 
 No existe endpoint ni flujo de “recuperar sesión”. Tras un reinicio, el backend inicia en `SIN_PREPARAR`.
 
 La existencia de CSV anteriores nunca debe hacer que se reconstruya automáticamente una preparación o sesión.
+
+## 17. Tipos compartidos
+
+Cuando sea práctico, los tipos TypeScript consumidos por Nuxt deben generarse o derivarse de OpenAPI en lugar de mantener copias manuales de los modelos Pydantic.
+
+La herramienta concreta de generación se decidirá junto con DT-018/DT-019.
