@@ -1,5 +1,11 @@
 # WP-XXX - Título
 
+## Estado documental
+
+`BORRADOR | APROBADO`
+
+Un WP no puede pasar a `EN_CURSO` en `PLAN.md` mientras no esté `APROBADO`.
+
 ## Objetivo
 
 Resultado único y verificable que debe producir este WP.
