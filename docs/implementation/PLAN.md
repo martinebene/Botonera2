@@ -66,7 +66,7 @@ WP-011 y WP-012 pueden ejecutarse en paralelo después de WP-010.
 
 | WP | Objetivo | Estado | Depende de | Agente |
 |---|---|---|---|---|
-| WP-015 | Implementar cola y uso de la palabra | PENDIENTE | WP-008, WP-006 | - |
+| WP-015 | Implementar cola y uso de la palabra, incluida pérdida por ausencia y transiciones sin avance implícito | PENDIENTE | WP-008, WP-006 | - |
 | WP-016 | Implementar parser backend de Orden del Día y contrato de carga | PENDIENTE | WP-002 | - |
 | WP-017 | Implementar snapshots `ModerationState`/`PublicState`, secreto temporal y streams SSE | PENDIENTE | WP-013, WP-014, WP-015 | - |
 | WP-018 | Implementar paquete TypeScript `api-client` derivado de OpenAPI con REST/SSE/reconexión | PENDIENTE | WP-017 | - |
@@ -85,11 +85,11 @@ WP-015 y WP-016 pueden ejecutarse en paralelo con otros WPs cuando sus dependenc
 | WP | Objetivo | Estado | Depende de | Agente |
 |---|---|---|---|---|
 | WP-021 | Crear shell de Moderación, layout responsive y sincronización mediante `api-client` | PENDIENTE | WP-018 | - |
-| WP-022 | Implementar UI de preparación, presencia, autoridades y sesión | PENDIENTE | WP-021, WP-008 | - |
-| WP-023 | Implementar UI de votaciones, resultado, desempate y Orden del Día | PENDIENTE | WP-021, WP-014, WP-016 | - |
-| WP-024 | Implementar UI de palabra, eventos y remapeo de dispositivos | PENDIENTE | WP-021, WP-015, WP-020 | - |
+| WP-022 | Implementar UI de preparación, presencia, autoridades, sesión y advertencia de cierre con palabra pendiente | PENDIENTE | WP-021, WP-008 | - |
+| WP-023 | Implementar UI de votaciones, resultado, desempate, Orden del Día y advertencia de apertura con palabra pendiente | PENDIENTE | WP-021, WP-014, WP-016 | - |
+| WP-024 | Implementar UI de palabra con semántica Otorgar/Quitar definida, eventos y remapeo de dispositivos | PENDIENTE | WP-021, WP-015, WP-020 | - |
 
-WP-022, WP-023 y WP-024 pueden ejecutarse en paralelo cuando sus dependencias estén integradas, usando worktrees diferentes y sin superposición no coordinada.
+WP-022, WP-023 y WP-024 pueden ejecutarse en paralelo cuando sus dependencias estén integradas, usando worktrees diferentes y sin superposición no coordinada. Las advertencias de WP-022/WP-023 consumen el estado de palabra ya disponible a través de la proyección compartida; no agregan una precondición nueva al backend.
 
 ## Fase 7 - Pantalla del Recinto
 
@@ -110,18 +110,26 @@ WP-025 puede desarrollarse en paralelo con los WPs de Moderación una vez dispon
 
 ## Cobertura funcional esperada
 
-Los criterios `CA-001` a `CA-060` de `docs/11-criterios-de-aceptacion.md` deben quedar asignados a WPs concretos a medida que se escriban sus especificaciones. Ningún criterio puede quedar sin cobertura antes de WP-029.
+Los criterios `CA-001` a `CA-063` de `docs/11-criterios-de-aceptacion.md` deben quedar asignados a WPs concretos a medida que se escriban sus especificaciones. Ningún criterio puede quedar sin cobertura antes de WP-029.
+
+En particular:
+
+- CA-061 corresponde al dominio de palabra de WP-015 y su representación/controles en WP-024;
+- CA-062 corresponde a la advertencia de apertura de votación de WP-023;
+- CA-063 corresponde a la advertencia de cierre de sesión de WP-022;
+- WP-027 debe cubrir estos recorridos de forma integrada cuando corresponda.
 
 La trazabilidad se mantiene en cada WP y PR, no mediante una matriz duplicada permanente.
 
 ## Próximo punto de control
 
-Antes de ejecutar WP-001:
+WP-001 ya está individualmente `APROBADO` y continúa `PENDIENTE` de ejecución.
 
-1. aprobar individualmente `WP-001.md`;
-2. marcar WP-001 como `EN_CURSO` en este PLAN;
-3. asignar agente implementador;
-4. crear rama y `git worktree` propios;
-5. comenzar implementación únicamente con el alcance aprobado de WP-001.
+Antes de ejecutarlo:
+
+1. marcar WP-001 como `EN_CURSO` en este PLAN;
+2. asignar agente implementador;
+3. crear rama y `git worktree` propios;
+4. comenzar implementación únicamente con el alcance aprobado de WP-001.
 
 WP-002 puede permanecer en borrador hasta antes de su ejecución; WP-003 y WP-004 ya cuentan con aprobación documental pero dependen de WP-001 integrado.
