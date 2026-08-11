@@ -120,6 +120,16 @@ La UI debe dejar claro que mayoría simple no equivale a factor 0,5.
 
 Una vez abierta, los datos son inmutables.
 
+### Advertencia por uso de palabra pendiente
+
+Antes de enviar `Abrir votación`, si existe un orador actual o al menos un concejal en la cola de pedidos, Moderación debe mostrar una advertencia confirmatoria clara indicando que se está continuando a pesar de existir un concejal con uso/pedido de palabra pendiente.
+
+- cancelar la advertencia no envía el comando;
+- confirmar envía normalmente la apertura;
+- la confirmación no limpia ni modifica el orador o la cola;
+- el uso de palabra continúa pudiendo operar durante la votación;
+- esta advertencia es una salvaguarda de interfaz y no sustituye las validaciones del backend.
+
 ## 9. Votación en curso
 
 Debe mostrar:
@@ -161,19 +171,33 @@ Debe mostrar:
 
 - orador actual;
 - cola FIFO;
-- controles para otorgar y quitar palabra.
+- controles separados para `Otorgar palabra` y `Quitar palabra`.
 
-Otorgar con alguien hablando reemplaza automáticamente al orador actual por el siguiente de la cola.
+La semántica debe conservar el comportamiento operativo de producción, con la regla nueva de ausencia:
 
-Los cambios de presencia pueden quitar automáticamente concejales de la cola o del uso actual.
+- **Otorgar palabra:** si ya existe un orador, finaliza su uso y pasa al primero de la cola; si no hay solicitudes en cola, no queda un nuevo orador.
+- **Quitar palabra:** finaliza al orador actual pero **no** pasa automáticamente al siguiente; los pedidos restantes conservan su orden hasta que Moderación vuelva a otorgar palabra.
+- **Fin propio con tecla 7:** si el orador finaliza desde su teclado, no pasa automáticamente al siguiente.
+- **Ausencia:** un concejal que pasa a ausente pierde su lugar en la cola; si era el orador, finaliza su uso. La ausencia tampoco otorga automáticamente la palabra al siguiente.
 
-## 13. Eventos
+Por lo tanto, el avance deliberado al siguiente pedido ocurre mediante la acción `Otorgar palabra`, no como efecto colateral de quitar, terminar voluntariamente o ausentarse.
+
+## 13. Cierre de sesión con palabra pendiente
+
+Antes de enviar `Cerrar sesión`, si existe un orador actual o al menos un pedido en cola, Moderación debe mostrar una advertencia confirmatoria equivalente a la de apertura de votación.
+
+- debe indicar que existen concejales con uso/pedido de palabra pendiente;
+- cancelar deja la sesión abierta y no modifica la cola/orador;
+- confirmar permite continuar con el cierre normal;
+- la advertencia no constituye una nueva precondición reglamentaria del backend.
+
+## 14. Eventos
 
 Debe mostrar una proyección legible de eventos recientes, independiente de los CSV completos.
 
 El crecimiento del listado usa scroll interno y **no aumenta la altura de las demás áreas**.
 
-## 14. Remapeo rápido
+## 15. Remapeo rápido
 
 La operación futura se inicia desde Moderación pero se ejecuta técnicamente a través de backend + `device-bridge`.
 
@@ -187,7 +211,7 @@ Flujo conceptual:
 
 No cambia concejal, presencia, votos ni padrón y no conecta el navegador directamente con el bridge.
 
-## 15. Responsive y hardware
+## 16. Responsive y hardware
 
 Resolución de referencia actual: **1920×1080 (Full HD)**.
 
@@ -201,13 +225,13 @@ No es una dependencia rígida. La interfaz debe:
 
 No se aceptan soluciones que solo funcionen correctamente con coordenadas/tamaños fijos para Full HD.
 
-## 16. Reconexión
+## 17. Reconexión
 
 Al recargar o recuperar conexión debe reconstruir toda la interfaz desde `ModerationState` del backend.
 
 No depende de variables locales para determinar sesión/votación activa.
 
-## 17. Errores
+## 18. Errores
 
 Los errores funcionales se presentan con mensajes claros basados en identificadores estables del backend.
 
