@@ -23,6 +23,8 @@ Descripción concreta del estado que debe quedar integrado al completar el WP.
 
 Indicar únicamente los documentos y secciones propietarios de este alcance. El agente debe leer `AGENTS.md`, este WP y estas fuentes antes de modificar código.
 
+Todos los WPs de implementación heredan además `docs/decisions/DEC-001-estilo-codigo-y-referencia-produccion.md`, aunque no se repita como fuente específica del dominio.
+
 ## Alcance
 
 - Cambios permitidos y responsabilidades incluidas.
@@ -40,6 +42,8 @@ La lista orienta el alcance pero no sustituye las reglas y exclusiones anteriore
 ## Criterios de aceptación
 
 - Criterios observables y verificables que determinan que el WP está completo.
+- El código propio nuevo respeta nomenclatura en español según DEC-001.
+- La documentación/comentarios pedagógicos del código son suficientes para comprender clases, funciones y flujos no triviales.
 
 ## Pruebas obligatorias
 
@@ -49,6 +53,18 @@ La lista orienta el alcance pero no sustituye las reglas y exclusiones anteriore
 
 - Reglas que este WP no puede alterar.
 - Restricciones de DT-038 aplicables al alcance.
+- Reglas transversales de DEC-001 sobre idioma del código, comentarios pedagógicos y fallback a producción.
+
+## Consulta a producción si existe ambigüedad funcional/UX/visual
+
+Si durante el WP aparece una regla de negocio, experiencia de usuario o decisión de diseño visual no claramente definida por Botonera2:
+
+1. verificar primero las fuentes canónicas del WP;
+2. si siguen siendo insuficientes, consultar únicamente el código necesario de `martinebene/Botonera/main` vigente;
+3. registrar qué se verificó y qué archivos se consultaron;
+4. si producción tampoco lo define inequívocamente, escalar antes de inventar.
+
+No utilizar producción como fallback para decisiones técnicas.
 
 ## Decisiones que requieren escalamiento
 
@@ -78,10 +94,13 @@ Registrar aquí trabajo detectado que no debe incorporarse silenciosamente a est
 - [ ] Alcance implementado sin ampliaciones no autorizadas.
 - [ ] No se introdujeron decisiones reservadas por DT-038 sin aprobación.
 - [ ] Criterios de aceptación cumplidos.
+- [ ] Código propio nuevo nombrado en español según DEC-001, salvo excepciones justificadas.
+- [ ] Clases, funciones y flujos no triviales documentados/comentados en español con finalidad pedagógica.
+- [ ] Si se consultó producción, la consulta funcional/UX/visual quedó trazada en WP/PR.
 - [ ] Pruebas obligatorias agregadas/actualizadas y verdes.
 - [ ] No se relajaron pruebas ni criterios para hacer pasar CI.
 - [ ] Calidad estática y builds aplicables verdes.
 - [ ] Documentación actualizada.
 - [ ] Hallazgos fuera de alcance registrados.
-- [ ] PR vinculada a este WP.
+- [ ] PR vinculada a este WP con explicación para principiantes.
 - [ ] Revisión independiente completada antes de integración.
