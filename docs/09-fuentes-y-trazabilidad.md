@@ -5,21 +5,25 @@
 Para Botonera2:
 
 1. documentación vigente de este repositorio;
-2. decisiones explícitas incorporadas posteriormente a esta documentación;
-3. código histórico de `martinebene/Botonera/main` solo para validar comportamiento previo cuando una regla no esté definida aquí;
+2. decisiones explícitas aprobadas incorporadas posteriormente a esta documentación, incluyendo `DEC-XXX` vigentes;
+3. código vigente de `martinebene/Botonera/main` únicamente como fallback para aclarar reglas de negocio, experiencia de usuario o diseño/flujo visual que no estén suficientemente definidos en Botonera2;
 4. documentación histórica y rama `v2` como contexto no normativo.
 
 Una vez que una regla fue resuelta y documentada en Botonera2, no debe reabrirse por encontrar un comportamiento distinto en el sistema anterior.
+
+La regla transversal de consulta a producción y estilo de trabajo está definida en `docs/decisions/DEC-001-estilo-codigo-y-referencia-produccion.md`.
 
 ## 2. Snapshot histórico principal
 
 Repositorio: `martinebene/Botonera`
 
-Rama: `main`
+Rama de producción de referencia: `main`
 
 Commit usado en el relevamiento inicial:
 
 `537823b4a0045853c74a388058fa3739cf7457a5`
+
+Ese commit conserva valor histórico para trazabilidad, pero cuando un agente deba verificar **cómo funciona actualmente producción** por una ambigüedad funcional/UX/visual, debe consultar el `main` vigente al momento de la tarea y no asumir que el snapshot inicial sigue siendo idéntico.
 
 Rama secundaria analizada como contexto:
 
@@ -61,7 +65,7 @@ Aportó mapa real de teclas y contrato físico actual.
 - `app/api/routes/moderacion.py`
 - `app/web/static/moderacion/`
 
-Aportó operaciones y organización visual histórica.
+Aportó operaciones, interacción del operador y organización visual histórica.
 
 ### Pantalla pública
 
@@ -98,7 +102,7 @@ Documentos antiguos diferían del código. Botonera2 adopta el código vigente:
 
 ### Orden del Día
 
-La implementación real usa `;` y el Orden del Día es solo asistencia. Botonera2 no adopta validaciones institucionales de su contenido.
+La implementación real de producción utiliza CSV separado por coma y el Orden del Día es solo asistencia. Botonera2 adopta un contrato nuevo explícito definido en DT-039 y no acepta automáticamente el formato histórico.
 
 ### Presencia previa a sesión
 
@@ -156,12 +160,43 @@ Esta integración sí debe considerarse al diseñar Botonera2 para evitar una mi
 
 No navegar indiscriminadamente el repositorio histórico.
 
-Si una tarea requiere consultar una fuente anterior:
+### Cuándo consultar producción
 
-1. identificar la regla/asset concreto;
-2. consultar únicamente los archivos necesarios;
-3. documentar por qué se consultó;
-4. no sustituir una regla ya definida en Botonera2.
+La consulta a `martinebene/Botonera/main` procede cuando existe una duda concreta y no resuelta por Botonera2 sobre:
+
+- regla de negocio;
+- experiencia de usuario;
+- comportamiento de un control;
+- secuencia de interacción;
+- información mostrada al operador o al público;
+- disposición funcional o diseño visual de una interfaz.
+
+Procedimiento:
+
+1. identificar primero qué parte no está definida en Botonera2;
+2. consultar el `main` vigente y solo los archivos necesarios;
+3. para conocer comportamiento real, priorizar código ejecutable sobre README, manuales o comentarios históricos cuando difieran;
+4. documentar en WP/PR qué se verificó y los archivos consultados si la consulta influyó en la implementación;
+5. no sustituir una regla ya definida en Botonera2;
+6. si producción es ambigua, inconsistente o no contiene la respuesta, escalar en vez de inventar.
+
+### Cuándo NO usar producción como referencia
+
+No utilizar el sistema histórico para decidir por analogía:
+
+- arquitectura;
+- estructura interna de clases/módulos;
+- dependencias;
+- transporte frontend/backend;
+- concurrencia;
+- persistencia;
+- estrategia de pruebas;
+- CI;
+- despliegue;
+- versiones/stack;
+- contratos técnicos nuevos.
+
+Ante una duda técnica no definida, aplicar DT-038 y escalar si corresponde.
 
 ## 9. Trazabilidad futura
 
@@ -170,6 +205,9 @@ Al comenzar la implementación, cada unidad funcional debe poder relacionarse co
 - regla `RN-*`;
 - caso de uso `CU-*`;
 - criterio de aceptación correspondiente;
-- pruebas automáticas relevantes.
+- pruebas automáticas relevantes;
+- WP y PR que implementaron el cambio.
 
-Las decisiones técnicas que se adopten antes de programar deberán registrarse en documentación propia y dejar de figurar como preguntas abiertas.
+Cuando un comportamiento haya requerido consultar producción como fallback, la PR debe añadir esa referencia de trazabilidad.
+
+Las decisiones técnicas que se adopten antes o durante la programación deberán registrarse en la documentación correspondiente y dejar de tratarse como preguntas abiertas una vez aprobadas.
