@@ -291,6 +291,38 @@ Cambiar archivos de configuración/padrón en disco durante una sesión no debe 
 
 Cuando se implemente el remapeo rápido, cambiar dispositivo durante una votación no debe modificar presencia, identidad ni votos previos y debe generar evento de registro.
 
+## CA-061 Finalizaciones de palabra sin avance implícito
+
+Con al menos dos pedidos de palabra y un orador actual:
+
+- si el orador pulsa `7`, termina su uso y el siguiente permanece en cola;
+- si Moderación ejecuta `Quitar palabra`, termina el uso y el siguiente permanece en cola;
+- si el orador pasa a ausente, termina su uso y el siguiente permanece en cola.
+
+En los tres casos debe requerirse una acción posterior de `Otorgar palabra` para que el siguiente pase a ser orador.
+
+Si un concejal que espera en cola pasa a ausente, se elimina de la cola y pierde su posición.
+
+## CA-062 Advertencia al abrir votación con palabra pendiente
+
+Con sesión abierta y condiciones válidas para votar, si existe un orador o al menos un pedido de palabra en cola, pulsar `Abrir votación` en Moderación debe mostrar una advertencia antes de enviar el comando.
+
+- cancelar no abre la votación ni modifica palabra/cola;
+- confirmar abre normalmente si el backend la acepta;
+- después de abrir, el orador y la cola permanecen intactos y el uso de palabra continúa funcionando durante `EN_CURSO`.
+
+La ausencia de orador y de pedidos no debe generar esta advertencia.
+
+## CA-063 Advertencia al cerrar sesión con palabra pendiente
+
+Si existe un orador o al menos un pedido de palabra en cola, pulsar `Cerrar sesión` en Moderación debe mostrar una advertencia antes de enviar el comando.
+
+- cancelar deja la sesión abierta y no modifica palabra/cola;
+- confirmar continúa con el flujo normal de cierre, incluidas las reglas sobre votación `EN_CURSO` o `EMPATADA` si correspondieran;
+- la advertencia no debe convertirse en un rechazo reglamentario del backend.
+
+La ausencia de orador y de pedidos no debe generar esta advertencia.
+
 ## Criterios técnicos mínimos futuros
 
 Además de estos escenarios funcionales, antes de integrar código deberá exigirse:
