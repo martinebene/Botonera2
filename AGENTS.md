@@ -39,17 +39,34 @@ Cuando una tarea requiera reconstrucción global, las fuentes principales son:
 - `docs/12-decisiones-tecnicas.md`;
 - `docs/13-despliegue-y-operacion.md`;
 - `docs/14-gobernanza-agentes.md`;
-- `docs/implementation/PLAN.md`.
+- `docs/implementation/PLAN.md`;
+- decisiones `docs/decisions/DEC-XXX-*.md` vigentes que afecten el alcance.
 
 ## Autoridad documental
 
 - La documentación de Botonera2 es la fuente normativa para la nueva implementación.
 - El WP asignado define el alcance operativo, pero no puede contradecir reglas o decisiones canónicas.
-- El repositorio histórico `martinebene/Botonera`, rama `main`, solo puede consultarse cuando la documentación/WP lo indique para descargar assets, validar una regla histórica puntual o comprobar compatibilidad con el bridge físico existente.
+- Las decisiones `DEC-XXX` aprobadas posteriores son vinculantes para todos los WPs afectados.
+- El repositorio histórico `martinebene/Botonera`, rama `main`, puede consultarse como referencia funcional únicamente según la regla de fallback definida más abajo y en `docs/decisions/DEC-001-estilo-codigo-y-referencia-produccion.md`.
 - No copiar arquitectura, clases, endpoints internos, polling, serialización ni estructura histórica por defecto.
 - La rama histórica `v2` no es normativa.
 - Si una implementación antigua contradice Botonera2, manda Botonera2.
 - El prompt de ejecución no reemplaza la especificación versionada del WP ni puede ampliar silenciosamente su alcance.
+
+## Regla de fallback funcional a producción
+
+Ante cualquier duda sobre **reglas de negocio, experiencia de usuario o diseño/flujo de interfaz gráfica**:
+
+1. consultar primero la documentación canónica vigente de Botonera2 y las decisiones aprobadas;
+2. si el comportamiento no está claramente definido, verificar cómo funciona el sistema actualmente en producción en `martinebene/Botonera`, rama `main`, usando el estado vigente de esa rama al momento de la tarea;
+3. consultar únicamente los archivos necesarios para resolver la duda concreta;
+4. para comportamiento real, si existen contradicciones internas en el repositorio histórico, priorizar el código ejecutable de `main` sobre README, manuales o comentarios antiguos;
+5. si producción tampoco resuelve la duda de manera inequívoca, escalarla antes de inventar una nueva regla, interacción o decisión visual;
+6. si Botonera2 ya define explícitamente un comportamiento distinto, prevalece Botonera2 y la producción anterior no reabre esa decisión.
+
+Cuando la consulta a producción influya en una implementación, la PR debe indicar qué comportamiento se verificó y qué archivos fueron consultados.
+
+Esta regla **no aplica a decisiones técnicas**. Ante dudas de arquitectura, dependencias, transporte, concurrencia, persistencia, stack, testing, CI, despliegue o contratos técnicos nuevos, no copiar por analogía el sistema histórico: aplicar DT-038 y escalar cuando corresponda.
 
 ## Arquitectura funcional obligatoria
 
@@ -135,6 +152,59 @@ Ver `docs/14-gobernanza-agentes.md`.
 - El implementador tiene autonomía sobre detalles internos locales que no cambien comportamiento observable, contratos, dependencias ni decisiones globales.
 - Las decisiones reservadas por DT-038 requieren aprobación humana/documentada antes de continuar el alcance afectado.
 
+## Decisiones transversales posteriores
+
+### DEC-001 - Estilo de código y referencia a producción
+
+Ver `docs/decisions/DEC-001-estilo-codigo-y-referencia-produccion.md`.
+
+Obliga a todos los WPs de implementación a:
+
+- escribir en español todos los identificadores propios bajo control del proyecto;
+- documentar el código abundantemente en español con finalidad pedagógica;
+- incluir en cada PR una explicación apta para principiantes;
+- consultar la producción vigente como fallback solo ante ambigüedades de negocio, UX o diseño visual, nunca para decidir arquitectura o cuestiones técnicas.
+
+## Estilo obligatorio del código
+
+### Identificadores propios en español
+
+Todo identificador bajo control de Botonera2 debe tener nombre semántico en español:
+
+- funciones/métodos;
+- clases;
+- variables;
+- constantes propias;
+- tipos/interfaces propias;
+- atributos/campos internos;
+- helpers;
+- tests y fixtures propios cuando corresponda.
+
+Usar español **sin tildes ni `ñ`** en identificadores fuente y respetar las convenciones idiomáticas del lenguaje:
+
+- Python: `snake_case` para funciones/variables y `PascalCase` para clases;
+- TypeScript/Vue: `camelCase` para funciones/variables y `PascalCase` para clases/tipos/componentes cuando corresponda.
+
+Ejemplos: `abrir_sesion`, `cantidad_presentes`, `EstadoVotacion`, `resultadoActual`, `useEstadoModeracion`.
+
+No traducir nombres impuestos por el lenguaje, frameworks/librerías, hooks obligatorios, APIs externas, paquetes, comandos ni contratos técnicos canónicos cuando hacerlo rompa compatibilidad o contradiga decisiones previas.
+
+### Comentarios pedagógicos abundantes
+
+El código debe estar comentado y documentado en español con nivel apto para una persona que está aprendiendo Python, FastAPI, TypeScript, Vue y Nuxt.
+
+Como mínimo:
+
+- cada clase propia explica qué representa, su responsabilidad y relación con el sistema;
+- cada función/método no trivial explica propósito, entradas, resultado, efectos laterales y errores relevantes;
+- flujos no obvios de estado, concurrencia, SSE, reactividad, auditoría y sincronización deben explicarse paso a paso cuando ayude a comprenderlos;
+- comentarios importantes deben explicar tanto **qué** ocurre como **por qué** se implementa de esa forma;
+- tests no evidentes deben indicar qué regla o escenario demuestran.
+
+No llenar el código con comentarios que solo repiten literalmente la sintaxis. El objetivo es enseñar y aclarar intención, flujo y decisiones.
+
+Todo comentario debe mantenerse sincronizado con el código. Un comentario incorrecto o desactualizado es un defecto.
+
 ## Invariantes que no se pueden reinterpretar
 
 - Estados globales: `SIN_PREPARAR`, `PREPARANDO`, `SESION_ABIERTA`.
@@ -193,11 +263,11 @@ Ante falla, el bridge reasigna un nuevo fingerprint al **mismo identificador ló
 
 ## Autonomía y escalamiento
 
-El agente puede resolver microdecisiones internas de código dentro del WP: nombres, helpers, módulos privados, algoritmos equivalentes, tests y refactors locales que no alteren comportamiento observable ni contratos.
+El agente puede resolver microdecisiones internas de código dentro del WP: nombres, helpers, módulos privados, algoritmos equivalentes, tests y refactors locales que no alteren comportamiento observable ni contratos, siempre respetando DEC-001 para nomenclatura en español y documentación pedagógica.
 
 Debe escalar antes de:
 
-- cambiar reglas de negocio o decisiones DT cerradas;
+- cambiar reglas de negocio o decisiones DT/DEC cerradas;
 - modificar arquitectura o responsabilidades entre componentes;
 - cambiar contratos públicos/API/DTO compartidos fuera de lo autorizado por el WP;
 - cambiar formatos canónicos de configuración, padrón, Orden del Día o auditoría;
@@ -236,6 +306,9 @@ Solo debe detenerse la parte dependiente de esa decisión; el trabajo independie
 - No diseñar UI dependiente exclusivamente de 1920×1080.
 - No ejecutar dos agentes sobre el mismo working tree, rama o WP.
 - No integrar una PR sin CI aplicable verde y revisión independiente aprobatoria.
+- No introducir identificadores propios nuevos en inglés sin una excepción real impuesta por framework, librería o contrato externo.
+- No entregar código sustantivo sin comentarios/documentación pedagógica suficiente para comprender su intención y funcionamiento.
+- No inventar reglas de negocio, UX o diseño visual: aplicar la jerarquía documental y el fallback a producción definido en DEC-001.
 
 Si aparece trabajo fuera de alcance, registrarlo en el WP/PR como hallazgo. Si aparece una decisión transversal nueva, detener solo el alcance afectado y elevarla para posible `DEC-XXX`.
 
@@ -249,6 +322,9 @@ Cada cambio debe:
 - preservar invariantes;
 - mantener backend/frontends desacoplados por contratos claros;
 - evitar secretos y datos reales;
-- mantener trazabilidad `requisito -> WP -> aceptación -> prueba -> PR`.
+- mantener trazabilidad `requisito -> WP -> aceptación -> prueba -> PR`;
+- utilizar español para el código propio bajo control del proyecto;
+- incluir comentarios pedagógicos suficientes y actualizados;
+- permitir que la PR explique la implementación a nivel principiante.
 
 Si aparece una contradicción real entre documentos, no adivinar: detener únicamente el alcance afectado y documentar la inconsistencia.
