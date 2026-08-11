@@ -260,19 +260,31 @@ La tecla `7` alterna al concejal en la cola FIFO de pedidos.
 Si quien pulsa `7` está actualmente usando la palabra, finaliza su propio uso.
 
 ### RN-PAL-04
-Otorgar palabra cuando ya existe un orador finaliza automáticamente al actual y entrega la palabra al siguiente de la cola.
+La acción `Otorgar palabra` de Moderación, cuando ya existe un orador, finaliza automáticamente al actual y entrega la palabra al primero de la cola. Si no existe un pedido en cola, no queda un nuevo orador.
 
 ### RN-PAL-05
 Si el orador pasa a ausente, pierde automáticamente el uso de la palabra.
 
 ### RN-PAL-06
-Si un concejal en cola pasa a ausente, se elimina automáticamente de la cola.
+Si un concejal en cola pasa a ausente, se elimina automáticamente de la cola y pierde ese lugar.
 
 ### RN-PAL-07
 Los pedidos y usos de palabra continúan funcionando durante una votación. Es una situación normal: pueden justificar votos o formular mociones mientras la votación sigue recibiendo votos.
 
 ### RN-PAL-08
 Si una moción obliga a modificar el tratamiento de una votación en curso, Moderación debe finalizar la votación como `INCONCLUSA` y continuar la sesión según lo resuelto.
+
+### RN-PAL-09
+`Quitar palabra` desde Moderación finaliza al orador actual y **no** otorga automáticamente la palabra al siguiente de la cola. Los pedidos pendientes conservan su orden.
+
+### RN-PAL-10
+Cuando el propio orador finaliza su uso mediante tecla `7`, **no** se otorga automáticamente la palabra al siguiente de la cola.
+
+### RN-PAL-11
+Cuando un orador pierde el uso por pasar a ausente, **no** se otorga automáticamente la palabra al siguiente. El siguiente pedido permanece en cola hasta que Moderación ejecute `Otorgar palabra`.
+
+### RN-PAL-12
+Si existe un orador actual o al menos un pedido en cola, la interfaz de Moderación debe advertir y pedir confirmación antes de **abrir una nueva votación** o **cerrar la sesión**. Cancelar la advertencia no envía el comando; confirmar permite continuar. Esta advertencia es una salvaguarda operativa de la interfaz, no una nueva precondición reglamentaria del backend. Al abrir una votación confirmada, el orador y la cola permanecen sin cambios y continúan operativos durante la votación.
 
 ## RN-OD - Orden del Día
 
