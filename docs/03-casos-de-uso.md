@@ -32,7 +32,8 @@ En `PREPARANDO` o `SESION_ABIERTA`, tecla `9` alterna su presencia.
 
 Consecuencias:
 - recalcular cantidad de presentes y quórum;
-- si está en cola/orador y pasa a ausente, retirarlo;
+- si está en cola y pasa a ausente, retirarlo de la cola;
+- si está usando la palabra y pasa a ausente, finalizar su uso sin otorgar automáticamente la palabra al siguiente de la cola;
 - si hay votación `EN_CURSO`, aplicar pérdida de quórum o autocierre según corresponda.
 
 ## CU-04 Probar dispositivo
@@ -63,6 +64,8 @@ Puede cambiar Presidencia o Secretaría en preparación o sesión, incluso duran
 ## CU-07 Cerrar sesión
 
 **Actor:** Moderación.
+
+Si existe un orador actual o al menos un pedido de palabra en cola, la interfaz de Moderación debe advertir antes de enviar el comando que existen concejales con uso/pedido de palabra pendiente y pedir confirmación. Cancelar la advertencia no cierra la sesión. Confirmarla permite continuar; la advertencia no constituye una nueva precondición reglamentaria del backend.
 
 Si hay votación `EN_CURSO`, se finaliza primero; si no estaba completa queda `INCONCLUSA`.
 
@@ -103,6 +106,10 @@ El sistema no valida secuencia ni unicidad de número de votación.
 - quórum;
 - ninguna votación activa o empatada pendiente;
 - datos de votación completos y técnicamente válidos.
+
+Si existe un orador actual o al menos un pedido de palabra en cola, la interfaz de Moderación debe advertir antes de enviar el comando que abrir la votación implica continuar mientras existe un concejal con uso/pedido de palabra pendiente y pedir confirmación. Cancelar no abre la votación. Confirmar permite continuar y **no altera** al orador ni la cola: el uso de la palabra puede coexistir con la votación.
+
+La advertencia es una salvaguarda operativa de Moderación y no una nueva precondición reglamentaria del backend.
 
 Al abrir, los datos quedan inmutables.
 
@@ -177,7 +184,7 @@ El voto de Presidencia no se agrega al conteo de votos ordinarios.
 Tecla `7`:
 - si no espera, entra al final de la cola FIFO;
 - si ya espera, retira su pedido;
-- si está hablando, termina su propio uso.
+- si está hablando, termina su propio uso y **no** se otorga automáticamente la palabra al siguiente de la cola.
 
 Funciona también durante una votación.
 
@@ -185,9 +192,13 @@ Funciona también durante una votación.
 
 **Actor:** Moderación.
 
-Si hay orador actual, finalizarlo automáticamente. Luego otorgar al primero de la cola.
+La acción `Otorgar palabra` reproduce la semántica operativa vigente:
 
-Si no hay solicitudes, no se crea orador.
+- si hay orador actual, finaliza su uso;
+- si existe al menos una solicitud en cola, otorga la palabra al primero de la cola;
+- si no hay solicitudes en cola, no queda un nuevo orador.
+
+Esta es la acción de Moderación que permite avanzar deliberadamente al siguiente pedido.
 
 ## CU-21 Quitar palabra
 
@@ -195,11 +206,14 @@ Si no hay solicitudes, no se crea orador.
 
 Finaliza al orador actual y registra el hecho.
 
+`Quitar palabra` **no** otorga automáticamente la palabra al siguiente de la cola. Si existen pedidos pendientes, permanecen en la cola hasta una acción posterior de `Otorgar palabra`.
+
 ## CU-22 Ausencia durante palabra
 
 Al pasar a ausente:
-- si estaba en cola, quitarlo;
-- si estaba hablando, finalizar automáticamente su uso.
+- si estaba en cola, quitarlo y hacerle perder ese lugar;
+- si estaba hablando, finalizar automáticamente su uso;
+- en ninguno de ambos casos se otorga automáticamente la palabra al siguiente de la cola.
 
 ## CU-23 Moción durante votación
 
