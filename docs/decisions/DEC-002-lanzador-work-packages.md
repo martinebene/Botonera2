@@ -18,9 +18,7 @@ WP-001 debe entregar un lanzador local para iniciar futuros WPs.
 
 El mecanismo principal será un script Python versionado en:
 
-`script/iniciar_wp.py`
-
-> Si durante WP-001 la estructura raíz canónica utiliza `scripts/` en lugar de `script/`, debe adoptarse `scripts/iniciar_wp.py` y documentarse de forma consistente. No deben coexistir ambas carpetas para esta función.
+`scripts/iniciar_wp.py`
 
 Su uso conceptual será:
 
@@ -30,7 +28,7 @@ python scripts/iniciar_wp.py 015 claude
 python scripts/iniciar_wp.py 016 opencode
 ```
 
-El README debe documentar el comando exacto que resulte del scaffold y el modo recomendado de invocarlo con el Python 3.14/`uv` configurado por WP-001.
+El README debe documentar el comando exacto y el modo recomendado de invocarlo con el Python 3.14/`uv` configurado por WP-001.
 
 ### Responsabilidades del lanzador
 
@@ -110,7 +108,7 @@ El lanzador todavía no existe antes de implementar WP-001. Por ello, **WP-001 e
 
 ## Portabilidad
 
-El lanzador debe escribirse en Python usando preferentemente biblioteca estándar y comandos Git, evitando depender de shell Bash para su lógica principal. Esto permite utilizarlo tanto en el entorno Linux/VPS como en otros entornos de desarrollo compatibles con el stack del proyecto.
+El lanzador debe escribirse en Python usando preferentemente biblioteca estándar y comandos Git, evitando depender de Bash para su lógica principal. Esto permite utilizarlo tanto en el entorno Linux/VPS como en otros entornos de desarrollo compatibles con el stack del proyecto.
 
 No debe agregarse una dependencia Python de runtime únicamente para implementar este lanzador salvo aprobación según DT-038.
 
