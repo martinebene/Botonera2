@@ -1,6 +1,6 @@
 # Decisiones posteriores (DEC)
 
-Este directorio se utilizará únicamente para decisiones nuevas que aparezcan durante la implementación y que modifiquen o precisen arquitectura, contratos globales, operación, calidad o criterios transversales.
+Este directorio se utiliza únicamente para decisiones nuevas que aparezcan durante la implementación y que modifiquen o precisen arquitectura, contratos globales, operación, calidad o criterios transversales.
 
 ## Regla
 
@@ -28,3 +28,8 @@ Cada decisión debe registrar como mínimo:
 - estado: `PROPUESTA`, `APROBADA`, `REEMPLAZADA` o `RECHAZADA`.
 
 Las decisiones ya cerradas DT-001 a DT-XXX permanecen en sus documentos canónicos actuales; no deben duplicarse retroactivamente aquí.
+
+## Decisiones vigentes
+
+- `DEC-001-estilo-codigo-y-referencia-produccion.md`: código propio en español, documentación pedagógica, explicación para principiantes en PR y fallback funcional/UX/visual a producción.
+- `DEC-002-lanzador-work-packages.md`: lanzador local para validar autorización y preparar rama + worktree + CLI de agente para WPs posteriores a WP-001.
