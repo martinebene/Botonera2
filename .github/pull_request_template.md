@@ -36,6 +36,27 @@ Incluir, según corresponda:
 - [ ] Clases, funciones y flujos no triviales están documentados/comentados abundantemente en español con finalidad pedagógica.
 - [ ] Los comentarios existentes modificados siguen siendo correctos y están sincronizados con el código.
 
+## Herramientas MCP y fuentes técnicas externas
+
+Indicar qué herramientas de DEC-003 fueron relevantes para este WP:
+
+- Context7: `Usado / No necesario / No disponible`.
+- Nuxt MCP: `Usado / No necesario / No disponible`.
+- Playwright MCP: `Usado / No necesario / No disponible`.
+- GitHub MCP/integración equivalente: `Usado / No necesario / No disponible`.
+
+Si un MCP necesario no estuvo disponible, registrar:
+
+- herramienta faltante;
+- uso que se necesitaba;
+- aviso realizado al operador;
+- fallback utilizado, si existió;
+- fuente/herramienta alternativa;
+- confirmación de que no se adivinó comportamiento ni se redujo un criterio/prueba.
+
+- [ ] Se cumplió DEC-003 para disponibilidad, aviso, fallback y manejo de secretos.
+- [ ] No se versionaron API keys, tokens ni configuraciones personales con credenciales.
+
 ## Consulta al sistema en producción
 
 Indicar una de estas opciones:
@@ -70,6 +91,7 @@ Si se consultó producción, registrar:
 - Modelo efectivo si resulta relevante para demostrar independencia: indicar o `No aplica`.
 - [ ] Revisión independiente completada cuando corresponde.
 - [ ] El revisor verificó cumplimiento de DEC-001 (español, comentarios pedagógicos y explicación de PR).
+- [ ] El revisor verificó cumplimiento de DEC-003 cuando hubo uso o ausencia de MCPs relevantes.
 - [ ] No quedan hallazgos BLOQUEANTES pendientes.
 - [ ] No quedan hallazgos IMPORTANTES pendientes.
 - Hallazgos MENORES pendientes o `Ninguno`.
