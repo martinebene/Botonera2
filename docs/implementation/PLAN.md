@@ -32,7 +32,7 @@ No reemplaza las reglas de negocio, decisiones técnicas ni documentos propietar
 
 | WP | Objetivo | Estado | Depende de | Agente |
 |---|---|---|---|---|
-| WP-001 | Inicializar monorepo, toolchains, scaffolds mínimos, CI base reproducible y lanzador local de WPs | PENDIENTE | - | - |
+| WP-001 | Inicializar monorepo, toolchains, scaffolds mínimos, CI base reproducible y lanzador local de WPs | EN_CURSO | - | Codex |
 | WP-002 | Crear runtime base FastAPI, estado global inicial y serialización única de mutaciones | PENDIENTE | WP-001 | - |
 | WP-003 | Implementar carga/validación/congelamiento de configuración y padrón | PENDIENTE | WP-001 | - |
 | WP-004 | Implementar motor de auditoría CSV seguro y testeable | PENDIENTE | WP-001 | - |
@@ -138,15 +138,14 @@ WP-001 es la única excepción inicial porque debe construir ese propio lanzador
 
 ## Próximo punto de control
 
-WP-001 ya está individualmente `APROBADO` y continúa `PENDIENTE` de ejecución.
+WP-001 está individualmente `APROBADO`, figura `EN_CURSO` y tiene a Codex como agente implementador.
 
-Antes de ejecutarlo:
+Para comenzar su ejecución local:
 
-1. marcar WP-001 como `EN_CURSO` en este PLAN;
-2. asignar agente implementador;
-3. crear manualmente, por única vez, la rama y `git worktree` de WP-001;
-4. abrir el agente dentro de ese worktree;
-5. comenzar implementación únicamente con el alcance aprobado de WP-001, incluido `scripts/iniciar_wp.py`.
+1. actualizar el checkout coordinador de `main`;
+2. crear manualmente, por única vez, la rama y `git worktree` de WP-001;
+3. abrir Codex dentro de ese worktree;
+4. comenzar implementación únicamente con el alcance aprobado de WP-001, incluido `scripts/iniciar_wp.py`.
 
 Después de integrar WP-001, los WPs siguientes deben preferir el lanzador de DEC-002.
 
