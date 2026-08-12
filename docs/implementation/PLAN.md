@@ -26,12 +26,13 @@ No reemplaza las reglas de negocio, decisiones técnicas ni documentos propietar
 - El agente/herramienta asignado es información operativa y puede cambiar entre WPs; no forma parte de la arquitectura permanente del producto.
 - Todo WP de implementación requiere CI aplicable verde y revisión independiente antes de integrarse.
 - La aprobación de este PLAN aprueba la secuencia y dependencias generales; cada `WP-XXX.md` debe estar individualmente `APROBADO` antes de pasar a `EN_CURSO`.
+- Después de integrar WP-001, el mecanismo local preferido para preparar rama, worktree y sesión de agente será `scripts/iniciar_wp.py` conforme a DEC-002. El lanzador valida autorización existente, pero no cambia estados ni asignaciones del PLAN.
 
 ## Fase 1 - Fundaciones reproducibles
 
 | WP | Objetivo | Estado | Depende de | Agente |
 |---|---|---|---|---|
-| WP-001 | Inicializar monorepo, toolchains, scaffolds mínimos y CI base reproducible | PENDIENTE | - | - |
+| WP-001 | Inicializar monorepo, toolchains, scaffolds mínimos, CI base reproducible y lanzador local de WPs | PENDIENTE | - | - |
 | WP-002 | Crear runtime base FastAPI, estado global inicial y serialización única de mutaciones | PENDIENTE | WP-001 | - |
 | WP-003 | Implementar carga/validación/congelamiento de configuración y padrón | PENDIENTE | WP-001 | - |
 | WP-004 | Implementar motor de auditoría CSV seguro y testeable | PENDIENTE | WP-001 | - |
@@ -121,6 +122,20 @@ En particular:
 
 La trazabilidad se mantiene en cada WP y PR, no mediante una matriz duplicada permanente.
 
+## Inicio local de WPs
+
+DEC-002 establece el flujo estándar posterior a WP-001:
+
+1. el planificador/humano aprueba el WP;
+2. se cambia su estado a `EN_CURSO` y se asigna el agente en este PLAN;
+3. el operador actualiza su checkout coordinador de `main`;
+4. ejecuta `scripts/iniciar_wp.py NNN agente`;
+5. el lanzador valida estado/dependencias, crea o reutiliza de forma segura rama + worktree y abre la CLI dentro de ese worktree.
+
+El lanzador **no** puede efectuar los pasos 1 o 2 ni modificar `main` para conseguirlos.
+
+WP-001 es la única excepción inicial porque debe construir ese propio lanzador; su rama y worktree se crean manualmente una vez.
+
 ## Próximo punto de control
 
 WP-001 ya está individualmente `APROBADO` y continúa `PENDIENTE` de ejecución.
@@ -129,7 +144,10 @@ Antes de ejecutarlo:
 
 1. marcar WP-001 como `EN_CURSO` en este PLAN;
 2. asignar agente implementador;
-3. crear rama y `git worktree` propios;
-4. comenzar implementación únicamente con el alcance aprobado de WP-001.
+3. crear manualmente, por única vez, la rama y `git worktree` de WP-001;
+4. abrir el agente dentro de ese worktree;
+5. comenzar implementación únicamente con el alcance aprobado de WP-001, incluido `scripts/iniciar_wp.py`.
+
+Después de integrar WP-001, los WPs siguientes deben preferir el lanzador de DEC-002.
 
 WP-002 puede permanecer en borrador hasta antes de su ejecución; WP-003 y WP-004 ya cuentan con aprobación documental pero dependen de WP-001 integrado.
