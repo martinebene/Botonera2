@@ -1,0 +1,10 @@
+packages:
+  - 'apps/*'
+  - 'packages/*'
+  - 'tools/*'
+
+# pnpm 11 bloquea por defecto todo script transitivo. Estos dos binarios son
+# parte del toolchain aprobado de Nuxt/Vite y se revisan de forma explícita.
+allowBuilds:
+  esbuild: true
+  unrs-resolver: true

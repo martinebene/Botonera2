@@ -1,0 +1,6 @@
+.nuxt
+.output
+.venv
+node_modules
+pnpm-lock.yaml
+uv.lock

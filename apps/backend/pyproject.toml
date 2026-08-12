@@ -1,0 +1,10 @@
+[project]
+name = "botonera2-backend"
+version = "0.0.0"
+description = "Scaffold importable del backend de Botonera2"
+requires-python = ">=3.14,<3.15"
+dependencies = []
+
+[build-system]
+requires = ["uv_build>=0.12.1,<0.13.0"]
+build-backend = "uv_build"

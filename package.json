@@ -1,0 +1,31 @@
+{
+  "name": "botonera2",
+  "version": "0.0.0",
+  "private": true,
+  "packageManager": "pnpm@11.18.0",
+  "engines": {
+    "node": ">=24 <25",
+    "pnpm": ">=11 <12"
+  },
+  "scripts": {
+    "build": "pnpm --filter @botonera2/moderacion build && pnpm --filter @botonera2/recinto build",
+    "dev:moderacion": "pnpm --filter @botonera2/moderacion dev",
+    "dev:recinto": "pnpm --filter @botonera2/recinto dev",
+    "format": "prettier --write '.github/**/*.yml' 'apps/**/*.{ts,vue,css,json,mjs}' 'packages/**/*.{ts,json}' package.json pnpm-workspace.yaml README.md tools/device-simulator/README.md config/README.md",
+    "format:check": "prettier --check '.github/**/*.yml' 'apps/**/*.{ts,vue,css,json,mjs}' 'packages/**/*.{ts,json}' package.json pnpm-workspace.yaml README.md tools/device-simulator/README.md config/README.md",
+    "lint": "pnpm --filter @botonera2/moderacion lint && pnpm --filter @botonera2/recinto lint",
+    "postinstall": "pnpm --filter @botonera2/moderacion prepare && pnpm --filter @botonera2/recinto prepare",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "pnpm --filter @botonera2/moderacion typecheck && pnpm --filter @botonera2/recinto typecheck"
+  },
+  "devDependencies": {
+    "@nuxt/test-utils": "4.1.0",
+    "@playwright/test": "1.62.1",
+    "@types/node": "24.10.1",
+    "@vue/test-utils": "2.4.11",
+    "prettier": "3.9.6",
+    "typescript": "5.9.3",
+    "vitest": "4.1.10",
+    "vue-tsc": "3.3.9"
+  }
+}
