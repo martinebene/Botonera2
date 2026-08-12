@@ -1,0 +1,38 @@
+# Entornos y cachés de Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.pyright/
+
+# Dependencias, cachés y salidas de Node/Nuxt
+node_modules/
+.pnpm-store/
+.nuxt/
+.output/
+dist
+coverage/
+playwright-report/
+test-results/
+
+# Archivos de ejecución local
+logs/
+*.log
+*.pid
+.env
+.env.*
+!.env.example
+
+# Configuración personal de agentes y credenciales
+.codex/
+.claude/
+.opencode/
+opencode.json
+opencode.jsonc
+
+# Editores y sistema operativo
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
