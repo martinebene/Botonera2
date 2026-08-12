@@ -23,7 +23,12 @@ Descripción concreta del estado que debe quedar integrado al completar el WP.
 
 Indicar únicamente los documentos y secciones propietarios de este alcance. El agente debe leer `AGENTS.md`, este WP y estas fuentes antes de modificar código.
 
-Todos los WPs de implementación heredan además `docs/decisions/DEC-001-estilo-codigo-y-referencia-produccion.md`, aunque no se repita como fuente específica del dominio.
+Todos los WPs de implementación heredan además:
+
+- `docs/decisions/DEC-001-estilo-codigo-y-referencia-produccion.md`;
+- `docs/decisions/DEC-003-herramientas-mcp-agentes.md`.
+
+Estas decisiones aplican aunque no se repitan como fuentes específicas del dominio.
 
 ## Alcance
 
@@ -44,6 +49,7 @@ La lista orienta el alcance pero no sustituye las reglas y exclusiones anteriore
 - Criterios observables y verificables que determinan que el WP está completo.
 - El código propio nuevo respeta nomenclatura en español según DEC-001.
 - La documentación/comentarios pedagógicos del código son suficientes para comprender clases, funciones y flujos no triviales.
+- Las consultas técnicas externas y los fallbacks de herramientas respetan DEC-003 cuando corresponda.
 
 ## Pruebas obligatorias
 
@@ -54,6 +60,18 @@ La lista orienta el alcance pero no sustituye las reglas y exclusiones anteriore
 - Reglas que este WP no puede alterar.
 - Restricciones de DT-038 aplicables al alcance.
 - Reglas transversales de DEC-001 sobre idioma del código, comentarios pedagógicos y fallback a producción.
+- Reglas transversales de DEC-003 sobre Context7/MCPs, disponibilidad, aviso, fallback seguro y secretos.
+
+## Herramientas MCP y documentación técnica externa
+
+Cuando el WP dependa de APIs/configuración de librerías o frameworks externos:
+
+1. aplicar DEC-003 y consultar Context7 automáticamente cuando corresponda;
+2. para Nuxt, preferir además el MCP oficial de Nuxt cuando esté disponible;
+3. utilizar Playwright MCP como apoyo exploratorio sin sustituir tests versionados requeridos;
+4. utilizar GitHub MCP/integración equivalente solo dentro de la autoridad permitida por DT-033 a DT-038;
+5. si un MCP necesario no está disponible, avisar al operador y aplicar únicamente un fallback equivalente y seguro permitido por DEC-003;
+6. si no existe alternativa confiable o continuar exige una decisión reservada, detener solo la parte afectada y escalar.
 
 ## Consulta a producción si existe ambigüedad funcional/UX/visual
 
@@ -97,6 +115,8 @@ Registrar aquí trabajo detectado que no debe incorporarse silenciosamente a est
 - [ ] Código propio nuevo nombrado en español según DEC-001, salvo excepciones justificadas.
 - [ ] Clases, funciones y flujos no triviales documentados/comentados en español con finalidad pedagógica.
 - [ ] Si se consultó producción, la consulta funcional/UX/visual quedó trazada en WP/PR.
+- [ ] Si un MCP necesario no estuvo disponible, se avisó y el fallback quedó trazado conforme a DEC-003.
+- [ ] No se versionaron credenciales ni configuraciones personales con secretos.
 - [ ] Pruebas obligatorias agregadas/actualizadas y verdes.
 - [ ] No se relajaron pruebas ni criterios para hacer pasar CI.
 - [ ] Calidad estática y builds aplicables verdes.
