@@ -13,7 +13,8 @@ Para un Work Package normal, antes de proponer o modificar código:
 1. leer `AGENTS.md`;
 2. leer el `docs/work-packages/WP-XXX.md` asignado;
 3. leer únicamente las fuentes canónicas y secciones que ese WP declare obligatorias;
-4. inspeccionar el código, contratos y pruebas directamente necesarios para ese alcance.
+4. leer las decisiones `DEC-XXX` transversales vigentes que este archivo declare obligatorias para todos los WPs;
+5. inspeccionar el código, contratos y pruebas directamente necesarios para ese alcance.
 
 No recorrer indiscriminadamente toda la documentación o todo el monorepo cuando el WP ya delimita el contexto necesario.
 
@@ -47,6 +48,7 @@ Cuando una tarea requiera reconstrucción global, las fuentes principales son:
 - La documentación de Botonera2 es la fuente normativa para la nueva implementación.
 - El WP asignado define el alcance operativo, pero no puede contradecir reglas o decisiones canónicas.
 - Las decisiones `DEC-XXX` aprobadas posteriores son vinculantes para todos los WPs afectados.
+- `DEC-001` y `DEC-003` son decisiones transversales obligatorias para todos los WPs de implementación, aunque un WP antiguo no las enumere explícitamente.
 - El repositorio histórico `martinebene/Botonera`, rama `main`, puede consultarse como referencia funcional únicamente según la regla de fallback definida más abajo y en `docs/decisions/DEC-001-estilo-codigo-y-referencia-produccion.md`.
 - No copiar arquitectura, clases, endpoints internos, polling, serialización ni estructura histórica por defecto.
 - La rama histórica `v2` no es normativa.
@@ -164,6 +166,28 @@ Obliga a todos los WPs de implementación a:
 - documentar el código abundantemente en español con finalidad pedagógica;
 - incluir en cada PR una explicación apta para principiantes;
 - consultar la producción vigente como fallback solo ante ambigüedades de negocio, UX o diseño visual, nunca para decidir arquitectura o cuestiones técnicas.
+
+### DEC-002 - Lanzador local de Work Packages
+
+Ver `docs/decisions/DEC-002-lanzador-work-packages.md`.
+
+Después de integrar WP-001, el flujo local preferido para iniciar un WP es `scripts/iniciar_wp.py`, que valida autorización documental y prepara rama + worktree + CLI sin adquirir autoridad para aprobar, integrar o desplegar.
+
+### DEC-003 - Herramientas MCP estándar
+
+Ver `docs/decisions/DEC-003-herramientas-mcp-agentes.md`.
+
+Todos los WPs de implementación deben aplicar estas reglas:
+
+- usar Context7 automáticamente cuando código/configuración dependa de documentación externa actual o específica de versión;
+- preferir el MCP oficial de Nuxt para comportamiento específico de Nuxt cuando esté disponible;
+- usar Playwright MCP como apoyo exploratorio sin sustituir tests Playwright versionados;
+- usar GitHub MCP o integración equivalente únicamente dentro de la autoridad ya aprobada;
+- comprobar razonablemente la disponibilidad de las herramientas antes de depender de ellas;
+- **avisar explícitamente al operador si un MCP necesario no está disponible**;
+- continuar sin él solo si existe un fallback claramente equivalente y seguro según DEC-003;
+- no adivinar APIs/configuración cuando la consulta externa era necesaria;
+- no versionar API keys, tokens ni configuraciones personales con secretos.
 
 ## Estilo obligatorio del código
 
@@ -309,6 +333,9 @@ Solo debe detenerse la parte dependiente de esa decisión; el trabajo independie
 - No introducir identificadores propios nuevos en inglés sin una excepción real impuesta por framework, librería o contrato externo.
 - No entregar código sustantivo sin comentarios/documentación pedagógica suficiente para comprender su intención y funcionamiento.
 - No inventar reglas de negocio, UX o diseño visual: aplicar la jerarquía documental y el fallback a producción definido en DEC-001.
+- No ocultar la ausencia de un MCP requerido: aplicar el aviso y fallback de DEC-003.
+- No usar memoria del modelo como sustituto de documentación externa cuando DEC-003 exige verificar una API/configuración vigente.
+- No versionar credenciales o secretos de MCP.
 
 Si aparece trabajo fuera de alcance, registrarlo en el WP/PR como hallazgo. Si aparece una decisión transversal nueva, detener solo el alcance afectado y elevarla para posible `DEC-XXX`.
 
@@ -325,6 +352,8 @@ Cada cambio debe:
 - mantener trazabilidad `requisito -> WP -> aceptación -> prueba -> PR`;
 - utilizar español para el código propio bajo control del proyecto;
 - incluir comentarios pedagógicos suficientes y actualizados;
-- permitir que la PR explique la implementación a nivel principiante.
+- permitir que la PR explique la implementación a nivel principiante;
+- utilizar documentación técnica externa actualizada cuando corresponda según DEC-003;
+- hacer explícito cualquier fallback por MCP no disponible.
 
 Si aparece una contradicción real entre documentos, no adivinar: detener únicamente el alcance afectado y documentar la inconsistencia.
