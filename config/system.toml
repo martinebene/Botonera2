@@ -1,0 +1,23 @@
+# Configuración funcional canónica de Botonera2 (WP-003).
+#
+# Este archivo se carga en memoria al preparar la sala y queda congelado
+# durante toda la preparación/sesión (RN-CON-07 y DT-010). Los valores aquí
+# presentes son de referencia/fantasía para desarrollo: no representan una
+# instalación real.
+
+[session]
+quorum = 7
+
+[room]
+rows = [3, 4, 5]
+
+[voting]
+types = ["Ratificación", "Despacho OP", "Despacho Gob", "Despacho AS", "Despacho HA", "Despacho Eco", "Mocion", "P. Sobre Tabla", "Otro"]
+
+[timers]
+moderation_vote_reveal_seconds = 4
+public_initial_countdown_seconds = 4
+public_result_display_seconds = 6
+
+[paths]
+logs_dir = "logs"
