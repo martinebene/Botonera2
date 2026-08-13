@@ -34,3 +34,4 @@ Las decisiones ya cerradas DT-001 a DT-XXX permanecen en sus documentos canónic
 - `DEC-001-estilo-codigo-y-referencia-produccion.md`: código propio en español, documentación pedagógica, explicación para principiantes en PR y fallback funcional/UX/visual a producción.
 - `DEC-002-lanzador-work-packages.md`: lanzador local para validar autorización y preparar rama + worktree + CLI de agente para WPs posteriores a WP-001.
 - `DEC-003-herramientas-mcp-agentes.md`: Context7, Nuxt MCP, Playwright MCP y GitHub MCP/integración equivalente; reglas de uso, disponibilidad, aviso, fallback seguro y secretos.
+- `DEC-004-orquestacion-revision-secuencial-y-sincronizacion.md`: ChatGPT Web como orquestador preferido, revisión independiente secuencial en el worktree del WP, excepción acotada para cambios administrativos de `PLAN.md` directos a `main` y sincronización GitHub/local obligatoria.
