@@ -70,11 +70,22 @@ def test_carga_el_toml_canonico_con_sus_valores_y_tipos(ruta_system_toml_valido:
         # voting.types: lista no vacía de textos no vacíos.
         (LINEA_TYPES, "types = []", "voting.types"),
         (LINEA_TYPES, 'types = [""]', "voting.types"),
-        # Temporizadores: enteros no negativos; los negativos y los no
-        # enteros se rechazan para las tres claves.
+        # Temporizadores: números no negativos; los negativos (enteros o
+        # decimales), los booleanos y los no numéricos se rechazan para las
+        # tres claves.
         (
             LINEA_TIMER_REVELADO,
             "moderation_vote_reveal_seconds = -1",
+            "timers.moderation_vote_reveal_seconds",
+        ),
+        (
+            LINEA_TIMER_REVELADO,
+            "moderation_vote_reveal_seconds = -0.5",
+            "timers.moderation_vote_reveal_seconds",
+        ),
+        (
+            LINEA_TIMER_REVELADO,
+            "moderation_vote_reveal_seconds = true",
             "timers.moderation_vote_reveal_seconds",
         ),
         (
@@ -131,6 +142,38 @@ def test_acepta_temporizador_en_cero(tmp_path: Path) -> None:
     configuracion = cargar_configuracion_sistema(ruta)
 
     assert configuracion.recinto_cuenta_regresiva_inicial_segundos == 0
+
+
+@pytest.mark.parametrize(
+    ("texto_timer", "valor_esperado", "tipo_esperado"),
+    [
+        ("moderation_vote_reveal_seconds = 0", 0, int),
+        ("moderation_vote_reveal_seconds = 4", 4, int),
+        ("moderation_vote_reveal_seconds = 0.5", 0.5, float),
+        ("moderation_vote_reveal_seconds = 1.5", 1.5, float),
+    ],
+    ids=["cero", "entero-positivo", "decimal-medio", "decimal-positivo"],
+)
+def test_acepta_temporizadores_no_negativos(
+    tmp_path: Path,
+    texto_timer: str,
+    valor_esperado: int | float,
+    tipo_esperado: type[int] | type[float],
+) -> None:
+    """Los temporizadores aceptan enteros y decimales no negativos.
+
+    El tipo recibido se conserva sin conversión silenciosa: un ``4`` sigue
+    siendo ``int`` y un ``0.5`` sigue siendo ``float`` en el snapshot.
+    """
+    ruta = escribir_system_toml(
+        tmp_path / "system.toml", TOML_CANONICO.replace(LINEA_TIMER_REVELADO, texto_timer)
+    )
+
+    configuracion = cargar_configuracion_sistema(ruta)
+
+    obtenido = configuracion.moderacion_revelado_votos_segundos
+    assert obtenido == valor_esperado
+    assert type(obtenido) is tipo_esperado
 
 
 def test_conserva_literal_el_texto_de_los_tipos(tmp_path: Path) -> None:

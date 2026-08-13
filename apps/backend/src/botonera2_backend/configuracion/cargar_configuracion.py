@@ -73,13 +73,13 @@ def cargar_configuracion_sistema(ruta: Path) -> ConfiguracionSistema:
         quorum=_exigir_entero_positivo(session, "session.quorum"),
         filas_bancas=_exigir_filas_bancas(room),
         tipos_votacion=_exigir_tipos_votacion(voting),
-        moderacion_revelado_votos_segundos=_exigir_entero_no_negativo(
+        moderacion_revelado_votos_segundos=_exigir_numero_no_negativo(
             timers, "timers.moderation_vote_reveal_seconds"
         ),
-        recinto_cuenta_regresiva_inicial_segundos=_exigir_entero_no_negativo(
+        recinto_cuenta_regresiva_inicial_segundos=_exigir_numero_no_negativo(
             timers, "timers.public_initial_countdown_seconds"
         ),
-        recinto_resultado_publico_segundos=_exigir_entero_no_negativo(
+        recinto_resultado_publico_segundos=_exigir_numero_no_negativo(
             timers, "timers.public_result_display_seconds"
         ),
         directorio_registros=_exigir_texto_no_vacio(paths, "paths.logs_dir"),
@@ -157,22 +157,23 @@ def _exigir_tipos_votacion(voting: dict[str, Any]) -> tuple[str, ...]:
     return tuple(tipos)
 
 
-def _exigir_entero_no_negativo(seccion: dict[str, Any], clave: str) -> int:
-    """Valida una clave entera mayor o igual que cero (temporizadores).
+def _exigir_numero_no_negativo(seccion: dict[str, Any], clave: str) -> int | float:
+    """Valida una clave numérica mayor o igual que cero (temporizadores).
 
-    Al igual que en ``_exigir_entero_positivo``, ``clave`` es el nombre
-    canónico completo ("timers.moderation_vote_reveal_seconds") para los
-    mensajes de error, y el campo real dentro de la sección es la parte
-    posterior al punto.
+    El WP-003 define los temporizadores como "números no negativos", sin
+    restringirlos a enteros: se aceptan tanto ``int`` como ``float`` y se
+    conserva el tipo recibido sin conversión silenciosa. Al igual que en
+    ``_exigir_entero_positivo``, ``clave`` es el nombre canónico completo
+    ("timers.moderation_vote_reveal_seconds") para los mensajes de error, y
+    el campo real dentro de la sección es la parte posterior al punto.
 
-    Los temporizadores se expresan en segundos enteros, que es la forma
-    canónica del esquema de ejemplo aprobado en WP-003; se descartan tanto
-    los negativos como los valores no enteros.
+    Se rechazan los booleanos (``True`` es subclase de ``int`` en Python y no
+    debe aceptarse como número), los negativos y cualquier valor no numérico.
     """
     campo = clave.rsplit(".", 1)[1]
     valor = seccion.get(campo)
-    if not isinstance(valor, int) or isinstance(valor, bool) or valor < 0:
-        raise ErrorValidacionConfiguracion(f"{clave} debe ser un entero no negativo")
+    if isinstance(valor, bool) or not isinstance(valor, (int, float)) or valor < 0:
+        raise ErrorValidacionConfiguracion(f"{clave} debe ser un número no negativo")
     return valor
 
 

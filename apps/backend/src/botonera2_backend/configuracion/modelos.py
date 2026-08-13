@@ -41,14 +41,26 @@ class ConfiguracionSistema:
     tipos_votacion: tuple[str, ...]
     """Tipos descriptivos de votación, en el orden configurado."""
 
-    moderacion_revelado_votos_segundos: int
-    """Retardo antes de revelar votos individuales en Moderación."""
+    moderacion_revelado_votos_segundos: int | float
+    """Retardo antes de revelar votos individuales en Moderación.
 
-    recinto_cuenta_regresiva_inicial_segundos: int
-    """Cuenta regresiva/efecto visual inicial de votación en el Recinto."""
+    Es un número no negativo (puede ser entero o decimal, p. ej. ``0.5``);
+    se conserva el tipo que vino en el archivo: un ``4`` sigue siendo ``int``
+    y un ``4.5`` queda como ``float``, sin conversión silenciosa.
+    """
 
-    recinto_resultado_publico_segundos: int
-    """Tiempo de permanencia del resultado en la pantalla pública."""
+    recinto_cuenta_regresiva_inicial_segundos: int | float
+    """Cuenta regresiva/efecto visual inicial de votación en el Recinto.
+
+    Número no negativo con la misma semántica de tipo que el retardo de
+    Moderación: entero o decimal, sin conversión silenciosa.
+    """
+
+    recinto_resultado_publico_segundos: int | float
+    """Tiempo de permanencia del resultado en la pantalla pública.
+
+    Número no negativo (entero o decimal), sin conversión silenciosa.
+    """
 
     directorio_registros: str
     """Directorio donde se escribirán los CSV de auditoría en el futuro."""
