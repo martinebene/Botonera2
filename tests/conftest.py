@@ -73,6 +73,18 @@ NOMBRES_FANTASIA: tuple[tuple[str, str], ...] = (
 )
 
 
+@pytest.fixture
+def anyio_backend() -> str:
+    """Ejecuta AnyIO sobre asyncio, el loop usado por el runtime de WP-002.
+
+    La fixture vive en el ``conftest.py`` raíz para que las pruebas asíncronas
+    del backend y las ayudas de WP-003 compartan un único módulo de pytest. Su
+    nombre está impuesto por el plugin externo AnyIO.
+    """
+
+    return "asyncio"
+
+
 def escribir_system_toml(ruta: Path, contenido: str) -> Path:
     """Escribe un ``system.toml`` en ``ruta`` y la devuelve para encadenar."""
     ruta.write_text(contenido, encoding="utf-8")
