@@ -33,9 +33,9 @@ No reemplaza las reglas de negocio, decisiones técnicas ni documentos propietar
 | WP | Objetivo | Estado | Depende de | Agente |
 |---|---|---|---|---|
 | WP-001 | Inicializar monorepo, toolchains, scaffolds mínimos, CI base reproducible y lanzador local de WPs | INTEGRADO | - | - |
-| WP-002 | Crear runtime base FastAPI, estado global inicial y serialización única de mutaciones | PENDIENTE | WP-001 | - |
-| WP-003 | Implementar carga/validación/congelamiento de configuración y padrón | PENDIENTE | WP-001 | - |
-| WP-004 | Implementar motor de auditoría CSV seguro y testeable | PENDIENTE | WP-001 | - |
+| WP-002 | Crear runtime base FastAPI, estado global inicial y serialización única de mutaciones | EN_CURSO | WP-001 | Codex |
+| WP-003 | Implementar carga/validación/congelamiento de configuración y padrón | EN_CURSO | WP-001 | OpenCode |
+| WP-004 | Implementar motor de auditoría CSV seguro y testeable | EN_CURSO | WP-001 | Codex |
 
 WP-002, WP-003 y WP-004 pueden ejecutarse en paralelo después de integrar WP-001 porque sus responsabilidades son independientes y sus contratos quedan delimitados en sus respectivos WPs.
 
@@ -140,6 +140,4 @@ WP-001 es la única excepción inicial porque debe construir ese propio lanzador
 
 WP-001 ya está `INTEGRADO` y no tiene agente operativo asignado.
 
-WP-002, WP-003 y WP-004 son los siguientes WPs de la Fase 1. Los tres permanecen `PENDIENTE`, sin agente asignado, y su dependencia de WP-001 ya está satisfecha, por lo que pueden ejecutarse en paralelo una vez cumplidas sus condiciones de inicio.
-
-WP-002 continúa en estado documental `BORRADOR` y debe aprobarse antes de pasar a `EN_CURSO`. WP-003 y WP-004 ya cuentan con aprobación documental; para iniciarlos corresponde cambiar explícitamente su estado y asignación en este PLAN y luego usar el lanzador de DEC-002.
+WP-002, WP-003 y WP-004 quedaron autorizados para ejecutarse en paralelo. Para iniciar cada uno corresponde usar `scripts/iniciar_wp.py` conforme a DEC-002.
