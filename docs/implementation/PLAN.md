@@ -33,9 +33,9 @@ No reemplaza las reglas de negocio, decisiones técnicas ni documentos propietar
 | WP | Objetivo | Estado | Depende de | Agente |
 |---|---|---|---|---|
 | WP-001 | Inicializar monorepo, toolchains, scaffolds mínimos, CI base reproducible y lanzador local de WPs | INTEGRADO | - | - |
-| WP-002 | Crear runtime base FastAPI, estado global inicial y serialización única de mutaciones | EN_CURSO | WP-001 | Codex |
-| WP-003 | Implementar carga/validación/congelamiento de configuración y padrón | EN_CURSO | WP-001 | OpenCode |
-| WP-004 | Implementar motor de auditoría CSV seguro y testeable | EN_CURSO | WP-001 | Codex |
+| WP-002 | Crear runtime base FastAPI, estado global inicial y serialización única de mutaciones | INTEGRADO | WP-001 | - |
+| WP-003 | Implementar carga/validación/congelamiento de configuración y padrón | INTEGRADO | WP-001 | - |
+| WP-004 | Implementar motor de auditoría CSV seguro y testeable | INTEGRADO | WP-001 | - |
 
 WP-002, WP-003 y WP-004 pueden ejecutarse en paralelo después de integrar WP-001 porque sus responsabilidades son independientes y sus contratos quedan delimitados en sus respectivos WPs.
 
@@ -138,6 +138,8 @@ WP-001 es la única excepción inicial porque debe construir ese propio lanzador
 
 ## Próximo punto de control
 
-WP-001 ya está `INTEGRADO` y no tiene agente operativo asignado.
+WP-001, WP-002, WP-003 y WP-004 ya están `INTEGRADO` y no tienen agente operativo asignado.
 
-WP-002, WP-003 y WP-004 quedaron autorizados para ejecutarse en paralelo. Para iniciar cada uno corresponde usar `scripts/iniciar_wp.py` conforme a DEC-002.
+La Fase 1 queda administrativamente cerrada.
+
+El próximo punto de control es evaluar y autorizar los WPs de Fase 2 conforme a sus dependencias. Este cierre administrativo no cambia el estado ni asigna agente a ningún WP de Fase 2.
