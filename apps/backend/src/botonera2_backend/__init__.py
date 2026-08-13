@@ -1,6 +1,5 @@
-"""Punto de entrada importable del futuro backend de Botonera2.
+"""Backend autoritativo de Botonera2."""
 
-WP-001 crea únicamente el paquete y su toolchain. La aplicación FastAPI, el
-estado operativo y las reglas institucionales se incorporarán en los Work
-Packages que tienen autoridad explícita para hacerlo.
-"""
+from botonera2_backend.aplicacion import crear_aplicacion
+
+__all__ = ["crear_aplicacion"]
