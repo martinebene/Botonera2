@@ -1,0 +1,34 @@
+"""Paquete de configuración y padrón del backend (WP-003).
+
+Expone públicamente la carga, validación y congelamiento de
+``config/system.toml`` y ``config/concejales.csv``:
+
+- ``cargar_configuracion_sistema`` y ``cargar_padron_concejales`` son las dos
+  operaciones que usará la futura preparación (WP-005);
+- los modelos y errores se reexportan aquí para que el resto del sistema
+  importe desde este paquete sin conocer su estructura interna.
+"""
+
+from __future__ import annotations
+
+from botonera2_backend.configuracion.cargar_configuracion import cargar_configuracion_sistema
+from botonera2_backend.configuracion.cargar_padron import cargar_padron_concejales
+from botonera2_backend.configuracion.errores import (
+    ErrorConfiguracion,
+    ErrorPadronInvalido,
+    ErrorTomlInvalido,
+    ErrorValidacionConfiguracion,
+)
+from botonera2_backend.configuracion.modelos import Concejal, ConfiguracionSistema, Padron
+
+__all__ = [
+    "cargar_configuracion_sistema",
+    "cargar_padron_concejales",
+    "ErrorConfiguracion",
+    "ErrorPadronInvalido",
+    "ErrorTomlInvalido",
+    "ErrorValidacionConfiguracion",
+    "Concejal",
+    "ConfiguracionSistema",
+    "Padron",
+]
