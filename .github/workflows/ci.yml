@@ -23,7 +23,9 @@ jobs:
           version: '0.12.1'
           python-version: '3.14'
           enable-cache: true
-      - run: uv sync --frozen
+      # La raíz es un proyecto y no un workspace virtual. ``--all-packages``
+      # instala también FastAPI y las demás dependencias de cada miembro.
+      - run: uv sync --frozen --all-packages
       - run: uv run ruff check .
       - run: uv run ruff format --check .
       - run: uv run pyright
@@ -38,7 +40,7 @@ jobs:
           version: '0.12.1'
           python-version: '3.14'
           enable-cache: true
-      - run: uv sync --frozen
+      - run: uv sync --frozen --all-packages
       - run: uv run pytest
 
   frontend-quality:
