@@ -249,21 +249,65 @@ Antes de borrar nada debe verificarse:
 
 ### Limpieza en Orca
 
-Con las condiciones anteriores cumplidas, se prefiere:
+Cuando el worktree fue creado y administrado por Orca, **la eliminación normal debe realizarse mediante `orca worktree rm`**, no mediante `git worktree remove` como primer paso. Orca debe retirar su metadata, el worktree Git y la rama local asociada de forma coordinada.
 
-```text
-orca worktree rm --worktree <selector-o-id>
-```
-
-Después se verifica que Orca retiró el worktree y la rama local. Si la rama fue publicada para la PR, se elimina además la rama remota explícitamente y se ejecuta:
+Antes de eliminarlo, obtener el selector real desde Orca:
 
 ```bash
-git fetch --prune origin
-git worktree list
-git branch -r
+orca worktree list --repo path:/workspace/Botonera2 --json
 ```
 
-No usar `--force` salvo que exista una razón investigada y autorizada; nunca para descartar trabajo no integrado.
+La salida incluye para cada worktree, entre otros campos, `id`, `path` y `displayName`. El argumento `--worktree` de `orca worktree rm` requiere un **selector explícito**; no se debe pasar el `displayName` desnudo suponiendo que Orca lo interpretará.
+
+La forma preferida por ser inequívoca es usar el `id` exacto devuelto por Orca:
+
+```bash
+orca worktree rm \
+  --worktree "id:<id-exacto-devuelto-por-orca>" \
+  --json
+```
+
+También pueden utilizarse otros selectores explícitos soportados por la versión vigente de Orca, por ejemplo `path:<ruta-absoluta>` o `name:<nombre>`, siempre que hayan sido obtenidos/verificados previamente y sean inequívocos.
+
+**No usar** una forma como:
+
+```text
+orca worktree rm --worktree "wp/007-descripcion"
+```
+
+sin prefijo de selector. Ese texto es solo el nombre visible del workspace y puede producir `selector_not_found` sin retirar el worktree.
+
+Después del `rm`, verificar antes de tocar ramas manualmente:
+
+```bash
+orca worktree list --repo path:/workspace/Botonera2 --json
+git worktree list
+```
+
+El worktree eliminado ya no debe aparecer en ninguno de los dos listados. En el flujo normal Orca también retira la rama local asociada; se comprueba explícitamente con:
+
+```bash
+git branch --list '*wp-NNN*'
+```
+
+Solo después de confirmar que Orca retiró correctamente el worktree se elimina la rama remota publicada para la PR:
+
+```bash
+git push origin --delete <rama-remota>
+git fetch --prune origin
+```
+
+La comprobación final debe incluir:
+
+```bash
+git worktree list
+git branch --list '*wp-NNN*'
+git branch -r --list '*wp-NNN*'
+```
+
+Si Orca retiró el worktree pero dejó una rama local, no se borra a ciegas mientras pueda estar asociada a trabajo no investigado. Con PR ya verificada como integrada, árbol limpio y ausencia de commits posteriores, puede retirarse manualmente; si el squash merge hace que `git branch -d` no la considere fusionada, `git branch -D` es admisible únicamente después de esas verificaciones.
+
+No usar `--force` en `orca worktree rm` salvo que exista una razón investigada y autorizada; nunca para descartar trabajo no integrado. Ante `selector_not_found`, no asumir que la eliminación ocurrió: volver a listar Orca, obtener `id`/`path` válido y repetir con un selector explícito.
 
 ### Limpieza en entorno genérico
 
@@ -316,7 +360,7 @@ ChatGPT Web orquestador
   -> orquestador verifica SHA + CI + revisión en GitHub
   -> squash merge productivo
   -> actualización documental/administrativa directa por el orquestador
-  -> limpieza específica del entorno + rama remota
+  -> limpieza específica del entorno; en Orca se obtiene el selector y se usa `orca worktree rm` antes de eliminar la rama remota
   -> siguiente WP
 ```
 
@@ -337,6 +381,7 @@ La nueva conversación debe recibir un mensaje que indique, como mínimo:
 - que debe aprovechar la mayor capacidad de razonamiento del orquestador para redactar **prompts de agentes exhaustivos y explícitos**, sin confiar en que implementadores/revisores infieran pasos omitidos;
 - que todo prompt debe cumplir `docs/implementation/PROMPTS_AGENTES.md`, incluyendo rol, alcance, prohibiciones, Git/PR, validaciones, escalamiento y evidencia final;
 - que debe respetar sincronización GitHub/local, un worktree por WP, revisión independiente secuencial, CI, squash merge, verificación remota y limpieza local/remota específica del entorno;
+- que si usa Orca para limpiar un WP debe obtener primero un selector válido desde `orca worktree list --json` y ejecutar `orca worktree rm` con selector explícito, preferentemente `id:<id>`, antes de borrar ramas remotas o recurrir a Git manual;
 - que cambios ejecutables/productivos siguen mediante rama + PR;
 - que debe comenzar reconstruyendo el estado actual y no iniciar implementación hasta que el WP correspondiente esté definido y aprobado.
 
