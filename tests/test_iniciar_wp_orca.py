@@ -124,7 +124,7 @@ argumentos = sys.argv[1:]
 with registro.open("a", encoding="utf-8") as f:
     f.write(" ".join(argumentos) + "\\n")
 
-# Comportamiento segun subcomando
+# Comportamiento según subcomando
 if not argumentos:
     print("orca CLI simulada")
     sys.exit(0)
@@ -173,22 +173,40 @@ if subcomando == "repo" and len(argumentos) > 1 and argumentos[1] == "list":
 
 if subcomando == "worktree" and len(argumentos) > 1 and argumentos[1] == "list":
     modo = os.environ.get("ORCA_MOCK_WORKTREE_LIST", "empty")
-    if modo == "conflict":
+    if modo == "error":
+        print("Error en daemon de Orca", file=sys.stderr)
+        sys.exit(1)
+    elif modo == "invalid_json":
+        print("NOT_A_JSON")
+        sys.exit(0)
+    elif modo == "ok_false":
+        print(json.dumps({{"ok": False, "error": "Fallo al listar worktrees"}}))
+        sys.exit(0)
+    elif modo == "missing_worktrees":
+        print(json.dumps({{"ok": True, "result": {{}}}}))
+        sys.exit(0)
+    elif modo == "conflict":
         print(json.dumps({{
             "ok": True,
             "result": {{
                 "worktrees": [
                     {{
-                        "displayName": "wp/030-lanzador-orca",
-                        "branch": "refs/heads/martinebene/wp-030-lanzador-orca",
-                        "path": "/mock/path"
+                        "displayName": "wp/030-lanzador-orca-y-soporte-multi-entorno",
+                        "branch": (
+                            "refs/heads/martinebene/wp-030-lanzador-orca-y-soporte-multi-entorno"
+                        ),
+                        "path": (
+                            "/home/dev/orca/workspaces/Botonera2/"
+                            "wp-030-lanzador-orca-y-soporte-multi-entorno"
+                        )
                     }}
                 ]
             }}
         }}))
+        sys.exit(0)
     else:
         print(json.dumps({{"ok": True, "result": {{"worktrees": []}}}}))
-    sys.exit(0)
+        sys.exit(0)
 
 if subcomando == "worktree" and len(argumentos) > 1 and argumentos[1] == "create":
     modo = os.environ.get("ORCA_MOCK_CREATE", "ok")
@@ -202,6 +220,7 @@ if subcomando == "worktree" and len(argumentos) > 1 and argumentos[1] == "create
         print(json.dumps({{
             "ok": True,
             "result": {{
+                "agentTerminalHandle": "term_12345",
                 "worktree": {{
                     "id": "repo::/mock/wt",
                     "path": "/mock/wt",
@@ -219,6 +238,7 @@ if subcomando == "worktree" and len(argumentos) > 1 and argumentos[1] == "create
         print(json.dumps({{
             "ok": True,
             "result": {{
+                "agentTerminalHandle": "term_12345",
                 "worktree": {{
                     "id": "repo::/mock/wt",
                     "path": "/mock/wt",
@@ -236,6 +256,7 @@ if subcomando == "worktree" and len(argumentos) > 1 and argumentos[1] == "create
         print(json.dumps({{
             "ok": True,
             "result": {{
+                "agentTerminalHandle": "term_12345",
                 "worktree": {{
                     "id": "repo::/mock/wt",
                     "path": "/mock/wt",
@@ -244,6 +265,77 @@ if subcomando == "worktree" and len(argumentos) > 1 and argumentos[1] == "create
                     "baseRef": "refs/remotes/origin/main",
                     "parentWorktreeId": "padre-no-autorizado",
                     "lineage": ["padre-1"],
+                    "createdWithAgent": "antigravity"
+                }}
+            }}
+        }}))
+    elif modo == "missing_agent_handle":
+        head = os.environ.get("ORCA_MOCK_HEAD", "4355d14911428f17ea975d36116a72aac310ba2c")
+        print(json.dumps({{
+            "ok": True,
+            "result": {{
+                "worktree": {{
+                    "id": "repo::/home/dev/orca/workspaces/Botonera2/wp-030-lanzador-orca",
+                    "path": "/home/dev/orca/workspaces/Botonera2/wp-030-lanzador-orca",
+                    "head": head,
+                    "branch": "refs/heads/martinebene/wp-030-lanzador-orca",
+                    "baseRef": "refs/remotes/origin/main",
+                    "parentWorktreeId": None,
+                    "lineage": None,
+                    "createdWithAgent": "antigravity"
+                }}
+            }}
+        }}))
+    elif modo == "startup_terminal_fallback":
+        head = os.environ.get("ORCA_MOCK_HEAD", "4355d14911428f17ea975d36116a72aac310ba2c")
+        print(json.dumps({{
+            "ok": True,
+            "result": {{
+                "startupTerminal": {{"handle": "term_fallback_999"}},
+                "worktree": {{
+                    "id": "repo::/home/dev/orca/workspaces/Botonera2/wp-030-lanzador-orca",
+                    "path": "/home/dev/orca/workspaces/Botonera2/wp-030-lanzador-orca",
+                    "head": head,
+                    "branch": "refs/heads/martinebene/wp-030-lanzador-orca",
+                    "baseRef": "refs/remotes/origin/main",
+                    "parentWorktreeId": None,
+                    "lineage": None,
+                    "createdWithAgent": "antigravity"
+                }}
+            }}
+        }}))
+    elif modo == "missing_path":
+        head = os.environ.get("ORCA_MOCK_HEAD", "4355d14911428f17ea975d36116a72aac310ba2c")
+        print(json.dumps({{
+            "ok": True,
+            "result": {{
+                "agentTerminalHandle": "term_12345",
+                "worktree": {{
+                    "id": "repo::/mock/wt",
+                    "path": "",
+                    "head": head,
+                    "branch": "refs/heads/martinebene/wp-030-lanzador-orca",
+                    "baseRef": "refs/remotes/origin/main",
+                    "parentWorktreeId": None,
+                    "lineage": None,
+                    "createdWithAgent": "antigravity"
+                }}
+            }}
+        }}))
+    elif modo == "missing_branch":
+        head = os.environ.get("ORCA_MOCK_HEAD", "4355d14911428f17ea975d36116a72aac310ba2c")
+        print(json.dumps({{
+            "ok": True,
+            "result": {{
+                "agentTerminalHandle": "term_12345",
+                "worktree": {{
+                    "id": "repo::/mock/wt",
+                    "path": "/mock/wt",
+                    "head": head,
+                    "branch": "",
+                    "baseRef": "refs/remotes/origin/main",
+                    "parentWorktreeId": None,
+                    "lineage": None,
                     "createdWithAgent": "antigravity"
                 }}
             }}
@@ -487,7 +579,9 @@ def test_flujo_exitoso_crea_worktree_en_orca(tmp_path: Path) -> None:
     assert resultado.returncode == 0, resultado.stderr
     assert "Worktree creado exitosamente por Orca" in resultado.stdout
     assert "Rama nativa Orca: refs/heads/martinebene/wp-030-lanzador-orca" in resultado.stdout
-    assert "Agente lanzado en terminal administrada por Orca: antigravity" in resultado.stdout
+    assert "Agente lanzado en terminal administrada por Orca: antigravity (handle: term_12345)" in (
+        resultado.stdout
+    )
 
     # Comprobar que orca fue invocado con los parámetros esperados
     registro = repositorio.registro_orca.read_text(encoding="utf-8")
@@ -496,6 +590,55 @@ def test_flujo_exitoso_crea_worktree_en_orca(tmp_path: Path) -> None:
     assert "worktree create" in registro
     assert "--agent antigravity" in registro
     assert "--no-parent" in registro
+
+
+def test_flujo_exitoso_con_startup_terminal_fallback(tmp_path: Path) -> None:
+    """Verifica que acepte startupTerminal.handle como evidencia válida del inicio del agente."""
+    repositorio = crear_repositorio_orca(tmp_path, numero_wp="030", agente="antigravity")
+    entorno = repositorio.entorno.copy()
+    entorno["ORCA_MOCK_CREATE"] = "startup_terminal_fallback"
+
+    resultado = lanzar_orca(repositorio, numero_wp="030", agente="antigravity", entorno=entorno)
+
+    assert resultado.returncode == 0, resultado.stderr
+    assert "(handle: term_fallback_999)" in resultado.stdout
+
+
+def test_rechaza_agente_sin_handle_de_terminal(tmp_path: Path) -> None:
+    """Verifica que si Orca no devuelve handle de terminal para el agente, falle cerrado."""
+    repositorio = crear_repositorio_orca(tmp_path)
+    entorno = repositorio.entorno.copy()
+    entorno["ORCA_MOCK_CREATE"] = "missing_agent_handle"
+
+    resultado = lanzar_orca(repositorio, entorno=entorno)
+
+    assert resultado.returncode == 1
+    assert "no informó el identificador de la terminal del agente" in resultado.stderr
+    assert "no se ejecutó limpieza automática" in resultado.stderr
+
+
+def test_rechaza_worktree_sin_ruta_valida(tmp_path: Path) -> None:
+    """Verifica que si Orca devuelve un worktree sin ruta válida, falle cerrado."""
+    repositorio = crear_repositorio_orca(tmp_path)
+    entorno = repositorio.entorno.copy()
+    entorno["ORCA_MOCK_CREATE"] = "missing_path"
+
+    resultado = lanzar_orca(repositorio, entorno=entorno)
+
+    assert resultado.returncode == 1
+    assert "no contiene una ruta válida" in resultado.stderr
+
+
+def test_rechaza_worktree_sin_rama_valida(tmp_path: Path) -> None:
+    """Verifica que si Orca devuelve un worktree sin rama válida, falle cerrado."""
+    repositorio = crear_repositorio_orca(tmp_path)
+    entorno = repositorio.entorno.copy()
+    entorno["ORCA_MOCK_CREATE"] = "missing_branch"
+
+    resultado = lanzar_orca(repositorio, entorno=entorno)
+
+    assert resultado.returncode == 1
+    assert "no contiene una rama válida" in resultado.stderr
 
 
 def test_rechaza_sha_inconsistente_sin_borrado_destructivo(tmp_path: Path) -> None:
@@ -563,6 +706,62 @@ def test_detecta_conflicto_previo_en_worktrees_orca(tmp_path: Path) -> None:
 
     assert resultado.returncode == 1
     assert "Ya existe un workspace en Orca para WP-030" in resultado.stderr
+    registro = repositorio.registro_orca.read_text(encoding="utf-8")
+    assert "worktree create" not in registro
+
+
+def test_conflicto_worktree_list_falla_cerrado_si_falla_comando(tmp_path: Path) -> None:
+    """Verifica que si 'orca worktree list' devuelve error, falla cerrado sin crear."""
+    repositorio = crear_repositorio_orca(tmp_path)
+    entorno = repositorio.entorno.copy()
+    entorno["ORCA_MOCK_WORKTREE_LIST"] = "error"
+
+    resultado = lanzar_orca(repositorio, entorno=entorno)
+
+    assert resultado.returncode == 1
+    assert "Orca falló al consultar workspaces existentes" in resultado.stderr
+    registro = repositorio.registro_orca.read_text(encoding="utf-8")
+    assert "worktree create" not in registro
+
+
+def test_conflicto_worktree_list_falla_cerrado_si_json_invalido(tmp_path: Path) -> None:
+    """Verifica que si 'orca worktree list' devuelve JSON inválido, falla cerrado sin crear."""
+    repositorio = crear_repositorio_orca(tmp_path)
+    entorno = repositorio.entorno.copy()
+    entorno["ORCA_MOCK_WORKTREE_LIST"] = "invalid_json"
+
+    resultado = lanzar_orca(repositorio, entorno=entorno)
+
+    assert resultado.returncode == 1
+    assert "respuesta JSON inválida" in resultado.stderr
+    registro = repositorio.registro_orca.read_text(encoding="utf-8")
+    assert "worktree create" not in registro
+
+
+def test_conflicto_worktree_list_falla_cerrado_si_ok_es_falso(tmp_path: Path) -> None:
+    """Verifica que si 'orca worktree list' devuelve ok: false, falla cerrado sin crear."""
+    repositorio = crear_repositorio_orca(tmp_path)
+    entorno = repositorio.entorno.copy()
+    entorno["ORCA_MOCK_WORKTREE_LIST"] = "ok_false"
+
+    resultado = lanzar_orca(repositorio, entorno=entorno)
+
+    assert resultado.returncode == 1
+    assert "Orca reportó un fallo al listar workspaces" in resultado.stderr
+    registro = repositorio.registro_orca.read_text(encoding="utf-8")
+    assert "worktree create" not in registro
+
+
+def test_conflicto_worktree_list_falla_cerrado_si_falta_lista(tmp_path: Path) -> None:
+    """Verifica que si 'orca worktree list' no incluye result.worktrees, falla cerrado."""
+    repositorio = crear_repositorio_orca(tmp_path)
+    entorno = repositorio.entorno.copy()
+    entorno["ORCA_MOCK_WORKTREE_LIST"] = "missing_worktrees"
+
+    resultado = lanzar_orca(repositorio, entorno=entorno)
+
+    assert resultado.returncode == 1
+    assert "no contiene la lista de worktrees esperada" in resultado.stderr
     registro = repositorio.registro_orca.read_text(encoding="utf-8")
     assert "worktree create" not in registro
 

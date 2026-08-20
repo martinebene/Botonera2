@@ -210,28 +210,38 @@ def verificar_conflictos_worktree_orca(
 ) -> None:
     """Detecta si ya existe un worktree o rama para este WP tanto en Git como en Orca.
 
+    Falla cerrado ante cualquier error de comunicación, código de retorno no cero,
+    JSON inválido o respuesta incompleta de Orca para asegurar que no se cree un
+    worktree sin haber demostrado la ausencia de conflictos previos.
+
     Parámetros:
         raiz: Raíz del repositorio coordinador.
         numero_wp: Identificador normalizado de tres dígitos del WP.
-        titulo: Título del WP.
+        titulo: Título del WP extraído de su archivo Markdown.
         ejecutor: Función invocable para ejecutar procesos.
 
     Lanza:
-        ErrorInicioWP: Si detecta colisiones previas para evitar sobrescribir trabajo.
+        ErrorInicioWP: Si detecta colisiones previas o si la comprobación no pudo realizarse.
     """
+    slug = crear_slug(titulo)
+    nombre_esperado = f"wp/{numero_wp}-{slug}"
     prefijo_display = f"wp/{numero_wp}-"
     prefijo_rama_orca = f"wp-{numero_wp}-"
 
     # 1. Validar worktrees locales administrados por Git
     worktrees_git = listar_worktrees(raiz)
     for wt in worktrees_git:
-        if wt.rama and (wt.rama.startswith(prefijo_display) or prefijo_rama_orca in wt.rama):
+        if wt.rama and (
+            wt.rama.startswith(prefijo_display)
+            or prefijo_rama_orca in wt.rama
+            or wt.rama == nombre_esperado
+        ):
             raise ErrorInicioWP(
                 f"Ya existe un worktree Git con la rama {wt.rama!r} en {wt.ruta}; "
                 "inspeccionalo antes de iniciar un nuevo WP."
             )
 
-    # 2. Validar workspaces registrados en Orca
+    # 2. Validar workspaces registrados en Orca (fallando cerrado ante cualquier error)
     try:
         resultado = ejecutor(
             ["orca", "worktree", "list", "--repo", f"path:{raiz}", "--json"],
@@ -240,37 +250,55 @@ def verificar_conflictos_worktree_orca(
             text=True,
             check=False,
         )
-    except FileNotFoundError:
-        return
+    except FileNotFoundError as error:
+        raise ErrorInicioWP(
+            "La CLI de Orca ('orca') no está instalada o no figura en PATH."
+        ) from error
 
-    if resultado.returncode == 0:
-        try:
-            datos_obj: object = json.loads(resultado.stdout)
-        except json.JSONDecodeError:
-            return
+    if resultado.returncode != 0:
+        detalle = resultado.stderr.strip() or resultado.stdout.strip() or "sin detalle"
+        raise ErrorInicioWP(
+            f"Orca falló al consultar workspaces existentes (código {resultado.returncode}): "
+            f"{detalle}. No se pudo demostrar la ausencia de conflictos; "
+            "no se creó ningún worktree."
+        )
 
-        if isinstance(datos_obj, dict):
-            datos_dict = cast(dict[str, Any], datos_obj)
-            if datos_dict.get("ok"):
-                res_dict = _extraer_dict(datos_dict, "result")
-                worktrees_list = _extraer_lista(res_dict, "worktrees")
-                for wt_obj in worktrees_list:
-                    if isinstance(wt_obj, dict):
-                        wt_dict = cast(dict[str, Any], wt_obj)
-                        display = str(wt_dict.get("displayName", ""))
-                        rama = str(wt_dict.get("branch", ""))
-                        path_wt = str(wt_dict.get("path", ""))
-                        if (
-                            display.startswith(prefijo_display)
-                            or prefijo_rama_orca in rama
-                            or f"-wp{numero_wp}" in path_wt
-                            or f"wp-{numero_wp}" in path_wt
-                        ):
-                            raise ErrorInicioWP(
-                                f"Ya existe un workspace en Orca para WP-{numero_wp} "
-                                f"(nombre: {display!r}, rama: {rama!r}, ruta: {path_wt!r}); "
-                                "inspeccionalo antes de crear uno nuevo."
-                            )
+    datos_json = _parsear_json_objeto(resultado.stdout, "orca worktree list")
+    if not datos_json.get("ok"):
+        detalle_err = str(
+            datos_json.get("error") or datos_json.get("message") or "error no especificado"
+        )
+        raise ErrorInicioWP(
+            f"Orca reportó un fallo al listar workspaces: {detalle_err}. "
+            "No se pudo verificar la ausencia de conflictos."
+        )
+
+    res_dict = _extraer_dict(datos_json, "result")
+    if "worktrees" not in res_dict or not isinstance(res_dict["worktrees"], list):
+        raise ErrorInicioWP(
+            "La respuesta de Orca no contiene la lista de worktrees esperada ('result.worktrees'). "
+            "No se pudo verificar la ausencia de conflictos."
+        )
+
+    worktrees_list = _extraer_lista(res_dict, "worktrees")
+    for wt_obj in worktrees_list:
+        if isinstance(wt_obj, dict):
+            wt_dict = cast(dict[str, Any], wt_obj)
+            display = str(wt_dict.get("displayName", ""))
+            rama = str(wt_dict.get("branch", ""))
+            path_wt = str(wt_dict.get("path", ""))
+            if (
+                display.startswith(prefijo_display)
+                or prefijo_rama_orca in rama
+                or f"-wp{numero_wp}" in path_wt
+                or f"wp-{numero_wp}" in path_wt
+                or display == nombre_esperado
+            ):
+                raise ErrorInicioWP(
+                    f"Ya existe un workspace en Orca para WP-{numero_wp} "
+                    f"(nombre: {display!r}, rama: {rama!r}, ruta: {path_wt!r}); "
+                    "inspeccionalo antes de crear uno nuevo."
+                )
 
 
 def construir_prompt_inicial(numero_wp: str) -> str:
@@ -335,22 +363,26 @@ def construir_comando_creacion_orca(
 def validar_respuesta_creacion_orca(
     datos_json: dict[str, Any],
     sha_esperado: str,
+    agente: str | None = None,
 ) -> dict[str, Any]:
     """Interpreta y valida de forma conservadora la respuesta JSON de creación de Orca.
 
     Verifica que:
     1. La operación se informe exitosa (ok: True).
-    2. Exista el objeto worktree en la respuesta.
+    2. Exista el objeto worktree en la respuesta con datos esenciales válidos (path, branch).
     3. El commit inicial (head) coincida con el origin/main validado.
-    4. La rama base sea equivalente a origin/main.
+    4. La rama base sea equivalente a origin/main (baseRef: 'refs/remotes/origin/main').
     5. No exista un padre Orca asignado indebidamente a este WP independiente.
+    6. Exista evidencia real del inicio del agente ('agentTerminalHandle' o
+       'startupTerminal.handle') cuando se solicita un agente.
 
     Parámetros:
         datos_json: Diccionario parseado de la salida JSON de Orca.
         sha_esperado: SHA de 40 caracteres de origin/main obtenido antes de la creación.
+        agente: Nombre del agente solicitado, para verificar el handle de terminal iniciado.
 
     Retorna:
-        Diccionario con los datos del worktree creado.
+        Diccionario con los datos del worktree creado y la información de la terminal.
 
     Lanza:
         ErrorInicioWP: Si cualquier verificación falla (sin ejecutar borrado automático).
@@ -369,7 +401,22 @@ def validar_respuesta_creacion_orca(
             "creado ('result.worktree')."
         )
 
-    # 1. Validar SHA inicial del worktree contra origin/main validado
+    # 1. Validar que existan los datos esenciales de ruta y rama
+    path_creado = str(worktree.get("path") or "").strip()
+    if not path_creado:
+        raise ErrorInicioWP(
+            "La respuesta de Orca no contiene una ruta válida para el worktree "
+            "('result.worktree.path')."
+        )
+
+    branch_creada = str(worktree.get("branch") or "").strip()
+    if not branch_creada:
+        raise ErrorInicioWP(
+            "La respuesta de Orca no contiene una rama válida para el worktree "
+            "('result.worktree.branch')."
+        )
+
+    # 2. Validar SHA inicial del worktree contra origin/main validado
     git_dict = _extraer_dict(worktree, "git")
     head_creado_obj = worktree.get("head") or git_dict.get("head")
     head_creado = str(head_creado_obj) if head_creado_obj is not None else ""
@@ -381,7 +428,7 @@ def validar_respuesta_creacion_orca(
             "El estado se conservó para diagnóstico; no se ejecutó limpieza automática."
         )
 
-    # 2. Validar rama base origin/main
+    # 3. Validar rama base origin/main (baseRef observado en Orca: 'refs/remotes/origin/main')
     base_ref_obj = worktree.get("baseRef")
     base_ref = str(base_ref_obj) if base_ref_obj is not None else ""
     if not base_ref or ("origin/main" not in base_ref and base_ref != "refs/remotes/origin/main"):
@@ -389,7 +436,7 @@ def validar_respuesta_creacion_orca(
             f"La referencia base del worktree ({base_ref!r}) no corresponde a 'origin/main'."
         )
 
-    # 3. Validar ausencia de padre para WPs independientes
+    # 4. Validar ausencia de padre para WPs independientes
     parent_id = worktree.get("parentWorktreeId")
     lineage = worktree.get("lineage")
     if parent_id is not None or (lineage is not None and lineage != []):
@@ -397,6 +444,24 @@ def validar_respuesta_creacion_orca(
             f"El worktree se creó con un ancestro o relación padre no autorizada "
             f"(parent: {parent_id!r}, lineage: {lineage!r})."
         )
+
+    # 5. Validar evidencia real de inicio del agente
+    if agente:
+        startup_terminal = _extraer_dict(resultado_dict, "startupTerminal")
+        handle_terminal = resultado_dict.get("agentTerminalHandle") or startup_terminal.get(
+            "handle"
+        )
+        if (
+            not handle_terminal
+            or not isinstance(handle_terminal, str)
+            or not handle_terminal.strip()
+        ):
+            raise ErrorInicioWP(
+                "Orca creó el worktree pero no informó el identificador de la terminal del agente "
+                "('result.agentTerminalHandle' o 'result.startupTerminal.handle'). "
+                "El estado se conservó para diagnóstico; no se ejecutó limpieza automática."
+            )
+        worktree["terminalHandle"] = str(handle_terminal).strip()
 
     return worktree
 
@@ -421,6 +486,16 @@ def iniciar(
 ) -> int:
     """Coordina todas las validaciones documentales/Git y delega la creación en Orca.
 
+    Aplica el orden estricto de validación definido por DEC-007 y WP-030:
+    1. Validar checkout coordinador (en rama main, working tree limpio).
+    2. Validar runtime de Orca activo, alcanzable y listo.
+    3. Validar repositorio coordinador registrado en Orca.
+    4. Actualizar main únicamente por fast-forward contra origin/main.
+    5. Leer contrato del WP y PLAN.md, validando estado documental y dependencias.
+    6. Verificar ausencia de colisiones en Git y workspaces de Orca (fallo cerrado).
+    7. Construir prompt y comando de creación con --no-parent y --agent.
+    8. Delegar creación en Orca y validar rigurosamente la respuesta JSON y el agente.
+
     Parámetros:
         argumentos: Lista de argumentos de línea de comandos (o None para sys.argv[1:]).
         ejecutor_orca: Invocable para ejecutar comandos (útil para pruebas unitarias).
@@ -433,17 +508,26 @@ def iniciar(
     agente = opciones.agente
     raiz = Path.cwd().resolve()
 
-    # 1. Validaciones Git y documentales previas
+    # 1. Validar checkout coordinador
     validar_checkout_coordinador(raiz)
+
+    # 2. Validar runtime de Orca
     verificar_runtime_orca(raiz, ejecutor=ejecutor_orca)
+
+    # 3. Validar registro del repositorio en Orca
     verificar_repositorio_registrado_orca(raiz, ejecutor=ejecutor_orca)
 
+    # 4. Sincronizar origin/main de forma segura
     sha_origin_main = actualizar_main(raiz)
+
+    # 5. Leer especificación documental y validar autorización
     _, titulo, dependencias = leer_wp(raiz, numero_wp)
     validar_autorizacion(numero_wp, agente, dependencias, leer_plan(raiz))
+
+    # 6. Validar colisiones previas en Git y Orca (fallando cerrado ante cualquier error)
     verificar_conflictos_worktree_orca(raiz, numero_wp, titulo, ejecutor=ejecutor_orca)
 
-    # 2. Construcción del prompt y comando para Orca
+    # 7. Construcción del prompt y comando para Orca
     prompt = construir_prompt_inicial(numero_wp)
     comando_orca = construir_comando_creacion_orca(
         raiz=raiz,
@@ -453,7 +537,7 @@ def iniciar(
         prompt=prompt,
     )
 
-    # 3. Invocación de Orca
+    # 8. Invocación de Orca
     print(f"Creando worktree en Orca para WP-{numero_wp} y lanzando {agente}...")
     resultado = ejecutor_orca(
         comando_orca,
@@ -470,19 +554,20 @@ def iniciar(
             "No se ejecutó borrado automático para permitir diagnóstico."
         )
 
-    # 4. Validación estricta de la respuesta JSON
+    # 9. Validación estricta de la respuesta JSON y evidencia real del agente
     datos_json = _parsear_json_objeto(resultado.stdout, "orca worktree create")
-    worktree = validar_respuesta_creacion_orca(datos_json, sha_origin_main)
+    worktree = validar_respuesta_creacion_orca(datos_json, sha_origin_main, agente=agente)
 
-    # 5. Informar resultado al operador
+    # 10. Informar resultado al operador
     ruta_worktree = str(worktree.get("path", "<no especificada>"))
     rama = str(worktree.get("branch", "<no especificada>"))
     base_ref = str(worktree.get("baseRef", "origin/main"))
+    handle_terminal = str(worktree.get("terminalHandle", "<no informado>"))
 
     print(f"Worktree creado exitosamente por Orca en: {ruta_worktree}")
     print(f"Rama nativa Orca: {rama}")
     print(f"Base verificada: {base_ref} ({sha_origin_main})")
-    print(f"Agente lanzado en terminal administrada por Orca: {agente}")
+    print(f"Agente lanzado en terminal administrada por Orca: {agente} (handle: {handle_terminal})")
     return 0
 
 
