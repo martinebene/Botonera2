@@ -32,6 +32,7 @@ LINEA_TYPES = (
     'types = ["Ratificación", "Despacho OP", "Despacho Gob", "Despacho AS", '
     '"Despacho HA", "Despacho Eco", "Mocion", "P. Sobre Tabla", "Otro"]'
 )
+LINEA_TIMER_TEST_DISPOSITIVO = "device_test_seconds = 0.6"
 LINEA_TIMER_REVELADO = "moderation_vote_reveal_seconds = 4"
 LINEA_TIMER_CUENTA_REGRESIVA = "public_initial_countdown_seconds = 4"
 LINEA_TIMER_RESULTADO = "public_result_display_seconds = 6"
@@ -47,6 +48,7 @@ TOML_CANONICO = f"""[session]
 {LINEA_TYPES}
 
 [timers]
+{LINEA_TIMER_TEST_DISPOSITIVO}
 {LINEA_TIMER_REVELADO}
 {LINEA_TIMER_CUENTA_REGRESIVA}
 {LINEA_TIMER_RESULTADO}
@@ -144,6 +146,7 @@ def configuracion_de_prueba(*, filas_bancas: tuple[int, ...] = (3, 4, 5)) -> Con
         quorum=7,
         filas_bancas=filas_bancas,
         tipos_votacion=("Ratificación", "Otro"),
+        device_test_seconds=0.6,
         moderacion_revelado_votos_segundos=4,
         recinto_cuenta_regresiva_inicial_segundos=4,
         recinto_resultado_publico_segundos=6,

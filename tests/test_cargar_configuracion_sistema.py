@@ -19,6 +19,7 @@ from conftest import (
     LINEA_TIMER_CUENTA_REGRESIVA,
     LINEA_TIMER_RESULTADO,
     LINEA_TIMER_REVELADO,
+    LINEA_TIMER_TEST_DISPOSITIVO,
     LINEA_TYPES,
     TOML_CANONICO,
     escribir_system_toml,
@@ -42,6 +43,8 @@ def test_carga_el_toml_canonico_con_sus_valores_y_tipos(ruta_system_toml_valido:
         "P. Sobre Tabla",
         "Otro",
     )
+    assert configuracion.device_test_seconds == 0.6
+    assert type(configuracion.device_test_seconds) is float
     assert configuracion.moderacion_revelado_votos_segundos == 4
     assert configuracion.recinto_cuenta_regresiva_inicial_segundos == 4
     assert configuracion.recinto_resultado_publico_segundos == 6
@@ -79,6 +82,43 @@ def test_carga_el_toml_canonico_con_sus_valores_y_tipos(ruta_system_toml_valido:
             "timers.moderation_vote_reveal_seconds",
         ),
         (
+            LINEA_TIMER_TEST_DISPOSITIVO,
+            "device_test_seconds = -1",
+            "timers.device_test_seconds",
+        ),
+        (
+            LINEA_TIMER_TEST_DISPOSITIVO,
+            "device_test_seconds = true",
+            "timers.device_test_seconds",
+        ),
+        (
+            LINEA_TIMER_TEST_DISPOSITIVO,
+            'device_test_seconds = "0.6"',
+            "timers.device_test_seconds",
+        ),
+        # Los literales especiales de TOML producen floats no finitos y no
+        # pueden convertirse en expiraciones válidas del test visual.
+        (
+            LINEA_TIMER_TEST_DISPOSITIVO,
+            "device_test_seconds = nan",
+            "timers.device_test_seconds",
+        ),
+        (
+            LINEA_TIMER_TEST_DISPOSITIVO,
+            "device_test_seconds = inf",
+            "timers.device_test_seconds",
+        ),
+        (
+            LINEA_TIMER_TEST_DISPOSITIVO,
+            "device_test_seconds = +inf",
+            "timers.device_test_seconds",
+        ),
+        (
+            LINEA_TIMER_TEST_DISPOSITIVO,
+            "device_test_seconds = -inf",
+            "timers.device_test_seconds",
+        ),
+        (
             LINEA_TIMER_REVELADO,
             "moderation_vote_reveal_seconds = -0.5",
             "timers.moderation_vote_reveal_seconds",
@@ -102,6 +142,7 @@ def test_carga_el_toml_canonico_con_sus_valores_y_tipos(ruta_system_toml_valido:
         (LINEA_LOGS, 'logs_dir = "   "', "paths.logs_dir"),
         # Clave ausente dentro de la sección presente.
         (LINEA_QUORUM, "", "session.quorum"),
+        (LINEA_TIMER_TEST_DISPOSITIVO, "", "timers.device_test_seconds"),
         # Sección completa ausente.
         ("[session]\n" + LINEA_QUORUM + "\n", "", "session"),
     ],
@@ -142,6 +183,29 @@ def test_acepta_temporizador_en_cero(tmp_path: Path) -> None:
     configuracion = cargar_configuracion_sistema(ruta)
 
     assert configuracion.recinto_cuenta_regresiva_inicial_segundos == 0
+
+
+@pytest.mark.parametrize(
+    ("texto_timer", "valor_esperado", "tipo_esperado"),
+    [("device_test_seconds = 0", 0, int), ("device_test_seconds = 1.25", 1.25, float)],
+    ids=["cero", "decimal-positivo"],
+)
+def test_acepta_device_test_seconds_no_negativo(
+    tmp_path: Path,
+    texto_timer: str,
+    valor_esperado: int | float,
+    tipo_esperado: type[int] | type[float],
+) -> None:
+    """El temporizador de test admite cero y decimales sin convertir el tipo."""
+
+    ruta = escribir_system_toml(
+        tmp_path / "system.toml", TOML_CANONICO.replace(LINEA_TIMER_TEST_DISPOSITIVO, texto_timer)
+    )
+
+    configuracion = cargar_configuracion_sistema(ruta)
+
+    assert configuracion.device_test_seconds == valor_esperado
+    assert type(configuracion.device_test_seconds) is tipo_esperado
 
 
 @pytest.mark.parametrize(
@@ -203,9 +267,16 @@ def test_cambiar_el_archivo_no_modifica_el_snapshot_ya_cargado(tmp_path: Path) -
     ruta = escribir_system_toml(tmp_path / "system.toml", TOML_CANONICO)
     configuracion = cargar_configuracion_sistema(ruta)
 
-    escribir_system_toml(ruta, TOML_CANONICO.replace(LINEA_QUORUM, "quorum = 11"))
+    escribir_system_toml(
+        ruta,
+        TOML_CANONICO.replace(LINEA_QUORUM, "quorum = 11").replace(
+            LINEA_TIMER_TEST_DISPOSITIVO, "device_test_seconds = 2.5"
+        ),
+    )
 
     assert configuracion.quorum == 7
+    assert configuracion.device_test_seconds == 0.6
     recargada = cargar_configuracion_sistema(ruta)
     assert recargada.quorum == 11
+    assert recargada.device_test_seconds == 2.5
     assert configuracion.quorum == 7

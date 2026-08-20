@@ -15,6 +15,7 @@ rows = [3, 4, 5]
 types = ["Ratificación", "Despacho OP", "Despacho Gob", "Despacho AS", "Despacho HA", "Despacho Eco", "Mocion", "P. Sobre Tabla", "Otro"]
 
 [timers]
+device_test_seconds = 0.6
 moderation_vote_reveal_seconds = 4
 public_initial_countdown_seconds = 4
 public_result_display_seconds = 6

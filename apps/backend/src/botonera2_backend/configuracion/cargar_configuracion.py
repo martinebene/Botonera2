@@ -20,6 +20,7 @@ claves obligatorias ya son deterministas y cubren cualquier tipeo.
 
 from __future__ import annotations
 
+import math
 import tomllib
 from pathlib import Path
 from typing import Any, cast
@@ -73,6 +74,7 @@ def cargar_configuracion_sistema(ruta: Path) -> ConfiguracionSistema:
         quorum=_exigir_entero_positivo(session, "session.quorum"),
         filas_bancas=_exigir_filas_bancas(room),
         tipos_votacion=_exigir_tipos_votacion(voting),
+        device_test_seconds=_exigir_numero_finito_no_negativo(timers, "timers.device_test_seconds"),
         moderacion_revelado_votos_segundos=_exigir_numero_no_negativo(
             timers, "timers.moderation_vote_reveal_seconds"
         ),
@@ -174,6 +176,26 @@ def _exigir_numero_no_negativo(seccion: dict[str, Any], clave: str) -> int | flo
     valor = seccion.get(campo)
     if isinstance(valor, bool) or not isinstance(valor, (int, float)) or valor < 0:
         raise ErrorValidacionConfiguracion(f"{clave} debe ser un número no negativo")
+    return valor
+
+
+def _exigir_numero_finito_no_negativo(seccion: dict[str, Any], clave: str) -> int | float:
+    """Valida ``device_test_seconds`` sin aceptar ``nan`` ni infinitos.
+
+    Este validador es deliberadamente separado de ``_exigir_numero_no_negativo``.
+    Los temporizadores que ya existían en WP-003 conservan su semántica previa;
+    la restricción adicional de finitud se aplica únicamente al temporizador de
+    test incorporado por WP-006. Los enteros no necesitan pasar por
+    ``math.isfinite`` porque todo entero de Python representa un valor finito y
+    así también se evita una conversión innecesaria de enteros muy grandes.
+    """
+
+    campo = clave.rsplit(".", 1)[1]
+    valor = seccion.get(campo)
+    if isinstance(valor, bool) or not isinstance(valor, (int, float)):
+        raise ErrorValidacionConfiguracion(f"{clave} debe ser un número finito no negativo")
+    if valor < 0 or (isinstance(valor, float) and not math.isfinite(valor)):
+        raise ErrorValidacionConfiguracion(f"{clave} debe ser un número finito no negativo")
     return valor
 
 
