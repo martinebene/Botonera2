@@ -44,7 +44,7 @@ WP-002, WP-003 y WP-004 pueden ejecutarse en paralelo después de integrar WP-00
 | WP | Objetivo | Estado | Depende de | Agente |
 |---|---|---|---|---|
 | WP-005 | Implementar `Preparar sala` y `Cancelar preparación` integrando configuración, padrón y auditoría | INTEGRADO | WP-002, WP-003, WP-004 | - |
-| WP-006 | Implementar entrada lógica de dispositivos, presencia, test y cálculo de quórum | EN_CURSO | WP-005 | opencode |
+| WP-006 | Implementar entrada lógica de dispositivos, presencia, test y cálculo de quórum | INTEGRADO | WP-005 | - |
 | WP-007 | Crear simulador CLI reproducible de dispositivos y escenarios básicos | PENDIENTE | WP-006 | - |
 | WP-008 | Implementar autoridades, número de sesión y ciclo abrir/cerrar sesión sin votación activa | PENDIENTE | WP-005, WP-006 | - |
 
@@ -138,8 +138,8 @@ WP-001 es la única excepción inicial porque debe construir ese propio lanzador
 
 ## Próximo punto de control
 
-WP-001, WP-002, WP-003, WP-004 y WP-005 ya están `INTEGRADO` y no tienen agente operativo asignado.
+WP-001, WP-002, WP-003, WP-004, WP-005 y WP-006 ya están `INTEGRADO` y no tienen agente operativo asignado.
 
-WP-006 está `APROBADO`, autorizado `EN_CURSO` y asignado a la CLI `opencode`. Antes de lanzar el implementador, el checkout coordinador debe sincronizar `main` y confirmar que la CI aplicable del HEAD actual está verde.
+WP-006 fue integrado mediante PR #11 después de CI verde, corrección del hallazgo sobre valores no finitos de `device_test_seconds` y revisión independiente aprobatoria sobre el SHA candidato final.
 
-El próximo punto de control es iniciar WP-006 mediante `scripts/iniciar_wp.py` y recibir del implementador un candidato limpio, commiteado y pusheado para revisión independiente secuencial.
+WP-007 y WP-008 tienen ahora sus dependencias satisfechas. El próximo paso es planificar y aprobar conjuntamente el WP que se decida iniciar; ninguno pasa a `EN_CURSO` hasta cerrar su definición documental y decisiones DT-038 aplicables.
