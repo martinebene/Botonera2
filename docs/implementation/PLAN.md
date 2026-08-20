@@ -27,6 +27,7 @@ No reemplaza las reglas de negocio, decisiones técnicas ni documentos propietar
 - No existe un implementador universal predeterminado: el agente se asigna por WP según complejidad, riesgo, capacidad, disponibilidad/cuota e integración con el entorno, conforme a DEC-007.
 - Todo WP de implementación requiere CI aplicable verde y revisión independiente antes de integrarse.
 - La aprobación de este PLAN aprueba la secuencia y dependencias generales; cada `WP-XXX.md` debe estar individualmente `APROBADO` antes de pasar a `EN_CURSO`.
+- Los `WP-NNN.md` son también entrada estructurada para los lanzadores. Antes de aprobarlos y nuevamente antes de pasarlos a `EN_CURSO`, el orquestador debe verificar `docs/implementation/FORMATO_WP_LANZADORES.md`; en particular, dentro de `## Dependencias` solo pueden aparecer identificadores `WP-NNN` que sean dependencias reales.
 - Antes de iniciar un WP, el orquestador debe conocer el entorno operativo actual. Con Orca se utiliza el lanzador Orca integrado por WP-030; en otros entornos se conserva `scripts/iniciar_wp.py`.
 
 ## Soporte operativo transversal
@@ -137,8 +138,8 @@ La trazabilidad se mantiene en cada WP y PR, no mediante una matriz duplicada pe
 
 DEC-002 y DEC-007 establecen un flujo común de autorización con lanzamiento específico según entorno:
 
-1. el planificador/humano aprueba el WP;
-2. se cambia su estado a `EN_CURSO` y se asigna el agente en este PLAN;
+1. el planificador/humano aprueba el WP después de que el orquestador verifique el formato parseable de `FORMATO_WP_LANZADORES.md`;
+2. se cambia su estado a `EN_CURSO` y se asigna el agente en este PLAN, repitiendo el preflight parseable antes de habilitar el lanzamiento;
 3. el operador actualiza su checkout coordinador de `main`;
 4. el orquestador determina el entorno actual;
 5. si el entorno es Orca, se utiliza `scripts/iniciar_wp_orca.py NNN agente`;
