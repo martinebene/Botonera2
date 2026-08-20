@@ -1,0 +1,22 @@
+{
+  "nombre": "dispositivo-no-asignado",
+  "precondicion": "backend en PREPARANDO con configuracion y padron de referencia cargados",
+  "pasos": [
+    {
+      "entrada": "99-9",
+      "esperado": {
+        "status_http": 200,
+        "aceptada": false,
+        "motivo": "DISPOSITIVO_NO_ASIGNADO"
+      }
+    },
+    {
+      "entrada": "99-8",
+      "esperado": {
+        "status_http": 200,
+        "aceptada": false,
+        "motivo": "DISPOSITIVO_NO_ASIGNADO"
+      }
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "nombre": "test-visual-tecla-8",
+  "precondicion": "backend en PREPARANDO con configuracion y padron de referencia cargados",
+  "pasos": [
+    {
+      "entrada": "1-8",
+      "esperado": {
+        "status_http": 200,
+        "aceptada": true,
+        "motivo": "TEST_ACTIVADO"
+      }
+    },
+    {
+      "pausa_ms": 100
+    },
+    {
+      "entrada": "1-8",
+      "esperado": {
+        "status_http": 200,
+        "aceptada": true,
+        "motivo": "TEST_ACTIVADO"
+      }
+    }
+  ]
+}

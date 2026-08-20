@@ -1,0 +1,25 @@
+{
+  "nombre": "presencia-tecla-9",
+  "precondicion": "backend en PREPARANDO con configuracion y padron de referencia cargados",
+  "pasos": [
+    {
+      "entrada": "1-9",
+      "esperado": {
+        "status_http": 200,
+        "aceptada": true,
+        "motivo": "PRESENCIA_ACTUALIZADA"
+      }
+    },
+    {
+      "pausa_ms": 50
+    },
+    {
+      "entrada": "1-9",
+      "esperado": {
+        "status_http": 200,
+        "aceptada": true,
+        "motivo": "PRESENCIA_ACTUALIZADA"
+      }
+    }
+  ]
+}

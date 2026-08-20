@@ -1,0 +1,30 @@
+{
+  "nombre": "tecla-sin-semantica-actual",
+  "precondicion": "backend en PREPARANDO con configuracion y padron de referencia cargados",
+  "pasos": [
+    {
+      "entrada": "1-4",
+      "esperado": {
+        "status_http": 200,
+        "aceptada": false,
+        "motivo": "TECLA_NO_HABILITADA"
+      }
+    },
+    {
+      "entrada": "1-+",
+      "esperado": {
+        "status_http": 200,
+        "aceptada": false,
+        "motivo": "TECLA_NO_HABILITADA"
+      }
+    },
+    {
+      "entrada": "1-enter",
+      "esperado": {
+        "status_http": 200,
+        "aceptada": false,
+        "motivo": "TECLA_NO_HABILITADA"
+      }
+    }
+  ]
+}

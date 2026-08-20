@@ -1,0 +1,38 @@
+{
+  "nombre": "tecla-no-habilitada-en-preparando",
+  "precondicion": "backend en PREPARANDO con configuracion y padron de referencia cargados",
+  "pasos": [
+    {
+      "entrada": "1-1",
+      "esperado": {
+        "status_http": 200,
+        "aceptada": false,
+        "motivo": "TECLA_NO_HABILITADA"
+      }
+    },
+    {
+      "entrada": "1-2",
+      "esperado": {
+        "status_http": 200,
+        "aceptada": false,
+        "motivo": "TECLA_NO_HABILITADA"
+      }
+    },
+    {
+      "entrada": "1-3",
+      "esperado": {
+        "status_http": 200,
+        "aceptada": false,
+        "motivo": "TECLA_NO_HABILITADA"
+      }
+    },
+    {
+      "entrada": "1-7",
+      "esperado": {
+        "status_http": 200,
+        "aceptada": false,
+        "motivo": "TECLA_NO_HABILITADA"
+      }
+    }
+  ]
+}

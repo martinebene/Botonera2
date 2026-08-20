@@ -1,0 +1,42 @@
+{
+  "nombre": "grupo-concurrente-pulsaciones",
+  "precondicion": "backend en PREPARANDO con configuracion y padron de referencia cargados",
+  "pasos": [
+    {
+      "concurrentes": [
+        {
+          "entrada": "1-9",
+          "esperado": {
+            "status_http": 200,
+            "aceptada": true,
+            "motivo": "PRESENCIA_ACTUALIZADA"
+          }
+        },
+        {
+          "entrada": "2-9",
+          "esperado": {
+            "status_http": 200,
+            "aceptada": true,
+            "motivo": "PRESENCIA_ACTUALIZADA"
+          }
+        },
+        {
+          "entrada": "3-8",
+          "esperado": {
+            "status_http": 200,
+            "aceptada": true,
+            "motivo": "TEST_ACTIVADO"
+          }
+        },
+        {
+          "entrada": "4-4",
+          "esperado": {
+            "status_http": 200,
+            "aceptada": false,
+            "motivo": "TECLA_NO_HABILITADA"
+          }
+        }
+      ]
+    }
+  ]
+}
