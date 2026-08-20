@@ -59,6 +59,8 @@ WP-002, WP-003 y WP-004 pueden ejecutarse en paralelo después de integrar WP-00
 
 WP-007 puede avanzar en paralelo con WP-008 una vez integrado WP-006. Con WP-030 integrado, ya no existe un bloqueo operativo transversal para iniciar cualquiera de ellos cuando su WP individual esté aprobado, pase a `EN_CURSO` y tenga agente asignado.
 
+WP-007 ya tiene especificación individual `APROBADA`. Mientras permanezca `PENDIENTE` no tiene implementador asignado ni worktree operativo; el siguiente paso para iniciarlo es seleccionar agente, cambiarlo explícitamente a `EN_CURSO` y lanzarlo mediante el entorno vigente.
+
 ## Fase 3 - Núcleo de votación
 
 | WP | Objetivo | Estado | Depende de | Agente |
@@ -153,4 +155,4 @@ WP-001, WP-002, WP-003, WP-004, WP-005, WP-006 y WP-030 están `INTEGRADO` y sin
 
 DEC-007 está vigente: Orca es el entorno operativo preferido mientras esté en uso, no existe un implementador universal predeterminado y los agentes se seleccionan por complejidad/capacidad/cuota manteniendo revisión independiente.
 
-WP-007 y WP-008 tienen sus dependencias satisfechas. El siguiente paso es seleccionar cuál iniciar, aprobar/verificar su especificación individual, pasarlo a `EN_CURSO`, asignarle implementador y lanzarlo mediante `scripts/iniciar_wp_orca.py` mientras Orca siga siendo el entorno activo.
+WP-007 tiene su especificación individual `APROBADA`, depende únicamente de WP-006 ya integrado y queda listo para seleccionar implementador y pasar explícitamente a `EN_CURSO`. WP-008 mantiene sus dependencias satisfechas, pero su especificación individual todavía debe redactarse/aprobarse antes de iniciarlo.
