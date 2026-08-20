@@ -96,6 +96,28 @@ def test_carga_el_toml_canonico_con_sus_valores_y_tipos(ruta_system_toml_valido:
             'device_test_seconds = "0.6"',
             "timers.device_test_seconds",
         ),
+        # Los literales especiales de TOML producen floats no finitos y no
+        # pueden convertirse en expiraciones válidas del test visual.
+        (
+            LINEA_TIMER_TEST_DISPOSITIVO,
+            "device_test_seconds = nan",
+            "timers.device_test_seconds",
+        ),
+        (
+            LINEA_TIMER_TEST_DISPOSITIVO,
+            "device_test_seconds = inf",
+            "timers.device_test_seconds",
+        ),
+        (
+            LINEA_TIMER_TEST_DISPOSITIVO,
+            "device_test_seconds = +inf",
+            "timers.device_test_seconds",
+        ),
+        (
+            LINEA_TIMER_TEST_DISPOSITIVO,
+            "device_test_seconds = -inf",
+            "timers.device_test_seconds",
+        ),
         (
             LINEA_TIMER_REVELADO,
             "moderation_vote_reveal_seconds = -0.5",
