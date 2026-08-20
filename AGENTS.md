@@ -48,7 +48,7 @@ Cuando una tarea requiera reconstrucción global, las fuentes principales son:
 - La documentación de Botonera2 es la fuente normativa para la nueva implementación.
 - El WP asignado define el alcance operativo, pero no puede contradecir reglas o decisiones canónicas.
 - Las decisiones `DEC-XXX` aprobadas posteriores son vinculantes para todos los WPs afectados.
-- `DEC-001` y `DEC-003` son decisiones transversales obligatorias para todos los WPs de implementación, aunque un WP antiguo no las enumere explícitamente.
+- `DEC-001`, `DEC-003` y `DEC-007` son decisiones transversales obligatorias para todos los WPs de implementación, aunque un WP antiguo no las enumere explícitamente.
 - El repositorio histórico `martinebene/Botonera`, rama `main`, puede consultarse como referencia funcional únicamente según la regla de fallback definida más abajo y en `docs/decisions/DEC-001-estilo-codigo-y-referencia-produccion.md`.
 - No copiar arquitectura, clases, endpoints internos, polling, serialización ni estructura histórica por defecto.
 - La rama histórica `v2` no es normativa.
@@ -131,23 +131,24 @@ Principios principales:
 - no desplegar deliberadamente durante preparación/sesión;
 - CSV institucionales conservados localmente en la primera versión.
 
-## Gobernanza cerrada DT-033 a DT-038
+## Gobernanza cerrada DT-033 a DT-038, precisada por DEC posteriores
 
-Ver `docs/14-gobernanza-agentes.md`.
+Ver `docs/14-gobernanza-agentes.md` y las DEC posteriores vigentes, especialmente DEC-004, DEC-005 y DEC-007.
 
 - `main` es la única rama estable de integración.
-- Cada WP usa rama corta `wp/NNN-descripcion-corta` y una PR.
+- Cada WP usa una rama corta inequívoca y una PR; la forma literal depende del entorno conforme a DEC-007 (`wp/NNN-descripcion-corta` en el flujo genérico o rama nativa trazable administrada por Orca).
 - WPs pequeños, con un único resultado verificable.
 - `docs/implementation/PLAN.md` ordena WPs, dependencias, estado y agente asignado.
 - `docs/work-packages/WP-XXX.md` es el contrato versionado del trabajo.
 - `docs/decisions/DEC-XXX-*.md` se reserva para decisiones nuevas realmente transversales/relevantes.
 - `.github/pull_request_template.md` define el mínimo de entrega de cada PR.
-- Codex es el implementador predeterminado; Claude Code y OpenCode son alternativas válidas por WP.
+- No existe un implementador universal predeterminado: el agente se selecciona por WP según complejidad, riesgo, capacidad, disponibilidad/cuota e integración con el entorno, conforme a DEC-007.
+- Antigravity/AGY es una opción preferente para WPs sencillos o medios cuando resulte adecuado; Codex se reserva preferentemente para trabajos complejos/sensibles; OpenCode y otras capacidades aprobadas pueden implementar o revisar según el modelo efectivo.
 - Un WP tiene un único agente implementador.
 - Cada WP `EN_CURSO` usa rama, `git worktree` y sesión de agente propios.
 - Dos agentes solo pueden trabajar en paralelo sobre WPs independientes autorizados por PLAN.
 - Está prohibido compartir working tree, rama o WP entre agentes simultáneos.
-- La herramienta/modelo concreto no forma parte de la arquitectura permanente; debe registrarse en la PR.
+- La herramienta/modelo concreto no forma parte de la arquitectura permanente; debe registrarse en la PR cuando sea relevante.
 - No se automatizan agentes generativos dentro de CI en la primera etapa.
 - Toda PR de implementación requiere revisión independiente en modo solo lectura.
 - Se prefiere otra familia de modelo para revisar; no puede integrarse una PR con hallazgos BLOQUEANTES o IMPORTANTES pendientes.
@@ -171,7 +172,7 @@ Obliga a todos los WPs de implementación a:
 
 Ver `docs/decisions/DEC-002-lanzador-work-packages.md`.
 
-Después de integrar WP-001, el flujo local preferido para iniciar un WP es `scripts/iniciar_wp.py`, que valida autorización documental y prepara rama + worktree + CLI sin adquirir autoridad para aprobar, integrar o desplegar.
+Después de integrar WP-001, `scripts/iniciar_wp.py` continúa como lanzador genérico que valida autorización documental y prepara rama + worktree + CLI sin adquirir autoridad para aprobar, integrar o desplegar. DEC-007 agrega un lanzador específico para Orca y reemplaza la idea de un único lanzador preferido para todos los entornos.
 
 ### DEC-003 - Herramientas MCP estándar
 
@@ -188,6 +189,31 @@ Todos los WPs de implementación deben aplicar estas reglas:
 - continuar sin él solo si existe un fallback claramente equivalente y seguro según DEC-003;
 - no adivinar APIs/configuración cuando la consulta externa era necesaria;
 - no versionar API keys, tokens ni configuraciones personales con secretos.
+
+### DEC-004 - Orquestación, revisión secuencial y sincronización Git
+
+Ver `docs/decisions/DEC-004-orquestacion-revision-secuencial-y-sincronizacion.md`.
+
+Establece a ChatGPT Web como orquestador operativo preferido, revisión independiente secuencial en el worktree del WP y sincronización GitHub/local obligatoria en los puntos de control.
+
+### DEC-005 - Planificación y autoridad documental del orquestador
+
+Ver `docs/decisions/DEC-005-planificacion-y-autoridad-documental-del-orquestador.md`.
+
+Con aprobación humana explícita, el orquestador puede mantener directamente en `main` la documentación canónica autorizada. Código, tests ejecutables, scripts, CI y demás cambios productivos siguen mediante rama + PR.
+
+### DEC-007 - Entorno Orca, asignación flexible y lanzadores
+
+Ver `docs/decisions/DEC-007-entorno-orca-asignacion-agentes-y-lanzadores.md`.
+
+Obliga a:
+
+- determinar o preguntar el entorno operativo antes de iniciar un WP;
+- usar el lanzador Orca cuando Orca sea el entorno activo y el lanzador genérico en otros entornos;
+- aceptar la rama nativa trazable administrada por Orca en lugar de renombrarla por detrás;
+- asignar implementador por complejidad/riesgo/capacidad/disponibilidad-cuota en lugar de un agente universal predeterminado;
+- mantener revisión independiente por sesión/agente/modelo efectivo;
+- limpiar worktree/rama usando el mecanismo correspondiente al entorno después del merge verificado.
 
 ## Estilo obligatorio del código
 
@@ -335,7 +361,8 @@ Solo debe detenerse la parte dependiente de esa decisión; el trabajo independie
 - No inventar reglas de negocio, UX o diseño visual: aplicar la jerarquía documental y el fallback a producción definido en DEC-001.
 - No ocultar la ausencia de un MCP requerido: aplicar el aviso y fallback de DEC-003.
 - No usar memoria del modelo como sustituto de documentación externa cuando DEC-003 exige verificar una API/configuración vigente.
-- No versionar credenciales o secretos de MCP.
+- No ignorar DEC-007 al seleccionar entorno, rama/worktree, implementador o revisor.
+- No versionar credenciales o secretos de MCP ni configuración personal de agentes/Orca.
 
 Si aparece trabajo fuera de alcance, registrarlo en el WP/PR como hallazgo. Si aparece una decisión transversal nueva, detener solo el alcance afectado y elevarla para posible `DEC-XXX`.
 
@@ -354,6 +381,7 @@ Cada cambio debe:
 - incluir comentarios pedagógicos suficientes y actualizados;
 - permitir que la PR explique la implementación a nivel principiante;
 - utilizar documentación técnica externa actualizada cuando corresponda según DEC-003;
-- hacer explícito cualquier fallback por MCP no disponible.
+- hacer explícito cualquier fallback por MCP no disponible;
+- respetar el entorno y la independencia de agentes definidos por DEC-007.
 
 Si aparece una contradicción real entre documentos, no adivinar: detener únicamente el alcance afectado y documentar la inconsistencia.
