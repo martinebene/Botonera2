@@ -22,7 +22,7 @@ Los casos de uso describen comportamiento observable. Los nombres de endpoints, 
 
 **Actor:** Moderación.
 
-Registra motivo/evento de cancelación, cierra definitivamente los tres CSV y vuelve a `SIN_PREPARAR`.
+Registra el evento de cancelación sin requerir motivo, cierra definitivamente los tres CSV y vuelve a `SIN_PREPARAR`.
 
 ## CU-03 Acreditar o retirar presencia
 
@@ -135,7 +135,7 @@ Mayoría simple puede quedar `EMPATADA`; mayoría especial no.
 
 **Actor:** Moderación.
 
-Disponible en cualquier momento de `EN_CURSO`, incluso sin votos.
+Disponible en cualquier momento de `EN_CURSO`, incluso con cero votos.
 
 Exige motivo obligatorio.
 
