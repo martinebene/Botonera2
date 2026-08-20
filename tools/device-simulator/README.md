@@ -7,10 +7,13 @@ Herramienta de desarrollo y diagnostico por linea de comandos (CLI) de **Botoner
 ## 1. Proposito y limites
 
 El simulador envia pulsaciones reales al endpoint canonico del backend:
+
 ```http
 POST /api/v1/entradas/tecla
 ```
+
 con el cuerpo JSON:
+
 ```json
 {
   "dispositivo": "dev05",
@@ -19,6 +22,7 @@ con el cuerpo JSON:
 ```
 
 ### Que hace el simulador
+
 - Permite probar el sistema manualmente desde terminal mediante una consola interactiva persistente.
 - Permite emitir una pulsacion rapida individual desde shell.
 - Permite ejecutar escenarios declarativos versionados en JSON con pulsaciones secuenciales, pausas temporales y grupos concurrentes reales.
@@ -26,6 +30,7 @@ con el cuerpo JSON:
 - Evalua expectativas opcionales (`status_http`, `aceptada`, `motivo`) para integracion y pruebas automatizadas.
 
 ### Que NO hace el simulador (autoridad exclusiva del backend)
+
 - **El simulador no decide reglas de negocio:** no valida si un dispositivo pertenece al padron ni si una tecla esta habilitada o produce un efecto.
 - **Trabaja exclusivamente con identificadores logicos:** utiliza nombres como `dev01`, `dev12`, nunca fingerprints USB/HID fisicos (esa frontera pertenece al `device-bridge`).
 - **No modifica ni simula el estado interno por fuera de HTTP:** toda interaccion pasa exclusivamente por la API REST del backend.
@@ -37,6 +42,7 @@ con el cuerpo JSON:
 El backend de Botonera2 debe estar en ejecucion y accesible en la red (por defecto en `http://127.0.0.1:8000`).
 
 Para iniciar el backend en desarrollo local:
+
 ```bash
 uv run fastapi dev apps/backend/src/botonera2_backend/aplicacion.py
 ```
@@ -54,17 +60,20 @@ uv run python tools/device-simulator/simulador.py
 ```
 
 Tambien es posible especificar una URL base diferente:
+
 ```bash
 uv run python tools/device-simulator/simulador.py --url http://127.0.0.1:8000
 ```
 
 #### Comandos en la consola interactiva
+
 - **Enviar pulsacion:** Escriba `<numero>-<tecla>` (ejemplos: `1-9`, `12-8`, `3-+`, `5--`, `4-enter`).
 - **`ayuda` / `help` / `?`:** Muestra las instrucciones de sintaxis.
 - **`url`:** Muestra la URL base activa y el endpoint canonico.
 - **`salir` / `exit` / `q`:** Cierra la sesion interactiva.
 
 #### Ejemplo de sesion interactiva
+
 ```text
 ============================================================
 Botonera2 - Simulador CLI de Dispositivos (Modo Interactivo)
@@ -106,11 +115,13 @@ uv run python tools/device-simulator/simulador.py 5-9
 ```
 
 Con URL personalizada:
+
 ```bash
 uv run python tools/device-simulator/simulador.py 12-8 --url http://192.168.1.50:8000
 ```
 
 #### Codigos de salida del proceso
+
 - `0`: Exito de comunicacion HTTP con codigo `2xx` (incluso si funcionalmente `aceptada=false` en el DTO).
 - `1`: Error de sintaxis local, timeout, error de conexion o respuesta HTTP de error `4xx`/`5xx`.
 
@@ -125,11 +136,13 @@ uv run python tools/device-simulator/simulador.py --escenario tools/device-simul
 ```
 
 O en forma corta:
+
 ```bash
 uv run python tools/device-simulator/simulador.py -e tools/device-simulator/escenarios/grupo_concurrente.json
 ```
 
 #### Codigos de salida del proceso
+
 - `0`: Todos los pasos se ejecutaron y todas las expectativas declaradas fueron satisfechas.
 - `1`: Al menos una expectativa no se cumplio, ocurrio un error de red o el archivo JSON es invalido.
 
@@ -138,11 +151,13 @@ uv run python tools/device-simulator/simulador.py -e tools/device-simulator/esce
 ## 4. Sintaxis compacta de pulsaciones
 
 La sintaxis utilizada en la consola y por argumento shell es:
+
 ```text
 <numero-dispositivo>-<tecla>
 ```
 
 ### Reglas
+
 1. **Separador:** Se toma exclusivamente el **primer guion `-`** encontrado.
 2. **Parte izquierda (dispositivo):** Numero entero no negativo (sin prefijo `dev`). El simulador lo normaliza a formato de al menos dos digitos:
    - `1` $\rightarrow$ `dev01`
@@ -202,12 +217,15 @@ Un archivo de escenario tiene la siguiente estructura minima:
 ```
 
 ### Tipos de pasos soportados
+
 1. **Pulsacion individual:** Objeto con `"entrada": "5-9"` (o `"dispositivo": "dev05", "tecla": "9"`) y un bloque opcional `"esperado"`.
 2. **Pausa temporal:** Objeto con `"pausa_ms": <milisegundos>` o `"pausa_segundos": <segundos>`.
 3. **Grupo concurrente:** Objeto con `"concurrentes": [ <lista de pulsaciones> ]`. Dispara todas las peticiones en paralelo real usando asincronismo.
 
 ### Expectativas opcionales (`esperado`)
+
 Cualquier campo dentro de `esperado` es opcional:
+
 - `"status_http"`: Codigo entero (ejemplo: `200`, `422`, `503`).
 - `"aceptada"`: Booleano (`true` o `false`).
 - `"motivo"`: Codigo de motivo esperado (ejemplo: `"PRESENCIA_ACTUALIZADA"`, `"TEST_ACTIVADO"`, `"DISPOSITIVO_NO_ASIGNADO"`, `"TECLA_NO_HABILITADA"`).
