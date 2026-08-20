@@ -16,7 +16,7 @@ No reemplaza las reglas de negocio, decisiones técnicas ni documentos propietar
 ## Reglas
 
 - Cada WP debe tener un único resultado verificable.
-- Cada WP se implementa en su propia rama `wp/NNN-descripcion-corta` y termina en una PR.
+- Cada WP se implementa en una rama corta propia y termina en una PR. La forma de la rama depende del entorno según DEC-007: `wp/NNN-descripcion-corta` en el lanzador genérico o la rama nativa trazable generada por Orca a partir del workspace `wp/NNN-descripcion-corta`.
 - Cada WP `EN_CURSO` debe tener un único agente implementador asignado y un `git worktree` propio.
 - No se permite que dos agentes trabajen sobre el mismo WP, rama o working tree.
 - Pueden ejecutarse WPs en paralelo solo cuando sean independientes y este PLAN lo permita.
@@ -24,9 +24,18 @@ No reemplaza las reglas de negocio, decisiones técnicas ni documentos propietar
 - Los agentes no deben ampliar silenciosamente el alcance de un WP.
 - Las decisiones nuevas reservadas por DT-038 deben escalarse antes de continuar la parte afectada.
 - El agente/herramienta asignado es información operativa y puede cambiar entre WPs; no forma parte de la arquitectura permanente del producto.
+- No existe un implementador universal predeterminado: el agente se asigna por WP según complejidad, riesgo, capacidad, disponibilidad/cuota e integración con el entorno, conforme a DEC-007.
 - Todo WP de implementación requiere CI aplicable verde y revisión independiente antes de integrarse.
 - La aprobación de este PLAN aprueba la secuencia y dependencias generales; cada `WP-XXX.md` debe estar individualmente `APROBADO` antes de pasar a `EN_CURSO`.
-- Después de integrar WP-001, el mecanismo local preferido para preparar rama, worktree y sesión de agente será `scripts/iniciar_wp.py` conforme a DEC-002. El lanzador valida autorización existente, pero no cambia estados ni asignaciones del PLAN.
+- Antes de iniciar un WP, el orquestador debe conocer el entorno operativo actual. Con Orca se prefiere el lanzador Orca definido por DEC-007/WP-030; en otros entornos se conserva `scripts/iniciar_wp.py`.
+
+## Soporte operativo transversal
+
+| WP | Objetivo | Estado | Depende de | Agente |
+|---|---|---|---|---|
+| WP-030 | Incorporar lanzador Orca y soporte multi-entorno para iniciar WPs preservando las validaciones del lanzador genérico | EN_CURSO | WP-001 | antigravity |
+
+WP-030 fue incorporado después de definir la numeración funcional WP-001..WP-029; su número no representa una nueva fase de producto. Es un bootstrap operativo transversal aprobado por DEC-007. Hasta integrarlo, no debe iniciarse un nuevo WP funcional salvo decisión humana/documentada específica; WP-030 puede iniciarse manualmente mediante la CLI de Orca después de reproducir las validaciones de DEC-007 porque implementa el propio lanzador que luego quedará como camino normal.
 
 ## Fase 1 - Fundaciones reproducibles
 
@@ -48,7 +57,7 @@ WP-002, WP-003 y WP-004 pueden ejecutarse en paralelo después de integrar WP-00
 | WP-007 | Crear simulador CLI reproducible de dispositivos y escenarios básicos | PENDIENTE | WP-006 | - |
 | WP-008 | Implementar autoridades, número de sesión y ciclo abrir/cerrar sesión sin votación activa | PENDIENTE | WP-005, WP-006 | - |
 
-WP-007 puede avanzar en paralelo con WP-008 una vez integrado WP-006.
+WP-007 puede avanzar en paralelo con WP-008 una vez integrado WP-006 y superado el bootstrap operativo WP-030 mientras Orca sea el entorno activo.
 
 ## Fase 3 - Núcleo de votación
 
@@ -124,22 +133,26 @@ La trazabilidad se mantiene en cada WP y PR, no mediante una matriz duplicada pe
 
 ## Inicio local de WPs
 
-DEC-002 establece el flujo estándar posterior a WP-001:
+DEC-002 y DEC-007 establecen un flujo común de autorización con lanzamiento específico según entorno:
 
 1. el planificador/humano aprueba el WP;
 2. se cambia su estado a `EN_CURSO` y se asigna el agente en este PLAN;
 3. el operador actualiza su checkout coordinador de `main`;
-4. ejecuta `scripts/iniciar_wp.py NNN agente`;
-5. el lanzador valida estado/dependencias, crea o reutiliza de forma segura rama + worktree y abre la CLI dentro de ese worktree.
+4. el orquestador determina el entorno actual;
+5. si el entorno es Orca, se utiliza `scripts/iniciar_wp_orca.py NNN agente` una vez integrado WP-030;
+6. si el entorno es genérico/terminal/SSH/Warp u otro sin integración Orca, se utiliza `scripts/iniciar_wp.py NNN agente`;
+7. el lanzador correspondiente valida estado/dependencias y prepara el agente dentro de un worktree aislado según las reglas de su entorno.
 
-El lanzador **no** puede efectuar los pasos 1 o 2 ni modificar `main` para conseguirlos.
+Los lanzadores **no** pueden efectuar los pasos 1 o 2 ni modificar `main` para conseguirlos.
 
-WP-001 es la única excepción inicial porque debe construir ese propio lanzador; su rama y worktree se crean manualmente una vez.
+WP-001 fue la excepción inicial para construir el lanzador genérico. WP-030 es la excepción de bootstrap para construir el lanzador Orca y puede iniciarse manualmente con la CLI de Orca tras aplicar las validaciones de DEC-007.
 
 ## Próximo punto de control
 
-WP-001, WP-002, WP-003, WP-004, WP-005 y WP-006 ya están `INTEGRADO` y no tienen agente operativo asignado.
+WP-001, WP-002, WP-003, WP-004, WP-005 y WP-006 están `INTEGRADO` y sin agente operativo asignado.
 
-WP-006 fue integrado mediante PR #11 después de CI verde, corrección del hallazgo sobre valores no finitos de `device_test_seconds` y revisión independiente aprobatoria sobre el SHA candidato final.
+DEC-007 fue aprobada para adoptar Orca como entorno operativo preferido mientras esté en uso, eliminar el implementador universal predeterminado y seleccionar agentes por complejidad/capacidad/cuota manteniendo revisión independiente.
 
-WP-007 y WP-008 tienen ahora sus dependencias satisfechas. El próximo paso es planificar y aprobar conjuntamente el WP que se decida iniciar; ninguno pasa a `EN_CURSO` hasta cerrar su definición documental y decisiones DT-038 aplicables.
+WP-030 está `EN_CURSO`, asignado a `antigravity`, para implementar el lanzador Orca y preservar el lanzador genérico. Su revisión independiente se realizará con una sesión/modelo de familia distinta, preferentemente vía OpenCode conforme a DEC-007.
+
+WP-007 y WP-008 mantienen sus dependencias funcionales satisfechas, pero mientras Orca sea el entorno activo no se iniciará un nuevo WP funcional hasta integrar WP-030, salvo decisión humana/documentada específica.
