@@ -105,7 +105,9 @@ Cuando un agente implementador modifica documentación como parte de un WP de im
 
 El agente no debe usar esta excepción para escribir directamente en `main` ni pedir al operador que copie sus cambios documentales a `main` para eludir la revisión de la PR.
 
-Si un agente detecta que hace falta cambiar una definición canónica fuera de su autoridad, registra y escala el hallazgo. El orquestador y el operador resuelven la definición documental por el flujo de esta decisión y, una vez sincronizado `main`, el agente continúa sobre el estado aprobado.
+Si un agente detecta que hace falta cambiar una definición canónica fuera de su autoridad, registra y escala el hallazgo. El orquestador y el operador resuelven la definición documental por el flujo de esta decisión y la registran en `main`.
+
+Si esa modificación afecta o resuelve una escalación de un WP que ya está `EN_CURSO`, antes de que el implementador continúe deben sincronizarse **tanto el checkout coordinador como el worktree activo del WP**. El worktree incorpora `origin/main` mediante merge normal, nunca rebase ni force-push, con árbol limpio y repetición posterior de las validaciones aplicables. Así el agente no continúa trabajando contra un WP, DEC u otra definición canónica que ya fue reemplazada en `main`.
 
 ### 6. Revisión de documentación elaborada por el orquestador
 
@@ -127,7 +129,8 @@ Antes de escribir directamente en `main`, el orquestador debe:
 6. volver a verificar el HEAD remoto resultante;
 7. verificar la CI de `main` aplicable cuando exista;
 8. no habilitar trabajo dependiente si esa CI falla;
-9. indicar al operador que sincronice el checkout coordinador mediante fast-forward antes de ejecutar trabajo local dependiente.
+9. indicar al operador que sincronice el checkout coordinador mediante fast-forward antes de ejecutar trabajo local dependiente;
+10. si el cambio afecta un WP `EN_CURSO`, exigir además que su worktree limpio ejecute `git fetch origin` y `git merge origin/main` antes de reanudar la implementación.
 
 Si `main` avanza entre la lectura y la escritura y el cambio puede quedar obsoleto o conflictivo, el orquestador debe volver a leer el estado vigente antes de insistir.
 
@@ -144,6 +147,7 @@ ChatGPT Web orquestador
   -> escala y resuelve con el humano decisiones DT-038
   -> actualiza directamente documentación canónica en main
   -> verifica SHA/CI y sincronización local
+  -> si existe WP EN_CURSO afectado, sincroniza también su worktree con origin/main
   -> WP queda APROBADO
   -> con autorización humana, PLAN pasa a EN_CURSO y se asigna implementador
   -> operador ejecuta scripts/iniciar_wp.py
@@ -217,7 +221,7 @@ Se descarta como flujo normal. Mezcla definición de alcance con ejecución, con
 - Las decisiones DT-038 siguen siendo humanas y explícitas.
 - Los agentes locales reciben contratos más cerrados y consumen su capacidad principalmente en implementación/revisión.
 - Código, configuración ejecutable, CI, dependencias, testing y despliegue conservan rama + PR + controles existentes.
-- Después de cada cambio documental directo sigue siendo obligatoria la sincronización del clon coordinador antes de trabajo dependiente.
+- Después de cada cambio documental directo sigue siendo obligatoria la sincronización del clon coordinador antes de trabajo dependiente y, cuando el cambio afecta un WP `EN_CURSO`, también la sincronización de su worktree activo con `origin/main`.
 
 ## Documentos y WPs afectados
 
