@@ -37,11 +37,11 @@ No reemplaza las reglas de negocio, decisiones técnicas ni documentos propietar
 | WP | Objetivo | Estado | Depende de | Agente |
 |---|---|---|---|---|
 | WP-030 | Incorporar lanzador Orca y soporte multi-entorno para iniciar WPs preservando las validaciones del lanzador genérico | INTEGRADO | WP-001 | - |
-| WP-031 | Incorporar prompts operativos exhaustivos y reproducibles al flujo de agentes/lanzadores | PENDIENTE | WP-030 | - |
+| WP-031 | Separar lanzamiento Orca del prompt automático y habilitar salida copiable de OpenCode bajo Orca | PENDIENTE | WP-030 | - |
 
 WP-030 fue incorporado después de definir la numeración funcional WP-001..WP-029; su número no representa una nueva fase de producto. Fue el bootstrap operativo transversal aprobado por DEC-007 y quedó integrado mediante PR #12. Desde este punto, cuando Orca sea el entorno activo, el camino normal para iniciar un WP autorizado es `scripts/iniciar_wp_orca.py`.
 
-El prompt automático de los lanzadores debe cumplir `docs/implementation/PROMPTS_AGENTES.md`. WP-031 queda registrado específicamente para cerrar la brecha entre esa política documental y el tooling ejecutable. Su especificación está en `BORRADOR`: debe planificarse con el operador, cerrar sus decisiones abiertas y pasar a `APROBADO` antes de cualquier implementación.
+WP-031 está documentalmente `APROBADO` y continúa `PENDIENTE` hasta que el operador autorice su inicio y se asigne implementador. Su alcance aprobado retira del launcher Orca el prompt automático breve, conserva el prompt exhaustivo como salida visible de ChatGPT Web para copia/pegado manual y agrega la regla condicional de salida copiable únicamente para OpenCode bajo Orca.
 
 ## Fase 1 - Fundaciones reproducibles
 
@@ -162,6 +162,6 @@ WP-001, WP-002, WP-003, WP-004, WP-005, WP-006, WP-007 y WP-030 están `INTEGRAD
 
 DEC-007 está vigente: Orca es el entorno operativo preferido mientras esté en uso, no existe un implementador universal predeterminado y los agentes se seleccionan por complejidad/capacidad/cuota manteniendo revisión independiente.
 
-El próximo paso acordado es **WP-031**, actualmente `PENDIENTE` y con especificación `BORRADOR`. Antes de implementarlo, el orquestador debe revisar sus decisiones abiertas con el operador, completar la especificación, verificar su formato parseable y obtener aprobación explícita. Solo después podrá pasar a `EN_CURSO` y recibir agente.
+El próximo paso acordado es **WP-031**, actualmente `PENDIENTE` y documentalmente `APROBADO`. Ya no tiene decisiones abiertas de planificación. Para comenzar su implementación solo resta autorizar el paso a `EN_CURSO`, asignar implementador, sincronizar el checkout coordinador y lanzar el worktree según el entorno.
 
 WP-008 mantiene sus dependencias funcionales satisfechas y continúa `PENDIENTE`, pero la secuencia operativa acordada prioriza cerrar WP-031 antes de iniciar el siguiente WP funcional.
