@@ -144,20 +144,38 @@ Después de que una persona apruebe el WP, lo marque `EN_CURSO` en
 `docs/implementation/PLAN.md` y asigne un agente, ejecutá desde el checkout
 coordinador limpio en `main`:
 
+### En entorno Orca (Orca Desktop / VPS / Host Linux)
+
+```powershell
+uv run python scripts/iniciar_wp_orca.py 030 antigravity
+uv run python scripts/iniciar_wp_orca.py 002 codex
+uv run python scripts/iniciar_wp_orca.py 015 claude
+uv run python scripts/iniciar_wp_orca.py 016 opencode
+```
+
+El lanzador de Orca valida el estado del runtime de Orca, el registro del
+repositorio coordinador, la aprobación documental y el estado de Git, y delega en
+`orca worktree create` la creación del workspace aislado y el inicio del agente
+en una terminal administrada por Orca.
+
+### En entorno genérico (Terminal estándar / SSH / Warp)
+
 ```powershell
 uv run python scripts/iniciar_wp.py 002 codex
 uv run python scripts/iniciar_wp.py 015 claude
 uv run python scripts/iniciar_wp.py 016 opencode
+uv run python scripts/iniciar_wp.py 030 antigravity
 ```
 
-El lanzador hace `fetch`, permite actualizar `main` solo por fast-forward,
+El lanzador genérico hace `fetch`, permite actualizar `main` solo por fast-forward,
 valida aprobación, estado, agente y dependencias, y crea una rama
 `wp/NNN-descripcion` en un worktree hermano `Botonera2-wpNNN`. Si la relación
-rama/worktree ya es inequívocamente la misma, la reutiliza. Ante una CLI
-ausente o un conflicto se detiene sin borrar ni reparar trabajo.
+rama/worktree ya es inequívocamente la misma, la reutiliza. Para el agente `antigravity`,
+mapea a la CLI `agy` (o `antigravity`). Ante una CLI ausente o un conflicto se
+detiene sin borrar ni reparar trabajo.
 
-El script no aprueba WPs, no edita el PLAN, no crea commits ni PRs, no integra
-cambios y no despliega. WP-001 fue la única excepción preparada manualmente.
+Ambos scripts no aprueban WPs, no editan el PLAN, no crean commits ni PRs, no integran
+cambios y no despliegan. WP-001 fue la única excepción preparada manualmente.
 
 ## Herramientas MCP estándar para agentes
 
