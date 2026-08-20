@@ -13,6 +13,7 @@ from __future__ import annotations
 import io
 import json
 
+import anyio
 import httpx
 import pytest
 from cliente import ClienteBackend
@@ -184,20 +185,51 @@ async def test_ejecutor_escenario_con_expectativa_fallada() -> None:
 
 
 async def test_ejecutor_grupo_concurrente_dispara_en_paralelo() -> None:
-    """Verifica que las pulsaciones de un paso concurrente se emitan en paralelo."""
+    """Demuestra solapamiento temporal y concurrencia real de peticiones en un grupo concurrente.
+
+    Regla de validacion y pedagogia (WP-007):
+    Para verificar concurrencia real y no secuencial, el mock retiene cada peticion
+    entrante hasta que las 3 peticiones del grupo hayan ingresado simultaneamente
+    al manejador HTTP.
+    Si la ejecucion fuera secuencial, la primera peticion se bloquearia esperando a las
+    restantes y se produciria un timeout, o el maximo de peticiones activas simultaneas
+    seria 1 en lugar de 3.
+    """
+    peticiones_activas = 0
+    max_simultaneas = 0
+    total_iniciadas = 0
+    barrera_todas_ingresaron = anyio.Event()
     peticiones_procesadas: list[str] = []
 
     async def mock_backend_concurrente(request: httpx.Request) -> httpx.Response:
-        cuerpo = json.loads(request.content)
-        dispositivo = cuerpo["dispositivo"]
+        nonlocal peticiones_activas, max_simultaneas, total_iniciadas
+        total_iniciadas += 1
+        peticiones_activas += 1
+        if peticiones_activas > max_simultaneas:
+            max_simultaneas = peticiones_activas
+
+        cuerpo_dict = json.loads(request.content)
+        dispositivo = str(cuerpo_dict["dispositivo"])
+        tecla = str(cuerpo_dict["tecla"])
         peticiones_procesadas.append(dispositivo)
+
+        # Cuando las 3 peticiones del grupo estan activas al mismo tiempo, liberamos la barrera
+        if total_iniciadas == 3:
+            barrera_todas_ingresaron.set()
+
+        # Cada peticion espera a que todas hayan ingresado (demostrando solapamiento real)
+        with anyio.fail_after(2.0):
+            await barrera_todas_ingresaron.wait()
+
+        peticiones_activas -= 1
+
         return httpx.Response(
             200,
             text=json.dumps(
                 {
                     "aceptada": True,
                     "dispositivo": dispositivo,
-                    "tecla": cuerpo["tecla"],
+                    "tecla": tecla,
                     "motivo": "PRESENCIA_ACTUALIZADA",
                 }
             ),
@@ -238,4 +270,6 @@ async def test_ejecutor_grupo_concurrente_dispara_en_paralelo() -> None:
     assert resumen.total_pulsaciones == 3
     assert len(peticiones_procesadas) == 3
     assert set(peticiones_procesadas) == {"dev01", "dev02", "dev03"}
+    # Verificacion estricta de solapamiento temporal/concurrencia real:
+    assert max_simultaneas == 3
     assert "[grupo concurrente] Disparando 3 pulsaciones simultaneas" in salida.getvalue()

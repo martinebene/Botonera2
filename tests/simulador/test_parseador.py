@@ -54,7 +54,7 @@ def test_normalizar_identificador_dispositivo() -> None:
 
 
 def test_parsear_sintaxis_manual_casos_validos() -> None:
-    """CA-004, CA-005, CA-006: Comprueba el parseo de combinaciones validas."""
+    """Comprueba el parseo de combinaciones validas segun la sintaxis <numero>-<tecla> (WP-007)."""
     # Caso 1: 5-9 -> dev05, 9
     p1 = parsear_sintaxis_manual("5-9")
     assert p1 == PulsacionLogica(dispositivo="dev05", tecla="9")

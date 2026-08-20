@@ -39,13 +39,9 @@ con el cuerpo JSON:
 
 ## 2. Requisitos previos
 
-El backend de Botonera2 debe estar en ejecucion y accesible en la red (por defecto en `http://127.0.0.1:8000`).
+El simulador es un cliente HTTP puro: requiere que el servidor backend de Botonera2 YA se encuentre en ejecucion y sea accesible en la red (por defecto en `http://127.0.0.1:8000`, o en la direccion que se indique mediante `--url-base`).
 
-Para iniciar el backend en desarrollo local:
-
-```bash
-uv run fastapi dev apps/backend/src/botonera2_backend/aplicacion.py
-```
+El procedimiento de despliegue, configuracion e inicio del proceso del backend pertenece al procedimiento y runtime propio del backend, y queda fuera del alcance de este simulador (WP-007).
 
 ---
 
