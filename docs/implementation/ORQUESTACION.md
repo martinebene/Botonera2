@@ -161,7 +161,36 @@ git fetch origin
 git pull --ff-only origin main
 ```
 
-Antes de eliminar el worktree, su `git status --short` debe estar vacío. Solo después se limpia worktree y rama. Si la eliminación normal de la rama local falla únicamente por el squash merge, puede eliminarse la rama local después de verificar el merge remoto y el árbol limpio.
+La limpieza del WP integrado es obligatoria y comprende **worktree, rama local y rama remota**. No se conserva una rama de WP, administrativa o documental una vez que su PR fue integrada y se verificó que no contiene trabajo posterior no integrado.
+
+Antes de borrar nada debe verificarse:
+
+1. que la PR esté efectivamente `merged` y que el SHA de integración esté identificado;
+2. que el HEAD de la rama remota corresponda al candidato integrado o, si el merge fue squash, que no existan commits posteriores al candidato revisado;
+3. que el worktree del WP tenga `git status --short` vacío;
+4. que ninguna sesión de implementador o revisor siga actuando sobre ese worktree.
+
+Cumplidas esas condiciones, el cierre normal es:
+
+```bash
+cd /workspace/Botonera2
+
+git worktree remove /workspace/Botonera2-wpNNN
+
+git branch -d wp/NNN-descripcion || git branch -D wp/NNN-descripcion
+
+git push origin --delete wp/NNN-descripcion
+
+git fetch --prune origin
+git worktree list
+git branch -r
+```
+
+El uso de `git branch -D` solo está permitido cuando la eliminación normal falla por haber integrado mediante squash y el merge remoto ya fue verificado. Nunca se usa para descartar trabajo no integrado.
+
+Si la rama remota avanzó después del SHA revisado/integrado, si contiene commits no explicados o si el worktree no está limpio, **se detiene la limpieza y se investiga**; no se fuerza ni se elimina la rama.
+
+Como estado normal del repositorio remoto, cuando no hay ningún WP activo debe quedar únicamente `main`. Las ramas temporales existen solo mientras haya trabajo o una PR todavía no integrada que las necesite.
 
 El orquestador puede registrar directamente en `main` los cierres documentales posteriores al merge, por ejemplo `EN_CURSO -> INTEGRADO`, retiro de agente y actualización del próximo punto de control, conforme a DEC-005.
 
@@ -185,7 +214,7 @@ ChatGPT Web orquestador
   -> orquestador verifica SHA + CI + revisión en GitHub
   -> squash merge productivo
   -> actualización documental/administrativa directa por el orquestador
-  -> sincronización y limpieza local
+  -> sincronización, eliminación del worktree y limpieza de ramas local/remota
   -> siguiente WP
 ```
 
@@ -201,7 +230,7 @@ La nueva conversación debe recibir un mensaje que indique, como mínimo:
 - que debe escalar decisiones DT-038 al operador y no inventarlas;
 - que puede mantener directamente en `main` la documentación autorizada por DEC-005;
 - que el operador ejecutará en Warp los comandos/agentes locales y pegará sus salidas;
-- que debe respetar sincronización GitHub/local, incluida la sincronización del worktree de un WP `EN_CURSO` cuando un cambio documental lo afecte, un worktree por WP, revisión independiente secuencial, CI, squash merge, verificación remota y limpieza;
+- que debe respetar sincronización GitHub/local, incluida la sincronización del worktree de un WP `EN_CURSO` cuando un cambio documental lo afecte, un worktree por WP, revisión independiente secuencial, CI, squash merge, verificación remota y limpieza local/remota de worktree y ramas;
 - que cambios ejecutables/productivos siguen mediante rama + PR;
 - que debe comenzar reconstruyendo el estado actual y no iniciar implementación hasta que el WP correspondiente esté definido y aprobado.
 
