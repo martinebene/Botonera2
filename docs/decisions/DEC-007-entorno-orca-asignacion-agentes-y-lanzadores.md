@@ -158,11 +158,27 @@ El revisor permanece en modo solo lectura y las correcciones vuelven al implemen
 
 Después de un squash merge verificado y con el worktree limpio:
 
-- en Orca, se prefiere `orca worktree rm` para retirar el worktree administrado y su rama local; después se verifica el resultado y se elimina la rama remota si fue publicada;
+- si el worktree fue administrado por Orca, **se elimina primero mediante `orca worktree rm`**, para que Orca retire coordinadamente su metadata, el worktree Git y la rama local asociada;
+- antes del `rm`, se obtiene el worktree real mediante `orca worktree list --repo path:<checkout-coordinador> --json`;
+- `orca worktree rm --worktree` debe recibir un **selector explícito válido**; se prefiere `id:<id-exacto-devuelto-por-orca>` por ser inequívoco;
+- también pueden usarse selectores explícitos como `path:<ruta-absoluta>` o `name:<nombre>` si la versión vigente los soporta y el valor fue previamente verificado;
+- no se pasa el nombre visible del workspace desnudo, por ejemplo `--worktree "wp/007-descripcion"`, porque no constituye por sí mismo un selector y puede devolver `selector_not_found` sin eliminar nada;
+- ante `selector_not_found`, se vuelve a listar Orca y se reintenta únicamente con un selector explícito verificado; nunca se asume que el worktree fue retirado;
+- después de `orca worktree rm` se verifican tanto `orca worktree list ... --json` como `git worktree list` antes de efectuar limpiezas manuales;
+- en el flujo Orca normal la rama local asociada desaparece con el worktree; solo si permanece, y una vez verificada la integración y ausencia de trabajo posterior, puede limpiarse manualmente conforme a `ORQUESTACION.md`;
+- después se elimina explícitamente la rama remota publicada para la PR y se ejecuta `git fetch --prune`;
 - en un entorno genérico se utiliza la limpieza Git documentada en `ORQUESTACION.md`;
-- en ambos casos se ejecuta `git fetch --prune` y se comprueba que no quede trabajo posterior no integrado.
+- en ambos casos se comprueba que no quede trabajo posterior no integrado.
 
-Nunca se usa eliminación forzada para descartar trabajo no investigado.
+Comando preferido conceptual en Orca:
+
+```text
+orca worktree rm
+  --worktree id:<id-exacto-devuelto-por-orca>
+  --json
+```
+
+Nunca se usa eliminación forzada para descartar trabajo no investigado. `--force` en Orca solo puede considerarse ante una causa diagnosticada y autorizada, no como respuesta automática a un selector inválido o a un worktree que no pudo retirarse normalmente.
 
 ### 9. Bootstrap del lanzador Orca
 
