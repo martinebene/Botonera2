@@ -37,18 +37,18 @@ No reemplaza las reglas de negocio, decisiones técnicas ni documentos propietar
 | WP | Objetivo | Estado | Depende de | Agente |
 |---|---|---|---|---|
 | WP-030 | Incorporar lanzador Orca y soporte multi-entorno para iniciar WPs preservando las validaciones del lanzador genérico | INTEGRADO | WP-001 | - |
-| WP-031 | Separar lanzamiento Orca del prompt automático y habilitar salida copiable de OpenCode bajo Orca | PENDIENTE | WP-030 | - |
+| WP-031 | Lanzamiento sin prompt automático y salida copiable de OpenCode bajo Orca | EN_CURSO | WP-030 | antigravity |
 
 WP-030 fue incorporado después de definir la numeración funcional WP-001..WP-029; su número no representa una nueva fase de producto. Fue el bootstrap operativo transversal aprobado por DEC-007 y quedó integrado mediante PR #12. Desde este punto, cuando Orca sea el entorno activo, el camino normal para iniciar un WP autorizado es `scripts/iniciar_wp_orca.py`.
 
-WP-031 está documentalmente `APROBADO` y continúa `PENDIENTE` hasta que el operador autorice su inicio y se asigne implementador. Su alcance aprobado retira del launcher Orca el prompt automático breve, conserva el prompt exhaustivo como salida visible de ChatGPT Web para copia/pegado manual y agrega la regla condicional de salida copiable únicamente para OpenCode bajo Orca.
+WP-031 está `APROBADO` y `EN_CURSO` con Antigravity como único implementador. Su objetivo es retirar del launcher Orca la inyección automática del prompt breve, preservar el traslado manual del prompt exhaustivo ChatGPT Web -> operador -> agente y documentar/probar la salida copiable específica para OpenCode bajo Orca. Como el launcher actual es precisamente el objeto de este WP y todavía agrega `--prompt`, WP-031 usa la excepción de bootstrap documentada en su especificación: se reproducen todas las puertas del launcher y el worktree/agente se crean directamente con Orca sin `--prompt`. Esta excepción termina al integrar WP-031.
 
 ## Fase 1 - Fundaciones reproducibles
 
 | WP | Objetivo | Estado | Depende de | Agente |
 |---|---|---|---|---|
 | WP-001 | Inicializar monorepo, toolchains, scaffolds mínimos, CI base reproducible y lanzador local de WPs | INTEGRADO | - | - |
-| WP-002 | Crear runtime base FastAPI, estado global inicial y serialización única de mutaciones | INTEGRADO | WP-001 | - |
+| WP-002 | Crear runtime base FastAPI, estado global inicial y serialización única de mutaciones | INTEGRADO | WP-001 | - | - |
 | WP-003 | Implementar carga/validación/congelamiento de configuración y padrón | INTEGRADO | WP-001 | - |
 | WP-004 | Implementar motor de auditoría CSV seguro y testeable | INTEGRADO | WP-001 | - |
 
@@ -154,7 +154,7 @@ DEC-002 y DEC-007 establecen un flujo común de autorización con lanzamiento es
 
 Los lanzadores **no** pueden efectuar los pasos 1 o 2 ni modificar `main` para conseguirlos.
 
-WP-001 fue la excepción inicial para construir el lanzador genérico. WP-030 fue la excepción de bootstrap para construir el lanzador Orca; ambos están integrados y sus lanzadores pasan a ser caminos operativos normales según el entorno.
+WP-001 fue la excepción inicial para construir el lanzador genérico. WP-030 fue la excepción de bootstrap para construir el lanzador Orca; ambos están integrados y sus lanzadores pasan a ser caminos operativos normales según el entorno. WP-031 agrega una excepción de bootstrap puntual porque modifica el propio comportamiento de inicio del launcher Orca: reproduce sus puertas y usa directamente `orca worktree create` sin `--prompt`. Esta excepción desaparece al integrar WP-031.
 
 ## Próximo punto de control
 
@@ -162,6 +162,6 @@ WP-001, WP-002, WP-003, WP-004, WP-005, WP-006, WP-007 y WP-030 están `INTEGRAD
 
 DEC-007 está vigente: Orca es el entorno operativo preferido mientras esté en uso, no existe un implementador universal predeterminado y los agentes se seleccionan por complejidad/capacidad/cuota manteniendo revisión independiente.
 
-El próximo paso acordado es **WP-031**, actualmente `PENDIENTE` y documentalmente `APROBADO`. Ya no tiene decisiones abiertas de planificación. Para comenzar su implementación solo resta autorizar el paso a `EN_CURSO`, asignar implementador, sincronizar el checkout coordinador y lanzar el worktree según el entorno.
+El punto de control activo es **WP-031**, `APROBADO` y `EN_CURSO`, con `antigravity` como único implementador. Debe iniciarse bajo Orca mediante el bootstrap puntual de su propio documento, sin `--prompt`, y recibir después el prompt exhaustivo por copia/pegado manual desde ChatGPT Web. No debe iniciarse WP-008 mientras WP-031 siga siendo el punto operativo priorizado.
 
-WP-008 mantiene sus dependencias funcionales satisfechas y continúa `PENDIENTE`, pero la secuencia operativa acordada prioriza cerrar WP-031 antes de iniciar el siguiente WP funcional.
+WP-008 mantiene sus dependencias funcionales satisfechas y continúa `PENDIENTE`; se retomará después de cerrar WP-031.
