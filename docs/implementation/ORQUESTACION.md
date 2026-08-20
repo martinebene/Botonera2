@@ -14,6 +14,27 @@ Antes de entregar comandos para iniciar un WP, el orquestador debe conocer el **
 
 El orquestador entrega al operador los comandos y prompts correspondientes al entorno vigente, recibe las salidas locales y las contrasta con GitHub antes de habilitar transiciones. Una conversación nueva reconstruye el estado desde el repositorio y no depende de memoria de conversaciones anteriores.
 
+## Calidad obligatoria de los prompts de delegación
+
+La redacción del prompt de cada agente es una responsabilidad central del orquestador y no una formalidad secundaria.
+
+En el flujo vigente ChatGPT Web utiliza GPT-5.6 Sol como referencia operativa de orquestación de alta capacidad. El procedimiento no queda congelado a ese nombre de modelo: si en el futuro cambia la oferta, debe utilizarse para orquestación el modelo de mayor capacidad/razonamiento disponible que resulte adecuado.
+
+Esa capacidad debe aprovecharse para **reducir deliberadamente la cantidad de inferencias que se delegan** a implementadores y revisores. Los agentes locales pueden usar modelos más pequeños, rápidos o económicos y no debe suponerse que reconstruirán por sí solos pasos operativos que el orquestador puede especificar con precisión.
+
+Por lo tanto:
+
+- los prompts deben ser explícitos, detallados y específicos para el estado real del WP;
+- no alcanza con `Implementá WP-NNN`, `Revisá la PR` o instrucciones equivalentes;
+- el prompt debe repetir los pasos operativos críticos aunque también estén documentados en el repositorio;
+- la redundancia entre documentación y prompt se considera una salvaguarda intencional;
+- nunca se delegan decisiones DT-038 mediante una formulación ambigua esperando que el agente “elija lo mejor”;
+- el agente debe recibir criterios claros de finalización y un formato concreto de evidencia a devolver.
+
+La política completa y los mínimos obligatorios para prompts de implementación, corrección, revisión y re-revisión están en `docs/implementation/PROMPTS_AGENTES.md` y deben verificarse antes de cada delegación.
+
+El prompt operativo no reemplaza el WP ni las decisiones canónicas. Si existe contradicción, prevalece la documentación normativa y el orquestador debe corregir el prompt antes de continuar.
+
 ## Fuentes mínimas de una conversación nueva
 
 Leer en este orden:
@@ -23,9 +44,10 @@ Leer en este orden:
 3. `docs/decisions/DEC-005-planificacion-y-autoridad-documental-del-orquestador.md`;
 4. `docs/decisions/DEC-007-entorno-orca-asignacion-agentes-y-lanzadores.md`;
 5. `docs/implementation/ORQUESTACION.md`;
-6. `docs/implementation/PLAN.md`;
-7. PR abiertas o recientemente integradas relevantes;
-8. el `WP-XXX.md` concreto cuando corresponda.
+6. `docs/implementation/PROMPTS_AGENTES.md`;
+7. `docs/implementation/PLAN.md`;
+8. PR abiertas o recientemente integradas relevantes;
+9. el `WP-XXX.md` concreto cuando corresponda.
 
 No es necesario reconstruir toda la historia si el repositorio ya contiene el estado canónico vigente.
 
@@ -44,7 +66,8 @@ Antes de iniciar implementación, el orquestador:
 9. cuando el operador aprueba explícitamente la definición completa, registra el WP como `APROBADO`;
 10. actualiza la documentación canónica directamente en `main` conforme a DEC-005;
 11. registra el SHA, verifica CI de `main` aplicable y exige sincronización local antes de trabajo dependiente;
-12. propone el agente implementador según complejidad, riesgo, capacidad, disponibilidad/cuota e integración con el entorno conforme a DEC-007.
+12. propone el agente implementador según complejidad, riesgo, capacidad, disponibilidad/cuota e integración con el entorno conforme a DEC-007;
+13. construye el prompt exhaustivo del implementador conforme a `PROMPTS_AGENTES.md`, incluyendo explícitamente entrega Git/PR, checks, límites, escalamiento y evidencia final.
 
 Los agentes locales de implementación reciben el WP ya cerrado. No redefinen alcance, reglas, contratos ni decisiones reservadas.
 
@@ -90,6 +113,8 @@ La documentación que un implementador modifica dentro de un WP permanece en la 
 
 Antes de iniciar, el WP debe estar `APROBADO`, sus dependencias `INTEGRADO` y `PLAN.md` debe marcarlo `EN_CURSO` con un único agente asignado. La transición documental a `EN_CURSO` y la asignación pueden registrarse directamente en `main` por el orquestador conforme a DEC-005, siempre con autorización humana explícita.
 
+Además, antes de lanzar al agente, el orquestador debe completar el preflight de `PROMPTS_AGENTES.md`. Un launcher que valide correctamente Git/documentación pero entregue un prompt operativo insuficiente no satisface por sí solo esta obligación.
+
 El checkout coordinador se sincroniza siempre:
 
 ```bash
@@ -113,6 +138,8 @@ uv run python scripts/iniciar_wp_orca.py NNN agente
 Ese lanzador conserva las validaciones documentales/Git y delega en `orca worktree create` la creación del worktree, la rama nativa Orca y el lanzamiento del agente dentro de una terminal administrada por Orca.
 
 La identidad visible del workspace debe conservar el WP (`wp/NNN-descripcion`). La rama Git puede usar la forma nativa aceptada por DEC-007, por ejemplo `<git-username>/wp-NNN-descripcion`; no se renombra por detrás solo para imitar la convención genérica.
+
+El prompt automático del launcher también debe cumplir `PROMPTS_AGENTES.md`. Si la versión integrada todavía usa un prompt demasiado breve, el orquestador debe reconocer explícitamente esa deuda y no asumir que el agente recibió instrucciones suficientes. La corrección del launcher se realiza por un WP normal, nunca mediante edición ejecutable directa en `main`.
 
 WP-030 es la única excepción de bootstrap prevista para este lanzador: puede iniciarse manualmente con `orca worktree create` después de reproducir todas las validaciones de DEC-007.
 
@@ -143,6 +170,8 @@ La disponibilidad/cuota es un factor operativo legítimo, pero nunca habilita a 
 
 El modelo concreto no se congela en la arquitectura; cuando sea relevante se registra en la PR para demostrar trazabilidad e independencia.
 
+La diferencia de capacidad entre el orquestador y el agente elegido debe compensarse con mejor especificación y prompts, **no** reduciendo controles ni esperando que el agente complete por intuición instrucciones omitidas.
+
 ## Sincronización final antes de revisión
 
 Antes de revisar el candidato, desde la ruta real del worktree:
@@ -156,6 +185,8 @@ git merge origin/main
 No usar rebase ni force-push. Si `origin/main` avanzó, se incorpora mediante merge normal. Después se repiten las validaciones aplicables, se pushea la rama y se registra el nuevo HEAD.
 
 El orquestador verifica en GitHub que la PR apunta a `main`, el HEAD remoto coincide y la CI corresponde al candidato vigente.
+
+El resumen funcional del implementador no basta para iniciar revisión. Debe existir un **candidato entregado para revisión**: commits publicados, PR abierta, SHA exacto, árbol limpio y validaciones finales identificadas conforme a `PROMPTS_AGENTES.md`.
 
 ## Revisión independiente secuencial
 
@@ -172,9 +203,11 @@ El árbol debe estar limpio, el SHA debe coincidir con el HEAD remoto y el imple
 
 El revisor usa una sesión distinta, preferentemente otra familia de modelo, trabaja en modo solo lectura y finaliza con `git status` limpio. Nunca hay dos agentes actuando simultáneamente sobre el mismo WP/worktree.
 
+El prompt del revisor debe identificar explícitamente PR, SHA, base, modo solo lectura, checks, criterios de hallazgo, prohibición de modificar/pushear/mergear y formato de veredicto según `PROMPTS_AGENTES.md`.
+
 Cuando Antigravity/AGY implementa, se prefiere OpenCode con una familia no Gemini como revisor si está disponible y es adecuada. Esta preferencia no reemplaza la regla general: la independencia depende de sesión/agente/modelo efectivo, no del nombre del arnés.
 
-Si hay correcciones, vuelve el implementador original, corrige y pushea; luego se repiten sincronización, validaciones y revisión sobre el nuevo SHA.
+Si hay correcciones, vuelve el implementador original, corrige y pushea; luego se repiten sincronización, validaciones y revisión sobre el nuevo SHA. El prompt de corrección debe enumerar los hallazgos exactos y la re-revisión debe congelar el nuevo SHA.
 
 Un worktree de revisión separado queda reservado para casos donde aporte aislamiento real.
 
@@ -269,13 +302,17 @@ ChatGPT Web orquestador
   -> actualiza documentación canónica directamente en main
   -> verifica SHA/CI y sincroniza clon local
   -> autoriza WP y asigna implementador según DEC-007
+  -> construye prompt exhaustivo según PROMPTS_AGENTES.md
   -> si Orca: ejecuta lanzador Orca (o bootstrap manual WP-030)
   -> si otro entorno: ejecuta lanzador genérico
   -> implementador trabaja en rama/worktree aislado
-  -> candidato se sincroniza con origin/main
-  -> validaciones completas + push
-  -> revisor independiente usa secuencialmente el mismo worktree en solo lectura
-  -> correcciones vuelven al implementador si existen
+  -> implementación local completa
+  -> commits + sincronización con origin/main + validaciones finales + push + PR
+  -> candidato entregado para revisión con SHA exacto
+  -> orquestador verifica candidato en GitHub
+  -> revisor recibe prompt exhaustivo y usa secuencialmente el mismo worktree en solo lectura
+  -> correcciones vuelven al implementador con hallazgos explícitos si existen
+  -> re-revisión sobre nuevo SHA
   -> orquestador verifica SHA + CI + revisión en GitHub
   -> squash merge productivo
   -> actualización documental/administrativa directa por el orquestador
@@ -289,7 +326,7 @@ La nueva conversación debe recibir un mensaje que indique, como mínimo:
 
 - que actúa como orquestador y planificador documental de `martinebene/Botonera2`;
 - que no debe reconstruir el estado desde memoria de conversaciones previas;
-- que debe leer primero `AGENTS.md`, DEC-004, DEC-005, DEC-007, este procedimiento y `PLAN.md`;
+- que debe leer primero `AGENTS.md`, DEC-004, DEC-005, DEC-007, este procedimiento, `PROMPTS_AGENTES.md` y `PLAN.md`;
 - que debe usar GitHub como fuente remota independiente;
 - que debe determinar o preguntar qué entorno operativo está utilizando el operador antes de iniciar un WP;
 - que si el entorno es Orca debe preferir el lanzador Orca y las ramas/worktrees nativos admitidos por DEC-007; si es otro entorno debe usar el lanzador genérico correspondiente;
@@ -297,6 +334,8 @@ La nueva conversación debe recibir un mensaje que indique, como mínimo:
 - que debe escalar decisiones DT-038 al operador y no inventarlas;
 - que puede mantener directamente en `main` la documentación autorizada por DEC-005;
 - que debe seleccionar implementador/revisor según DEC-007, preservando revisión independiente y reservando capacidad cara/escasa para trabajo que la justifique;
+- que debe aprovechar la mayor capacidad de razonamiento del orquestador para redactar **prompts de agentes exhaustivos y explícitos**, sin confiar en que implementadores/revisores infieran pasos omitidos;
+- que todo prompt debe cumplir `docs/implementation/PROMPTS_AGENTES.md`, incluyendo rol, alcance, prohibiciones, Git/PR, validaciones, escalamiento y evidencia final;
 - que debe respetar sincronización GitHub/local, un worktree por WP, revisión independiente secuencial, CI, squash merge, verificación remota y limpieza local/remota específica del entorno;
 - que cambios ejecutables/productivos siguen mediante rama + PR;
 - que debe comenzar reconstruyendo el estado actual y no iniciar implementación hasta que el WP correspondiente esté definido y aprobado.
