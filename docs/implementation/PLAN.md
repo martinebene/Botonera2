@@ -43,7 +43,7 @@ WP-002, WP-003 y WP-004 pueden ejecutarse en paralelo después de integrar WP-00
 
 | WP | Objetivo | Estado | Depende de | Agente |
 |---|---|---|---|---|
-| WP-005 | Implementar `Preparar sala` y `Cancelar preparación` integrando configuración, padrón y auditoría | EN_CURSO | WP-002, WP-003, WP-004 | OpenCode (Kimi K3) |
+| WP-005 | Implementar `Preparar sala` y `Cancelar preparación` integrando configuración, padrón y auditoría | EN_CURSO | WP-002, WP-003, WP-004 | opencode |
 | WP-006 | Implementar entrada lógica de dispositivos, presencia, test y cálculo de quórum | PENDIENTE | WP-005 | - |
 | WP-007 | Crear simulador CLI reproducible de dispositivos y escenarios básicos | PENDIENTE | WP-006 | - |
 | WP-008 | Implementar autoridades, número de sesión y ciclo abrir/cerrar sesión sin votación activa | PENDIENTE | WP-005, WP-006 | - |
@@ -142,6 +142,6 @@ WP-001, WP-002, WP-003 y WP-004 ya están `INTEGRADO` y no tienen agente operati
 
 La Fase 1 queda administrativamente cerrada.
 
-WP-005 está `APROBADO`, autorizado `EN_CURSO` y asignado a OpenCode (Kimi K3). Antes de lanzar el implementador, el checkout coordinador debe sincronizar `main` y confirmar que la CI aplicable del HEAD actual está verde.
+WP-005 está `APROBADO`, autorizado `EN_CURSO` y asignado a la CLI `opencode`; para este WP el orquestador selecciona Kimi K3 como modelo de implementación. Antes de lanzar el implementador, el checkout coordinador debe sincronizar `main` y confirmar que la CI aplicable del HEAD actual está verde.
 
 El próximo punto de control es iniciar WP-005 mediante `scripts/iniciar_wp.py` y recibir del implementador un candidato limpio, commiteado y pusheado para revisión independiente secuencial.
