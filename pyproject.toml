@@ -20,7 +20,7 @@ members = ["apps/backend", "services/device-bridge"]
 [tool.pytest.ini_options]
 addopts = "--strict-config --strict-markers"
 testpaths = ["tests"]
-pythonpath = ["apps/backend/src"]
+pythonpath = ["apps/backend/src", "."]
 
 [tool.ruff]
 target-version = "py314"
@@ -36,6 +36,7 @@ typeCheckingMode = "strict"
 extraPaths = [
     "apps/backend/src",
     "services/device-bridge/src",
+    ".",
 ]
 include = [
     "apps/backend/src",
