@@ -1,8 +1,16 @@
 # WP-XXX - Título
 
+> Al crear un WP real, reemplazar `XXX` por tres dígitos y respetar el contrato parseable documentado en `docs/implementation/FORMATO_WP_LANZADORES.md`. Los encabezados y campos consumidos por los lanzadores no son prosa libre.
+
 ## Estado documental
 
-`BORRADOR | APROBADO`
+`BORRADOR`
+
+Cuando el operador apruebe explícitamente la definición completa, reemplazar el valor anterior por:
+
+`APROBADO`
+
+Un WP real debe contener **un único estado**. No conservar un placeholder combinado como `BORRADOR | APROBADO`.
 
 Un WP no puede pasar a `EN_CURSO` en `PLAN.md` mientras no esté `APROBADO`.
 
@@ -16,8 +24,10 @@ Descripción concreta del estado que debe quedar integrado al completar el WP.
 
 ## Dependencias
 
-- WP previos requeridos.
-- Decisiones/documentos previos requeridos.
+- Incluir aquí únicamente WPs previos que sean dependencias reales, usando `WP-NNN`.
+- Pueden incluirse decisiones/documentos previos requeridos.
+
+**Regla parseable obligatoria:** los lanzadores interpretan toda aparición `WP-NNN` dentro de esta sección como una dependencia real que debe figurar `INTEGRADO` en `PLAN.md`. No escribir aquí negaciones (`no depende de WP-NNN`), ejemplos, referencias históricas ni WPs futuros que no sean dependencias. Esas aclaraciones pertenecen a otras secciones descriptivas. Ver `docs/implementation/FORMATO_WP_LANZADORES.md`.
 
 ## Fuentes canónicas obligatorias
 
@@ -38,6 +48,7 @@ Estas decisiones aplican aunque no se repitan como fuentes específicas del domi
 ## Fuera de alcance
 
 - Cambios explícitamente excluidos.
+- Las aclaraciones sobre WPs futuros/no dependientes que necesiten nombrar `WP-NNN` deben ir aquí o en otra sección descriptiva, nunca en `## Dependencias`.
 
 ## Componentes previsiblemente afectados
 
@@ -52,6 +63,7 @@ La lista orienta el alcance pero no sustituye las reglas y exclusiones anteriore
 - La documentación/comentarios pedagógicos del código son suficientes para comprender clases, funciones y flujos no triviales.
 - Las consultas técnicas externas y los fallbacks de herramientas respetan DEC-003 cuando corresponda.
 - El inicio, rama/worktree y selección/revisión de agentes respetan DEC-007 cuando corresponda.
+- El documento conserva el formato parseable exigido por `docs/implementation/FORMATO_WP_LANZADORES.md`.
 
 ## Pruebas obligatorias
 
@@ -64,6 +76,7 @@ La lista orienta el alcance pero no sustituye las reglas y exclusiones anteriore
 - Reglas transversales de DEC-001 sobre idioma del código, comentarios pedagógicos y fallback a producción.
 - Reglas transversales de DEC-003 sobre Context7/MCPs, disponibilidad, aviso, fallback seguro y secretos.
 - Reglas transversales de DEC-007 sobre entorno operativo, ramas/worktrees, asignación de agentes y revisión independiente.
+- Reglas de formato máquina de `docs/implementation/FORMATO_WP_LANZADORES.md` para encabezado, estado y dependencias.
 
 ## Herramientas MCP y documentación técnica externa
 
@@ -120,6 +133,8 @@ Registrar aquí trabajo detectado que no debe incorporarse silenciosamente a est
 - [ ] Si se consultó producción, la consulta funcional/UX/visual quedó trazada en WP/PR.
 - [ ] Si un MCP necesario no estuvo disponible, se avisó y el fallback quedó trazado conforme a DEC-003.
 - [ ] Entorno, rama/worktree, agente implementador y revisión respetaron DEC-007.
+- [ ] El WP conserva encabezado/estado/dependencias compatibles con `FORMATO_WP_LANZADORES.md`.
+- [ ] Cada `WP-NNN` escrito dentro de `## Dependencias` es una dependencia real.
 - [ ] No se versionaron credenciales ni configuraciones personales con secretos.
 - [ ] Pruebas obligatorias agregadas/actualizadas y verdes.
 - [ ] No se relajaron pruebas ni criterios para hacer pasar CI.
