@@ -43,7 +43,7 @@ WP-002, WP-003 y WP-004 pueden ejecutarse en paralelo después de integrar WP-00
 
 | WP | Objetivo | Estado | Depende de | Agente |
 |---|---|---|---|---|
-| WP-005 | Implementar `Preparar sala` y `Cancelar preparación` integrando configuración, padrón y auditoría | EN_CURSO | WP-002, WP-003, WP-004 | opencode |
+| WP-005 | Implementar `Preparar sala` y `Cancelar preparación` integrando configuración, padrón y auditoría | INTEGRADO | WP-002, WP-003, WP-004 | - |
 | WP-006 | Implementar entrada lógica de dispositivos, presencia, test y cálculo de quórum | PENDIENTE | WP-005 | - |
 | WP-007 | Crear simulador CLI reproducible de dispositivos y escenarios básicos | PENDIENTE | WP-006 | - |
 | WP-008 | Implementar autoridades, número de sesión y ciclo abrir/cerrar sesión sin votación activa | PENDIENTE | WP-005, WP-006 | - |
@@ -138,10 +138,8 @@ WP-001 es la única excepción inicial porque debe construir ese propio lanzador
 
 ## Próximo punto de control
 
-WP-001, WP-002, WP-003 y WP-004 ya están `INTEGRADO` y no tienen agente operativo asignado.
+WP-001, WP-002, WP-003, WP-004 y WP-005 ya están `INTEGRADO` y no tienen agente operativo asignado.
 
-La Fase 1 queda administrativamente cerrada.
+WP-005 fue integrado mediante PR #10 después de CI verde y revisión independiente sobre el SHA candidato.
 
-WP-005 está `APROBADO`, autorizado `EN_CURSO` y asignado a la CLI `opencode`; para este WP el orquestador selecciona Kimi K3 como modelo de implementación. Antes de lanzar el implementador, el checkout coordinador debe sincronizar `main` y confirmar que la CI aplicable del HEAD actual está verde.
-
-El próximo punto de control es iniciar WP-005 mediante `scripts/iniciar_wp.py` y recibir del implementador un candidato limpio, commiteado y pusheado para revisión independiente secuencial.
+El próximo punto de control es planificar y aprobar WP-006, `Entrada lógica de dispositivos, presencia, test y cálculo de quórum`, cuya dependencia WP-005 ya está integrada. No se inicia implementación de WP-006 hasta cerrar su definición documental y decisiones DT-038 aplicables.
