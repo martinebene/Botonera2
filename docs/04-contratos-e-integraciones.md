@@ -82,6 +82,38 @@ El backend debe ofrecer capacidades equivalentes a:
 - consultar estado/eventos;
 - iniciar/confirmar remapeo rápido cuando se implemente.
 
+### Contrato REST de preparación
+
+El recurso de preparación utiliza estas operaciones canónicas:
+
+- `POST /api/v1/preparacion`: inicia una nueva preparación desde `SIN_PREPARAR`;
+- `DELETE /api/v1/preparacion`: cancela la preparación activa desde `PREPARANDO`.
+
+Ambos comandos se invocan sin body y, cuando completan correctamente, responden `204 No Content`.
+
+`POST /api/v1/preparacion` carga los archivos canónicos de configuración y padrón del backend (`config/system.toml` y `config/concejales.csv`). El directorio de auditoría proviene de la configuración cargada; las rutas no se suministran desde el cliente.
+
+`DELETE /api/v1/preparacion` no recibe ni exige motivo de cancelación.
+
+Los errores funcionales/técnicos de estas operaciones conservan la forma estable:
+
+```json
+{
+  "codigo": "CODIGO_ESTABLE",
+  "mensaje": "Mensaje legible por personas."
+}
+```
+
+Mapeo mínimo:
+
+- `409 Conflict` + `ESTADO_INCOMPATIBLE`: el comando no es válido para el estado global actual;
+- `503 Service Unavailable` + `CONFIGURACION_INVALIDA`: `system.toml` no puede cargarse o validarse;
+- `503 Service Unavailable` + `PADRON_INVALIDO`: `concejales.csv` no cumple el contrato canónico;
+- `503 Service Unavailable` + `AUDITORIA_NO_DISPONIBLE`: no puede garantizarse la auditoría obligatoria;
+- `500 Internal Server Error` + `ERROR_INTERNO`: fallo inesperado no clasificado por los contratos anteriores.
+
+Configuración/padrón inválidos se tratan como indisponibilidad técnica del backend para preparar, no como un `422` del cliente, porque el comando no recibe esos archivos en su body.
+
 ## 7. Proyecciones
 
 ### ModerationState
