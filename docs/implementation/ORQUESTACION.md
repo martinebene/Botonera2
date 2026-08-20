@@ -63,6 +63,17 @@ Antes de cada escritura directa debe:
 7. no habilitar trabajo dependiente si la CI falla;
 8. hacer sincronizar el checkout coordinador local mediante fast-forward.
 
+Si el cambio documental afecta o resuelve una escalación de un WP que ya está `EN_CURSO`, sincronizar únicamente el checkout coordinador no es suficiente. Antes de que el implementador reanude ese WP, su worktree debe incorporar el nuevo `origin/main` mediante merge normal:
+
+```bash
+cd /workspace/Botonera2-wpNNN
+git status --short
+git fetch origin
+git merge origin/main
+```
+
+El árbol debe estar limpio antes del merge. No usar rebase ni force-push. Después del merge se repiten las validaciones aplicables antes de continuar el trabajo productivo. De este modo el implementador nunca sigue trabajando contra un WP, DEC u otra definición canónica que ya fue reemplazada en `main`.
+
 Esta excepción no alcanza a código, tests ejecutables, scripts, workflows/CI, configuración TOML/CSV/JSON, dependencias, lockfiles, tooling ejecutable, assets ni despliegue. Los agentes locales tampoco adquieren esta autoridad.
 
 La documentación que un implementador modifica dentro de un WP permanece en la rama y PR de ese WP normalmente.
@@ -163,6 +174,7 @@ ChatGPT Web orquestador
   -> resuelve con el humano decisiones DT-038
   -> actualiza documentación canónica directamente en main
   -> verifica SHA/CI y sincroniza clon local
+  -> si un WP EN_CURSO fue afectado, sincroniza también su worktree con origin/main
   -> autoriza WP y asigna implementador
   -> operador ejecuta scripts/iniciar_wp.py
   -> implementador trabaja en rama/worktree del WP
@@ -189,7 +201,7 @@ La nueva conversación debe recibir un mensaje que indique, como mínimo:
 - que debe escalar decisiones DT-038 al operador y no inventarlas;
 - que puede mantener directamente en `main` la documentación autorizada por DEC-005;
 - que el operador ejecutará en Warp los comandos/agentes locales y pegará sus salidas;
-- que debe respetar sincronización GitHub/local, un worktree por WP, revisión independiente secuencial, CI, squash merge, verificación remota y limpieza;
+- que debe respetar sincronización GitHub/local, incluida la sincronización del worktree de un WP `EN_CURSO` cuando un cambio documental lo afecte, un worktree por WP, revisión independiente secuencial, CI, squash merge, verificación remota y limpieza;
 - que cambios ejecutables/productivos siguen mediante rama + PR;
 - que debe comenzar reconstruyendo el estado actual y no iniciar implementación hasta que el WP correspondiente esté definido y aprobado.
 
