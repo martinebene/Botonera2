@@ -54,12 +54,12 @@ WP-002, WP-003 y WP-004 pueden ejecutarse en paralelo después de integrar WP-00
 |---|---|---|---|---|
 | WP-005 | Implementar `Preparar sala` y `Cancelar preparación` integrando configuración, padrón y auditoría | INTEGRADO | WP-002, WP-003, WP-004 | - |
 | WP-006 | Implementar entrada lógica de dispositivos, presencia, test y cálculo de quórum | INTEGRADO | WP-005 | - |
-| WP-007 | Crear simulador CLI reproducible de dispositivos y escenarios básicos | PENDIENTE | WP-006 | - |
+| WP-007 | Crear simulador CLI reproducible de dispositivos y escenarios básicos | EN_CURSO | WP-006 | antigravity |
 | WP-008 | Implementar autoridades, número de sesión y ciclo abrir/cerrar sesión sin votación activa | PENDIENTE | WP-005, WP-006 | - |
 
 WP-007 puede avanzar en paralelo con WP-008 una vez integrado WP-006. Con WP-030 integrado, ya no existe un bloqueo operativo transversal para iniciar cualquiera de ellos cuando su WP individual esté aprobado, pase a `EN_CURSO` y tenga agente asignado.
 
-WP-007 ya tiene especificación individual `APROBADA`. Mientras permanezca `PENDIENTE` no tiene implementador asignado ni worktree operativo; el siguiente paso para iniciarlo es seleccionar agente, cambiarlo explícitamente a `EN_CURSO` y lanzarlo mediante el entorno vigente.
+WP-007 tiene especificación individual `APROBADA`, está `EN_CURSO` y su único implementador asignado es `antigravity`. Debe ejecutarse en un worktree propio administrado por Orca y finalizar en PR + CI + revisión independiente antes de integrarse.
 
 ## Fase 3 - Núcleo de votación
 
@@ -155,4 +155,4 @@ WP-001, WP-002, WP-003, WP-004, WP-005, WP-006 y WP-030 están `INTEGRADO` y sin
 
 DEC-007 está vigente: Orca es el entorno operativo preferido mientras esté en uso, no existe un implementador universal predeterminado y los agentes se seleccionan por complejidad/capacidad/cuota manteniendo revisión independiente.
 
-WP-007 tiene su especificación individual `APROBADA`, depende únicamente de WP-006 ya integrado y queda listo para seleccionar implementador y pasar explícitamente a `EN_CURSO`. WP-008 mantiene sus dependencias satisfechas, pero su especificación individual todavía debe redactarse/aprobarse antes de iniciarlo.
+WP-007 está `EN_CURSO`, asignado a `antigravity`, con especificación `APROBADA` y dependencias integradas. Debe iniciarse mediante `scripts/iniciar_wp_orca.py 007 antigravity` desde el checkout coordinador actualizado de `main`. WP-008 mantiene sus dependencias satisfechas, pero su especificación individual todavía debe redactarse/aprobarse antes de iniciarlo.
