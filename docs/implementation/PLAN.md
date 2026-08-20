@@ -28,6 +28,8 @@ No reemplaza las reglas de negocio, decisiones técnicas ni documentos propietar
 - Todo WP de implementación requiere CI aplicable verde y revisión independiente antes de integrarse.
 - La aprobación de este PLAN aprueba la secuencia y dependencias generales; cada `WP-XXX.md` debe estar individualmente `APROBADO` antes de pasar a `EN_CURSO`.
 - Los `WP-NNN.md` son también entrada estructurada para los lanzadores. Antes de aprobarlos y nuevamente antes de pasarlos a `EN_CURSO`, el orquestador debe verificar `docs/implementation/FORMATO_WP_LANZADORES.md`; en particular, dentro de `## Dependencias` solo pueden aparecer identificadores `WP-NNN` que sean dependencias reales.
+- Antes de delegar cualquier implementación, corrección o revisión, el orquestador debe verificar `docs/implementation/PROMPTS_AGENTES.md` y construir un prompt explícito que no dependa de inferencias tácitas del agente.
+- Una implementación no se considera lista para revisión solo porque el código y tests locales terminen: debe existir candidato remoto identificable con commits, sincronización final, validaciones repetidas, push, PR y SHA exacto, salvo que la tarea haya sido expresamente parcial.
 - Antes de iniciar un WP, el orquestador debe conocer el entorno operativo actual. Con Orca se utiliza el lanzador Orca integrado por WP-030; en otros entornos se conserva `scripts/iniciar_wp.py`.
 
 ## Soporte operativo transversal
@@ -37,6 +39,8 @@ No reemplaza las reglas de negocio, decisiones técnicas ni documentos propietar
 | WP-030 | Incorporar lanzador Orca y soporte multi-entorno para iniciar WPs preservando las validaciones del lanzador genérico | INTEGRADO | WP-001 | - |
 
 WP-030 fue incorporado después de definir la numeración funcional WP-001..WP-029; su número no representa una nueva fase de producto. Fue el bootstrap operativo transversal aprobado por DEC-007 y quedó integrado mediante PR #12. Desde este punto, cuando Orca sea el entorno activo, el camino normal para iniciar un WP autorizado es `scripts/iniciar_wp_orca.py`.
+
+El prompt automático de los lanzadores debe cumplir `docs/implementation/PROMPTS_AGENTES.md`. La versión integrada actual debe evaluarse/corregirse mediante un WP normal si todavía entrega instrucciones demasiado breves; no se modifica tooling ejecutable directamente en `main`.
 
 ## Fase 1 - Fundaciones reproducibles
 
@@ -140,11 +144,12 @@ DEC-002 y DEC-007 establecen un flujo común de autorización con lanzamiento es
 
 1. el planificador/humano aprueba el WP después de que el orquestador verifique el formato parseable de `FORMATO_WP_LANZADORES.md`;
 2. se cambia su estado a `EN_CURSO` y se asigna el agente en este PLAN, repitiendo el preflight parseable antes de habilitar el lanzamiento;
-3. el operador actualiza su checkout coordinador de `main`;
-4. el orquestador determina el entorno actual;
-5. si el entorno es Orca, se utiliza `scripts/iniciar_wp_orca.py NNN agente`;
-6. si el entorno es genérico/terminal/SSH/Warp u otro sin integración Orca, se utiliza `scripts/iniciar_wp.py NNN agente`;
-7. el lanzador correspondiente valida estado/dependencias y prepara el agente dentro de un worktree aislado según las reglas de su entorno.
+3. el orquestador construye/verifica el prompt exhaustivo según `PROMPTS_AGENTES.md`;
+4. el operador actualiza su checkout coordinador de `main`;
+5. el orquestador determina el entorno actual;
+6. si el entorno es Orca, se utiliza `scripts/iniciar_wp_orca.py NNN agente`;
+7. si el entorno es genérico/terminal/SSH/Warp u otro sin integración Orca, se utiliza `scripts/iniciar_wp.py NNN agente`;
+8. el lanzador correspondiente valida estado/dependencias y prepara el agente dentro de un worktree aislado según las reglas de su entorno.
 
 Los lanzadores **no** pueden efectuar los pasos 1 o 2 ni modificar `main` para conseguirlos.
 
