@@ -37,10 +37,11 @@ No reemplaza las reglas de negocio, decisiones técnicas ni documentos propietar
 | WP | Objetivo | Estado | Depende de | Agente |
 |---|---|---|---|---|
 | WP-030 | Incorporar lanzador Orca y soporte multi-entorno para iniciar WPs preservando las validaciones del lanzador genérico | INTEGRADO | WP-001 | - |
+| WP-031 | Incorporar prompts operativos exhaustivos y reproducibles al flujo de agentes/lanzadores | PENDIENTE | WP-030 | - |
 
 WP-030 fue incorporado después de definir la numeración funcional WP-001..WP-029; su número no representa una nueva fase de producto. Fue el bootstrap operativo transversal aprobado por DEC-007 y quedó integrado mediante PR #12. Desde este punto, cuando Orca sea el entorno activo, el camino normal para iniciar un WP autorizado es `scripts/iniciar_wp_orca.py`.
 
-El prompt automático de los lanzadores debe cumplir `docs/implementation/PROMPTS_AGENTES.md`. La versión integrada actual debe evaluarse/corregirse mediante un WP normal si todavía entrega instrucciones demasiado breves; no se modifica tooling ejecutable directamente en `main`.
+El prompt automático de los lanzadores debe cumplir `docs/implementation/PROMPTS_AGENTES.md`. WP-031 queda registrado específicamente para cerrar la brecha entre esa política documental y el tooling ejecutable. Su especificación está en `BORRADOR`: debe planificarse con el operador, cerrar sus decisiones abiertas y pasar a `APROBADO` antes de cualquier implementación.
 
 ## Fase 1 - Fundaciones reproducibles
 
@@ -59,12 +60,12 @@ WP-002, WP-003 y WP-004 pueden ejecutarse en paralelo después de integrar WP-00
 |---|---|---|---|---|
 | WP-005 | Implementar `Preparar sala` y `Cancelar preparación` integrando configuración, padrón y auditoría | INTEGRADO | WP-002, WP-003, WP-004 | - |
 | WP-006 | Implementar entrada lógica de dispositivos, presencia, test y cálculo de quórum | INTEGRADO | WP-005 | - |
-| WP-007 | Crear simulador CLI reproducible de dispositivos y escenarios básicos | EN_CURSO | WP-006 | antigravity |
+| WP-007 | Crear simulador CLI reproducible de dispositivos y escenarios básicos | INTEGRADO | WP-006 | - |
 | WP-008 | Implementar autoridades, número de sesión y ciclo abrir/cerrar sesión sin votación activa | PENDIENTE | WP-005, WP-006 | - |
 
 WP-007 puede avanzar en paralelo con WP-008 una vez integrado WP-006. Con WP-030 integrado, ya no existe un bloqueo operativo transversal para iniciar cualquiera de ellos cuando su WP individual esté aprobado, pase a `EN_CURSO` y tenga agente asignado.
 
-WP-007 tiene especificación individual `APROBADA`, está `EN_CURSO` y su único implementador asignado es `antigravity`. Debe ejecutarse en un worktree propio administrado por Orca y finalizar en PR + CI + revisión independiente antes de integrarse.
+WP-007 quedó integrado mediante squash merge de PR #13 después de CI verde y revisión independiente secuencial con OpenCode + DeepSeek V4 Pro. Los hallazgos BLOQUEANTES e IMPORTANTES quedaron en cero. Se aceptó un único hallazgo MENOR no bloqueante sobre instrumentación interna del test de concurrencia; no altera el comportamiento funcional ni la aptitud del WP y no se incorpora silenciosamente a WP-031.
 
 ## Fase 3 - Núcleo de votación
 
@@ -157,8 +158,10 @@ WP-001 fue la excepción inicial para construir el lanzador genérico. WP-030 fu
 
 ## Próximo punto de control
 
-WP-001, WP-002, WP-003, WP-004, WP-005, WP-006 y WP-030 están `INTEGRADO` y sin agente operativo asignado.
+WP-001, WP-002, WP-003, WP-004, WP-005, WP-006, WP-007 y WP-030 están `INTEGRADO` y sin agente operativo asignado.
 
 DEC-007 está vigente: Orca es el entorno operativo preferido mientras esté en uso, no existe un implementador universal predeterminado y los agentes se seleccionan por complejidad/capacidad/cuota manteniendo revisión independiente.
 
-WP-007 está `EN_CURSO`, asignado a `antigravity`, con especificación `APROBADA` y dependencias integradas. Debe iniciarse mediante `scripts/iniciar_wp_orca.py 007 antigravity` desde el checkout coordinador actualizado de `main`. WP-008 mantiene sus dependencias satisfechas, pero su especificación individual todavía debe redactarse/aprobarse antes de iniciarlo.
+El próximo paso acordado es **WP-031**, actualmente `PENDIENTE` y con especificación `BORRADOR`. Antes de implementarlo, el orquestador debe revisar sus decisiones abiertas con el operador, completar la especificación, verificar su formato parseable y obtener aprobación explícita. Solo después podrá pasar a `EN_CURSO` y recibir agente.
+
+WP-008 mantiene sus dependencias funcionales satisfechas y continúa `PENDIENTE`, pero la secuencia operativa acordada prioriza cerrar WP-031 antes de iniciar el siguiente WP funcional.
