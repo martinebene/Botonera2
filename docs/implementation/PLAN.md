@@ -48,7 +48,7 @@ WP-031 está `APROBADO` y `EN_CURSO` con Antigravity como único implementador. 
 | WP | Objetivo | Estado | Depende de | Agente |
 |---|---|---|---|---|
 | WP-001 | Inicializar monorepo, toolchains, scaffolds mínimos, CI base reproducible y lanzador local de WPs | INTEGRADO | - | - |
-| WP-002 | Crear runtime base FastAPI, estado global inicial y serialización única de mutaciones | INTEGRADO | WP-001 | - | - |
+| WP-002 | Crear runtime base FastAPI, estado global inicial y serialización única de mutaciones | INTEGRADO | WP-001 | - |
 | WP-003 | Implementar carga/validación/congelamiento de configuración y padrón | INTEGRADO | WP-001 | - |
 | WP-004 | Implementar motor de auditoría CSV seguro y testeable | INTEGRADO | WP-001 | - |
 
