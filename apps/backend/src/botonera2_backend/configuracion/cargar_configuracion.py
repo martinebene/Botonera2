@@ -73,6 +73,7 @@ def cargar_configuracion_sistema(ruta: Path) -> ConfiguracionSistema:
         quorum=_exigir_entero_positivo(session, "session.quorum"),
         filas_bancas=_exigir_filas_bancas(room),
         tipos_votacion=_exigir_tipos_votacion(voting),
+        device_test_seconds=_exigir_numero_no_negativo(timers, "timers.device_test_seconds"),
         moderacion_revelado_votos_segundos=_exigir_numero_no_negativo(
             timers, "timers.moderation_vote_reveal_seconds"
         ),

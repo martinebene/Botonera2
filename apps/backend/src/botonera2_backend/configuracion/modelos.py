@@ -41,6 +41,15 @@ class ConfiguracionSistema:
     tipos_votacion: tuple[str, ...]
     """Tipos descriptivos de votación, en el orden configurado."""
 
+    device_test_seconds: int | float
+    """Duración congelada del test visual de un dispositivo.
+
+    Es un temporizador independiente de los temporizadores de las pantallas.
+    Puede ser entero o decimal, siempre que no sea negativo. Al formar parte del
+    snapshot inmutable, una pulsación nunca vuelve a leer el TOML para conocer
+    su duración.
+    """
+
     moderacion_revelado_votos_segundos: int | float
     """Retardo antes de revelar votos individuales en Moderación.
 
