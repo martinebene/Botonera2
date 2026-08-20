@@ -1,12 +1,16 @@
 # Orquestación operativa de la implementación
 
-Este documento describe el procedimiento práctico de coordinación de Botonera2. Deriva de `DEC-004` y no reemplaza `AGENTS.md`, los Work Packages ni las decisiones canónicas.
+Este documento describe el procedimiento práctico de coordinación de Botonera2. Deriva de `DEC-004` y `DEC-005` y no reemplaza `AGENTS.md`, los Work Packages ni las decisiones canónicas.
 
 ## Rol del orquestador
 
-La coordinación se realiza preferentemente desde una conversación de ChatGPT Web con acceso independiente a GitHub.
+La coordinación y planificación documental se realizan preferentemente desde una conversación de ChatGPT Web con acceso independiente a GitHub.
 
-El orquestador consulta directamente `martinebene/Botonera2`, verifica `main`, ramas, PR, SHA, CI y merges, entrega al operador comandos y prompts para ejecutar en Warp, recibe las salidas locales y las contrasta con GitHub antes de habilitar transiciones. Una conversación nueva reconstruye el estado desde el repositorio y no depende de memoria de conversaciones anteriores.
+El orquestador consulta directamente `martinebene/Botonera2`, verifica `main`, ramas, PR, SHA, CI y merges, reconstruye el estado vigente, identifica el próximo WP habilitado, carga únicamente las fuentes canónicas necesarias y planifica su definición junto con el operador humano antes de delegar implementación.
+
+Cuando durante la planificación aparece una decisión reservada por DT-038, el orquestador la presenta al operador con alternativas, impacto y recomendación, y solo la incorpora a la documentación canónica después de una decisión humana explícita.
+
+El orquestador entrega al operador comandos y prompts para ejecutar en Warp, recibe las salidas locales y las contrasta con GitHub antes de habilitar transiciones. Una conversación nueva reconstruye el estado desde el repositorio y no depende de memoria de conversaciones anteriores.
 
 ## Fuentes mínimas de una conversación nueva
 
@@ -14,16 +18,69 @@ Leer en este orden:
 
 1. `AGENTS.md`;
 2. `docs/decisions/DEC-004-orquestacion-revision-secuencial-y-sincronizacion.md`;
-3. `docs/implementation/ORQUESTACION.md`;
-4. `docs/implementation/PLAN.md`;
-5. PR abiertas o recientemente integradas relevantes;
-6. el `WP-XXX.md` concreto cuando corresponda.
+3. `docs/decisions/DEC-005-planificacion-y-autoridad-documental-del-orquestador.md`;
+4. `docs/implementation/ORQUESTACION.md`;
+5. `docs/implementation/PLAN.md`;
+6. PR abiertas o recientemente integradas relevantes;
+7. el `WP-XXX.md` concreto cuando corresponda.
 
 No es necesario reconstruir toda la historia si el repositorio ya contiene el estado canónico vigente.
 
+## Planificación documental de un WP
+
+Antes de iniciar implementación, el orquestador:
+
+1. identifica el próximo WP permitido por `PLAN.md` y sus dependencias;
+2. verifica que las dependencias requeridas estén `INTEGRADO`;
+3. carga las fuentes canónicas propietarias del alcance;
+4. inspecciona únicamente el código integrado previo necesario para que el contrato sea implementable y no duplique responsabilidades;
+5. detecta ambigüedades, contradicciones y decisiones reservadas por DT-038;
+6. consulta al operador únicamente las definiciones humanas necesarias;
+7. redacta o actualiza `docs/work-packages/WP-XXX.md` siguiendo `TEMPLATE.md`;
+8. mantiene el WP como `BORRADOR` mientras existan decisiones pendientes;
+9. cuando el operador aprueba explícitamente la definición completa, registra el WP como `APROBADO`;
+10. actualiza la documentación canónica directamente en `main` conforme a DEC-005;
+11. registra el SHA, verifica CI de `main` aplicable y exige sincronización local antes de trabajo dependiente.
+
+Los agentes locales de implementación reciben el WP ya cerrado. No redefinen alcance, reglas, contratos ni decisiones reservadas.
+
+## Cambios documentales directos desde ChatGPT Web
+
+Con aprobación humana explícita, el orquestador puede crear o modificar directamente en `main`:
+
+- `AGENTS.md`;
+- `README.md` cuando el cambio sea exclusivamente documental;
+- `docs/**/*.md`, incluidos PLAN, ORQUESTACION, WPs, DECs y demás especificación canónica.
+
+Antes de cada escritura directa debe:
+
+1. verificar el HEAD actual de `main` en GitHub;
+2. confirmar que el cambio es exclusivamente documental y está autorizado;
+3. no introducir decisiones DT-038 no aprobadas;
+4. realizar el commit y registrar su SHA;
+5. volver a verificar el HEAD remoto;
+6. verificar CI aplicable de `main`;
+7. no habilitar trabajo dependiente si la CI falla;
+8. hacer sincronizar el checkout coordinador local mediante fast-forward.
+
+Si el cambio documental afecta o resuelve una escalación de un WP que ya está `EN_CURSO`, sincronizar únicamente el checkout coordinador no es suficiente. Antes de que el implementador reanude ese WP, su worktree debe incorporar el nuevo `origin/main` mediante merge normal:
+
+```bash
+cd /workspace/Botonera2-wpNNN
+git status --short
+git fetch origin
+git merge origin/main
+```
+
+El árbol debe estar limpio antes del merge. No usar rebase ni force-push. Después del merge se repiten las validaciones aplicables antes de continuar el trabajo productivo. De este modo el implementador nunca sigue trabajando contra un WP, DEC u otra definición canónica que ya fue reemplazada en `main`.
+
+Esta excepción no alcanza a código, tests ejecutables, scripts, workflows/CI, configuración TOML/CSV/JSON, dependencias, lockfiles, tooling ejecutable, assets ni despliegue. Los agentes locales tampoco adquieren esta autoridad.
+
+La documentación que un implementador modifica dentro de un WP permanece en la rama y PR de ese WP normalmente.
+
 ## Inicio de un WP
 
-Antes de iniciar, el WP debe estar `APROBADO`, sus dependencias `INTEGRADO` y `PLAN.md` debe marcarlo `EN_CURSO` con un único agente asignado.
+Antes de iniciar, el WP debe estar `APROBADO`, sus dependencias `INTEGRADO` y `PLAN.md` debe marcarlo `EN_CURSO` con un único agente asignado. La transición documental a `EN_CURSO` y la asignación pueden registrarse directamente en `main` por el orquestador conforme a DEC-005, siempre con autorización humana explícita.
 
 El coordinador local se sincroniza:
 
@@ -106,31 +163,46 @@ git pull --ff-only origin main
 
 Antes de eliminar el worktree, su `git status --short` debe estar vacío. Solo después se limpia worktree y rama. Si la eliminación normal de la rama local falla únicamente por el squash merge, puede eliminarse la rama local después de verificar el merge remoto y el árbol limpio.
 
-## Actualizaciones administrativas directas a main
+El orquestador puede registrar directamente en `main` los cierres documentales posteriores al merge, por ejemplo `EN_CURSO -> INTEGRADO`, retiro de agente y actualización del próximo punto de control, conforme a DEC-005.
 
-El orquestador puede evitar una PR administrativa únicamente para los cambios permitidos por DEC-004 en `docs/implementation/PLAN.md`.
+## Flujo resumido
 
-Ejemplos válidos:
-
-- PR productiva verificada como mergeada: `EN_CURSO` a `INTEGRADO` y retiro del agente;
-- WP ya `APROBADO`, dependencias `INTEGRADO` y autorización humana explícita: `PENDIENTE` a `EN_CURSO` y asignación de agente;
-- actualización de `Próximo punto de control` para reflejar esas transiciones.
-
-Después del commit directo se registra el SHA, se espera la CI de `main` y se sincroniza el coordinador local antes de continuar.
-
-Cualquier cambio normativo, de alcance, dependencia, WP, DEC, AGENTS, código, CI, arquitectura o contrato continúa por rama + PR.
+```text
+ChatGPT Web orquestador
+  -> reconstruye estado desde GitHub
+  -> planifica próximo WP con el operador
+  -> resuelve con el humano decisiones DT-038
+  -> actualiza documentación canónica directamente en main
+  -> verifica SHA/CI y sincroniza clon local
+  -> si un WP EN_CURSO fue afectado, sincroniza también su worktree con origin/main
+  -> autoriza WP y asigna implementador
+  -> operador ejecuta scripts/iniciar_wp.py
+  -> implementador trabaja en rama/worktree del WP
+  -> candidato se sincroniza con origin/main
+  -> validaciones completas + push
+  -> revisor independiente usa secuencialmente el mismo worktree en solo lectura
+  -> correcciones vuelven al implementador si existen
+  -> orquestador verifica SHA + CI + revisión en GitHub
+  -> squash merge productivo
+  -> actualización documental/administrativa directa por el orquestador
+  -> sincronización y limpieza local
+  -> siguiente WP
+```
 
 ## Prompt mínimo para una nueva conversación
 
 La nueva conversación debe recibir un mensaje que indique, como mínimo:
 
-- que actúa como orquestador de `martinebene/Botonera2`;
+- que actúa como orquestador y planificador documental de `martinebene/Botonera2`;
 - que no debe reconstruir el estado desde memoria de conversaciones previas;
-- que debe leer primero `AGENTS.md`, DEC-004, este procedimiento y `PLAN.md`;
+- que debe leer primero `AGENTS.md`, DEC-004, DEC-005, este procedimiento y `PLAN.md`;
 - que debe usar GitHub como fuente remota independiente;
+- que debe planificar los WPs junto con el operador antes de delegar implementación;
+- que debe escalar decisiones DT-038 al operador y no inventarlas;
+- que puede mantener directamente en `main` la documentación autorizada por DEC-005;
 - que el operador ejecutará en Warp los comandos/agentes locales y pegará sus salidas;
-- que debe respetar sincronización GitHub/local, un worktree por WP, revisión independiente secuencial, CI, squash merge, verificación remota y limpieza;
-- que los commits administrativos directos a `main` están limitados estrictamente por DEC-004;
-- que debe comenzar reconstruyendo el estado actual y no modificar nada hasta determinar el próximo punto de control permitido.
+- que debe respetar sincronización GitHub/local, incluida la sincronización del worktree de un WP `EN_CURSO` cuando un cambio documental lo afecte, un worktree por WP, revisión independiente secuencial, CI, squash merge, verificación remota y limpieza;
+- que cambios ejecutables/productivos siguen mediante rama + PR;
+- que debe comenzar reconstruyendo el estado actual y no iniciar implementación hasta que el WP correspondiente esté definido y aprobado.
 
 El contexto durable debe provenir del repositorio, no del historial de ChatGPT.
