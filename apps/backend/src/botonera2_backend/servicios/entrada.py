@@ -1,13 +1,14 @@
-"""Servicio serializado para pulsaciones lógicas durante la preparación.
+"""Servicio serializado para pulsaciones lógicas durante preparación/sesión.
 
-WP-006 delimita este servicio a ``SIN_PREPARAR`` y ``PREPARANDO``. La ruta
-recibe un dispositivo lógico, nunca un fingerprint físico, y resuelve la
-identidad únicamente contra el padrón congelado dentro de ``Preparacion``.
+La ruta recibe un dispositivo lógico, nunca un fingerprint físico, y resuelve
+la identidad únicamente contra el padrón congelado del contexto operativo.
+WP-008 amplía la misma lógica de WP-006 a ``SESION_ABIERTA`` para teclas 8/9
+sin crear otro servicio, mapa de presencia ni escritor.
 
 La parte más importante del flujo es el orden: cada operación válida en
-``PREPARANDO`` registra primero la pulsación, luego registra el resultado
+un contexto auditable registra primero la pulsación, luego el resultado
 obligatorio y recién entonces muta presencia o test. Todo el método se ejecuta
-mediante el ``EjecutorMutaciones`` ya existente; el servicio no crea otro lock.
+mediante el ``EjecutorMutaciones`` existente; el servicio no crea otro lock.
 """
 
 from __future__ import annotations
@@ -100,16 +101,17 @@ class ServicioEntradaTecla:
                 resultado=None,
             )
 
-        if self._estado.estado_global is not EstadoGlobal.PREPARANDO:
-            # La semántica de SESION_ABIERTA pertenece a WP-008 y a los WPs de
-            # votación. No inventamos aquí qué teclas tendrían efecto allí.
-            raise RuntimeError("La entrada lógica de WP-006 solo procesa PREPARANDO y SIN_PREPARAR")
+        if self._estado.estado_global not in (
+            EstadoGlobal.PREPARANDO,
+            EstadoGlobal.SESION_ABIERTA,
+        ):
+            raise RuntimeError("Estado global desconocido para la entrada lógica")
 
-        preparacion = self._estado.preparacion_activa
+        preparacion = self._estado.contexto_operativo_activo()
         if preparacion is None:
-            raise RuntimeError("Estado PREPARANDO sin preparación activa")
+            raise RuntimeError("Estado auditable sin contexto operativo activo")
 
-        # Toda pulsación de transporte válida durante una preparación queda
+        # Toda pulsación de transporte válida durante preparación o sesión queda
         # registrada antes de consultar el padrón o decidir si la tecla sirve.
         self._registrar_pulsacion_recibida(preparacion, pulsacion)
 

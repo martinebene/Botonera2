@@ -87,13 +87,36 @@ El backend debe ofrecer capacidades equivalentes a:
 El recurso de preparación utiliza estas operaciones canónicas:
 
 - `POST /api/v1/preparacion`: inicia una nueva preparación desde `SIN_PREPARAR`;
+- `PATCH /api/v1/preparacion`: actualiza uno o más datos institucionales durante `PREPARANDO`;
 - `DELETE /api/v1/preparacion`: cancela la preparación activa desde `PREPARANDO`.
 
-Ambos comandos se invocan sin body y, cuando completan correctamente, responden `204 No Content`.
+`POST` y `DELETE` se invocan sin body. `PATCH` recibe un objeto parcial con al menos uno de estos campos:
+
+```json
+{
+  "numero_sesion": 59,
+  "presidencia": "Nombre",
+  "secretaria_legislativa": "Nombre"
+}
+```
+
+`numero_sesion` es un entero estricto mayor o igual a uno. Las autoridades son texto libre normalizado con `strip` y un texto vacío permite limpiar el valor durante preparación. Todos los comandos exitosos responden `204 No Content`.
 
 `POST /api/v1/preparacion` carga los archivos canónicos de configuración y padrón del backend (`config/system.toml` y `config/concejales.csv`). El directorio de auditoría proviene de la configuración cargada; las rutas no se suministran desde el cliente.
 
 `DELETE /api/v1/preparacion` no recibe ni exige motivo de cancelación.
+
+### Contrato REST de sesión
+
+La sesión formal se administra sobre un único recurso:
+
+- `POST /api/v1/sesion`: abre desde `PREPARANDO`, sin body;
+- `PATCH /api/v1/sesion`: actualiza Presidencia y/o Secretaría Legislativa durante `SESION_ABIERTA`;
+- `DELETE /api/v1/sesion`: cierra normalmente, sin body y solo si no hay votación pendiente.
+
+`PATCH /api/v1/sesion` no admite `numero_sesion`: el número queda inmutable desde la apertura. Cada autoridad suministrada debe conservar contenido después de `strip`; durante una sesión abierta no puede limpiarse. Un cambio que normaliza al valor vigente es un no-op exitoso sin evento ficticio. Las tres operaciones responden `204 No Content` cuando completan.
+
+La apertura exige, en este orden, `PREPARANDO`, quórum, número, Presidencia y Secretaría Legislativa. Cambiar presencia fuera de una votación actualiza el quórum sin cerrar ni reemplazar la sesión.
 
 Los errores funcionales/técnicos de estas operaciones conservan la forma estable:
 
@@ -107,6 +130,11 @@ Los errores funcionales/técnicos de estas operaciones conservan la forma establ
 Mapeo mínimo:
 
 - `409 Conflict` + `ESTADO_INCOMPATIBLE`: el comando no es válido para el estado global actual;
+- `409 Conflict` + `QUORUM_INSUFICIENTE`: no hay quórum para abrir;
+- `409 Conflict` + `NUMERO_SESION_REQUERIDO`: falta el número para abrir;
+- `409 Conflict` + `PRESIDENCIA_REQUERIDA`: falta Presidencia para abrir;
+- `409 Conflict` + `SECRETARIA_LEGISLATIVA_REQUERIDA`: falta Secretaría Legislativa para abrir;
+- `409 Conflict` + `VOTACION_PENDIENTE`: una votación activa o empatada impide el cierre normal;
 - `503 Service Unavailable` + `CONFIGURACION_INVALIDA`: `system.toml` no puede cargarse o validarse;
 - `503 Service Unavailable` + `PADRON_INVALIDO`: `concejales.csv` no cumple el contrato canónico;
 - `503 Service Unavailable` + `AUDITORIA_NO_DISPONIBLE`: no puede garantizarse la auditoría obligatoria;
