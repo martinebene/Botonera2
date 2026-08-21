@@ -2,10 +2,17 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 
 from botonera2_backend.dominio.preparacion import Preparacion
+from botonera2_backend.dominio.votacion import Votacion
+
+
+def _crear_historial_votaciones() -> list[Votacion]:
+    """Crea una lista independiente y correctamente tipada para cada sesión."""
+
+    return []
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,10 +48,16 @@ class Sesion:
     ``fecha_hora_apertura`` registra cuándo se confirmó la transición formal.
     No reemplaza ``fecha_hora_inicio``, que sigue identificando el comienzo del
     conjunto de auditoría.
+
+    ``votaciones`` conserva, en orden de apertura, las entidades creadas durante
+    esta sesión. La lista puede incorporar nuevos elementos aunque la referencia
+    de la sesión sea congelada; no se reemplaza ni se duplica como otra fuente
+    de verdad global.
     """
 
     contexto_operativo: Preparacion
     fecha_hora_apertura: datetime
+    votaciones: list[Votacion] = field(default_factory=_crear_historial_votaciones)
 
     @property
     def numero_sesion(self) -> int:

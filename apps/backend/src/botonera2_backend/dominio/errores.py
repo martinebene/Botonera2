@@ -19,7 +19,7 @@ class ErrorEstadoIncompatible(Exception):
 
 
 class ErrorQuorumInsuficiente(Exception):
-    """No puede abrirse la sesión porque no se alcanzó el quórum."""
+    """No puede abrirse una sesión o votación porque no se alcanzó quórum."""
 
 
 class ErrorNumeroSesionRequerido(Exception):
@@ -35,8 +35,16 @@ class ErrorSecretariaLegislativaRequerida(Exception):
 
 
 class ErrorVotacionPendiente(Exception):
-    """WP-008 no puede cerrar mientras exista una votación pendiente.
+    """Una operación incompatible encontró una votación pendiente.
 
-    La excepción solo protege el límite de alcance: el servicio de sesión no
-    interpreta, finaliza ni modifica el objeto de votación que encuentre.
+    Protege tanto una segunda apertura como el cierre de sesión de WP-008. Los
+    servicios que la detectan no finalizan ni modifican la entidad existente.
+    """
+
+
+class ErrorTipoVotacionNoPermitido(Exception):
+    """El tipo recibido no integra el snapshot congelado de la sesión.
+
+    El texto ya cumplió el contrato técnico de Pydantic; el rechazo es
+    funcional y corresponde a HTTP 422 con ``TIPO_VOTACION_NO_PERMITIDO``.
     """

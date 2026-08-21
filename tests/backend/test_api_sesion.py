@@ -18,6 +18,7 @@ import pytest
 from botonera2_backend.aplicacion import crear_aplicacion
 from botonera2_backend.auditoria import NivelAuditoria
 from botonera2_backend.dominio.estado import EstadoGlobal
+from botonera2_backend.dominio.votacion import BaseMayoria, TipoMayoria, Votacion
 from botonera2_backend.recursos import obtener_recursos_aplicacion
 from conftest import (
     LINEA_LOGS,
@@ -398,13 +399,23 @@ async def test_votacion_pendiente_devuelve_409_sin_mutar(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """El guard mínimo observa una entidad opaca sin asumir su dominio futuro."""
+    """El guard de cierre observa la entidad tipada sin modificarla."""
 
     async with cliente_de_prueba(tmp_path, monkeypatch) as (cliente, aplicacion):
         await preparar_y_abrir(cliente)
         estado = obtener_recursos_aplicacion(aplicacion).estado_operativo
         sesion = estado.sesion_activa
-        marcador = object()
+        assert sesion is not None
+        marcador = Votacion(
+            id="votacion-pendiente",
+            numero_votacion=37,
+            tipo="Mocion",
+            tema="Tema pendiente",
+            tipo_mayoria=TipoMayoria.SIMPLE,
+            factor=0.0,
+            base=BaseMayoria.VOTOS_COMPUTABLES,
+            fecha_hora_apertura=sesion.fecha_hora_apertura,
+        )
         estado.votacion_activa = marcador
         respuesta = await cliente.delete("/api/v1/sesion")
         assert respuesta.status_code == 409

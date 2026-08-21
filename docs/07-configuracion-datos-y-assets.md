@@ -104,10 +104,10 @@ El tipo es descriptivo y no reemplaza el campo explícito `tipo de mayoría`.
 
 La configuración/formulario representa explícitamente:
 
-- `SIMPLE`, sin factor;
-- `ESPECIAL`, con factor y base `PRESENTES` o `CUERPO`.
+- `SIMPLE`, con entrada de factor omitida/nula/cero y base omitida o `VOTOS_COMPUTABLES`; se normaliza a factor `0` y base `VOTOS_COMPUTABLES`;
+- `ESPECIAL`, con factor real finito `> 0 <= 1` y base `VOTOS_COMPUTABLES`, `PRESENTES` o `CUERPO`.
 
-No inferir mayoría simple a partir de factor 0, 0.5 ni valores nulos.
+`tipo_mayoria` es autoritativo: no inferir mayoría simple o especial a partir del factor. `VOTOS_COMPUTABLES` cuenta positivos + negativos; `PRESENTES` cuenta votos emitidos, incluidas abstenciones; `CUERPO` usa el padrón congelado.
 
 ## 9. Temporizadores
 
@@ -138,10 +138,10 @@ Reglas del contrato:
 - `tipo`: texto descriptivo que se copia al formulario;
 - `tema`: texto descriptivo;
 - `tipo_mayoria`: `SIMPLE` o `ESPECIAL`;
-- si `tipo_mayoria = SIMPLE`, `factor` y `base` deben estar vacíos;
-- si `tipo_mayoria = ESPECIAL`, `factor` debe contener un valor numérico válido para la misma regla que utiliza la apertura manual de votación y `base` debe ser `PRESENTES` o `CUERPO`;
+- si `tipo_mayoria = SIMPLE`, `factor` puede estar vacío o contener `0`, y `base` puede estar vacía o contener `VOTOS_COMPUTABLES`; el punto normalizado usa factor `0` y esa base;
+- si `tipo_mayoria = ESPECIAL`, `factor` debe contener un real finito `> 0 <= 1` y `base` debe ser `VOTOS_COMPUTABLES`, `PRESENTES` o `CUERPO`;
 - el parser puede normalizar mayúsculas/minúsculas de los valores enumerados, pero el modelo normalizado interno debe usar los valores canónicos anteriores;
-- no se infiere `SIMPLE` desde `factor=0`, factor vacío ni ningún otro valor.
+- no se infiere el tipo de mayoría desde `factor=0`, factor vacío ni ningún otro valor: siempre manda `tipo_mayoria`.
 
 El backend valida únicamente la legibilidad y coherencia técnica necesarias para interpretar este contrato. No impone unicidad, secuencia ni legitimidad institucional de los puntos.
 

@@ -32,6 +32,7 @@ from botonera2_backend.dominio.errores import (
 )
 from botonera2_backend.dominio.estado import EstadoGlobal, EstadoOperativo
 from botonera2_backend.dominio.sesion import ActualizacionDatosInstitucionales
+from botonera2_backend.dominio.votacion import BaseMayoria, TipoMayoria, Votacion
 from botonera2_backend.servicios.entrada import ServicioEntradaTecla
 from botonera2_backend.servicios.preparacion import ServicioPreparacion
 from botonera2_backend.servicios.serializacion import EjecutorMutaciones
@@ -554,12 +555,21 @@ async def test_evento_persistido_y_cierre_writer_fallido_mantiene_contexto(
 async def test_votacion_pendiente_rechaza_sin_mutar_objeto(
     tmp_path: Path,
 ) -> None:
-    """El guard mínimo solo observa el placeholder y deja su dueño intacto."""
+    """El guard de WP-008 observa la entidad real y deja su dueño intacto."""
 
     estado, servicio, entrada = await crear_contexto(tmp_path)
     await abrir_contexto_valido(servicio, entrada)
     sesion = estado.sesion_activa
-    marcador_votacion = object()
+    marcador_votacion = Votacion(
+        id="votacion-pendiente",
+        numero_votacion=37,
+        tipo="Mocion",
+        tema="Tema pendiente",
+        tipo_mayoria=TipoMayoria.SIMPLE,
+        factor=0.0,
+        base=BaseMayoria.VOTOS_COMPUTABLES,
+        fecha_hora_apertura=HORA_APERTURA,
+    )
     estado.votacion_activa = marcador_votacion
 
     with pytest.raises(ErrorVotacionPendiente):

@@ -113,10 +113,10 @@ Campos conceptuales:
 - tipo configurable;
 - tema;
 - tipo de mayoría `SIMPLE` o `ESPECIAL`;
-- si es especial: factor;
-- si es especial: base `PRESENTES` o `CUERPO`.
+- para `SIMPLE`: factor vacío/nulo/cero y base vacía o `VOTOS_COMPUTABLES`, que backend normaliza a factor `0` y esa base;
+- para `ESPECIAL`: factor real finito `> 0 <= 1` y base `VOTOS_COMPUTABLES`, `PRESENTES` o `CUERPO`.
 
-La UI debe dejar claro que mayoría simple no equivale a factor 0,5.
+La UI debe dejar claro que `tipo_mayoria` es explícito y que mayoría simple no equivale a factor 0,5. En la terminología de mayoría, `PRESENTES` refiere a quienes emitieron voto en esa votación, incluidas abstenciones.
 
 Una vez abierta, los datos son inmutables.
 

@@ -162,9 +162,10 @@ La apertura expresa explícitamente:
 - tipo;
 - tema;
 - `tipo_mayoria = SIMPLE | ESPECIAL`;
-- para especial: factor y base `PRESENTES | CUERPO`.
+- para `SIMPLE`: factor omitido/nulo/cero y base omitida o `VOTOS_COMPUTABLES`, normalizados a `0` y `VOTOS_COMPUTABLES`;
+- para `ESPECIAL`: factor real finito `> 0 <= 1` y base `VOTOS_COMPUTABLES | PRESENTES | CUERPO`.
 
-No inferir mayoría simple a partir de un factor. Una votación abierta es inmutable.
+No inferir el tipo de mayoría a partir de un factor. `PRESENTES` representa a quienes emitieron voto ordinario, incluidas abstenciones. Una votación abierta es inmutable.
 
 ## 9. Finalización manual
 
@@ -190,8 +191,8 @@ nro_votacion,tipo,tema,tipo_mayoria,factor,base
 
 - CSV separado por coma con soporte de quoting CSV normal;
 - `tipo_mayoria` explícito: `SIMPLE | ESPECIAL`;
-- `SIMPLE`: `factor` y `base` vacíos;
-- `ESPECIAL`: `factor` obligatorio y `base = PRESENTES | CUERPO`;
+- `SIMPLE`: `factor` vacío o `0` y `base` vacía o `VOTOS_COMPUTABLES`, normalizados a esos valores canónicos;
+- `ESPECIAL`: factor real finito obligatorio `> 0 <= 1` y `base = VOTOS_COMPUTABLES | PRESENTES | CUERPO`;
 - el formato histórico de cinco columnas no es compatible ni se adapta automáticamente;
 - no se infiere el tipo de mayoría a partir del factor.
 
