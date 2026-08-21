@@ -11,6 +11,7 @@ from botonera2_backend.api.entradas import enrutador_entradas
 from botonera2_backend.api.errores import registrar_manejadores_errores
 from botonera2_backend.api.preparacion import enrutador_preparacion
 from botonera2_backend.api.salud import enrutador_salud
+from botonera2_backend.api.sesion import enrutador_sesion
 from botonera2_backend.recursos import (
     crear_recursos_aplicacion,
     descartar_recursos_aplicacion,
@@ -73,5 +74,6 @@ def crear_aplicacion() -> FastAPI:
     registrar_manejadores_errores(aplicacion)
     aplicacion.include_router(enrutador_salud, prefix="/api/v1")
     aplicacion.include_router(enrutador_preparacion, prefix="/api/v1")
+    aplicacion.include_router(enrutador_sesion, prefix="/api/v1")
     aplicacion.include_router(enrutador_entradas, prefix="/api/v1")
     return aplicacion

@@ -1,21 +1,23 @@
-"""Contexto operativo activo de una preparación de sala (WP-005).
+"""Contexto operativo que nace durante la preparación de sala.
 
 La preparación es la entidad que existe mientras el sistema está en
-``PREPARANDO`` y que, en Work Packages posteriores, se extenderá para
-convertirse en el contexto operativo de la sesión abierta (modelo de dominio,
-sección 2). Reúne en un solo lugar todo lo que la operación ``Preparar sala``
-deja congelado o inicializado:
+``PREPARANDO``. WP-008 agrega los datos institucionales y, al abrir, entrega
+este mismo objeto a :class:`Sesion` por composición. Así el contexto deja de
+estar publicado como preparación activa, pero configuración, padrón, presencia,
+tests y auditoría conservan identidad y siguen teniendo una única fuente de
+verdad. Reúne en un solo lugar todo lo que ``Preparar sala`` deja congelado o
+inicializado:
 
 - la fecha/hora local real de inicio;
 - los snapshots inmutables de configuración y padrón (WP-003);
 - las presencias dinámicas, que comienzan todas en ausente (RN-PRE-01);
-- el escritor de auditoría CSV que persiste los eventos institucionales
-  de esta preparación (WP-004).
+- el escritor de auditoría CSV que persiste los eventos institucionales;
+- el número y las autoridades que se completan durante ``PREPARANDO``.
 
-El dataclass no es ``frozen`` a propósito: WPs posteriores mutarán las
-presencias (tecla ``9``) y agregarán número de sesión, autoridades y demás
-datos operativos. Los snapshots de configuración y padrón sí son objetos
-inmutables, por lo que su congelamiento no depende de esta clase.
+El dataclass no es ``frozen`` a propósito: presencia, tests y datos
+institucionales cambian durante el ciclo. Los snapshots de configuración y
+padrón sí son objetos inmutables, por lo que su congelamiento no depende de
+esta clase.
 """
 
 from __future__ import annotations
@@ -53,6 +55,11 @@ class Preparacion:
         escritor_auditoria: conjunto L1/L2/L3 activo de esta preparación. Es
             la referencia que los WPs posteriores usarán para persistir sus
             eventos sin crear un segundo mecanismo de auditoría.
+        numero_sesion: número externo propuesto. Puede editarse únicamente
+            durante ``PREPARANDO`` y no se valida contra un historial.
+        presidencia: texto libre normalizado o ausencia mientras se prepara.
+        secretaria_legislativa: texto libre normalizado o ausencia mientras
+            se prepara.
     """
 
     fecha_hora_inicio: datetime
@@ -61,6 +68,9 @@ class Preparacion:
     presencias: dict[str, bool]
     escritor_auditoria: EscritorAuditoriaCsv
     expiraciones_test: dict[str, float] = field(default_factory=_crear_expiraciones_test)
+    numero_sesion: int | None = None
+    presidencia: str | None = None
+    secretaria_legislativa: str | None = None
 
     def cantidad_presentes(self) -> int:
         """Cuenta las presencias actuales sin guardar un contador paralelo.

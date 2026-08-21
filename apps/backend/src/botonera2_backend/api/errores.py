@@ -30,7 +30,14 @@ from botonera2_backend.configuracion.errores import (
     ErrorTomlInvalido,
     ErrorValidacionConfiguracion,
 )
-from botonera2_backend.dominio.errores import ErrorEstadoIncompatible
+from botonera2_backend.dominio.errores import (
+    ErrorEstadoIncompatible,
+    ErrorNumeroSesionRequerido,
+    ErrorPresidenciaRequerida,
+    ErrorQuorumInsuficiente,
+    ErrorSecretariaLegislativaRequerida,
+    ErrorVotacionPendiente,
+)
 
 
 class ErrorRespuesta(BaseModel):
@@ -53,6 +60,16 @@ def _respuesta_error(status_code: int, codigo: str, mensaje: str) -> JSONRespons
     )
 
 
+CODIGOS_CONFLICTO: dict[type[Exception], str] = {
+    ErrorEstadoIncompatible: "ESTADO_INCOMPATIBLE",
+    ErrorQuorumInsuficiente: "QUORUM_INSUFICIENTE",
+    ErrorNumeroSesionRequerido: "NUMERO_SESION_REQUERIDO",
+    ErrorPresidenciaRequerida: "PRESIDENCIA_REQUERIDA",
+    ErrorSecretariaLegislativaRequerida: "SECRETARIA_LEGISLATIVA_REQUERIDA",
+    ErrorVotacionPendiente: "VOTACION_PENDIENTE",
+}
+
+
 # Los manejadores declaran el parámetro como ``Exception`` (y no como el tipo
 # concreto) porque esa es la firma que FastAPI/Starlette tipan para
 # ``add_exception_handler``: el framework garantiza en runtime que cada
@@ -60,10 +77,13 @@ def _respuesta_error(status_code: int, codigo: str, mensaje: str) -> JSONRespons
 # mensajes de estas excepciones son deterministas y seguros de exponer.
 
 
-async def manejar_error_estado_incompatible(_solicitud: Request, error: Exception) -> JSONResponse:
-    """409 cuando el comando no es válido para el estado global actual."""
+async def manejar_error_conflicto(_solicitud: Request, error: Exception) -> JSONResponse:
+    """Traduce los rechazos funcionales de sesión a su código HTTP 409."""
 
-    return _respuesta_error(409, "ESTADO_INCOMPATIBLE", str(error))
+    codigo = CODIGOS_CONFLICTO.get(type(error))
+    if codigo is None:
+        raise RuntimeError("Tipo de conflicto sin código estable") from error
+    return _respuesta_error(409, codigo, str(error))
 
 
 async def manejar_error_configuracion(_solicitud: Request, error: Exception) -> JSONResponse:
@@ -104,7 +124,8 @@ def registrar_manejadores_errores(aplicacion: FastAPI) -> None:
     registra ``aplicacion.py``.
     """
 
-    aplicacion.add_exception_handler(ErrorEstadoIncompatible, manejar_error_estado_incompatible)
+    for tipo_error in CODIGOS_CONFLICTO:
+        aplicacion.add_exception_handler(tipo_error, manejar_error_conflicto)
     aplicacion.add_exception_handler(ErrorTomlInvalido, manejar_error_configuracion)
     aplicacion.add_exception_handler(ErrorValidacionConfiguracion, manejar_error_configuracion)
     aplicacion.add_exception_handler(ErrorPadronInvalido, manejar_error_padron)

@@ -1,9 +1,9 @@
-"""Estado operativo mínimo y volátil de Botonera2.
+"""Estado operativo único y volátil de Botonera2.
 
-WP-002 estableció el estado que existe al arrancar; WP-005 amplió los tipos
-dejados deliberadamente abiertos para representar la preparación activa y las
-rutas de auditoría vigentes. Las transiciones las ejecutan los servicios de
-dominio bajo el serializador único, nunca este módulo.
+WP-002 estableció el estado que existe al arrancar; WP-005 incorporó la
+preparación y WP-008 agrega el contexto real de sesión. Las transiciones las
+ejecutan los servicios de dominio bajo el serializador único, nunca este
+módulo.
 """
 
 from dataclasses import dataclass, field
@@ -11,6 +11,7 @@ from enum import StrEnum
 from pathlib import Path
 
 from botonera2_backend.dominio.preparacion import Preparacion
+from botonera2_backend.dominio.sesion import Sesion
 
 
 class EstadoGlobal(StrEnum):
@@ -37,21 +38,38 @@ class EstadoOperativo:
 
     Atributos:
         estado_global: etapa actual del ciclo de vida (RN-GLOBAL-01).
-        preparacion_activa: contexto de la preparación en curso, o ``None``
-            cuando no hay ninguna. WP-005 lo instala al preparar la sala y lo
-            descarta al cancelar; los WPs de sesión lo extenderán.
-        sesion_activa: reservado para el WP de apertura de sesión.
-        votacion_activa: reservado para el WP de votaciones.
+        preparacion_activa: contexto publicado solamente en ``PREPARANDO``.
+        sesion_activa: contexto real publicado solamente en
+            ``SESION_ABIERTA``. Compone el mismo objeto operativo que nació en
+            la preparación, sin duplicar sus datos.
+        votacion_activa: marcador opaco reservado para el WP propietario de
+            votaciones. WP-008 solo comprueba si es ``None`` antes de cerrar y
+            nunca interpreta ni modifica una entidad presente.
         archivos_auditoria_activos: rutas de los tres CSV del conjunto de
             auditoría vigente, en orden L1, L2, L3; tupla vacía cuando no hay
             auditoría abierta. Es una vista derivada del escritor que vive en
-            ``preparacion_activa``: se expone aquí para que CA-001 (backend
-            recién iniciado, sin auditoría abierta) sea verificable sin
-            conocer el modelo de preparación.
+            el contexto activo: se expone aquí para que CA-001 (backend recién
+            iniciado, sin auditoría abierta) sea verificable sin conocer el
+            modelo interno.
     """
 
     estado_global: EstadoGlobal = field(default=EstadoGlobal.SIN_PREPARAR, init=False)
     preparacion_activa: Preparacion | None = field(default=None, init=False)
-    sesion_activa: None = field(default=None, init=False)
-    votacion_activa: None = field(default=None, init=False)
+    sesion_activa: Sesion | None = field(default=None, init=False)
+    votacion_activa: object | None = field(default=None, init=False)
     archivos_auditoria_activos: tuple[Path, ...] = field(default=(), init=False)
+
+    def contexto_operativo_activo(self) -> Preparacion | None:
+        """Devuelve el único contexto con presencia, test y auditoría activos.
+
+        Durante ``PREPARANDO`` la referencia está en ``preparacion_activa``.
+        Durante ``SESION_ABIERTA`` la sesión compone el mismo objeto. Centralizar
+        esta selección permite que entradas 8/9 reutilicen una sola lógica sin
+        mantener dos mapas de presencia ni dos escritores.
+        """
+
+        if self.estado_global is EstadoGlobal.PREPARANDO:
+            return self.preparacion_activa
+        if self.estado_global is EstadoGlobal.SESION_ABIERTA and self.sesion_activa is not None:
+            return self.sesion_activa.contexto_operativo
+        return None
