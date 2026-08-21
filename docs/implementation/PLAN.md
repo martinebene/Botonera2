@@ -73,12 +73,14 @@ WP-008 quedó integrado mediante squash merge de PR #15 después de CI verde y r
 
 | WP | Objetivo | Estado | Depende de | Agente |
 |---|---|---|---|---|
-| WP-009 | Implementar apertura e inmutabilidad de una votación y bloqueo de aperturas incompatibles | EN_CURSO | WP-008 | codex |
+| WP-009 | Implementar apertura e inmutabilidad de una votación y bloqueo de aperturas incompatibles | INTEGRADO | WP-008 | - |
 | WP-010 | Implementar voto ordinario, unicidad, irreversibilidad y autocierre por completitud | PENDIENTE | WP-009, WP-006, WP-004 | - |
 | WP-011 | Implementar mayoría SIMPLE y estado `EMPATADA` | PENDIENTE | WP-010 | - |
 | WP-012 | Implementar mayoría ESPECIAL sobre VOTOS_COMPUTABLES/PRESENTES/CUERPO | PENDIENTE | WP-010 | - |
 | WP-013 | Implementar finalización manual, pérdida de quórum, `INCONCLUSA` y cierre de sesión con votación pendiente | PENDIENTE | WP-011, WP-012, WP-008 | - |
 | WP-014 | Implementar desempate presidencial | PENDIENTE | WP-011, WP-013 | - |
+
+WP-009 quedó integrado mediante squash merge de PR #16 sobre el candidato final `c68dfe94852b598a2cdd2edf243eb8b78420916c`, después de CI verde y revisión independiente secuencial con OpenCode + DeepSeek V4 Pro. La re-revisión final concluyó `LISTA PARA INTEGRAR`, con cero hallazgos BLOQUEANTES, IMPORTANTES y MENORES. El squash merge produjo el commit `c2d5e29f8beb0a010cd69ba0df252cef45856cf9` en `main`. Durante la primera revisión se emitió un hallazgo IMPORTANTE sobre la construcción de un body JSON no finito; la re-revisión demostró que la premisa sobre el escape `}}` del f-string era incorrecta, retiró ese hallazgo y confirmó que el commit adicional solo fortaleció la especificidad de la prueba.
 
 WP-011 y WP-012 pueden ejecutarse en paralelo después de WP-010.
 
@@ -159,8 +161,8 @@ Los lanzadores no pueden aprobar WPs, cambiar su estado en PLAN ni modificar `ma
 
 ## Próximo punto de control
 
-WP-001, WP-002, WP-003, WP-004, WP-005, WP-006, WP-007, WP-008, WP-030 y WP-031 están `INTEGRADO` y sin agente operativo asignado.
+WP-001, WP-002, WP-003, WP-004, WP-005, WP-006, WP-007, WP-008, WP-009, WP-030 y WP-031 están `INTEGRADO` y sin agente operativo asignado.
 
-DEC-007 y DEC-009 están vigentes. Orca continúa como entorno operativo y Codex fue seleccionado por el operador como implementador de WP-009.
+DEC-007 y DEC-009 están vigentes. Orca continúa como entorno operativo preferido mientras esté en uso.
 
-El punto de control activo es **WP-009**, que está `EN_CURSO`. El siguiente paso operativo es sincronizar el checkout coordinador con `origin/main`, lanzar el worktree Orca con el agente asignado y pegar manualmente el prompt exhaustivo entregado por el orquestador.
+El próximo punto de control es **WP-010**, que permanece `PENDIENTE` y sin agente asignado. Sus dependencias WP-009, WP-006 y WP-004 están integradas; el siguiente paso es planificar y redactar su especificación individual antes de cualquier asignación o implementación.
