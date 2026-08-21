@@ -73,10 +73,10 @@ WP-008 quedó integrado mediante squash merge de PR #15 después de CI verde y r
 
 | WP | Objetivo | Estado | Depende de | Agente |
 |---|---|---|---|---|
-| WP-009 | Implementar apertura e inmutabilidad de una votación y bloqueo de aperturas incompatibles | PENDIENTE | WP-008 | - |
+| WP-009 | Implementar apertura e inmutabilidad de una votación y bloqueo de aperturas incompatibles | EN_CURSO | WP-008 | codex |
 | WP-010 | Implementar voto ordinario, unicidad, irreversibilidad y autocierre por completitud | PENDIENTE | WP-009, WP-006, WP-004 | - |
 | WP-011 | Implementar mayoría SIMPLE y estado `EMPATADA` | PENDIENTE | WP-010 | - |
-| WP-012 | Implementar mayoría ESPECIAL sobre PRESENTES/CUERPO | PENDIENTE | WP-010 | - |
+| WP-012 | Implementar mayoría ESPECIAL sobre VOTOS_COMPUTABLES/PRESENTES/CUERPO | PENDIENTE | WP-010 | - |
 | WP-013 | Implementar finalización manual, pérdida de quórum, `INCONCLUSA` y cierre de sesión con votación pendiente | PENDIENTE | WP-011, WP-012, WP-008 | - |
 | WP-014 | Implementar desempate presidencial | PENDIENTE | WP-011, WP-013 | - |
 
@@ -161,6 +161,6 @@ Los lanzadores no pueden aprobar WPs, cambiar su estado en PLAN ni modificar `ma
 
 WP-001, WP-002, WP-003, WP-004, WP-005, WP-006, WP-007, WP-008, WP-030 y WP-031 están `INTEGRADO` y sin agente operativo asignado.
 
-DEC-007 está vigente: Orca es el entorno operativo preferido mientras esté en uso, no existe un implementador universal predeterminado y los agentes se seleccionan por complejidad/capacidad/cuota manteniendo revisión independiente.
+DEC-007 y DEC-009 están vigentes. Orca continúa como entorno operativo y Codex fue seleccionado por el operador como implementador de WP-009.
 
-El punto de control activo pasa a **WP-009**, que permanece `PENDIENTE`. El siguiente paso es planificar y redactar su especificación individual antes de cualquier asignación o implementación.
+El punto de control activo es **WP-009**, que está `EN_CURSO`. El siguiente paso operativo es sincronizar el checkout coordinador con `origin/main`, lanzar el worktree Orca con el agente asignado y pegar manualmente el prompt exhaustivo entregado por el orquestador.
