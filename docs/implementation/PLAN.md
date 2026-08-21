@@ -61,13 +61,13 @@ WP-002, WP-003 y WP-004 pueden ejecutarse en paralelo después de integrar WP-00
 | WP-005 | Implementar `Preparar sala` y `Cancelar preparación` integrando configuración, padrón y auditoría | INTEGRADO | WP-002, WP-003, WP-004 | - |
 | WP-006 | Implementar entrada lógica de dispositivos, presencia, test y cálculo de quórum | INTEGRADO | WP-005 | - |
 | WP-007 | Crear simulador CLI reproducible de dispositivos y escenarios básicos | INTEGRADO | WP-006 | - |
-| WP-008 | Implementar autoridades, número de sesión y ciclo abrir/cerrar sesión sin votación activa | EN_CURSO | WP-005, WP-006 | codex |
+| WP-008 | Implementar autoridades, número de sesión y ciclo abrir/cerrar sesión sin votación activa | INTEGRADO | WP-005, WP-006 | - |
 
 WP-007 puede avanzar en paralelo con WP-008 una vez integrado WP-006.
 
 WP-007 quedó integrado mediante squash merge de PR #13 después de CI verde y revisión independiente secuencial con OpenCode + DeepSeek V4 Pro. Los hallazgos BLOQUEANTES e IMPORTANTES quedaron en cero. Se aceptó un único hallazgo MENOR no bloqueante sobre instrumentación interna del test de concurrencia; no altera el comportamiento funcional ni la aptitud del WP.
 
-WP-008 posee `docs/work-packages/WP-008.md` en estado documental `APROBADO` y `DEC-008-sesion-autoridades-y-contrato-rest.md` aprobada. Sus dependencias funcionales están integradas. El operador autorizó su inicio con `codex`; el modelo previsto para esta ejecución es GPT-5.6 Sol y el modelo efectivo debe quedar trazado en la entrega/PR. WP-008 permanece `EN_CURSO` hasta completar candidato remoto, CI y revisión independiente.
+WP-008 quedó integrado mediante squash merge de PR #15 después de CI verde y revisión independiente secuencial con OpenCode + DeepSeek V4 Pro sobre el SHA exacto `59ecb5f88000df2172a1871724bc4791c067e10f`. La revisión concluyó `APTO PARA INTEGRAR`, con cero hallazgos BLOQUEANTES/IMPORTANTES y dos hallazgos MENORES no bloqueantes: robustez futura del handler de conflictos ante subclases y dos casos de borde no versionados en tests aunque verificados diagnósticamente. La validación OpenCode+Orca del espejo de salida también resultó exitosa.
 
 ## Fase 3 - Núcleo de votación
 
@@ -159,8 +159,8 @@ Los lanzadores no pueden aprobar WPs, cambiar su estado en PLAN ni modificar `ma
 
 ## Próximo punto de control
 
-WP-001, WP-002, WP-003, WP-004, WP-005, WP-006, WP-007, WP-030 y WP-031 están `INTEGRADO` y sin agente operativo asignado.
+WP-001, WP-002, WP-003, WP-004, WP-005, WP-006, WP-007, WP-008, WP-030 y WP-031 están `INTEGRADO` y sin agente operativo asignado.
 
 DEC-007 está vigente: Orca es el entorno operativo preferido mientras esté en uso, no existe un implementador universal predeterminado y los agentes se seleccionan por complejidad/capacidad/cuota manteniendo revisión independiente.
 
-El punto de control activo es **WP-008 EN_CURSO**, asignado a `codex`. El operador indicó disponibilidad de cupo para GPT-5.6 Sol y ese es el modelo previsto para esta implementación. El siguiente paso operativo es sincronizar el checkout coordinador de `main`, ejecutar el launcher Orca normal y entregar manualmente al agente el prompt exhaustivo de implementación.
+El punto de control activo pasa a **WP-009**, que permanece `PENDIENTE`. El siguiente paso es planificar y redactar su especificación individual antes de cualquier asignación o implementación.
