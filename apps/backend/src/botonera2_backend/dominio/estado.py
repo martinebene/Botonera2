@@ -1,9 +1,9 @@
 """Estado operativo único y volátil de Botonera2.
 
 WP-002 estableció el estado que existe al arrancar; WP-005 incorporó la
-preparación y WP-008 agrega el contexto real de sesión. Las transiciones las
-ejecutan los servicios de dominio bajo el serializador único, nunca este
-módulo.
+preparación, WP-008 agregó el contexto real de sesión y WP-009 tipa la votación
+activa. Las transiciones las ejecutan los servicios de dominio bajo el
+serializador único, nunca este módulo.
 """
 
 from dataclasses import dataclass, field
@@ -12,6 +12,7 @@ from pathlib import Path
 
 from botonera2_backend.dominio.preparacion import Preparacion
 from botonera2_backend.dominio.sesion import Sesion
+from botonera2_backend.dominio.votacion import Votacion
 
 
 class EstadoGlobal(StrEnum):
@@ -42,9 +43,9 @@ class EstadoOperativo:
         sesion_activa: contexto real publicado solamente en
             ``SESION_ABIERTA``. Compone el mismo objeto operativo que nació en
             la preparación, sin duplicar sus datos.
-        votacion_activa: marcador opaco reservado para el WP propietario de
-            votaciones. WP-008 solo comprueba si es ``None`` antes de cerrar y
-            nunca interpreta ni modifica una entidad presente.
+        votacion_activa: única votación pendiente publicada. Es la misma
+            instancia almacenada en el historial de ``Sesion``; ``None`` indica
+            que una nueva apertura puede ser evaluada.
         archivos_auditoria_activos: rutas de los tres CSV del conjunto de
             auditoría vigente, en orden L1, L2, L3; tupla vacía cuando no hay
             auditoría abierta. Es una vista derivada del escritor que vive en
@@ -56,7 +57,7 @@ class EstadoOperativo:
     estado_global: EstadoGlobal = field(default=EstadoGlobal.SIN_PREPARAR, init=False)
     preparacion_activa: Preparacion | None = field(default=None, init=False)
     sesion_activa: Sesion | None = field(default=None, init=False)
-    votacion_activa: object | None = field(default=None, init=False)
+    votacion_activa: Votacion | None = field(default=None, init=False)
     archivos_auditoria_activos: tuple[Path, ...] = field(default=(), init=False)
 
     def contexto_operativo_activo(self) -> Preparacion | None:

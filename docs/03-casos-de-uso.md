@@ -111,7 +111,7 @@ Si existe un orador actual o al menos un pedido de palabra en cola, la interfaz 
 
 La advertencia es una salvaguarda operativa de Moderación y no una nueva precondición reglamentaria del backend.
 
-Al abrir, los datos quedan inmutables.
+Al abrir, `tipo_mayoria` es explícito y los datos quedan normalizados e inmutables. `SIMPLE` usa `factor = 0` y `base = VOTOS_COMPUTABLES`; `ESPECIAL` exige factor real finito `> 0 <= 1` y base `VOTOS_COMPUTABLES`, `PRESENTES` o `CUERPO`.
 
 ## CU-12 Emitir voto ordinario
 
@@ -161,9 +161,12 @@ Abstenciones excluidas del cálculo.
 
 Al cierre normal:
 
+- base `VOTOS_COMPUTABLES`: positivos / (positivos + negativos);
 - base `PRESENTES`: positivos / votos emitidos, incluyendo abstenciones;
 - base `CUERPO`: positivos / total de concejales cargados;
 - aprueba si `cociente >= factor`.
+
+Si `VOTOS_COMPUTABLES` vale cero porque solo se emitieron abstenciones, resulta `RECHAZADA` sin efectuar una división por cero.
 
 Si la finalización es anticipada con presentes sin votar, prevalece `INCONCLUSA`.
 

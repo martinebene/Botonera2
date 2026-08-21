@@ -149,7 +149,7 @@ Solo puede existir una votación activa por vez.
 No puede abrirse una votación sin sesión abierta ni quórum.
 
 ### RN-VOT-03
-Una votación abierta es inmutable: número, tipo, tema, tipo de mayoría, factor y base no pueden editarse. Para corregirla debe finalizarse como `INCONCLUSA` y abrirse otra.
+Una votación abierta conserva inmutables su id técnico, número, tipo, tema, tipo de mayoría, factor, base y fecha/hora de apertura. Para corregir datos institucionales debe finalizarse como `INCONCLUSA` y abrirse otra.
 
 ### RN-VOT-04
 Número de votación y número de sesión son datos externos. El sistema no valida secuencia, unicidad ni repetición.
@@ -190,10 +190,10 @@ Si se cierra la sesión con una votación `EMPATADA`, esa votación pasa a `INCO
 ## RN-MAY - Mayorías
 
 ### RN-MAY-01
-`SIMPLE` y `ESPECIAL` son tipos de mayoría distintos. Una mayoría simple no se representa como factor `0.5`.
+`SIMPLE` y `ESPECIAL` son tipos de mayoría distintos y explícitos; no se infieren a partir del factor. Una mayoría simple admite factor omitido, nulo o numéricamente `0`, se normaliza a `factor = 0` y nunca se representa como factor `0.5`.
 
 ### RN-MAY-02 - Mayoría simple
-Se consideran únicamente votos positivos y negativos:
+Usa siempre la base `VOTOS_COMPUTABLES`, definida como positivos + negativos:
 
 - positivos > negativos: `APROBADA`;
 - positivos < negativos: `RECHAZADA`;
@@ -205,13 +205,13 @@ Las abstenciones se excluyen del cálculo de mayoría simple.
 Solo una mayoría simple puede terminar `EMPATADA` y requerir desempate presidencial.
 
 ### RN-MAY-04 - Mayoría especial
-Tiene factor explícito y base de cálculo `PRESENTES` o `CUERPO`.
+Tiene factor real finito explícito `> 0` y `<= 1`, y base de cálculo `VOTOS_COMPUTABLES`, `PRESENTES` o `CUERPO`.
 
 ### RN-MAY-05
 Una mayoría especial aprueba cuando el cociente aplicable es `>= factor`. Alcanzar exactamente el umbral aprueba.
 
 ### RN-MAY-06 - Especial sobre presentes
-El denominador son los votos emitidos, incluyendo abstenciones.
+`PRESENTES` denomina institucionalmente a quienes emitieron voto ordinario en esa votación. El denominador técnico son positivos + negativos + abstenciones y no se reduce si alguien se retira después de votar.
 
 ### RN-MAY-07
 Aunque el cálculo anterior use votos emitidos, una finalización manual con presentes sin votar es `INCONCLUSA`; por tanto, un resultado ordinario solo se consolida cuando votaron todos los presentes.

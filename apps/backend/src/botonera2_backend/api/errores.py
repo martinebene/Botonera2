@@ -36,6 +36,7 @@ from botonera2_backend.dominio.errores import (
     ErrorPresidenciaRequerida,
     ErrorQuorumInsuficiente,
     ErrorSecretariaLegislativaRequerida,
+    ErrorTipoVotacionNoPermitido,
     ErrorVotacionPendiente,
 )
 
@@ -69,6 +70,10 @@ CODIGOS_CONFLICTO: dict[type[Exception], str] = {
     ErrorVotacionPendiente: "VOTACION_PENDIENTE",
 }
 
+CODIGOS_ENTIDAD_NO_PROCESABLE: dict[type[Exception], str] = {
+    ErrorTipoVotacionNoPermitido: "TIPO_VOTACION_NO_PERMITIDO",
+}
+
 
 # Los manejadores declaran el parámetro como ``Exception`` (y no como el tipo
 # concreto) porque esa es la firma que FastAPI/Starlette tipan para
@@ -78,12 +83,24 @@ CODIGOS_CONFLICTO: dict[type[Exception], str] = {
 
 
 async def manejar_error_conflicto(_solicitud: Request, error: Exception) -> JSONResponse:
-    """Traduce los rechazos funcionales de sesión a su código HTTP 409."""
+    """Traduce los rechazos funcionales del dominio a su código HTTP 409."""
 
     codigo = CODIGOS_CONFLICTO.get(type(error))
     if codigo is None:
         raise RuntimeError("Tipo de conflicto sin código estable") from error
     return _respuesta_error(409, codigo, str(error))
+
+
+async def manejar_error_entidad_no_procesable(
+    _solicitud: Request,
+    error: Exception,
+) -> JSONResponse:
+    """Traduce validaciones funcionales posteriores al body a HTTP 422."""
+
+    codigo = CODIGOS_ENTIDAD_NO_PROCESABLE.get(type(error))
+    if codigo is None:
+        raise RuntimeError("Tipo de entidad no procesable sin código estable") from error
+    return _respuesta_error(422, codigo, str(error))
 
 
 async def manejar_error_configuracion(_solicitud: Request, error: Exception) -> JSONResponse:
@@ -126,6 +143,8 @@ def registrar_manejadores_errores(aplicacion: FastAPI) -> None:
 
     for tipo_error in CODIGOS_CONFLICTO:
         aplicacion.add_exception_handler(tipo_error, manejar_error_conflicto)
+    for tipo_error in CODIGOS_ENTIDAD_NO_PROCESABLE:
+        aplicacion.add_exception_handler(tipo_error, manejar_error_entidad_no_procesable)
     aplicacion.add_exception_handler(ErrorTomlInvalido, manejar_error_configuracion)
     aplicacion.add_exception_handler(ErrorValidacionConfiguracion, manejar_error_configuracion)
     aplicacion.add_exception_handler(ErrorPadronInvalido, manejar_error_padron)

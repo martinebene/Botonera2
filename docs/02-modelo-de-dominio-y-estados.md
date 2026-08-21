@@ -100,12 +100,14 @@ Atributos conceptuales mínimos:
 - tipo configurable;
 - tema;
 - tipo de mayoría: `SIMPLE` o `ESPECIAL`;
-- para `ESPECIAL`: factor y base `PRESENTES`/`CUERPO`;
+- factor y base normalizados conforme al tipo de mayoría;
 - estado;
 - hora de apertura/cierre;
 - votos ordinarios;
 - si corresponde, voto presidencial de desempate;
 - motivo de finalización manual cuando corresponda.
+
+Desde la apertura son inmutables el identificador, número, tipo, tema, tipo de mayoría, factor, base y hora de apertura. El estado, los votos y los datos de cierre permanecen conceptualmente evolutivos para sus WPs propietarios.
 
 ### Estados
 
@@ -137,7 +139,7 @@ Una votación en estado final nunca vuelve a abrirse ni se recalcula.
 
 ### SIMPLE
 
-No tiene factor numérico.
+Su representación normalizada usa `factor = 0` y `base = VOTOS_COMPUTABLES`, aunque la entrada pueda omitir factor/base o enviar factor nulo. `VOTOS_COMPUTABLES` significa positivos + negativos.
 
 - positivos > negativos: aprobada;
 - positivos < negativos: rechazada;
@@ -149,12 +151,14 @@ Abstenciones fuera del cálculo.
 
 Tiene:
 
-- `factor`;
-- `base = PRESENTES | CUERPO`.
+- `factor` real finito `> 0` y `<= 1`;
+- `base = VOTOS_COMPUTABLES | PRESENTES | CUERPO`.
 
 Aprueba con cociente `>= factor`.
 
-`PRESENTES`: denominador = votos emitidos, incluyendo abstenciones.
+`VOTOS_COMPUTABLES`: denominador = positivos + negativos; si al cierre normal solo hubo abstenciones, el resultado especial es `RECHAZADA` sin dividir por cero.
+
+`PRESENTES`: denominación institucional de quienes emitieron voto ordinario; denominador = positivos + negativos + abstenciones. Una persona que votó continúa integrándolo aunque luego se retire, y quien ingresa durante `EN_CURSO` y alcanza a votar también lo integra.
 
 `CUERPO`: denominador = cantidad total de concejales cargados.
 

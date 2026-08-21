@@ -88,7 +88,7 @@ Seleccionar un punto debe copiar sus datos a un formulario editable. Debe permit
 
 ## CA-016 Numeración externa
 
-El backend debe aceptar números de sesión/votación repetidos o fuera de secuencia sin considerarlos error de negocio.
+El backend debe aceptar números de sesión/votación enteros estrictos `>= 1`, incluidos repetidos o fuera de secuencia, y rechazar cero, negativos, booleanos, decimales y texto.
 
 ## CA-017 Abrir votación sin quórum
 
@@ -100,7 +100,7 @@ Debe rechazarse una segunda apertura si existe `EN_CURSO` o `EMPATADA` pendiente
 
 ## CA-019 Inmutabilidad de votación
 
-Después de abrir, no deben poder cambiarse número, tema, tipo ni regla de mayoría.
+Después de abrir, no deben poder cambiarse id técnico, número, tema, tipo, tipo de mayoría, factor, base ni fecha/hora de apertura.
 
 ## CA-020 Voto ordinario
 
@@ -152,13 +152,13 @@ Con positivos = negativos => `EMPATADA`, aunque existan abstenciones.
 
 ## CA-030 Mayoría especial distinta de simple
 
-Una especial con factor `0.5` debe calcularse como especial y no usar la regla `positivos > negativos`.
+Una especial con factor `0.5` debe calcularse como especial y no usar la regla `positivos > negativos`. El campo `tipo_mayoria` es explícito y no se infiere desde el factor.
 
 ## CA-031 Especial sobre presentes
 
 Ejemplo: 10 votos emitidos, 6 positivos, 3 negativos, 1 abstención, factor 0.6 => `APROBADA` porque `6/10 >= 0.6`.
 
-La abstención integra el denominador.
+La abstención integra el denominador. `PRESENTES` significa quienes emitieron voto en esa votación: retirarse después de votar no quita a la persona del denominador e incorporarse durante `EN_CURSO` permite integrarlo si alcanza a votar.
 
 ## CA-032 Igualdad de umbral
 
@@ -169,6 +169,8 @@ Si el cociente es exactamente igual al factor especial, debe aprobar.
 Con 12 concejales cargados y factor 2/3, 8 positivos deben satisfacer el umbral aunque haya menos presentes, siempre que la votación pueda cerrar normalmente conforme a quórum/completitud.
 
 Presidencia no agrega una unidad al denominador por ocupar ese rol.
+
+Una mayoría especial también puede usar `VOTOS_COMPUTABLES` (positivos + negativos). Si esa base vale cero porque solo hubo abstenciones al cierre normal, resulta `RECHAZADA` sin dividir por cero.
 
 ## CA-034 Finalización anticipada
 

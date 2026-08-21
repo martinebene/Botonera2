@@ -294,10 +294,10 @@ Reglas:
 
 - CSV con separador coma y quoting CSV estándar;
 - `tipo_mayoria` debe representar explícitamente `SIMPLE` o `ESPECIAL`;
-- para `SIMPLE`, `factor` y `base` deben estar vacíos;
-- para `ESPECIAL`, `factor` es obligatorio y `base` debe ser `PRESENTES` o `CUERPO`;
+- para `SIMPLE`, `factor` puede estar vacío o contener `0`, y `base` puede estar vacía o contener `VOTOS_COMPUTABLES`; el modelo normalizado usa factor `0` y esa base;
+- para `ESPECIAL`, `factor` es un real finito obligatorio `> 0 <= 1` y `base` debe ser `VOTOS_COMPUTABLES`, `PRESENTES` o `CUERPO`;
 - el parser backend puede normalizar mayúsculas/minúsculas de valores enumerados, pero el modelo interno utiliza los valores canónicos;
-- no se infiere mayoría simple desde `factor=0`, factor vacío ni otro valor;
+- no se infiere el tipo de mayoría desde `factor=0`, factor vacío ni otro valor: `tipo_mayoria` siempre es explícito y autoritativo;
 - el formato histórico de cinco columnas `nro_votacion,tipo,tema,factor_de_mayoria,respecto` **no es aceptado** y debe convertirse externamente antes de importar;
 - Botonera2 no implementará adaptador automático de compatibilidad para ese formato histórico.
 
