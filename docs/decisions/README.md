@@ -1,40 +1,24 @@
-# Decisiones posteriores (DEC)
+# Decisiones de implementación
 
-Este directorio se utiliza únicamente para decisiones nuevas que aparezcan durante la implementación y que modifiquen o precisen arquitectura, contratos globales, operación, calidad o criterios transversales.
+Este directorio contiene decisiones operativas y de implementación que complementan los documentos normativos de `docs/`.
 
-## Regla
-
-No crear un `DEC-XXX` para detalles locales y reversibles de implementación que un agente pueda resolver dentro de un WP sin alterar decisiones canónicas.
-
-Crear un `DEC-XXX` cuando una decisión:
-
-- afecte a más de un WP o componente;
-- cambie una decisión técnica ya aprobada;
-- establezca un contrato o restricción global nueva;
-- tenga alternativas relevantes con consecuencias futuras;
-- requiera aprobación humana antes de continuar.
-
-## Convención
-
-`DEC-NNN-descripcion-corta.md`
-
-Cada decisión debe registrar como mínimo:
-
-- contexto;
-- decisión;
-- alternativas consideradas cuando aporten valor;
-- consecuencias;
-- documentos/WPs afectados;
-- estado: `PROPUESTA`, `APROBADA`, `REEMPLAZADA` o `RECHAZADA`.
-
-Las decisiones ya cerradas DT-001 a DT-XXX permanecen en sus documentos canónicos actuales; no deben duplicarse retroactivamente aquí.
+Las decisiones aquí registradas no reemplazan reglas de negocio ni decisiones técnicas propietarias. Sirven para fijar contratos concretos, procedimientos y acuerdos necesarios para implementar WPs sin dejar ambigüedades relevantes a los agentes.
 
 ## Decisiones vigentes
 
-- `DEC-001-estilo-codigo-y-referencia-produccion.md`: código propio en español, documentación pedagógica, explicación para principiantes en PR y fallback funcional/UX/visual a producción.
-- `DEC-002-lanzador-work-packages.md`: lanzador local para validar autorización y preparar rama + worktree + CLI de agente para WPs posteriores a WP-001.
-- `DEC-003-herramientas-mcp-agentes.md`: Context7, Nuxt MCP, Playwright MCP y GitHub MCP/integración equivalente; reglas de uso, disponibilidad, aviso, fallback seguro y secretos.
-- `DEC-004-orquestacion-revision-secuencial-y-sincronizacion.md`: ChatGPT Web como orquestador preferido, revisión independiente secuencial en el worktree del WP, excepción administrativa original para `PLAN.md` y sincronización GitHub/local obligatoria.
-- `DEC-005-planificacion-y-autoridad-documental-del-orquestador.md`: ChatGPT Web concentra también la planificación documental y, con aprobación humana explícita, puede mantener directamente en `main` la documentación canónica acordada; código y cambios ejecutables conservan rama + PR.
-- `DEC-006-entrada-logica-presencia-test-y-quorum.md`: contrato REST base de pulsaciones lógicas, respuesta estable, temporizador configurable de test, catálogo de auditoría de entrada/presencia/test, fallo cerrado y reparto de alcance entre WP-006 y WPs posteriores.
-- `DEC-007-entorno-orca-asignacion-agentes-y-lanzadores.md`: selección de entorno antes de iniciar cada WP, Orca como entorno operativo preferido mientras esté en uso, lanzador específico para Orca, convención de ramas compatible con Orca y asignación de agentes según complejidad/capacidad/cuota en lugar de un implementador universal predeterminado.
+- `DEC-001-estilo-codigo-y-referencia-produccion.md`: estilo de código, documentación pedagógica y uso acotado de producción como referencia funcional.
+- `DEC-002-lanzador-work-packages.md`: contrato del lanzador genérico de WPs y validaciones previas.
+- `DEC-003-herramientas-mcp-agentes.md`: uso de herramientas MCP/documentación externa, fallbacks y manejo de secretos.
+- `DEC-004-orquestacion-revision-secuencial-y-sincronizacion.md`: relevo secuencial implementador/revisor, sincronización y reglas de integración.
+- `DEC-005-planificacion-y-autoridad-documental-del-orquestador.md`: autoridad documental del orquestador y mantenimiento directo autorizado de documentación en `main`.
+- `DEC-006-entrada-logica-presencia-test-y-quorum.md`: contrato de entrada lógica, presencia, test y quórum de WP-006.
+- `DEC-007-entorno-orca-asignacion-agentes-y-lanzadores.md`: entorno Orca, selección de agentes, lanzadores, prompts manuales y limpieza segura de worktrees.
+- `DEC-008-sesion-autoridades-y-contrato-rest.md`: contrato de número de sesión, autoridades, transición `PREPARANDO -> SESION_ABIERTA`, REST de sesión, auditoría y extensión de presencia/test durante sesión para WP-008.
+
+## Criterio de uso
+
+Una decisión nueva debe existir cuando un WP necesita fijar un contrato o comportamiento que no puede quedar librado a la autonomía local del implementador y cuya semántica no está suficientemente cerrada en los documentos propietarios existentes.
+
+No se crean decisiones para detalles locales reversibles que un agente puede resolver de forma segura dentro de un WP aprobado.
+
+Las decisiones que cambien reglas de negocio, arquitectura, contratos transversales, seguridad, auditoría, CI o despliegue deben respetar DT-038 y la autoridad humana correspondiente antes de considerarse aprobadas.
