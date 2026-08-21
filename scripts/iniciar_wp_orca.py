@@ -301,37 +301,23 @@ def verificar_conflictos_worktree_orca(
                 )
 
 
-def construir_prompt_inicial(numero_wp: str) -> str:
-    """Construye un prompt inicial breve que remite al agente a las fuentes canónicas.
-
-    Parámetros:
-        numero_wp: Número del WP en formato de tres dígitos (ej. '030').
-
-    Retorna:
-        Texto del prompt que recibirá el agente al inicializar la terminal de Orca.
-    """
-    return (
-        f"Implementá WP-{numero_wp}. Leé primero AGENTS.md y "
-        f"docs/work-packages/WP-{numero_wp}.md y después únicamente las fuentes canónicas "
-        f"que ese WP exige. Respetá estrictamente su alcance, exclusiones y decisiones vigentes."
-    )
-
-
 def construir_comando_creacion_orca(
     raiz: Path,
     numero_wp: str,
     titulo: str,
     agente: str,
-    prompt: str,
 ) -> list[str]:
-    """Genera la lista de argumentos para 'orca worktree create' según DEC-007.
+    """Genera la lista de argumentos para 'orca worktree create' según DEC-007 y WP-031.
+
+    Prepara los argumentos para crear el worktree, inicializar el workspace y abrir
+    el agente asignado, sin incluir --prompt para asegurar que el prompt exhaustivo
+    sea entregado exclusivamente por el orquestador y revisado por el operador.
 
     Parámetros:
         raiz: Raíz del repositorio coordinador.
         numero_wp: Número del WP.
         titulo: Título del WP extraído de su archivo Markdown.
         agente: Nombre del agente a lanzar en Orca.
-        prompt: Prompt inicial para el agente.
 
     Retorna:
         Lista de cadenas con el comando completo de Orca.
@@ -351,8 +337,6 @@ def construir_comando_creacion_orca(
         "--no-parent",
         "--agent",
         agente,
-        "--prompt",
-        prompt,
         "--setup",
         "run",
         "--activate",
@@ -486,15 +470,16 @@ def iniciar(
 ) -> int:
     """Coordina todas las validaciones documentales/Git y delega la creación en Orca.
 
-    Aplica el orden estricto de validación definido por DEC-007 y WP-030:
+    Aplica el orden estricto de validación definido por DEC-007 y WP-031:
     1. Validar checkout coordinador (en rama main, working tree limpio).
     2. Validar runtime de Orca activo, alcanzable y listo.
     3. Validar repositorio coordinador registrado en Orca.
     4. Actualizar main únicamente por fast-forward contra origin/main.
     5. Leer contrato del WP y PLAN.md, validando estado documental y dependencias.
     6. Verificar ausencia de colisiones en Git y workspaces de Orca (fallo cerrado).
-    7. Construir prompt y comando de creación con --no-parent y --agent.
+    7. Construir comando de creación con --no-parent y --agent (sin --prompt).
     8. Delegar creación en Orca y validar rigurosamente la respuesta JSON y el agente.
+    9. Informar datos del worktree e indicar que debe pegarse el prompt del orquestador.
 
     Parámetros:
         argumentos: Lista de argumentos de línea de comandos (o None para sys.argv[1:]).
@@ -527,14 +512,12 @@ def iniciar(
     # 6. Validar colisiones previas en Git y Orca (fallando cerrado ante cualquier error)
     verificar_conflictos_worktree_orca(raiz, numero_wp, titulo, ejecutor=ejecutor_orca)
 
-    # 7. Construcción del prompt y comando para Orca
-    prompt = construir_prompt_inicial(numero_wp)
+    # 7. Construcción del comando para Orca (sin prompt automático)
     comando_orca = construir_comando_creacion_orca(
         raiz=raiz,
         numero_wp=numero_wp,
         titulo=titulo,
         agente=agente,
-        prompt=prompt,
     )
 
     # 8. Invocación de Orca
@@ -568,6 +551,7 @@ def iniciar(
     print(f"Rama nativa Orca: {rama}")
     print(f"Base verificada: {base_ref} ({sha_origin_main})")
     print(f"Agente lanzado en terminal administrada por Orca: {agente} (handle: {handle_terminal})")
+    print("Agente abierto. Pegá ahora el prompt entregado por el orquestador.")
     return 0
 
 

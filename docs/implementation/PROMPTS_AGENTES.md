@@ -297,13 +297,61 @@ Incluso cuando no haya implementación, el prompt debe especificar:
 
 ## Relación con el launcher
 
-Los lanzadores son responsables de crear/validar el entorno operativo y de iniciar el agente, pero el prompt que entreguen debe cumplir esta política.
+Los lanzadores (`scripts/iniciar_wp.py` y `scripts/iniciar_wp_orca.py`) son responsables exclusivamente de verificar precondiciones documentales y de estado Git, preparar o reutilizar el worktree y la rama asociada, y abrir la sesión del agente asignado.
 
-Un prompt automático excesivamente corto que solo diga “implementá WP-NNN” **no es suficiente** para el flujo normal.
+El launcher **no genera, valida ni transporta el prompt de trabajo**:
+- no construye ningún texto de tarea;
+- no pasa `--prompt` a `orca worktree create` ni a ningún subproceso;
+- no inyecta instrucciones por stdin, variables de entorno ni archivos temporales.
 
-Mientras exista una versión integrada del launcher cuyo prompt automático no cumpla este documento, el orquestador debe considerar esa situación una deuda operativa explícita y no asumir que el agente recibió instrucciones suficientes.
+Tras un inicio exitoso, el launcher muestra al operador una indicación breve para que pegue el prompt entregado por el orquestador:
 
-La corrección del código del launcher debe realizarse mediante un WP normal, rama, PR, CI y revisión independiente. No corresponde modificar scripts directamente en `main` desde ChatGPT Web.
+```text
+Agente abierto. Pegá ahora el prompt entregado por el orquestador.
+```
+
+El flujo operativo se divide de forma estricta:
+1. ChatGPT Web/orquestador redacta el prompt exhaustivo específico para la tarea vigente;
+2. el operador recibe y lee el prompt completo visible en la interfaz de chat;
+3. el operador lo traslada manualmente (copia y pega) a la sesión del agente abierta en la terminal;
+4. el agente ejecuta las instrucciones recibidas.
+
+La revisión humana explícita del prompt antes de su ejecución forma parte deliberada del control de calidad y la gobernanza del proyecto.
+
+## Salida copiable para OpenCode bajo Orca
+
+Esta función aplica **única y exclusivamente** cuando se cumplen simultáneamente ambas condiciones:
+- **entorno operativo**: Orca;
+- **agente efectivo**: OpenCode.
+
+### Motivación
+
+La interfaz basada en terminal (TUI) de OpenCode presenta dificultades en ciertos clientes (especialmente dispositivos móviles o terminales web remotas) para seleccionar y copiar bloques de texto extensos de forma limpia. Dado que Orca permite crear terminales comunes dentro del mismo workspace y que OpenCode puede ejecutar herramientas locales y cargar skills, se aprovecha esta capacidad para poner a disposición del operador una pestaña de terminal estándar con el texto exacto de la respuesta final.
+
+### Contrato operativo
+
+Cuando entorno=Orca y agente=OpenCode, ChatGPT Web debe incluir al final del prompt de delegación un bloque de instrucciones con el siguiente procedimiento exacto:
+
+1. **Composición de la respuesta**: OpenCode compone primero el informe o respuesta final completo correspondiente a su turno de trabajo.
+2. **Almacenamiento temporal fuera del repositorio**: Antes de emitir su mensaje final en la TUI, guarda exactamente ese texto en un archivo temporal no versionado y fuera del árbol Git (por ejemplo `/tmp/botonera2-wp-NNN-opencode-ultima-respuesta.txt`, sobrescribiéndolo si ya existía para reflejar siempre la última respuesta de ese WP).
+3. **Carga de skill oficial**: Carga y consulta la skill oficial `orca-cli` antes de interactuar con la CLI de Orca, sin inventar flags de memoria.
+4. **Creación de terminal común auxiliar**: Abre una terminal común dentro del mismo worktree mediante:
+   ```bash
+   orca terminal create --worktree <selector-valido> --title "Salida OpenCode WP-NNN" --command "cat <archivo-temporal>"
+   ```
+   (utilizando un selector explícito inequívoco del worktree actual, como `path:<ruta-absoluta>` o `id:<id>`).
+5. **Emisión en la TUI**: OpenCode emite a continuación en su propia interfaz el mismo texto de respuesta final que fue guardado en el archivo.
+6. **Ejecución estricta y pasiva**: La terminal adicional creada por Orca ejecuta únicamente el comando de lectura (`cat`) del archivo temporal y no inicia otro agente ni ejecuta procesos interactivos adicionales.
+7. **Reglas de seguridad y exclusión**:
+   - No se utiliza `opencode export` ni se parsea el historial o la base de datos de sesiones de OpenCode.
+   - El archivo temporal no debe contener prompts del usuario, historial acumulado, razonamiento interno, llamadas a herramientas ni salidas de depuración: contiene únicamente la respuesta final visible para el operador.
+   - No se modifican archivos versionados ni el estado de Git para generar este espejo.
+   - Si la skill `orca-cli` o la CLI de Orca no están disponibles o la creación de terminal falla, el agente no debe improvisar automatizaciones alternativas ni alterar su entrega: conserva el archivo temporal si fue posible y reporta el fallo operativo en su respuesta visible.
+   - La terminal adicional es un apoyo de visualización y copiado para el operador; no constituye una segunda sesión de agente ni viola la regla de revisión secuencial del worktree.
+
+### Restricción de alcance
+
+Esta ayuda de copia **no aplica** fuera de Orca ni para agentes distintos de OpenCode (como Antigravity, Codex o Claude). Fuera de este caso específico, los agentes entregan su salida exclusivamente a través de sus interfaces habituales.
 
 ## Preflight del prompt antes de delegar
 

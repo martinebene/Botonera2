@@ -129,19 +129,19 @@ git pull --ff-only origin main
 
 ### Si el entorno actual es Orca
 
-Una vez integrado WP-030, el inicio normal será:
+El inicio normal se realiza mediante el lanzador específico de Orca:
 
 ```bash
 uv run python scripts/iniciar_wp_orca.py NNN agente
 ```
 
-Ese lanzador conserva las validaciones documentales/Git y delega en `orca worktree create` la creación del worktree, la rama nativa Orca y el lanzamiento del agente dentro de una terminal administrada por Orca.
+Ese lanzador conserva las validaciones documentales/Git y delega en `orca worktree create` la creación del worktree, la rama nativa Orca y el lanzamiento del agente dentro de una terminal administrada por Orca, **sin pasar ningún prompt de trabajo**.
 
 La identidad visible del workspace debe conservar el WP (`wp/NNN-descripcion`). La rama Git puede usar la forma nativa aceptada por DEC-007, por ejemplo `<git-username>/wp-NNN-descripcion`; no se renombra por detrás solo para imitar la convención genérica.
 
-El prompt automático del launcher también debe cumplir `PROMPTS_AGENTES.md`. Si la versión integrada todavía usa un prompt demasiado breve, el orquestador debe reconocer explícitamente esa deuda y no asumir que el agente recibió instrucciones suficientes. La corrección del launcher se realiza por un WP normal, nunca mediante edición ejecutable directa en `main`.
+Una vez que el lanzador informa que el agente fue abierto, el operador copia y pega manualmente en la terminal el prompt exhaustivo redactado por ChatGPT Web. Si el agente es OpenCode y el entorno es Orca, el prompt incluye el bloque condicional de salida copiable conforme a `PROMPTS_AGENTES.md`.
 
-WP-030 es la única excepción de bootstrap prevista para este lanzador: puede iniciarse manualmente con `orca worktree create` después de reproducir todas las validaciones de DEC-007.
+WP-030 y WP-031 contaron con excepciones de bootstrap documentadas en sus respectivas especificaciones para construir y corregir el launcher; a partir de su integración, `scripts/iniciar_wp_orca.py` es el camino operativo normal bajo Orca.
 
 ### Si el entorno es genérico/terminal/SSH/Warp
 
@@ -346,9 +346,10 @@ ChatGPT Web orquestador
   -> actualiza documentación canónica directamente en main
   -> verifica SHA/CI y sincroniza clon local
   -> autoriza WP y asigna implementador según DEC-007
-  -> construye prompt exhaustivo según PROMPTS_AGENTES.md
-  -> si Orca: ejecuta lanzador Orca (o bootstrap manual WP-030)
-  -> si otro entorno: ejecuta lanzador genérico
+  -> construye prompt exhaustivo según PROMPTS_AGENTES.md (con salida copiable si Orca+OpenCode)
+  -> si Orca: operador ejecuta lanzador Orca (iniciar_wp_orca.py); crea worktree y abre agente SIN prompt
+  -> si otro entorno: operador ejecuta lanzador genérico (iniciar_wp.py); crea worktree y abre agente
+  -> operador revisa y pega manualmente el prompt en la sesión del agente
   -> implementador trabaja en rama/worktree aislado
   -> implementación local completa
   -> commits + sincronización con origin/main + validaciones finales + push + PR
@@ -374,6 +375,8 @@ La nueva conversación debe recibir un mensaje que indique, como mínimo:
 - que debe usar GitHub como fuente remota independiente;
 - que debe determinar o preguntar qué entorno operativo está utilizando el operador antes de iniciar un WP;
 - que si el entorno es Orca debe preferir el lanzador Orca y las ramas/worktrees nativos admitidos por DEC-007; si es otro entorno debe usar el lanzador genérico correspondiente;
+- que los lanzadores crean el worktree y abren el agente **sin prompt de trabajo**, y que el operador traslada manualmente el prompt exhaustivo preparado por el orquestador;
+- que cuando el entorno es Orca y el agente es OpenCode, el prompt debe incluir el bloque de salida copiable definido en `PROMPTS_AGENTES.md`;
 - que debe planificar los WPs junto con el operador antes de delegar implementación;
 - que debe escalar decisiones DT-038 al operador y no inventarlas;
 - que puede mantener directamente en `main` la documentación autorizada por DEC-005;
