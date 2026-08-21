@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import csv
+import json
+import math
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from datetime import datetime
@@ -262,8 +264,12 @@ async def test_especial_rechaza_numeros_no_finitos(
 
     contenido = (
         '{"numero_votacion":38,"tipo":"Despacho HA","tema":"Tema",'
-        f'"tipo_mayoria":"ESPECIAL","factor":{representacion},"base":"CUERPO"}}'
+        f'"tipo_mayoria":"ESPECIAL","factor":{representacion},"base":"CUERPO"'
+        "}"
     )
+    cuerpo_parseado = json.loads(contenido)
+    assert not math.isfinite(cuerpo_parseado["factor"])
+
     async with cliente_abierto(tmp_path, monkeypatch) as (cliente, _aplicacion, _ruta):
         respuesta = await cliente.post(
             "/api/v1/votaciones",
@@ -271,6 +277,11 @@ async def test_especial_rechaza_numeros_no_finitos(
             headers={"content-type": "application/json"},
         )
         assert respuesta.status_code == 422
+        detalle = respuesta.json()["detail"]
+        assert any(
+            error["loc"][-1] == "factor" and error["type"] == "float_type" for error in detalle
+        )
+        assert all(error["type"] != "json_invalid" for error in detalle)
 
 
 async def test_simple_rechaza_numero_no_finito_con_422_serializable(
