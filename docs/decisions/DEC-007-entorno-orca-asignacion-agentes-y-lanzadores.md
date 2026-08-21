@@ -85,11 +85,12 @@ orca worktree create
   --base-branch origin/main
   --no-parent
   --agent <id-orca>
-  --prompt <prompt-del-WP>
   --setup run
   --activate
   --json
 ```
+
+A partir de WP-031, el comando conserva `--agent` pero no pasa `--prompt`: el launcher no genera ni transporta texto de trabajo. El prompt exhaustivo es redactado por ChatGPT Web/orquestador y trasladado manualmente por el operador (copia y pega) a la terminal del agente tras el lanzamiento.
 
 El lanzador debe interpretar la respuesta JSON y comprobar al menos que:
 
@@ -153,6 +154,8 @@ Como política operativa:
 - cambiar solamente de arnés manteniendo el mismo modelo efectivo no satisface por sí mismo la independencia.
 
 El revisor permanece en modo solo lectura y las correcciones vuelven al implementador original.
+
+Adicionalmente, conforme a WP-031, cuando OpenCode actúe bajo Orca (sea como implementador o revisor), el prompt preparado por el orquestador incluye una instrucción condicional para espejar la respuesta final en un archivo temporal fuera del repositorio y abrir una terminal común mediante la CLI y la skill `orca-cli` ejecutando `cat` sobre dicho archivo, facilitando el copiado limpio de su informe final desde clientes con limitaciones de TUI.
 
 ### 8. Limpieza posterior según el entorno
 

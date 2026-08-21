@@ -15,9 +15,9 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+import scripts.iniciar_wp_orca as modulo_iniciar_wp_orca
 from scripts.iniciar_wp_orca import (
     construir_comando_creacion_orca,
-    construir_prompt_inicial,
 )
 
 DIRECTORIO_SCRIPTS = Path(__file__).parents[1] / "scripts"
@@ -539,19 +539,18 @@ def test_rechaza_repositorio_no_registrado_en_orca(tmp_path: Path) -> None:
     assert "orca repo add --path" in resultado.stderr
 
 
-def test_construccion_correcta_de_comando_y_prompt_orca(tmp_path: Path) -> None:
-    """Demuestra la construcción adecuada de argumentos para 'orca worktree create'."""
-    prompt = construir_prompt_inicial("030")
-    assert "Implementá WP-030" in prompt
-    assert "AGENTS.md" in prompt
-    assert "docs/work-packages/WP-030.md" in prompt
+def test_construir_prompt_inicial_no_existe() -> None:
+    """Demuestra que construir_prompt_inicial fue retirado y no existe en el módulo."""
+    assert not hasattr(modulo_iniciar_wp_orca, "construir_prompt_inicial")
 
+
+def test_construccion_correcta_de_comando_orca_sin_prompt(tmp_path: Path) -> None:
+    """Demuestra que 'orca worktree create' incluye --agent y no incluye --prompt ni texto."""
     comando = construir_comando_creacion_orca(
         raiz=Path("/workspace/Botonera2"),
         numero_wp="030",
         titulo="Lanzador Orca y soporte multi-entorno",
         agente="antigravity",
-        prompt=prompt,
     )
     assert comando[:4] == ["orca", "worktree", "create", "--repo"]
     assert comando[4] == "path:/workspace/Botonera2"
@@ -562,16 +561,20 @@ def test_construccion_correcta_de_comando_y_prompt_orca(tmp_path: Path) -> None:
     assert "--no-parent" in comando
     assert "--agent" in comando
     assert comando[comando.index("--agent") + 1] == "antigravity"
-    assert "--prompt" in comando
-    assert comando[comando.index("--prompt") + 1] == prompt
+    assert "--prompt" not in comando
     assert "--setup" in comando
     assert comando[comando.index("--setup") + 1] == "run"
     assert "--activate" in comando
     assert "--json" in comando
 
+    # Comprobar que ningún argumento contiene texto de tarea autogenerado
+    for argumento in comando:
+        assert "Implementá WP-" not in argumento
+        assert "AGENTS.md" not in argumento
+
 
 def test_flujo_exitoso_crea_worktree_en_orca(tmp_path: Path) -> None:
-    """Ejecuta el flujo completo válido verificando que delega en Orca e informa el resultado."""
+    """Demuestra que el flujo exitoso delega en Orca, avisa al operador y no pasa --prompt."""
     repositorio = crear_repositorio_orca(tmp_path, numero_wp="030", agente="antigravity")
 
     resultado = lanzar_orca(repositorio, numero_wp="030", agente="antigravity")
@@ -582,14 +585,16 @@ def test_flujo_exitoso_crea_worktree_en_orca(tmp_path: Path) -> None:
     assert "Agente lanzado en terminal administrada por Orca: antigravity (handle: term_12345)" in (
         resultado.stdout
     )
+    assert "Agente abierto. Pegá ahora el prompt entregado por el orquestador." in resultado.stdout
 
-    # Comprobar que orca fue invocado con los parámetros esperados
+    # Comprobar que orca fue invocado con los parámetros esperados y sin --prompt
     registro = repositorio.registro_orca.read_text(encoding="utf-8")
     assert "status --json" in registro
     assert "repo list --json" in registro
     assert "worktree create" in registro
     assert "--agent antigravity" in registro
     assert "--no-parent" in registro
+    assert "--prompt" not in registro
 
 
 def test_flujo_exitoso_con_startup_terminal_fallback(tmp_path: Path) -> None:
