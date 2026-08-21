@@ -67,7 +67,7 @@ WP-007 puede avanzar en paralelo con WP-008 una vez integrado WP-006.
 
 WP-007 quedó integrado mediante squash merge de PR #13 después de CI verde y revisión independiente secuencial con OpenCode + DeepSeek V4 Pro. Los hallazgos BLOQUEANTES e IMPORTANTES quedaron en cero. Se aceptó un único hallazgo MENOR no bloqueante sobre instrumentación interna del test de concurrencia; no altera el comportamiento funcional ni la aptitud del WP.
 
-WP-008 ya posee `docs/work-packages/WP-008.md` en estado documental `BORRADOR` y `DEC-008-sesion-autoridades-y-contrato-rest.md` aprobada. Sus dependencias funcionales están integradas, pero no debe pasar a `EN_CURSO` ni recibir agente hasta que el operador apruebe explícitamente la especificación completa del WP.
+WP-008 posee `docs/work-packages/WP-008.md` en estado documental `APROBADO` y `DEC-008-sesion-autoridades-y-contrato-rest.md` aprobada. Sus dependencias funcionales están integradas. Permanece `PENDIENTE` y sin agente hasta que el operador autorice la asignación e inicio; recién entonces debe pasar a `EN_CURSO`.
 
 ## Fase 3 - Núcleo de votación
 
@@ -163,4 +163,4 @@ WP-001, WP-002, WP-003, WP-004, WP-005, WP-006, WP-007, WP-030 y WP-031 están `
 
 DEC-007 está vigente: Orca es el entorno operativo preferido mientras esté en uso, no existe un implementador universal predeterminado y los agentes se seleccionan por complejidad/capacidad/cuota manteniendo revisión independiente.
 
-El punto de control activo es **WP-008**. Sus dependencias están integradas y su contrato técnico-funcional quedó cerrado en DEC-008, pero `WP-008.md` permanece `BORRADOR`. El siguiente paso es revisión/aprobación explícita del operador; recién después podrá pasar a `EN_CURSO`, recibir agente e iniciarse con el launcher Orca normal ya integrado.
+El punto de control activo es **WP-008**. Sus dependencias están integradas, `WP-008.md` está `APROBADO` y DEC-008 cerró el contrato técnico-funcional. El siguiente paso es seleccionar el agente implementador, pasar WP-008 a `EN_CURSO` e iniciarlo con el launcher Orca normal.
