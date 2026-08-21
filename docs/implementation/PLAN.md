@@ -30,7 +30,7 @@ No reemplaza las reglas de negocio, decisiones técnicas ni documentos propietar
 - Los `WP-NNN.md` son también entrada estructurada para los lanzadores. Antes de aprobarlos y nuevamente antes de pasarlos a `EN_CURSO`, el orquestador debe verificar `docs/implementation/FORMATO_WP_LANZADORES.md`; en particular, dentro de `## Dependencias` solo pueden aparecer identificadores `WP-NNN` que sean dependencias reales.
 - Antes de delegar cualquier implementación, corrección o revisión, el orquestador debe verificar `docs/implementation/PROMPTS_AGENTES.md` y construir un prompt explícito que no dependa de inferencias tácitas del agente.
 - Una implementación no se considera lista para revisión solo porque el código y tests locales terminen: debe existir candidato remoto identificable con commits, sincronización final, validaciones repetidas, push, PR y SHA exacto, salvo que la tarea haya sido expresamente parcial.
-- Antes de iniciar un WP, el orquestador debe conocer el entorno operativo actual. Con Orca se utiliza el lanzador Orca integrado por WP-030 y ajustado por WP-031; en otros entornos se conserva `scripts/iniciar_wp.py`.
+- Antes de iniciar un WP, el orquestador debe conocer el entorno operativo actual. Con Orca se utiliza el lanzador Orca integrado por WP-030/WP-031; en otros entornos se conserva `scripts/iniciar_wp.py`.
 
 ## Soporte operativo transversal
 
@@ -39,9 +39,9 @@ No reemplaza las reglas de negocio, decisiones técnicas ni documentos propietar
 | WP-030 | Incorporar lanzador Orca y soporte multi-entorno para iniciar WPs preservando las validaciones del lanzador genérico | INTEGRADO | WP-001 | - |
 | WP-031 | Lanzamiento sin prompt automático y salida copiable de OpenCode bajo Orca | INTEGRADO | WP-030 | - |
 
-WP-030 fue incorporado después de definir la numeración funcional WP-001..WP-029; su número no representa una nueva fase de producto. Fue el bootstrap operativo transversal aprobado por DEC-007 y quedó integrado mediante PR #12. Desde este punto, cuando Orca sea el entorno activo, el camino normal para iniciar un WP autorizado es `scripts/iniciar_wp_orca.py`.
+WP-030 fue incorporado después de definir la numeración funcional WP-001..WP-029; su número no representa una nueva fase de producto. Fue el bootstrap operativo transversal aprobado por DEC-007 y quedó integrado mediante PR #12.
 
-WP-031 quedó integrado mediante squash merge de PR #14 después de CI verde y revisión independiente secuencial con OpenCode + DeepSeek V4 Pro sobre el SHA candidato exacto. La revisión terminó sin hallazgos BLOQUEANTES, IMPORTANTES ni MENORES y validó manualmente con éxito la salida copiable OpenCode + Orca mediante la skill `orca-cli`, archivo temporal fuera del repositorio y terminal común del mismo worktree. Desde su integración, el launcher Orca abre el agente sin transportar prompt de trabajo; ChatGPT Web entrega el prompt exhaustivo al operador y el operador lo revisa y pega manualmente.
+WP-031 quedó integrado mediante PR #14 después de CI verde, revisión independiente con OpenCode + DeepSeek V4 Pro y validación manual exitosa del espejo de última respuesta en una terminal común de Orca. Desde ese punto, el lanzador Orca abre el agente sin inyectar `--prompt`: ChatGPT Web entrega el prompt exhaustivo visible al operador, que lo revisa y pega manualmente.
 
 ## Fase 1 - Fundaciones reproducibles
 
@@ -63,9 +63,11 @@ WP-002, WP-003 y WP-004 pueden ejecutarse en paralelo después de integrar WP-00
 | WP-007 | Crear simulador CLI reproducible de dispositivos y escenarios básicos | INTEGRADO | WP-006 | - |
 | WP-008 | Implementar autoridades, número de sesión y ciclo abrir/cerrar sesión sin votación activa | PENDIENTE | WP-005, WP-006 | - |
 
-WP-007 puede avanzar en paralelo con WP-008 una vez integrado WP-006. Con WP-030 y WP-031 integrados, ya no existe un bloqueo operativo transversal para iniciar WP-008 cuando su especificación individual exista, esté aprobada, pase a `EN_CURSO` y tenga agente asignado.
+WP-007 puede avanzar en paralelo con WP-008 una vez integrado WP-006.
 
-WP-007 quedó integrado mediante squash merge de PR #13 después de CI verde y revisión independiente secuencial con OpenCode + DeepSeek V4 Pro. Los hallazgos BLOQUEANTES e IMPORTANTES quedaron en cero. Se aceptó un único hallazgo MENOR no bloqueante sobre instrumentación interna del test de concurrencia; no altera el comportamiento funcional ni la aptitud del WP y no se incorporó silenciosamente a WP-031.
+WP-007 quedó integrado mediante squash merge de PR #13 después de CI verde y revisión independiente secuencial con OpenCode + DeepSeek V4 Pro. Los hallazgos BLOQUEANTES e IMPORTANTES quedaron en cero. Se aceptó un único hallazgo MENOR no bloqueante sobre instrumentación interna del test de concurrencia; no altera el comportamiento funcional ni la aptitud del WP.
+
+WP-008 ya posee `docs/work-packages/WP-008.md` en estado documental `BORRADOR` y `DEC-008-sesion-autoridades-y-contrato-rest.md` aprobada. Sus dependencias funcionales están integradas, pero no debe pasar a `EN_CURSO` ni recibir agente hasta que el operador apruebe explícitamente la especificación completa del WP.
 
 ## Fase 3 - Núcleo de votación
 
@@ -107,7 +109,7 @@ WP-015 y WP-016 pueden ejecutarse en paralelo con otros WPs cuando sus dependenc
 | WP-023 | Implementar UI de votaciones, resultado, desempate, Orden del Día y advertencia de apertura con palabra pendiente | PENDIENTE | WP-021, WP-014, WP-016 | - |
 | WP-024 | Implementar UI de palabra con semántica Otorgar/Quitar definida, eventos y remapeo de dispositivos | PENDIENTE | WP-021, WP-015, WP-020 | - |
 
-WP-022, WP-023 y WP-024 pueden ejecutarse en paralelo cuando sus dependencias estén integradas, usando worktrees diferentes y sin superposición no coordinada. Las advertencias de WP-022/WP-023 consumen el estado de palabra ya disponible a través de la proyección compartida; no agregan una precondición nueva al backend.
+WP-022, WP-023 y WP-024 pueden ejecutarse en paralelo cuando sus dependencias estén integradas, usando worktrees diferentes y sin superposición no coordinada.
 
 ## Fase 7 - Pantalla del Recinto
 
@@ -148,19 +150,17 @@ DEC-002 y DEC-007 establecen un flujo común de autorización con lanzamiento es
 3. el orquestador construye/verifica el prompt exhaustivo según `PROMPTS_AGENTES.md`;
 4. el operador actualiza su checkout coordinador de `main`;
 5. el orquestador determina el entorno actual;
-6. si el entorno es Orca, se utiliza `scripts/iniciar_wp_orca.py NNN agente`;
+6. si el entorno es Orca, se utiliza `scripts/iniciar_wp_orca.py NNN agente`; el launcher abre el agente sin prompt automático;
 7. si el entorno es genérico/terminal/SSH/Warp u otro sin integración Orca, se utiliza `scripts/iniciar_wp.py NNN agente`;
-8. el lanzador correspondiente valida estado/dependencias, prepara el worktree aislado y abre el agente sin prompt de trabajo;
-9. el operador revisa el prompt exhaustivo visible en ChatGPT Web y lo copia/pega manualmente en la sesión del agente.
+8. el operador revisa y pega manualmente en el agente el prompt exhaustivo entregado por ChatGPT Web;
+9. el agente trabaja dentro de su worktree aislado.
 
-Los lanzadores **no** pueden efectuar los pasos 1 o 2 ni modificar `main` para conseguirlos.
-
-WP-001 fue la excepción inicial para construir el lanzador genérico. WP-030 fue la excepción de bootstrap para construir el lanzador Orca. WP-031 tuvo una excepción puntual adicional porque modificó el propio comportamiento de inicio del launcher Orca. Las tres excepciones están cerradas; el flujo normal vigente utiliza los lanzadores integrados y el traslado manual del prompt.
+Los lanzadores no pueden aprobar WPs, cambiar su estado en PLAN ni modificar `main` para conseguir autorización.
 
 ## Próximo punto de control
 
 WP-001, WP-002, WP-003, WP-004, WP-005, WP-006, WP-007, WP-030 y WP-031 están `INTEGRADO` y sin agente operativo asignado.
 
-DEC-007 está vigente: Orca es el entorno operativo preferido mientras esté en uso, no existe un implementador universal predeterminado y los agentes se seleccionan por complejidad/capacidad/cuota manteniendo revisión independiente. WP-031 agregó el traslado manual del prompt y la salida copiable específica para OpenCode bajo Orca.
+DEC-007 está vigente: Orca es el entorno operativo preferido mientras esté en uso, no existe un implementador universal predeterminado y los agentes se seleccionan por complejidad/capacidad/cuota manteniendo revisión independiente.
 
-El próximo paso es **planificar WP-008**, cuyo objetivo general en este PLAN es implementar autoridades, número de sesión y el ciclo abrir/cerrar sesión sin votación activa. WP-008 continúa `PENDIENTE`, actualmente no tiene agente asignado y todavía debe recibir una especificación `docs/work-packages/WP-008.md`, resolver con el operador las decisiones necesarias y pasar a `APROBADO` antes de cualquier implementación.
+El punto de control activo es **WP-008**. Sus dependencias están integradas y su contrato técnico-funcional quedó cerrado en DEC-008, pero `WP-008.md` permanece `BORRADOR`. El siguiente paso es revisión/aprobación explícita del operador; recién después podrá pasar a `EN_CURSO`, recibir agente e iniciarse con el launcher Orca normal ya integrado.
