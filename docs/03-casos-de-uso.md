@@ -34,7 +34,7 @@ Consecuencias:
 - recalcular cantidad de presentes y quórum;
 - si está en cola y pasa a ausente, retirarlo de la cola;
 - si está usando la palabra y pasa a ausente, finalizar su uso sin otorgar automáticamente la palabra al siguiente de la cola;
-- si hay votación `EN_CURSO`, aplicar pérdida de quórum o autocierre según corresponda.
+- si hay votación `EN_CURSO`, evaluar primero pérdida de quórum y solo si todavía existe quórum evaluar autocierre por completitud.
 
 ## CU-04 Probar dispositivo
 
@@ -67,9 +67,9 @@ Puede cambiar Presidencia o Secretaría en preparación o sesión, incluso duran
 
 Si existe un orador actual o al menos un pedido de palabra en cola, la interfaz de Moderación debe advertir antes de enviar el comando que existen concejales con uso/pedido de palabra pendiente y pedir confirmación. Cancelar la advertencia no cierra la sesión. Confirmarla permite continuar; la advertencia no constituye una nueva precondición reglamentaria del backend.
 
-Si hay votación `EN_CURSO`, se finaliza primero; si no estaba completa queda `INCONCLUSA`.
+Si hay votación `EN_CURSO`, se finaliza primero como `INCONCLUSA`, aun con cero votos o un conteo parcial aparentemente decisivo.
 
-Si hay votación `EMPATADA`, pasa a `INCONCLUSA`.
+Si hay votación `EMPATADA`, la misma instancia pasa a `INCONCLUSA` y conserva su fecha de cierre y sus votos.
 
 Luego se registra cierre, se cierran los CSV y se vuelve a `SIN_PREPARAR`.
 
@@ -137,17 +137,17 @@ Si el cierre pudo persistirse pero falla la auditoría del resultado, no se revi
 
 **Actor:** Moderación.
 
-Disponible en cualquier momento de `EN_CURSO`, incluso con cero votos.
+Disponible en cualquier momento de `EN_CURSO`, incluso con cero votos. El identificador del comando debe coincidir exactamente con la referencia activa para impedir que una intención obsoleta afecte una votación posterior.
 
 Exige motivo obligatorio.
 
-Si la votación no estaba completa, resultado `INCONCLUSA`.
+Toda finalización manual válida produce `CERRADA + INCONCLUSA`, conserva votos y datos constitutivos, y almacena el motivo normalizado. No invoca el cálculo ordinario.
 
 No existe estado `CANCELADA`.
 
 ## CU-15 Finalizar por pérdida de quórum
 
-Si durante `EN_CURSO` la presencia cae por debajo del quórum, finalizar inmediatamente como `INCONCLUSA`, conservar todos los votos emitidos y registrar el evento.
+Si durante `EN_CURSO` la presencia cae por debajo del quórum, finalizar inmediatamente como `INCONCLUSA`, conservar todos los votos emitidos y registrar el evento. Esta decisión precede al autocierre por completitud; una votación ya `EMPATADA` no cambia por una pérdida posterior.
 
 ## CU-16 Calcular mayoría simple
 

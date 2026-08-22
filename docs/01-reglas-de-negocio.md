@@ -126,7 +126,7 @@ Si durante una sesión abierta se pierde quórum y no hay votación en curso, la
 Al recuperar automáticamente el quórum, vuelve a habilitarse la apertura de votaciones sin acción adicional.
 
 ### RN-PRE-07
-Si se pierde quórum durante una votación `EN_CURSO`, esa votación termina inmediatamente como `INCONCLUSA`.
+Si se pierde quórum durante una votación `EN_CURSO`, esa misma votación termina inmediatamente como `CERRADA + INCONCLUSA`, conserva sus votos y libera la referencia activa. Esta evaluación precede a cualquier autocierre por completitud derivado del mismo cambio de presencia.
 
 ### RN-PRE-08
 Un concejal puede pasar a ausente después de votar; su voto permanece registrado e inmutable.
@@ -138,7 +138,7 @@ Un concejal puede pasar de ausente a presente durante una votación y votar norm
 Si un concejal ya votó, se ausenta y luego vuelve a presentarse durante la misma votación, continúa considerado como ya votado y no puede votar nuevamente.
 
 ### RN-PRE-11
-Cambiar presencia durante una votación puede provocar cierre automático si todos los concejales que continúan presentes ya emitieron su voto.
+Cambiar presencia durante una votación puede provocar cierre automático si se mantiene quórum y todos los concejales que continúan presentes ya emitieron su voto. Si el mismo cambio también deja al cuerpo sin quórum, prevalece RN-PRE-07 y no se calcula un resultado ordinario.
 
 ## RN-VOT - Votaciones
 
@@ -161,7 +161,7 @@ Cada concejal puede emitir un solo voto ordinario por votación. Es irreversible
 Una votación se cierra automáticamente cuando todos los concejales actualmente presentes ya votaron y se mantiene quórum. Ese cierre termina la recepción y fija una única fecha/hora. Bajo la misma serialización, el backend calcula, audita y aplica inmediatamente el resultado ordinario sobre la misma instancia; el cierre y el resultado son hechos institucionales separados.
 
 ### RN-VOT-07
-Moderación puede finalizar una votación en cualquier momento. Si no se completó normalmente, termina `INCONCLUSA`.
+Moderación puede finalizar una votación en cualquier momento mientras permanece `EN_CURSO`. El comando manual siempre produce `CERRADA + INCONCLUSA`, incluso con cero votos o con un conteo parcial aparentemente decisivo; no calcula mayoría ordinaria.
 
 ### RN-VOT-08
 La finalización manual anticipada exige motivo obligatorio y dicho motivo se registra.
@@ -179,7 +179,7 @@ Los votos emitidos antes de una votación `INCONCLUSA` permanecen registrados in
 Una votación cerrada nunca se recalcula por cambios posteriores de presencia.
 
 ### RN-VOT-13
-Cerrar la sesión con una votación `EN_CURSO` provoca primero su finalización; si faltan votos queda `INCONCLUSA`, y luego se cierra la sesión.
+Cerrar la sesión con una votación `EN_CURSO` provoca primero su finalización como `INCONCLUSA` sobre la misma instancia y luego cierra la sesión. Si la votación estaba `CERRADA + EMPATADA`, el cierre explícito de sesión la convierte en `INCONCLUSA` conservando su fecha de cierre y sus votos.
 
 ### RN-VOT-14
 Una votación empatada bloquea la apertura de otra hasta resolverse o hasta que se cierre la sesión.

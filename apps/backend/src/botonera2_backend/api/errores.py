@@ -37,6 +37,8 @@ from botonera2_backend.dominio.errores import (
     ErrorQuorumInsuficiente,
     ErrorSecretariaLegislativaRequerida,
     ErrorTipoVotacionNoPermitido,
+    ErrorVotacionNoCoincide,
+    ErrorVotacionNoEnCurso,
     ErrorVotacionPendiente,
 )
 
@@ -68,6 +70,8 @@ CODIGOS_CONFLICTO: dict[type[Exception], str] = {
     ErrorPresidenciaRequerida: "PRESIDENCIA_REQUERIDA",
     ErrorSecretariaLegislativaRequerida: "SECRETARIA_LEGISLATIVA_REQUERIDA",
     ErrorVotacionPendiente: "VOTACION_PENDIENTE",
+    ErrorVotacionNoCoincide: "VOTACION_NO_COINCIDE",
+    ErrorVotacionNoEnCurso: "VOTACION_NO_EN_CURSO",
 }
 
 CODIGOS_ENTIDAD_NO_PROCESABLE: dict[type[Exception], str] = {

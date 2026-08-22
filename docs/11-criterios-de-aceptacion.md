@@ -176,13 +176,13 @@ Una mayoría especial también puede usar `VOTOS_COMPUTABLES` (positivos + negat
 
 Moderación puede finalizar en cualquier momento, incluso con cero votos, pero debe proporcionar motivo.
 
-Si no votaron todos los presentes => `INCONCLUSA`.
+Toda finalización manual válida desde `EN_CURSO` produce `INCONCLUSA`, conserva votos y no calcula resultado ordinario, aunque el conteo parcial parezca decisivo.
 
 No debe existir división por cero.
 
 ## CA-035 Pérdida de quórum durante votación
 
-Al caer presentes por debajo del quórum en `EN_CURSO`, debe pasar inmediatamente a `INCONCLUSA` y conservar votos previos.
+Al caer presentes por debajo del quórum en `EN_CURSO`, debe pasar inmediatamente a `INCONCLUSA` y conservar votos previos. Esta evaluación tiene prioridad sobre el autocierre por completitud derivado de la misma presencia.
 
 ## CA-036 Inconclusa irreversible
 
@@ -212,11 +212,11 @@ Si la votación ya terminó `EMPATADA`, una pérdida posterior de quórum no deb
 
 ## CA-042 Cerrar sesión con EN_CURSO
 
-Debe finalizar primero la votación; si faltan votos debe quedar `INCONCLUSA`; luego cerrar sesión.
+Debe finalizar primero la misma votación como `INCONCLUSA`, incluso con cero votos o conteo parcial; luego cerrar sesión.
 
 ## CA-043 Cerrar sesión con EMPATADA
 
-Debe convertirla a `INCONCLUSA`, cerrar sesión y volver a `SIN_PREPARAR`.
+Debe convertir la misma instancia a `INCONCLUSA`, conservar la fecha de cierre y los votos, cerrar sesión y volver a `SIN_PREPARAR`.
 
 ## CA-044 Pedido de palabra
 

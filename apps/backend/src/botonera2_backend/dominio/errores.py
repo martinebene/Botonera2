@@ -37,8 +37,27 @@ class ErrorSecretariaLegislativaRequerida(Exception):
 class ErrorVotacionPendiente(Exception):
     """Una operación incompatible encontró una votación pendiente.
 
-    Protege tanto una segunda apertura como el cierre de sesión de WP-008. Los
-    servicios que la detectan no finalizan ni modifican la entidad existente.
+    Protege una segunda apertura y cualquier estado técnico que el cierre de
+    sesión de WP-013 no esté autorizado a resolver. Los servicios que la
+    detectan no modifican la entidad existente.
+    """
+
+
+class ErrorVotacionNoCoincide(Exception):
+    """El id de un comando no corresponde a la votación activa observada.
+
+    Este error protege especialmente contra comandos tardíos: una intención
+    dirigida a una votación anterior nunca puede aplicarse a la nueva entidad
+    que luego ocupe ``votacion_activa``.
+    """
+
+
+class ErrorVotacionNoEnCurso(Exception):
+    """No existe una votación activa en la etapa finalizable requerida.
+
+    La finalización manual exige exactamente ``EN_CURSO + resultado=None``.
+    También se usa cuando no hay referencia activa, porque en ambos casos no
+    existe una entidad susceptible de recibir ese comando.
     """
 
 

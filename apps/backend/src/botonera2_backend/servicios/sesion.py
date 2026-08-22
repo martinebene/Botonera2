@@ -1,9 +1,10 @@
-"""Servicio serializado para datos institucionales y ciclo de sesión (WP-008).
+"""Servicio serializado para datos institucionales y ciclo de sesión.
 
 Cada operación entra por el ``EjecutorMutaciones`` único. Dentro de esa
 sección crítica se mantiene la regla institucional ``AUDITAR -> MUTAR``: un
 cambio no toca memoria hasta que su evento obligatorio quedó persistido con la
-durabilidad del escritor de WP-004.
+durabilidad del escritor de WP-004. WP-013 extiende el cierre para resolver
+una votación ``EN_CURSO`` o ``EMPATADA`` dentro de esa misma adquisición.
 """
 
 from __future__ import annotations
@@ -26,6 +27,14 @@ from botonera2_backend.dominio.preparacion import Preparacion
 from botonera2_backend.dominio.sesion import (
     ActualizacionDatosInstitucionales,
     Sesion,
+)
+from botonera2_backend.dominio.votacion import (
+    CausaFinalizacionInconclusa,
+    EstadoVotacion,
+    ResultadoVotacion,
+)
+from botonera2_backend.servicios.finalizacion_votacion import (
+    finalizar_votacion_inconclusa_bajo_lock,
 )
 from botonera2_backend.servicios.serializacion import EjecutorMutaciones
 
@@ -85,7 +94,7 @@ class ServicioSesion:
         await self._ejecutor.ejecutar(lambda: self._actualizar_autoridades_bajo_lock(actualizacion))
 
     async def cerrar_sesion(self) -> None:
-        """Cierra una sesión sin votación pendiente y limpia todo el contexto."""
+        """Resuelve la votación pendiente autorizada y cierra el contexto."""
 
         await self._ejecutor.ejecutar(self._cerrar_sesion_bajo_lock)
 
@@ -265,7 +274,12 @@ class ServicioSesion:
                 contexto.secretaria_legislativa = secretaria
 
     async def _cerrar_sesion_bajo_lock(self) -> None:
-        """Persiste, cierra el writer y solo entonces descarta el estado."""
+        """Compone votación y sesión bajo una sola adquisición del lock.
+
+        Cada hecho se audita antes de su mutación. Si la votación ya quedó
+        ``INCONCLUSA`` y luego falla ``SESION_CERRADA``, no se hace rollback:
+        la memoria refleja el último evento institucional durable.
+        """
 
         if self._estado.estado_global is not EstadoGlobal.SESION_ABIERTA:
             self._rechazar(
@@ -278,12 +292,45 @@ class ServicioSesion:
             )
 
         sesion = self._sesion_requerida()
-        if self._estado.votacion_activa is not None:
+        votacion = self._estado.votacion_activa
+        if (
+            votacion is not None
+            and votacion.estado is EstadoVotacion.EN_CURSO
+            and votacion.resultado is None
+        ):
+            finalizar_votacion_inconclusa_bajo_lock(
+                estado_operativo=self._estado,
+                contexto=sesion.contexto_operativo,
+                votacion=votacion,
+                causa=CausaFinalizacionInconclusa.CIERRE_SESION,
+                fecha_hora_cierre=self._reloj(),
+            )
+        elif (
+            votacion is not None
+            and votacion.estado is EstadoVotacion.CERRADA
+            and votacion.resultado is ResultadoVotacion.EMPATADA
+        ):
+            fecha_existente = votacion.fecha_hora_cierre
+            if fecha_existente is None:
+                raise RuntimeError("Votación EMPATADA sin fecha de cierre")
+            finalizar_votacion_inconclusa_bajo_lock(
+                estado_operativo=self._estado,
+                contexto=sesion.contexto_operativo,
+                votacion=votacion,
+                causa=CausaFinalizacionInconclusa.CIERRE_SESION,
+                fecha_hora_cierre=fecha_existente,
+            )
+        elif votacion is not None:
+            # ``CERRADA + None`` solo puede representar el fallo cerrado entre
+            # cierre y resultado de WP-011. Este WP no lo calcula ni lo repara;
+            # con el writer realmente fallado prevalecerá el 503 al auditar el
+            # rechazo, y una construcción artificial saludable seguirá siendo
+            # un conflicto funcional sin mutar la entidad.
             self._rechazar(
                 "cerrar sesión",
                 "VOTACION_PENDIENTE",
                 ErrorVotacionPendiente(
-                    "No puede cerrarse la sesión mientras exista una votación pendiente."
+                    "La votación pendiente no admite resolución por este flujo."
                 ),
             )
 

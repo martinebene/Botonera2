@@ -400,11 +400,11 @@ async def test_cierre_normal_limpia_contexto_y_conserva_csv(
         assert repetido.json()["codigo"] == "ESTADO_INCOMPATIBLE"
 
 
-async def test_votacion_pendiente_devuelve_409_sin_mutar(
+async def test_votacion_cerrada_sin_resultado_devuelve_409_sin_recovery(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """El guard de cierre observa la entidad tipada sin modificarla."""
+    """El guard conserva el caso técnico CERRADA + None fuera de WP-013."""
 
     async with cliente_de_prueba(tmp_path, monkeypatch) as (cliente, aplicacion):
         await preparar_y_abrir(cliente)
@@ -421,6 +421,7 @@ async def test_votacion_pendiente_devuelve_409_sin_mutar(
             base=BaseMayoria.VOTOS_COMPUTABLES,
             fecha_hora_apertura=sesion.fecha_hora_apertura,
         )
+        marcador.cerrar_recepcion(sesion.fecha_hora_apertura)
         estado.votacion_activa = marcador
         respuesta = await cliente.delete("/api/v1/sesion")
         assert respuesta.status_code == 409
