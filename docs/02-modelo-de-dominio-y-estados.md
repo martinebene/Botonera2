@@ -54,7 +54,7 @@ Atributos conceptuales mínimos:
 - votaciones realizadas;
 - cola de palabra;
 - orador actual;
-- votación activa, si existe.
+- votación pendiente, si existe.
 
 El número no es validado por unicidad ni secuencia.
 
@@ -83,7 +83,7 @@ No se enlaza automáticamente con un Concejal.
 
 Responsabilidad funcional única en el dominio:
 
-- emitir desde Moderación un voto extraordinario de desempate positivo o negativo cuando una votación de mayoría simple se encuentra `EMPATADA`.
+- emitir desde Moderación un voto extraordinario de desempate positivo o negativo cuando una votación de mayoría simple tiene resultado transitorio `EMPATADA`.
 
 Si la persona que preside también es concejal, ambos roles son independientes.
 
@@ -93,6 +93,8 @@ Rol institucional representado por texto libre. No ejecuta comandos de negocio; 
 
 ## 7. Votacion
 
+Representa una única votación. Conforme a DEC-010, su ciclo de vida y su resultado son dimensiones evolutivas distintas.
+
 Atributos conceptuales mínimos:
 
 - identificador interno técnico;
@@ -101,39 +103,72 @@ Atributos conceptuales mínimos:
 - tema;
 - tipo de mayoría: `SIMPLE` o `ESPECIAL`;
 - factor y base normalizados conforme al tipo de mayoría;
-- estado;
+- estado de recepción;
+- resultado institucional, si existe;
 - hora de apertura/cierre;
 - votos ordinarios;
 - si corresponde, voto presidencial de desempate;
 - motivo de finalización manual cuando corresponda.
 
-Desde la apertura son inmutables el identificador, número, tipo, tema, tipo de mayoría, factor, base y hora de apertura. El estado, los votos y los datos de cierre permanecen conceptualmente evolutivos para sus WPs propietarios.
+Desde la apertura son inmutables el identificador, número, tipo, tema, tipo de mayoría, factor, base y hora de apertura. El estado de recepción, el resultado, los votos y los datos de cierre permanecen evolutivos únicamente dentro de las transiciones expresamente autorizadas.
 
-### Estados
+### Estado de recepción
 
-- `EN_CURSO`
-- `APROBADA`
-- `RECHAZADA`
-- `EMPATADA`
-- `INCONCLUSA`
+Valores canónicos:
 
-No existen `PAUSADA` ni `CANCELADA`.
+- `EN_CURSO`: todavía puede admitir votos ordinarios si se cumplen las precondiciones;
+- `CERRADA`: ya no admite nuevos votos ordinarios.
+
+Una votación recién abierta queda `EN_CURSO` y con `resultado = None`.
+
+El cierre por completitud cambia la recepción a `CERRADA`, fija una única hora de cierre y no implica por sí mismo un resultado determinado. Durante la implementación incremental puede existir `CERRADA + resultado=None`; en la implementación completa el cálculo ordinario se encadena al cierre bajo la serialización única del backend.
+
+### Resultado
+
+Valores conceptuales:
+
+- `None`: todavía no existe resultado institucional;
+- `APROBADA`: resultado final;
+- `RECHAZADA`: resultado final;
+- `EMPATADA`: resultado transitorio exclusivo de mayoría simple y pendiente de desempate presidencial;
+- `INCONCLUSA`: resultado final de una finalización que no consolidó un resultado ordinario.
+
+`APROBADA`, `RECHAZADA`, `EMPATADA` e `INCONCLUSA` no son estados del ciclo de recepción.
+
+Una votación con `resultado = EMPATADA` permanece `CERRADA`, continúa pendiente y bloquea una nueva apertura. El desempate actúa sobre la misma instancia y cambia únicamente su resultado a `APROBADA` o `RECHAZADA`; la auditoría conserva el hecho previo del empate y el posterior desempate.
 
 ### Transiciones principales
 
-`EN_CURSO -> APROBADA|RECHAZADA|EMPATADA`
-cuando votaron todos los presentes y el resultado puede calcularse.
+```text
+EN_CURSO + resultado=None
+    -> CERRADA + resultado=None
+```
 
-`EN_CURSO -> INCONCLUSA`
-por pérdida de quórum o finalización manual antes de completar normalmente.
+cuando se completa normalmente la recepción de votos.
 
-`EMPATADA -> APROBADA|RECHAZADA`
-por voto presidencial de desempate.
+Sobre esa misma votación cerrada, el cálculo ordinario produce:
 
-`EMPATADA -> INCONCLUSA`
-al cerrar la sesión sin resolver el empate.
+```text
+CERRADA + resultado=None
+    -> CERRADA + resultado=APROBADA|RECHAZADA|EMPATADA
+```
 
-Una votación en estado final nunca vuelve a abrirse ni se recalcula.
+La mayoría SIMPLE puede producir `EMPATADA`; la ESPECIAL no.
+
+El desempate presidencial produce:
+
+```text
+CERRADA + resultado=EMPATADA
+    -> CERRADA + resultado=APROBADA|RECHAZADA
+```
+
+Una finalización manual, la pérdida de quórum durante `EN_CURSO` u otros flujos propietarios pueden producir:
+
+```text
+CERRADA + resultado=INCONCLUSA
+```
+
+Un resultado final (`APROBADA`, `RECHAZADA` o `INCONCLUSA`) nunca vuelve a abrirse ni se recalcula. `EMPATADA` no es final y debe resolverse por desempate o por el flujo de cierre de sesión que corresponda.
 
 ## 8. TipoMayoria
 
@@ -179,7 +214,7 @@ Representa el voto de un concejal.
 
 Representa una decisión del rol Presidencia, no un voto ordinario de concejal.
 
-- solo en votación simple `EMPATADA`;
+- solo cuando una votación simple cerrada tiene `resultado = EMPATADA`;
 - valor `POSITIVO` o `NEGATIVO`;
 - ingresado desde Moderación;
 - irreversible;
@@ -195,7 +230,7 @@ Se modifica solo por tecla `9` del dispositivo asignado.
 
 Puede cambiar durante la sesión y durante una votación.
 
-La pérdida de quórum en `EN_CURSO` finaliza inmediatamente la votación como `INCONCLUSA`.
+La pérdida de quórum mientras la recepción está `EN_CURSO` finaliza la votación con `estado = CERRADA` y `resultado = INCONCLUSA` cuando el WP propietario de esa transición está integrado.
 
 ## 12. ColaUsoPalabra
 
@@ -240,12 +275,13 @@ Normalmente proviene de la configuración congelada al preparar. El futuro remap
 ## 16. Invariantes
 
 - máximo una preparación/sesión activa;
-- máximo una votación activa;
-- una votación empatada bloquea otra;
+- máximo una votación pendiente;
+- una votación `EN_CURSO`, `CERRADA` sin resultado o `EMPATADA` bloquea otra apertura;
 - un voto ordinario por concejal/votación;
 - sesión solo abre con quórum y autoridades completas;
 - votación solo abre con sesión y quórum;
-- pérdida de quórum en votación => `INCONCLUSA`;
-- ninguna transición cerrada se revierte;
+- pérdida de quórum durante recepción `EN_CURSO` => cierre con resultado `INCONCLUSA` cuando esa transición esté implementada;
+- ningún resultado final se revierte;
+- `EMPATADA` es transitorio y solo se resuelve mediante los flujos autorizados;
 - estado activo solo en memoria;
 - frontends no son autoridad de dominio.
