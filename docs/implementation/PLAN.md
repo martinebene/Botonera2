@@ -74,7 +74,7 @@ WP-008 quedó integrado mediante squash merge de PR #15 después de CI verde y r
 | WP | Objetivo | Estado | Depende de | Agente |
 |---|---|---|---|---|
 | WP-009 | Implementar apertura e inmutabilidad de una votación y bloqueo de aperturas incompatibles | INTEGRADO | WP-008 | - |
-| WP-010 | Implementar voto ordinario, unicidad, irreversibilidad y autocierre de recepción por completitud, sin calcular resultado | PENDIENTE | WP-009, WP-006, WP-004 | - |
+| WP-010 | Implementar voto ordinario, unicidad, irreversibilidad y autocierre de recepción por completitud, sin calcular resultado | EN_CURSO | WP-009, WP-006, WP-004 | codex |
 | WP-011 | Calcular y aplicar el resultado de una votación cerrada para mayoría SIMPLE o ESPECIAL, incluido `EMPATADA` transitorio en SIMPLE | PENDIENTE | WP-010 | - |
 | WP-013 | Implementar finalización manual, pérdida de quórum, resultado `INCONCLUSA` y cierre de sesión con votación pendiente | PENDIENTE | WP-011, WP-008 | - |
 | WP-014 | Implementar desempate presidencial sobre una votación `EMPATADA` y registrar su resultado final | PENDIENTE | WP-011, WP-013 | - |
@@ -164,4 +164,4 @@ WP-001, WP-002, WP-003, WP-004, WP-005, WP-006, WP-007, WP-008, WP-009, WP-030 y
 
 DEC-007, DEC-009 y DEC-010 están vigentes. Orca continúa como entorno operativo preferido mientras esté en uso.
 
-El próximo punto de control es **WP-010**, que permanece `PENDIENTE` y sin agente asignado. Sus dependencias WP-009, WP-006 y WP-004 están integradas; el siguiente paso es redactar y aprobar su especificación individual conforme a DEC-010 antes de cualquier asignación o implementación.
+WP-010 está `EN_CURSO` y asignado a `codex`; sus dependencias están integradas y su documento individual está `APROBADO`. El próximo punto de control es crear el worktree Orca desde el `origin/main` vigente y entregar al implementador el prompt exhaustivo visible para ejecución manual.
