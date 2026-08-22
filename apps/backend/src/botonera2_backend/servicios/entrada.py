@@ -34,12 +34,16 @@ from botonera2_backend.dominio.estado import EstadoGlobal, EstadoOperativo
 from botonera2_backend.dominio.preparacion import Preparacion
 from botonera2_backend.dominio.votacion import (
     CalculoResultadoVotacion,
+    CausaFinalizacionInconclusa,
     EstadoVotacion,
     ResultadoVotacion,
     TipoMayoria,
     ValorVotoOrdinario,
     Votacion,
     VotoOrdinario,
+)
+from botonera2_backend.servicios.finalizacion_votacion import (
+    finalizar_votacion_inconclusa_bajo_lock,
 )
 from botonera2_backend.servicios.serializacion import EjecutorMutaciones
 
@@ -209,11 +213,10 @@ class ServicioEntradaTecla:
         # evento institucional de presencia que acabamos de persistir.
         preparacion.presencias[dni] = nuevo_valor
 
-        # La presencia ya es un hecho auditado y aplicado. Si este cambio deja
-        # completa una votación, su cierre constituye otro hecho institucional
-        # y se persiste por separado. Un fallo en ese segundo evento no revierte
-        # retrospectivamente la presencia confirmada.
-        self._autocerrar_si_corresponde(preparacion)
+        # La presencia ya es un hecho auditado y aplicado. La operación derivada
+        # evalúa primero quórum y recién luego completitud. Si su evento falla,
+        # no se revierte retrospectivamente esta presencia confirmada.
+        self._resolver_votacion_tras_presencia(preparacion)
         return RespuestaEntrada(
             aceptada=True,
             dispositivo=pulsacion.dispositivo,
@@ -308,8 +311,9 @@ class ServicioEntradaTecla:
         if votacion is None or votacion.estado is not EstadoVotacion.EN_CURSO:
             return
         if not preparacion.quorum_alcanzado():
-            # WP-010 no convierte la pérdida de quórum en INCONCLUSA ni en un
-            # cierre normal, aunque todos los presentes restantes hayan votado.
+            # Los votos llaman también este helper. En el flujo de presencia,
+            # la pérdida ya se resolvió antes; esta defensa impide que una etapa
+            # técnica sin quórum sea confundida con completitud normal.
             return
 
         dnis_presentes = {dni for dni, presente in preparacion.presencias.items() if presente}
@@ -334,6 +338,39 @@ class ServicioEntradaTecla:
         # se aplica. Si esa segunda escritura falla, no se revierte el cierre y
         # la referencia activa continúa apuntando a CERRADA + resultado=None.
         self._calcular_auditar_y_aplicar_resultado(preparacion, votacion)
+
+    def _resolver_votacion_tras_presencia(self, preparacion: Preparacion) -> None:
+        """Prioriza pérdida de quórum y solo después evalúa completitud.
+
+        La retirada de una persona puede hacer verdaderas ambas condiciones a
+        la vez: dejar sin quórum y dejar a todos los restantes con voto. DEC-011
+        ordena que el primer hecho domine, por lo que no se llama al cálculo
+        ordinario si el nuevo mapa de presencia ya quedó bajo el umbral.
+        """
+
+        if self._estado.estado_global is not EstadoGlobal.SESION_ABIERTA:
+            return
+        votacion = self._estado.votacion_activa
+        if (
+            votacion is None
+            or votacion.estado is not EstadoVotacion.EN_CURSO
+            or votacion.resultado is not None
+        ):
+            # Una EMPATADA está CERRADA y permanece pendiente aunque cambie el
+            # quórum. Solo el cierre explícito de sesión puede transformarla.
+            return
+
+        if not preparacion.quorum_alcanzado():
+            finalizar_votacion_inconclusa_bajo_lock(
+                estado_operativo=self._estado,
+                contexto=preparacion,
+                votacion=votacion,
+                causa=CausaFinalizacionInconclusa.PERDIDA_QUORUM,
+                fecha_hora_cierre=self._reloj(),
+            )
+            return
+
+        self._autocerrar_si_corresponde(preparacion)
 
     def _calcular_auditar_y_aplicar_resultado(
         self,

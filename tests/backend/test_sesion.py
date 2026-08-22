@@ -564,10 +564,10 @@ async def test_evento_persistido_y_cierre_writer_fallido_mantiene_contexto(
     assert leer_filas(rutas[0])[-1][4] == "SESION_CERRADA"
 
 
-async def test_votacion_pendiente_rechaza_sin_mutar_objeto(
+async def test_votacion_cerrada_sin_resultado_rechaza_sin_recovery(
     tmp_path: Path,
 ) -> None:
-    """El guard de WP-008 observa la entidad real y deja su dueño intacto."""
+    """El caso técnico CERRADA + None no se repara al cerrar sesión."""
 
     estado, servicio, entrada = await crear_contexto(tmp_path)
     await abrir_contexto_valido(servicio, entrada)
@@ -582,6 +582,7 @@ async def test_votacion_pendiente_rechaza_sin_mutar_objeto(
         base=BaseMayoria.VOTOS_COMPUTABLES,
         fecha_hora_apertura=HORA_APERTURA,
     )
+    marcador_votacion.cerrar_recepcion(HORA_APERTURA)
     estado.votacion_activa = marcador_votacion
 
     with pytest.raises(ErrorVotacionPendiente):

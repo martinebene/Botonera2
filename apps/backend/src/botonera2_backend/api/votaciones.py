@@ -11,7 +11,7 @@ from datetime import datetime
 from math import isfinite
 from typing import Annotated, Any, Literal, Self
 
-from fastapi import APIRouter, Request, status
+from fastapi import APIRouter, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from botonera2_backend.api.errores import ErrorRespuesta
@@ -168,6 +168,29 @@ class RespuestaVotacion(BaseModel):
     fecha_hora_apertura: datetime
 
 
+class SolicitudFinalizarVotacion(BaseModel):
+    """Body exacto de la finalización manual anticipada de DEC-011.
+
+    ``strict=True`` evita convertir booleanos, números u otras estructuras en
+    texto. El validador normaliza antes de llegar al dominio y rechaza tanto la
+    cadena vacía como la compuesta únicamente por espacios.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    motivo: Annotated[str, Field(strict=True)]
+
+    @field_validator("motivo")
+    @classmethod
+    def normalizar_motivo(cls, valor: str) -> str:
+        """Retira espacios exteriores y exige contenido humano obligatorio."""
+
+        normalizado = valor.strip()
+        if not normalizado:
+            raise ValueError("el motivo no puede quedar vacío")
+        return normalizado
+
+
 RESPUESTAS_ERROR_VOTACION: dict[int | str, dict[str, Any]] = {
     409: {
         "model": ErrorRespuesta,
@@ -177,6 +200,26 @@ RESPUESTAS_ERROR_VOTACION: dict[int | str, dict[str, Any]] = {
         "description": (
             "Body inválido o tipo descriptivo no permitido por la configuración congelada."
         ),
+    },
+    503: {
+        "model": ErrorRespuesta,
+        "description": "No puede garantizarse la auditoría obligatoria.",
+    },
+    500: {
+        "model": ErrorRespuesta,
+        "description": "Fallo inesperado no clasificado (ERROR_INTERNO).",
+    },
+}
+
+RESPUESTAS_ERROR_FINALIZACION: dict[int | str, dict[str, Any]] = {
+    409: {
+        "model": ErrorRespuesta,
+        "description": (
+            "Rechazo funcional: ESTADO_INCOMPATIBLE, VOTACION_NO_COINCIDE o VOTACION_NO_EN_CURSO."
+        ),
+    },
+    422: {
+        "description": "El path o body no cumple el contrato estricto de transporte.",
     },
     503: {
         "model": ErrorRespuesta,
@@ -214,3 +257,24 @@ async def abrir_votacion(
 
     votacion = await _crear_servicio(solicitud).abrir_votacion(apertura.convertir())
     return RespuestaVotacion.model_validate(votacion)
+
+
+@enrutador_votaciones.post(
+    "/votaciones/{id}/finalizacion",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+    responses=RESPUESTAS_ERROR_FINALIZACION,
+    summary="Finalizar manualmente una votación como inconclusa",
+)
+async def finalizar_votacion(
+    id: str,
+    solicitud: Request,
+    finalizacion: SolicitudFinalizarVotacion,
+) -> Response:
+    """Aplica el motivo validado sobre la votación exacta bajo exclusión."""
+
+    await _crear_servicio(solicitud).finalizar_votacion_manualmente(
+        id,
+        finalizacion.motivo,
+    )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

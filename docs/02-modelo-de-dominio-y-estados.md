@@ -164,13 +164,19 @@ CERRADA + resultado=EMPATADA
     -> CERRADA + resultado=APROBADA|RECHAZADA
 ```
 
-Una finalización manual, la pérdida de quórum durante `EN_CURSO` u otros flujos propietarios pueden producir:
+Una finalización manual, la pérdida de quórum durante `EN_CURSO` o el cierre de sesión producen sobre la misma instancia:
 
 ```text
-CERRADA + resultado=INCONCLUSA
+EN_CURSO + resultado=None
+    -> CERRADA + resultado=INCONCLUSA
+
+CERRADA + resultado=EMPATADA
+    -> CERRADA + resultado=INCONCLUSA  # solo al cerrar sesión
 ```
 
-Un resultado final (`APROBADA`, `RECHAZADA` o `INCONCLUSA`) nunca vuelve a abrirse ni se recalcula. `EMPATADA` no es final y debe resolverse por desempate o por el flujo de cierre de sesión que corresponda.
+La primera transición fija una única fecha/hora de cierre; la segunda conserva la que ya tenía el empate. Solo la causa manual almacena un motivo humano normalizado, inmutable y separado de las causas institucionales `PERDIDA_QUORUM` y `CIERRE_SESION`.
+
+Un resultado final (`APROBADA`, `RECHAZADA` o `INCONCLUSA`) nunca vuelve a abrirse ni se recalcula. `EMPATADA` no es final y debe resolverse por desempate o por el cierre explícito de sesión. Una pérdida posterior de quórum no modifica por sí sola el empate.
 
 ## 8. TipoMayoria
 
@@ -232,7 +238,7 @@ Se modifica solo por tecla `9` del dispositivo asignado.
 
 Puede cambiar durante la sesión y durante una votación.
 
-La pérdida de quórum mientras la recepción está `EN_CURSO` finaliza la votación con `estado = CERRADA` y `resultado = INCONCLUSA` cuando el WP propietario de esa transición está integrado.
+La pérdida de quórum mientras la recepción está `EN_CURSO` finaliza inmediatamente la votación con `estado = CERRADA` y `resultado = INCONCLUSA`. Esta regla se evalúa antes que la completitud que pudiera derivarse del mismo retiro.
 
 ## 12. ColaUsoPalabra
 
@@ -282,7 +288,7 @@ Normalmente proviene de la configuración congelada al preparar. El futuro remap
 - un voto ordinario por concejal/votación;
 - sesión solo abre con quórum y autoridades completas;
 - votación solo abre con sesión y quórum;
-- pérdida de quórum durante recepción `EN_CURSO` => cierre con resultado `INCONCLUSA` cuando esa transición esté implementada;
+- pérdida de quórum durante recepción `EN_CURSO` => cierre con resultado `INCONCLUSA`, con prioridad sobre completitud;
 - ningún resultado final se revierte;
 - `EMPATADA` es transitorio y solo se resuelve mediante los flujos autorizados;
 - estado activo solo en memoria;

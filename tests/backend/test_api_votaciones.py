@@ -13,8 +13,14 @@ from typing import Any
 
 import pytest
 from botonera2_backend.aplicacion import crear_aplicacion
-from botonera2_backend.auditoria import NivelAuditoria
-from botonera2_backend.dominio.votacion import BaseMayoria, EstadoVotacion, TipoMayoria
+from botonera2_backend.auditoria import ErrorAuditoria, NivelAuditoria
+from botonera2_backend.dominio.estado import EstadoGlobal
+from botonera2_backend.dominio.votacion import (
+    BaseMayoria,
+    EstadoVotacion,
+    ResultadoVotacion,
+    TipoMayoria,
+)
 from botonera2_backend.recursos import obtener_recursos_aplicacion
 from conftest import (
     LINEA_LOGS,
@@ -460,10 +466,13 @@ async def test_segunda_apertura_guard_cierre_y_ausencia_de_edicion(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """La votación pendiente bloquea POST/DELETE y no existe un PATCH de metadatos."""
+    """La votación bloquea otra apertura y DELETE la resuelve antes de cerrar."""
 
     async with cliente_abierto(tmp_path, monkeypatch) as (cliente, aplicacion, _ruta):
         primera = await cliente.post("/api/v1/votaciones", json=cuerpo_simple())
+        estado = obtener_recursos_aplicacion(aplicacion).estado_operativo
+        votacion = estado.votacion_activa
+        assert votacion is not None
         segunda = await cliente.post("/api/v1/votaciones", json=cuerpo_simple(numero_votacion=99))
         cierre = await cliente.delete("/api/v1/sesion")
         edicion_coleccion = await cliente.patch("/api/v1/votaciones", json={"tema": "Otro"})
@@ -475,13 +484,12 @@ async def test_segunda_apertura_guard_cierre_y_ausencia_de_edicion(
         assert primera.status_code == 201
         assert segunda.status_code == 409
         assert segunda.json()["codigo"] == "VOTACION_PENDIENTE"
-        assert cierre.status_code == 409
-        assert cierre.json()["codigo"] == "VOTACION_PENDIENTE"
+        assert cierre.status_code == 204
+        assert votacion.resultado is ResultadoVotacion.INCONCLUSA
         assert edicion_coleccion.status_code == 405
         assert edicion_entidad.status_code == 404
-        estado = obtener_recursos_aplicacion(aplicacion).estado_operativo
-        assert estado.sesion_activa is not None
-        assert len(estado.sesion_activa.votaciones) == 1
+        assert estado.estado_global is EstadoGlobal.SIN_PREPARAR
+        assert estado.sesion_activa is None
 
 
 async def test_auditoria_indisponible_devuelve_503_sin_publicar(
@@ -501,6 +509,261 @@ async def test_auditoria_indisponible_devuelve_503_sin_publicar(
         assert respuesta.json()["codigo"] == "AUDITORIA_NO_DISPONIBLE"
         assert sesion.votaciones == []
         assert estado.votacion_activa is None
+
+
+async def test_api_finalizacion_manual_normaliza_preserva_voto_y_responde_204(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """El endpoint exacto finaliza la misma instancia sin calcular mayoría."""
+
+    async with cliente_abierto(tmp_path, monkeypatch) as (cliente, aplicacion, _ruta):
+        await cliente.post(
+            "/api/v1/entradas/tecla",
+            json={"dispositivo": "D-02", "tecla": "9"},
+        )
+        apertura = await cliente.post("/api/v1/votaciones", json=cuerpo_simple())
+        id_votacion = apertura.json()["id"]
+        voto = await cliente.post(
+            "/api/v1/entradas/tecla",
+            json={"dispositivo": "D-01", "tecla": "1"},
+        )
+        assert voto.status_code == 200
+
+        respuesta = await cliente.post(
+            f"/api/v1/votaciones/{id_votacion}/finalizacion",
+            json={"motivo": "  decisión de Moderación  "},
+        )
+
+        assert respuesta.status_code == 204
+        assert respuesta.content == b""
+        estado = obtener_recursos_aplicacion(aplicacion).estado_operativo
+        sesion = estado.sesion_activa
+        assert sesion is not None
+        votacion = sesion.votaciones[0]
+        assert votacion.id == id_votacion
+        assert votacion.estado is EstadoVotacion.CERRADA
+        assert votacion.resultado is ResultadoVotacion.INCONCLUSA
+        assert votacion.motivo_finalizacion_manual == "decisión de Moderación"
+        assert set(votacion.votos_ordinarios) == {"30000001"}
+        assert estado.votacion_activa is None
+        assert filas_auditoria(aplicacion)[-1][4] == "VOTACION_FINALIZADA_INCONCLUSA"
+
+
+@pytest.mark.parametrize(
+    "cuerpo",
+    [
+        {},
+        {"motivo": ""},
+        {"motivo": "   "},
+        {"motivo": None},
+        {"motivo": True},
+        {"motivo": 123},
+        {"motivo": ["texto"]},
+        {"motivo": {"texto": "motivo"}},
+        {"motivo": "válido", "extra": "prohibido"},
+    ],
+    ids=[
+        "faltante",
+        "vacio",
+        "blancos",
+        "null",
+        "booleano",
+        "numero",
+        "lista",
+        "objeto",
+        "campo-extra",
+    ],
+)
+async def test_api_finalizacion_rechaza_body_invalido_antes_del_dominio(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    cuerpo: dict[str, Any],
+) -> None:
+    """Todos los cuerpos ajenos al string estricto obligatorio producen 422."""
+
+    async with cliente_abierto(tmp_path, monkeypatch) as (cliente, aplicacion, _ruta):
+        apertura = await cliente.post("/api/v1/votaciones", json=cuerpo_simple())
+        estado = obtener_recursos_aplicacion(aplicacion).estado_operativo
+        votacion = estado.votacion_activa
+        assert votacion is not None
+        cantidad_eventos = len(filas_auditoria(aplicacion))
+
+        respuesta = await cliente.post(
+            f"/api/v1/votaciones/{apertura.json()['id']}/finalizacion",
+            json=cuerpo,
+        )
+
+        assert respuesta.status_code == 422
+        assert votacion.estado is EstadoVotacion.EN_CURSO
+        assert votacion.resultado is None
+        assert votacion.motivo_finalizacion_manual is None
+        assert estado.votacion_activa is votacion
+        assert len(filas_auditoria(aplicacion)) == cantidad_eventos
+
+
+async def test_api_finalizacion_expone_conflictos_estables_y_rechazo_l2(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Distingue estado, ausencia, id obsoleto y etapa no finalizable."""
+
+    preparar_archivos(tmp_path / "sin-sesion")
+    monkeypatch.chdir(tmp_path / "sin-sesion")
+    aplicacion_vacia = crear_aplicacion()
+    async with aplicacion_vacia.router.lifespan_context(aplicacion_vacia):
+        transporte = ASGITransport(app=aplicacion_vacia)
+        async with AsyncClient(transport=transporte, base_url="http://pruebas") as cliente:
+            respuesta = await cliente.post(
+                "/api/v1/votaciones/inexistente/finalizacion",
+                json={"motivo": "motivo"},
+            )
+            assert respuesta.status_code == 409
+            assert respuesta.json()["codigo"] == "ESTADO_INCOMPATIBLE"
+
+    async with cliente_abierto(tmp_path / "sesion", monkeypatch) as (
+        cliente,
+        aplicacion,
+        _ruta,
+    ):
+        sin_activa = await cliente.post(
+            "/api/v1/votaciones/inexistente/finalizacion",
+            json={"motivo": "motivo"},
+        )
+        assert sin_activa.status_code == 409
+        assert sin_activa.json()["codigo"] == "VOTACION_NO_EN_CURSO"
+
+        apertura = await cliente.post("/api/v1/votaciones", json=cuerpo_simple())
+        id_votacion = apertura.json()["id"]
+        id_incorrecto = await cliente.post(
+            "/api/v1/votaciones/otra-votacion/finalizacion",
+            json={"motivo": "motivo"},
+        )
+        assert id_incorrecto.status_code == 409
+        assert id_incorrecto.json()["codigo"] == "VOTACION_NO_COINCIDE"
+        fila = filas_auditoria(aplicacion)[-1]
+        assert fila[2:5] == ["L2", "VOTACION", "COMANDO_VOTACION_RECHAZADO"]
+        assert "id_solicitado=otra-votacion" in fila[5]
+
+        estado = obtener_recursos_aplicacion(aplicacion).estado_operativo
+        votacion = estado.votacion_activa
+        assert votacion is not None
+        votacion.cerrar_recepcion(datetime(2026, 8, 22, 12, 0, 0))
+        cerrada_tecnica = await cliente.post(
+            f"/api/v1/votaciones/{id_votacion}/finalizacion",
+            json={"motivo": "motivo"},
+        )
+        assert cerrada_tecnica.status_code == 409
+        assert cerrada_tecnica.json()["codigo"] == "VOTACION_NO_EN_CURSO"
+        assert votacion.resultado is None
+
+
+async def test_api_finalizacion_no_convierte_empate(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """EMPATADA queda reservada para cierre de sesión, no para POST manual."""
+
+    async with cliente_abierto(tmp_path, monkeypatch) as (cliente, aplicacion, _ruta):
+        await cliente.post(
+            "/api/v1/entradas/tecla",
+            json={"dispositivo": "D-02", "tecla": "9"},
+        )
+        apertura = await cliente.post("/api/v1/votaciones", json=cuerpo_simple())
+        await cliente.post(
+            "/api/v1/entradas/tecla",
+            json={"dispositivo": "D-01", "tecla": "1"},
+        )
+        await cliente.post(
+            "/api/v1/entradas/tecla",
+            json={"dispositivo": "D-02", "tecla": "3"},
+        )
+        estado = obtener_recursos_aplicacion(aplicacion).estado_operativo
+        votacion = estado.votacion_activa
+        assert votacion is not None
+        assert votacion.resultado is ResultadoVotacion.EMPATADA
+
+        respuesta = await cliente.post(
+            f"/api/v1/votaciones/{apertura.json()['id']}/finalizacion",
+            json={"motivo": "motivo"},
+        )
+
+        assert respuesta.status_code == 409
+        assert respuesta.json()["codigo"] == "VOTACION_NO_EN_CURSO"
+        assert votacion.resultado is ResultadoVotacion.EMPATADA
+        assert estado.votacion_activa is votacion
+
+
+async def test_api_fallo_auditoria_finalizacion_devuelve_503_sin_mutar(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """La frontera L3 fallida conserva fecha, motivo, votos y referencia."""
+
+    async with cliente_abierto(tmp_path, monkeypatch) as (cliente, aplicacion, _ruta):
+        apertura = await cliente.post("/api/v1/votaciones", json=cuerpo_simple())
+        estado = obtener_recursos_aplicacion(aplicacion).estado_operativo
+        votacion = estado.votacion_activa
+        sesion = estado.sesion_activa
+        assert votacion is not None
+        assert sesion is not None
+        escritor = sesion.contexto_operativo.escritor_auditoria
+        registrar_original = escritor.registrar_evento
+
+        def fallar_finalizacion(
+            nivel: NivelAuditoria,
+            etiqueta: str,
+            codigo_evento: str,
+            mensaje: str,
+        ) -> int:
+            if codigo_evento == "VOTACION_FINALIZADA_INCONCLUSA":
+                monkeypatch.setattr(escritor, "_fallado", True)
+                raise ErrorAuditoria("fallo simulado")
+            return registrar_original(nivel, etiqueta, codigo_evento, mensaje)
+
+        monkeypatch.setattr(escritor, "registrar_evento", fallar_finalizacion)
+        respuesta = await cliente.post(
+            f"/api/v1/votaciones/{apertura.json()['id']}/finalizacion",
+            json={"motivo": "motivo"},
+        )
+
+        assert respuesta.status_code == 503
+        assert respuesta.json()["codigo"] == "AUDITORIA_NO_DISPONIBLE"
+        assert votacion.estado is EstadoVotacion.EN_CURSO
+        assert votacion.resultado is None
+        assert votacion.fecha_hora_cierre is None
+        assert votacion.motivo_finalizacion_manual is None
+        assert estado.votacion_activa is votacion
+        assert escritor.fallado is True
+
+
+async def test_api_fallo_auditoria_de_rechazo_prevalece_sobre_409(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Un rechazo no se presenta como normal si su evento L2 no es durable."""
+
+    async with cliente_abierto(tmp_path, monkeypatch) as (cliente, aplicacion, _ruta):
+        await cliente.post("/api/v1/votaciones", json=cuerpo_simple())
+        estado = obtener_recursos_aplicacion(aplicacion).estado_operativo
+        votacion = estado.votacion_activa
+        sesion = estado.sesion_activa
+        assert votacion is not None
+        assert sesion is not None
+        escritor = sesion.contexto_operativo.escritor_auditoria
+        escritor.cerrar()
+
+        respuesta = await cliente.post(
+            "/api/v1/votaciones/id-obsoleto/finalizacion",
+            json={"motivo": "motivo"},
+        )
+
+        assert respuesta.status_code == 503
+        assert respuesta.json()["codigo"] == "AUDITORIA_NO_DISPONIBLE"
+        assert votacion.estado is EstadoVotacion.EN_CURSO
+        assert votacion.resultado is None
+        assert votacion.fecha_hora_cierre is None
+        assert estado.votacion_activa is votacion
 
 
 def filas_auditoria(aplicacion: FastAPI) -> list[list[str]]:
@@ -546,4 +809,12 @@ def test_openapi_expone_union_discriminada_respuesta_y_errores() -> None:
         "CUERPO",
     }
     assert set(esquemas["TipoMayoria"]["enum"]) == {"SIMPLE", "ESPECIAL"}
+    ruta_finalizacion = especificacion["paths"]["/api/v1/votaciones/{id}/finalizacion"]
+    assert set(ruta_finalizacion) == {"post"}
+    operacion_finalizacion = ruta_finalizacion["post"]
+    assert set(("204", "409", "422", "503", "500")) <= set(operacion_finalizacion["responses"])
+    esquema_finalizacion = esquemas["SolicitudFinalizarVotacion"]
+    assert esquema_finalizacion["required"] == ["motivo"]
+    assert esquema_finalizacion["additionalProperties"] is False
+    assert esquema_finalizacion["properties"]["motivo"]["type"] == "string"
     assert "/api/v1/votaciones/{id}" not in especificacion["paths"]

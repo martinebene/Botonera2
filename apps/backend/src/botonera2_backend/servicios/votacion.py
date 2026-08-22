@@ -1,4 +1,4 @@
-"""Servicio serializado para abrir una votación durante sesión.
+"""Servicio serializado para abrir y finalizar manualmente una votación.
 
 La apertura completa ocurre dentro del ``EjecutorMutaciones`` compartido. El
 orden es deliberado: validar precondiciones, persistir auditoría y recién
@@ -17,11 +17,21 @@ from botonera2_backend.dominio.errores import (
     ErrorEstadoIncompatible,
     ErrorQuorumInsuficiente,
     ErrorTipoVotacionNoPermitido,
+    ErrorVotacionNoCoincide,
+    ErrorVotacionNoEnCurso,
     ErrorVotacionPendiente,
 )
 from botonera2_backend.dominio.estado import EstadoGlobal, EstadoOperativo
 from botonera2_backend.dominio.sesion import Sesion
-from botonera2_backend.dominio.votacion import DatosAperturaVotacion, Votacion
+from botonera2_backend.dominio.votacion import (
+    CausaFinalizacionInconclusa,
+    DatosAperturaVotacion,
+    EstadoVotacion,
+    Votacion,
+)
+from botonera2_backend.servicios.finalizacion_votacion import (
+    finalizar_votacion_inconclusa_bajo_lock,
+)
 from botonera2_backend.servicios.serializacion import EjecutorMutaciones
 
 ETIQUETA_VOTACION = "VOTACION"
@@ -73,6 +83,18 @@ class ServicioVotacion:
         """
 
         return await self._ejecutor.ejecutar(lambda: self._abrir_votacion_bajo_lock(datos))
+
+    async def finalizar_votacion_manualmente(self, id_votacion: str, motivo: str) -> None:
+        """Finaliza como ``INCONCLUSA`` la instancia exacta identificada.
+
+        La coincidencia del id se valida dentro del serializador, no antes. Por
+        eso una orden tardía para A no puede terminar B aunque B haya ocupado
+        ``votacion_activa`` mientras el comando esperaba su turno.
+        """
+
+        await self._ejecutor.ejecutar(
+            lambda: self._finalizar_votacion_manualmente_bajo_lock(id_votacion, motivo)
+        )
 
     async def _abrir_votacion_bajo_lock(
         self,
@@ -138,11 +160,64 @@ class ServicioVotacion:
         self._estado.votacion_activa = votacion
         return votacion
 
+    async def _finalizar_votacion_manualmente_bajo_lock(
+        self,
+        id_votacion: str,
+        motivo: str,
+    ) -> None:
+        """Valida id/etapa, audita y recién entonces aplica la finalización."""
+
+        if self._estado.estado_global is not EstadoGlobal.SESION_ABIERTA:
+            self._rechazar(
+                "finalizar votación manualmente",
+                "ESTADO_INCOMPATIBLE",
+                ErrorEstadoIncompatible(
+                    "Solo puede finalizarse una votación durante SESION_ABIERTA "
+                    f"(estado actual: {self._estado.estado_global.value})."
+                ),
+                id_solicitado=id_votacion,
+            )
+
+        votacion = self._estado.votacion_activa
+        if votacion is None:
+            self._rechazar(
+                "finalizar votación manualmente",
+                "VOTACION_NO_EN_CURSO",
+                ErrorVotacionNoEnCurso("No existe una votación activa finalizable."),
+                id_solicitado=id_votacion,
+            )
+        if votacion.id != id_votacion:
+            self._rechazar(
+                "finalizar votación manualmente",
+                "VOTACION_NO_COINCIDE",
+                ErrorVotacionNoCoincide("El id solicitado no corresponde a la votación activa."),
+                id_solicitado=id_votacion,
+            )
+        if votacion.estado is not EstadoVotacion.EN_CURSO or votacion.resultado is not None:
+            self._rechazar(
+                "finalizar votación manualmente",
+                "VOTACION_NO_EN_CURSO",
+                ErrorVotacionNoEnCurso("La votación identificada no está EN_CURSO sin resultado."),
+                id_solicitado=id_votacion,
+            )
+
+        sesion = self._sesion_requerida()
+        finalizar_votacion_inconclusa_bajo_lock(
+            estado_operativo=self._estado,
+            contexto=sesion.contexto_operativo,
+            votacion=votacion,
+            causa=CausaFinalizacionInconclusa.MANUAL,
+            fecha_hora_cierre=self._reloj(),
+            motivo_manual=motivo,
+        )
+
     def _rechazar(
         self,
         operacion: str,
         codigo: str,
         error: Exception,
+        *,
+        id_solicitado: str | None = None,
     ) -> NoReturn:
         """Persiste el rechazo L2 cuando existe auditoría activa y lo lanza.
 
@@ -152,11 +227,13 @@ class ServicioVotacion:
 
         contexto = self._estado.contexto_operativo_activo()
         if contexto is not None:
+            detalle_id = "" if id_solicitado is None else f"; id_solicitado={id_solicitado}"
             contexto.escritor_auditoria.registrar_evento(
                 NivelAuditoria.L2,
                 ETIQUETA_VOTACION,
                 CODIGO_COMANDO_VOTACION_RECHAZADO,
-                f"Comando de votación rechazado: operación={operacion}; código={codigo}",
+                f"Comando de votación rechazado: operación={operacion}; "
+                f"código={codigo}{detalle_id}",
             )
         raise error
 

@@ -184,7 +184,7 @@ async def actualizar_sesion(
     summary="Cerrar normalmente la sesión",
 )
 async def cerrar_sesion(solicitud: Request) -> Response:
-    """Cierra sin body cuando no existe una votación pendiente."""
+    """Cierra sin body y resuelve antes una EN_CURSO o EMPATADA pendiente."""
 
     await _crear_servicio(solicitud).cerrar_sesion()
     return Response(status_code=status.HTTP_204_NO_CONTENT)

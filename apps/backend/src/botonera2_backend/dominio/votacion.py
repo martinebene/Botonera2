@@ -61,6 +61,19 @@ class ResultadoVotacion(StrEnum):
     INCONCLUSA = "INCONCLUSA"
 
 
+class CausaFinalizacionInconclusa(StrEnum):
+    """Distingue el hecho institucional que impidió un resultado ordinario.
+
+    La causa no se almacena como motivo humano dentro de ``Votacion``: vive en
+    la auditoría histórica. Solo ``MANUAL`` aporta además un texto del operador
+    que sí queda disponible en la entidad mientras la sesión vive en memoria.
+    """
+
+    MANUAL = "MANUAL"
+    PERDIDA_QUORUM = "PERDIDA_QUORUM"
+    CIERRE_SESION = "CIERRE_SESION"
+
+
 class ValorVotoOrdinario(StrEnum):
     """Representa los tres valores que puede emitir una banca mediante 1/2/3."""
 
@@ -173,6 +186,7 @@ class Votacion:
         "__datos_constitutivos",
         "__estado",
         "__fecha_hora_cierre",
+        "__motivo_finalizacion_manual",
         "__resultado",
         "__votos_ordinarios",
     )
@@ -203,6 +217,7 @@ class Votacion:
         )
         self.__estado = EstadoVotacion.EN_CURSO
         self.__fecha_hora_cierre: datetime | None = None
+        self.__motivo_finalizacion_manual: str | None = None
         self.__resultado: ResultadoVotacion | None = None
         self.__votos_ordinarios: dict[str, VotoOrdinario] = {}
 
@@ -223,6 +238,17 @@ class Votacion:
         """Devuelve el único instante de cierre o ``None`` mientras está abierta."""
 
         return self.__fecha_hora_cierre
+
+    @property
+    def motivo_finalizacion_manual(self) -> str | None:
+        """Devuelve el motivo humano solo cuando la finalización fue manual.
+
+        Pérdida de quórum, cierre de sesión y completitud normal no reutilizan
+        este campo para guardar códigos institucionales. Al no existir setter y
+        admitirse una sola transición, el valor queda inmutable.
+        """
+
+        return self.__motivo_finalizacion_manual
 
     @property
     def votos_ordinarios(self) -> Mapping[str, VotoOrdinario]:
@@ -272,6 +298,94 @@ class Votacion:
             raise ValueError("La recepción de votos ya fue cerrada")
         self.__fecha_hora_cierre = fecha_hora_cierre
         self.__estado = EstadoVotacion.CERRADA
+
+    def validar_finalizacion_inconclusa_manual(self, motivo: str) -> str:
+        """Valida sin mutar y devuelve el motivo manual normalizado.
+
+        Esta separación permite que el servicio construya y persista el hecho
+        completo antes de aplicar la transición. El dominio vuelve a validar al
+        mutar para protegerse también de usos internos incorrectos.
+
+        Raises:
+            ValueError: si no está ``EN_CURSO + None`` o el motivo queda vacío.
+        """
+
+        self._validar_recepcion_finalizable_inconclusa()
+        normalizado = motivo.strip()
+        if not normalizado:
+            raise ValueError("El motivo manual no puede quedar vacío")
+        if self.__motivo_finalizacion_manual is not None:
+            raise ValueError("El motivo manual ya fue establecido")
+        return normalizado
+
+    def finalizar_inconclusa_manual(
+        self,
+        fecha_hora_cierre: datetime,
+        motivo: str,
+    ) -> None:
+        """Aplica ``CERRADA + INCONCLUSA`` y conserva el motivo humano.
+
+        El servicio debe haber auditado el hecho antes de invocar este método.
+        No se calcula mayoría ni se modifica ningún voto o dato constitutivo.
+        """
+
+        normalizado = self.validar_finalizacion_inconclusa_manual(motivo)
+        self._aplicar_finalizacion_inconclusa(fecha_hora_cierre)
+        self.__motivo_finalizacion_manual = normalizado
+
+    def validar_finalizacion_inconclusa_derivada(self) -> None:
+        """Comprueba la transición ``EN_CURSO + None`` sin asignar motivo."""
+
+        self._validar_recepcion_finalizable_inconclusa()
+
+    def finalizar_inconclusa_derivada(self, fecha_hora_cierre: datetime) -> None:
+        """Finaliza por quórum o sesión sin inventar un motivo manual."""
+
+        self.validar_finalizacion_inconclusa_derivada()
+        self._aplicar_finalizacion_inconclusa(fecha_hora_cierre)
+
+    def validar_empate_inconcluso_por_cierre_sesion(self) -> None:
+        """Valida la excepción ``EMPATADA -> INCONCLUSA`` de cierre de sesión.
+
+        El nombre deliberadamente específico evita convertir ``resultado`` en
+        un setter general. La finalización manual nunca utiliza esta primitiva.
+        """
+
+        if self.__estado is not EstadoVotacion.CERRADA:
+            raise ValueError("El empate pendiente debe permanecer CERRADA")
+        if self.__resultado is not ResultadoVotacion.EMPATADA:
+            raise ValueError("Solo un empate puede resolverse por este flujo")
+        if self.__fecha_hora_cierre is None:
+            raise ValueError("Una votación empatada debe conservar fecha de cierre")
+        if self.__motivo_finalizacion_manual is not None:
+            raise ValueError("Un empate no puede tener motivo de finalización manual")
+
+    def finalizar_empate_inconcluso_por_cierre_sesion(self) -> None:
+        """Cambia solo el resultado del empate al cerrar explícitamente sesión.
+
+        La fecha de cierre y los votos no se tocan: ambos pertenecen al cierre
+        normal que produjo el empate y deben conservar su identidad histórica.
+        """
+
+        self.validar_empate_inconcluso_por_cierre_sesion()
+        self.__resultado = ResultadoVotacion.INCONCLUSA
+
+    def _validar_recepcion_finalizable_inconclusa(self) -> None:
+        """Exige exactamente la recepción abierta sin resultado de DEC-011."""
+
+        if self.__estado is not EstadoVotacion.EN_CURSO or self.__resultado is not None:
+            raise ValueError("La votación no está EN_CURSO sin resultado")
+        if self.__fecha_hora_cierre is not None:
+            raise ValueError("Una recepción abierta no puede tener fecha de cierre")
+        if self.__motivo_finalizacion_manual is not None:
+            raise ValueError("Una recepción abierta no puede tener motivo manual")
+
+    def _aplicar_finalizacion_inconclusa(self, fecha_hora_cierre: datetime) -> None:
+        """Realiza una vez la mutación común después de validación y auditoría."""
+
+        self.__fecha_hora_cierre = fecha_hora_cierre
+        self.__estado = EstadoVotacion.CERRADA
+        self.__resultado = ResultadoVotacion.INCONCLUSA
 
     def calcular_resultado_ordinario(
         self,

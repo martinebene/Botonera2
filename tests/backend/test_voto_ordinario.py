@@ -19,7 +19,6 @@ from typing import cast
 import pytest
 from botonera2_backend.auditoria import ErrorAuditoria, EscritorAuditoriaCsv, NivelAuditoria
 from botonera2_backend.dominio.entrada import Pulsacion, RespuestaEntrada, ResultadoVoto
-from botonera2_backend.dominio.errores import ErrorVotacionPendiente
 from botonera2_backend.dominio.estado import EstadoGlobal, EstadoOperativo
 from botonera2_backend.dominio.sesion import ActualizacionDatosInstitucionales
 from botonera2_backend.dominio.votacion import (
@@ -334,7 +333,7 @@ async def test_autocierre_por_ultimo_voto_conserva_instancia_y_aplica_empate(
 async def test_presencia_puede_autocerrar_solo_si_se_mantiene_quorum(
     tmp_path: Path,
 ) -> None:
-    """Retirar al único pendiente cierra con quórum, pero no al perderlo."""
+    """Retirar al único pendiente cierra normal o inconclusa según quórum."""
 
     entorno, votacion = await crear_votacion(
         tmp_path / "mantiene-quorum",
@@ -357,9 +356,10 @@ async def test_presencia_puede_autocerrar_solo_si_se_mantiene_quorum(
     contexto = entorno_sin_quorum.estado.contexto_operativo_activo()
     assert contexto is not None
     assert contexto.quorum_alcanzado() is False
-    assert votacion_sin_quorum.estado is EstadoVotacion.EN_CURSO
-    assert votacion_sin_quorum.resultado is None
-    assert votacion_sin_quorum.fecha_hora_cierre is None
+    assert votacion_sin_quorum.estado is EstadoVotacion.CERRADA
+    assert votacion_sin_quorum.resultado is ResultadoVotacion.INCONCLUSA
+    assert votacion_sin_quorum.fecha_hora_cierre == HORA_CIERRE
+    assert entorno_sin_quorum.estado.votacion_activa is None
 
 
 async def test_cerrada_rechaza_votos_no_reabre_y_resultado_final_libera(
@@ -384,8 +384,9 @@ async def test_cerrada_rechaza_votos_no_reabre_y_resultado_final_libera(
     assert entorno.estado.votacion_activa is None
     nueva = await entorno.votaciones.abrir_votacion(datos_votacion())
     assert nueva is entorno.estado.votacion_activa
-    with pytest.raises(ErrorVotacionPendiente):
-        await entorno.sesion.cerrar_sesion()
+    await entorno.sesion.cerrar_sesion()
+    assert nueva.resultado is ResultadoVotacion.INCONCLUSA
+    assert entorno.estado.estado_global is EstadoGlobal.SIN_PREPARAR
 
 
 async def test_regresion_test_presencia_y_tecla_siete(

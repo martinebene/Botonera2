@@ -112,7 +112,7 @@ La sesión formal se administra sobre un único recurso:
 
 - `POST /api/v1/sesion`: abre desde `PREPARANDO`, sin body;
 - `PATCH /api/v1/sesion`: actualiza Presidencia y/o Secretaría Legislativa durante `SESION_ABIERTA`;
-- `DELETE /api/v1/sesion`: cierra normalmente, sin body y solo si no hay votación pendiente.
+- `DELETE /api/v1/sesion`: cierra, sin body; antes resuelve como `INCONCLUSA` una votación `EN_CURSO` o `EMPATADA`.
 
 `PATCH /api/v1/sesion` no admite `numero_sesion`: el número queda inmutable desde la apertura. Cada autoridad suministrada debe conservar contenido después de `strip`; durante una sesión abierta no puede limpiarse. Un cambio que normaliza al valor vigente es un no-op exitoso sin evento ficticio. Las tres operaciones responden `204 No Content` cuando completan.
 
@@ -134,7 +134,7 @@ Mapeo mínimo:
 - `409 Conflict` + `NUMERO_SESION_REQUERIDO`: falta el número para abrir;
 - `409 Conflict` + `PRESIDENCIA_REQUERIDA`: falta Presidencia para abrir;
 - `409 Conflict` + `SECRETARIA_LEGISLATIVA_REQUERIDA`: falta Secretaría Legislativa para abrir;
-- `409 Conflict` + `VOTACION_PENDIENTE`: una votación activa o empatada impide el cierre normal;
+- `409 Conflict` + `VOTACION_PENDIENTE`: existe una votación pendiente en un estado técnico o no autorizado para el flujo solicitado; `EN_CURSO` y `EMPATADA` sí son resueltas por el cierre de sesión;
 - `503 Service Unavailable` + `CONFIGURACION_INVALIDA`: `system.toml` no puede cargarse o validarse;
 - `503 Service Unavailable` + `PADRON_INVALIDO`: `concejales.csv` no cumple el contrato canónico;
 - `503 Service Unavailable` + `AUDITORIA_NO_DISPONIBLE`: no puede garantizarse la auditoría obligatoria;
@@ -169,7 +169,7 @@ No inferir el tipo de mayoría a partir de un factor. `PRESENTES` representa a q
 
 Los votos ordinarios ingresan exclusivamente por `POST /api/v1/entradas/tecla`: `1 -> POSITIVO`, `2 -> ABSTENCION`, `3 -> NEGATIVO`. La respuesta funcional agrega la variante tipada `VOTO`, con el valor aceptado y `estado_recepcion = EN_CURSO | CERRADA`, sin exponer todavía resultado ni cómputo de mayoría.
 
-La recepción completa con quórum pasa a `CERRADA` y fija una única fecha/hora. Sin liberar el `EjecutorMutaciones`, el backend calcula desde sus votos ordinarios y datos constitutivos, persiste un evento L3 de resultado y lo aplica sobre la misma instancia. `APROBADA`/`RECHAZADA` liberan `votacion_activa`; `EMPATADA` la conserva y continúa bloqueando otra apertura y el cierre normal de sesión.
+La recepción completa con quórum pasa a `CERRADA` y fija una única fecha/hora. Sin liberar el `EjecutorMutaciones`, el backend calcula desde sus votos ordinarios y datos constitutivos, persiste un evento L3 de resultado y lo aplica sobre la misma instancia. `APROBADA`/`RECHAZADA` liberan `votacion_activa`; `EMPATADA` la conserva y continúa bloqueando otra apertura hasta un flujo autorizado.
 
 El contrato HTTP no agrega un comando de cálculo ni amplía el body de entrada. `POST /api/v1/entradas/tecla` puede seguir respondiendo la variante `VOTO` con `estado_recepcion=CERRADA` cuando la pulsación completó el flujo; el resultado institucional no se incorpora a esa respuesta.
 
@@ -177,7 +177,11 @@ Si la auditoría del resultado falla después de persistir y aplicar el cierre, 
 
 ## 9. Finalización manual
 
-Existe un único comando conceptual `finalizar votacion`, con motivo obligatorio. La finalización anticipada produce `INCONCLUSA` según las reglas de negocio.
+El único endpoint es `POST /api/v1/votaciones/{id}/finalizacion`, con body `{ "motivo": "Texto obligatorio" }` y respuesta `204 No Content`. `motivo` es string estricto, se normaliza con `strip`, no admite vacío ni campos extra. Los bodies inválidos responden `422 Unprocessable Entity`.
+
+El comando exige `SESION_ABIERTA`, una referencia activa `EN_CURSO + resultado=None` y coincidencia exacta de `{id}`. Los conflictos responden `409` con `ESTADO_INCOMPATIBLE`, `VOTACION_NO_COINCIDE` o `VOTACION_NO_EN_CURSO`; los fallos de auditoría responden `503 AUDITORIA_NO_DISPONIBLE` y los inesperados `500 ERROR_INTERNO`.
+
+Una finalización manual válida siempre produce `CERRADA + INCONCLUSA` sobre la misma instancia, conserva votos y datos constitutivos, fija una única fecha de cierre y almacena el motivo normalizado. No convierte `EMPATADA` ni el estado técnico `CERRADA + resultado=None`.
 
 ## 10. Desempate presidencial
 

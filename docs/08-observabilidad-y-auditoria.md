@@ -148,6 +148,10 @@ El mensaje registra número e id de votación, tipo de mayoría, positivos, nega
 
 Si el cierre ya fue persistido y aplicado pero falla el evento de resultado, no se revierte el cierre. La votación permanece `CERRADA + resultado=None`, conserva su fecha y la referencia activa, el writer queda en fallo cerrado y la operación externa no informa éxito.
 
+Toda transición a `INCONCLUSA` persiste primero el evento L3 `VOTACION_FINALIZADA_INCONCLUSA`. El mensaje identifica número e id, causa (`MANUAL`, `PERDIDA_QUORUM` o `CIERRE_SESION`), estado y resultado previos, cantidad de votos conservados y resultado nuevo. La causa manual agrega el motivo humano normalizado; la pérdida de quórum agrega presentes posteriores y quórum requerido. Los rechazos funcionales del comando manual que alcanzan un contexto auditable usan un evento L2 estable antes de responder.
+
+Si falla ese evento, no se aplica la transición ni se libera la referencia activa. Cuando la causa fue una presencia ya auditada y aplicada, esa presencia no se revierte: la votación sigue `EN_CURSO + resultado=None` porque representa el último hecho durable. En el cierre de sesión, si la transición a `INCONCLUSA` ya fue auditada y aplicada pero luego falla `SESION_CERRADA`, tampoco se revierte; la sesión permanece abierta en memoria y la referencia activa queda liberada. Si `SESION_CERRADA` persistió pero falla el cierre físico del writer, se conserva el contexto conforme al fallo cerrado existente.
+
 ## 10. Identidad de concejales
 
 La implementación histórica usa principalmente nombre, apellido y banca en mensajes funcionales.

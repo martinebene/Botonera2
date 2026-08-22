@@ -343,6 +343,10 @@ async def test_capacidades_de_sesion_conviven_con_votacion_activa(tmp_path: Path
 
     estado, servicio_sesion, entrada, servicio = await crear_servicios(tmp_path)
     await abrir_sesion(servicio_sesion, entrada)
+    # D-02 conserva el quórum cuando D-01 se retira. Así esta regresión sigue
+    # aislando la convivencia de capacidades sin activar el nuevo cierre por
+    # pérdida de quórum, que WP-013 prueba en escenarios específicos.
+    await entrada.procesar_pulsacion(Pulsacion("D-02", "9"))
     votacion = await servicio.abrir_votacion(datos_simple())
 
     await servicio_sesion.actualizar_autoridades(
@@ -365,11 +369,12 @@ async def test_capacidades_de_sesion_conviven_con_votacion_activa(tmp_path: Path
     assert palabra.aceptada is False
     assert palabra.motivo == "TECLA_NO_HABILITADA"
 
-    with pytest.raises(ErrorVotacionPendiente):
-        await servicio_sesion.cerrar_sesion()
     sesion = estado.sesion_activa
     assert sesion is not None
     assert sesion.presidencia == "Nueva Presidencia"
     assert sesion.secretaria_legislativa == "Nueva Secretaría"
-    assert estado.votacion_activa is votacion
-    assert estado.estado_global is EstadoGlobal.SESION_ABIERTA
+    await servicio_sesion.cerrar_sesion()
+    assert votacion.resultado is not None
+    assert votacion.resultado.value == "INCONCLUSA"
+    assert estado.votacion_activa is None
+    assert estado.estado_global is EstadoGlobal.SIN_PREPARAR
