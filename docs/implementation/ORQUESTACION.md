@@ -66,8 +66,10 @@ Antes de iniciar implementación, el orquestador:
 9. cuando el operador aprueba explícitamente la definición completa, registra el WP como `APROBADO`;
 10. actualiza la documentación canónica directamente en `main` conforme a DEC-005;
 11. registra el SHA, verifica CI de `main` aplicable y exige sincronización local antes de trabajo dependiente;
-12. propone el agente implementador según complejidad, riesgo, capacidad, disponibilidad/cuota e integración con el entorno conforme a DEC-007;
-13. construye el prompt exhaustivo del implementador conforme a `PROMPTS_AGENTES.md`, incluyendo explícitamente entrega Git/PR, checks, límites, escalamiento y evidencia final.
+12. consulta al operador qué agentes/modelos están disponibles en ese momento y cómo se encuentran sus cuotas/capacidad operativa;
+13. evalúa complejidad, riesgo, capacidades, rendimiento observado, cuota e independencia entre familias y propone una pareja implementador + revisor para ese WP;
+14. acuerda explícitamente con el operador el implementador y el revisor previsto antes del lanzamiento; el implementador se registra en PLAN y el revisor permanece como asignación operativa de revisión;
+15. construye el prompt exhaustivo del implementador conforme a `PROMPTS_AGENTES.md`, incluyendo explícitamente entrega Git/PR, checks, límites, escalamiento y evidencia final.
 
 Los agentes locales de implementación reciben el WP ya cerrado. No redefinen alcance, reglas, contratos ni decisiones reservadas.
 
@@ -113,6 +115,8 @@ La documentación que un implementador modifica dentro de un WP permanece en la 
 
 Antes de iniciar, el WP debe estar `APROBADO`, sus dependencias `INTEGRADO` y `PLAN.md` debe marcarlo `EN_CURSO` con un único agente asignado. La transición documental a `EN_CURSO` y la asignación pueden registrarse directamente en `main` por el orquestador conforme a DEC-005, siempre con autorización humana explícita.
 
+La selección previa del implementador y del revisor previsto debe haberse acordado conforme a DEC-007 usando información vigente de agentes/modelos disponibles y cuotas. No existe una pareja permanente obligatoria. Si cambian materialmente disponibilidad o cuota antes de iniciar la revisión, la elección del revisor puede reconsiderarse con acuerdo explícito del operador.
+
 Además, antes de lanzar al agente, el orquestador debe completar el preflight de `PROMPTS_AGENTES.md`. Un launcher que valide correctamente Git/documentación pero entregue un prompt operativo insuficiente no satisface por sí solo esta obligación.
 
 El checkout coordinador se sincroniza siempre:
@@ -157,18 +161,23 @@ En ambos casos el agente implementador trabaja únicamente dentro del worktree d
 
 ## Asignación de implementador y revisor
 
-No existe un implementador universal predeterminado.
+No existe un implementador universal predeterminado ni una pareja fija implementador/revisor.
 
-El orquestador selecciona/proponer el agente por WP conforme a DEC-007:
+Para cada WP, el orquestador debe preguntar al operador por el estado actual de agentes, modelos y cuotas y luego recomendar una pareja concreta teniendo en cuenta:
 
-- Antigravity/AGY es una opción preferente para WPs sencillos o medios bien delimitados cuando resulte adecuado;
-- Codex se reserva preferentemente para trabajo complejo, sensible o de alto acoplamiento/razonamiento;
-- OpenCode puede implementar o revisar según el modelo efectivo utilizado;
-- otras capacidades aprobadas siguen siendo válidas.
+- complejidad y sensibilidad del WP;
+- riesgo y necesidad de razonamiento transversal;
+- capacidades relativas de los modelos disponibles en ese momento;
+- desempeño observado en WPs anteriores;
+- cuota/coste y conveniencia de reservar capacidad escasa;
+- integración con el entorno operativo;
+- independencia entre implementador y revisor, prefiriendo familias distintas.
+
+La selección se acuerda con el operador. Una combinación usada previamente es solo antecedente para la recomendación, no una regla para el siguiente WP.
 
 La disponibilidad/cuota es un factor operativo legítimo, pero nunca habilita a reducir criterios de aceptación, pruebas o revisión.
 
-El modelo concreto no se congela en la arquitectura; cuando sea relevante se registra en la PR para demostrar trazabilidad e independencia.
+El modelo concreto no se congela en la arquitectura; cuando sea relevante se registra en la PR/informe para demostrar trazabilidad e independencia.
 
 La diferencia de capacidad entre el orquestador y el agente elegido debe compensarse con mejor especificación y prompts, **no** reduciendo controles ni esperando que el agente complete por intuición instrucciones omitidas.
 
@@ -201,11 +210,13 @@ git rev-parse HEAD
 
 El árbol debe estar limpio, el SHA debe coincidir con el HEAD remoto y el implementador no debe estar actuando sobre ese worktree.
 
+Antes de lanzar la revisión, el orquestador reconfirma que el revisor previamente acordado sigue siendo adecuado según disponibilidad/cuota actuales. Si cambió materialmente el contexto, propone una alternativa y la acuerda con el operador antes de continuar.
+
 El revisor usa una sesión distinta, preferentemente otra familia de modelo, trabaja en modo solo lectura y finaliza con `git status` limpio. Nunca hay dos agentes actuando simultáneamente sobre el mismo WP/worktree.
 
 El prompt del revisor debe identificar explícitamente PR, SHA, base, modo solo lectura, checks, criterios de hallazgo, prohibición de modificar/pushear/mergear y formato de veredicto según `PROMPTS_AGENTES.md`.
 
-Cuando Antigravity/AGY implementa, se prefiere OpenCode con una familia no Gemini como revisor si está disponible y es adecuada. Esta preferencia no reemplaza la regla general: la independencia depende de sesión/agente/modelo efectivo, no del nombre del arnés.
+Cambiar solamente de arnés manteniendo el mismo modelo efectivo no satisface por sí mismo la independencia.
 
 Si hay correcciones, vuelve el implementador original, corrige y pushea; luego se repiten sincronización, validaciones y revisión sobre el nuevo SHA. El prompt de corrección debe enumerar los hallazgos exactos y la re-revisión debe congelar el nuevo SHA.
 
@@ -345,7 +356,10 @@ ChatGPT Web orquestador
   -> resuelve con el humano decisiones DT-038
   -> actualiza documentación canónica directamente en main
   -> verifica SHA/CI y sincroniza clon local
-  -> autoriza WP y asigna implementador según DEC-007
+  -> consulta agentes/modelos disponibles y cuotas actuales
+  -> evalúa complejidad/riesgo y propone implementador + revisor independiente
+  -> acuerda ambos con el operador
+  -> autoriza WP y registra implementador según DEC-007
   -> construye prompt exhaustivo según PROMPTS_AGENTES.md (con salida copiable si Orca+OpenCode)
   -> si Orca: operador ejecuta lanzador Orca (iniciar_wp_orca.py); crea worktree y abre agente SIN prompt
   -> si otro entorno: operador ejecuta lanzador genérico (iniciar_wp.py); crea worktree y abre agente
@@ -355,6 +369,7 @@ ChatGPT Web orquestador
   -> commits + sincronización con origin/main + validaciones finales + push + PR
   -> candidato entregado para revisión con SHA exacto
   -> orquestador verifica candidato en GitHub
+  -> reconfirma revisor previsto según disponibilidad/cuota vigente
   -> revisor recibe prompt exhaustivo y usa secuencialmente el mismo worktree en solo lectura
   -> correcciones vuelven al implementador con hallazgos explícitos si existen
   -> re-revisión sobre nuevo SHA
@@ -380,7 +395,9 @@ La nueva conversación debe recibir un mensaje que indique, como mínimo:
 - que debe planificar los WPs junto con el operador antes de delegar implementación;
 - que debe escalar decisiones DT-038 al operador y no inventarlas;
 - que puede mantener directamente en `main` la documentación autorizada por DEC-005;
-- que debe seleccionar implementador/revisor según DEC-007, preservando revisión independiente y reservando capacidad cara/escasa para trabajo que la justifique;
+- que antes de cada WP debe consultar qué agentes/modelos están disponibles y cómo están sus cuotas, y acordar con el operador implementador + revisor independiente según complejidad, capacidad, coste y familia de modelo;
+- que no debe fijar una pareja permanente ni asumir que modelos/cuotas de un WP siguen iguales en el siguiente;
+- que puede reconfirmar/cambiar de común acuerdo el revisor antes de la revisión si cambió materialmente la disponibilidad;
 - que debe aprovechar la mayor capacidad de razonamiento del orquestador para redactar **prompts de agentes exhaustivos y explícitos**, sin confiar en que implementadores/revisores infieran pasos omitidos;
 - que todo prompt debe cumplir `docs/implementation/PROMPTS_AGENTES.md`, incluyendo rol, alcance, prohibiciones, Git/PR, validaciones, escalamiento y evidencia final;
 - que debe respetar sincronización GitHub/local, un worktree por WP, revisión independiente secuencial, CI, squash merge, verificación remota y limpieza local/remota específica del entorno;
