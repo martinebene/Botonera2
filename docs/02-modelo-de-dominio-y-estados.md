@@ -121,7 +121,7 @@ Valores canónicos:
 
 Una votación recién abierta queda `EN_CURSO` y con `resultado = None`.
 
-El cierre por completitud cambia la recepción a `CERRADA`, fija una única hora de cierre y no implica por sí mismo un resultado determinado. Durante la implementación incremental puede existir `CERRADA + resultado=None`; en la implementación completa el cálculo ordinario se encadena al cierre bajo la serialización única del backend.
+El cierre por completitud cambia la recepción a `CERRADA` y fija una única hora de cierre. Es un hecho separado del resultado: bajo la misma serialización, el backend calcula el resultado sin mutar, lo audita y recién entonces lo aplica. Si falla esa segunda auditoría, permanece legítimamente `CERRADA + resultado=None`, con la misma fecha y referencia activa, porque ese fue el último hecho institucional persistido.
 
 ### Resultado
 
@@ -154,6 +154,8 @@ CERRADA + resultado=None
 ```
 
 La mayoría SIMPLE puede producir `EMPATADA`; la ESPECIAL no.
+
+Al aplicar `APROBADA` o `RECHAZADA`, la misma entidad permanece en el historial y deja libre la referencia de votación activa. Al aplicar `EMPATADA`, esa misma entidad conserva la referencia activa y continúa pendiente.
 
 El desempate presidencial produce:
 
@@ -189,7 +191,7 @@ Tiene:
 - `factor` real finito `> 0` y `<= 1`;
 - `base = VOTOS_COMPUTABLES | PRESENTES | CUERPO`.
 
-Aprueba con cociente `>= factor`.
+Aprueba con cociente `>= factor`, comparando directamente los valores numéricos congelados y calculados, sin redondeo ni tolerancia.
 
 `VOTOS_COMPUTABLES`: denominador = positivos + negativos; si al cierre normal solo hubo abstenciones, el resultado especial es `RECHAZADA` sin dividir por cero.
 

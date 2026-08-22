@@ -169,7 +169,11 @@ No inferir el tipo de mayoría a partir de un factor. `PRESENTES` representa a q
 
 Los votos ordinarios ingresan exclusivamente por `POST /api/v1/entradas/tecla`: `1 -> POSITIVO`, `2 -> ABSTENCION`, `3 -> NEGATIVO`. La respuesta funcional agrega la variante tipada `VOTO`, con el valor aceptado y `estado_recepcion = EN_CURSO | CERRADA`, sin exponer todavía resultado ni cómputo de mayoría.
 
-La recepción completa con quórum pasa a `CERRADA`, fija una única fecha/hora y permanece pendiente con `resultado = None`. La misma instancia continúa en el historial y en `votacion_activa`; por eso bloquea otra apertura y el cierre normal de sesión.
+La recepción completa con quórum pasa a `CERRADA` y fija una única fecha/hora. Sin liberar el `EjecutorMutaciones`, el backend calcula desde sus votos ordinarios y datos constitutivos, persiste un evento L3 de resultado y lo aplica sobre la misma instancia. `APROBADA`/`RECHAZADA` liberan `votacion_activa`; `EMPATADA` la conserva y continúa bloqueando otra apertura y el cierre normal de sesión.
+
+El contrato HTTP no agrega un comando de cálculo ni amplía el body de entrada. `POST /api/v1/entradas/tecla` puede seguir respondiendo la variante `VOTO` con `estado_recepcion=CERRADA` cuando la pulsación completó el flujo; el resultado institucional no se incorpora a esa respuesta.
+
+Si la auditoría del resultado falla después de persistir y aplicar el cierre, la operación responde como indisponibilidad de auditoría y queda `CERRADA + resultado=None` con la misma referencia activa. No se publica un resultado sin su hecho institucional durable.
 
 ## 9. Finalización manual
 

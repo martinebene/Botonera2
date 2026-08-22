@@ -134,7 +134,7 @@ Un concejal ausente que pasa a presente durante `EN_CURSO` puede votar si todav�
 
 ## CA-026 Autocierre
 
-Cuando todos los concejales actualmente presentes votaron y se mantiene quórum, la recepción debe cerrarse automáticamente sin confirmación de Moderación. Queda `CERRADA`, con fecha/hora de cierre única y `resultado = None`; la pérdida de quórum no puede confundirse con este cierre normal.
+Cuando todos los concejales actualmente presentes votaron y se mantiene quórum, la recepción debe cerrarse automáticamente sin confirmación de Moderación. Queda `CERRADA`, con fecha/hora de cierre única y, bajo la misma serialización, calcula, audita y aplica el resultado ordinario; la pérdida de quórum no puede confundirse con este cierre normal.
 
 ## CA-027 Mayoría simple positiva
 
@@ -162,7 +162,7 @@ La abstención integra el denominador. `PRESENTES` significa quienes emitieron v
 
 ## CA-032 Igualdad de umbral
 
-Si el cociente es exactamente igual al factor especial, debe aprobar.
+Si el cociente es exactamente igual al factor especial, debe aprobar. La comparación no usa redondeo ni tolerancia: `8/12` aprueba con el valor efectivo `2/3`, pero rechaza con factor `0.6666666667`.
 
 ## CA-033 Especial sobre cuerpo
 
@@ -190,7 +190,7 @@ Recuperar quórum posteriormente no debe reabrir ni recalcular esa votación.
 
 ## CA-037 Empate bloqueante
 
-Mientras haya `EMPATADA`, debe rechazarse abrir otra votación.
+Mientras haya `EMPATADA`, la misma votación cerrada debe conservarse como activa y debe rechazarse abrir otra. `APROBADA` y `RECHAZADA` liberan la referencia activa después de auditar y aplicar el resultado.
 
 ## CA-038 Desempate presidencial
 

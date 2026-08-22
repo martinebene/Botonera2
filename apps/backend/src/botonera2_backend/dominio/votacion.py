@@ -1,9 +1,9 @@
 """Entidades y vocabulario canónico de una votación de Botonera2.
 
 La entidad separa deliberadamente el estado de recepción del resultado
-institucional. WP-010 puede cerrar la recepción y conservar votos sin calcular
-todavía una mayoría: esa etapa se representa como ``CERRADA`` con
-``resultado=None`` conforme a DEC-010.
+institucional. El cierre y la aplicación del resultado son dos transiciones
+distintas: entre ambas existe ``CERRADA`` con ``resultado=None`` conforme a
+DEC-010, aunque el flujo normal las encadena bajo una sola sección crítica.
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ class BaseMayoria(StrEnum):
     ``VOTOS_COMPUTABLES`` cuenta positivos y negativos. ``PRESENTES`` es el
     término institucional para quienes emitieron voto ordinario en esa
     votación, incluidas abstenciones. ``CUERPO`` es el total del padrón
-    congelado. WP-009 almacena la elección, pero no calcula ningún resultado.
+    congelado. La elección se almacena al abrir y WP-011 la consume al cerrar.
     """
 
     VOTOS_COMPUTABLES = "VOTOS_COMPUTABLES"
@@ -50,9 +50,9 @@ class EstadoVotacion(StrEnum):
 class ResultadoVotacion(StrEnum):
     """Enumera las interpretaciones institucionales separadas de la recepción.
 
-    WP-010 no asigna ninguno de estos valores: los declara para expresar el
-    modelo aprobado por DEC-010 y mantiene ``resultado=None``. Cada transición
-    será responsabilidad del WP que calcule o finalice la votación.
+    El resultado ordinario puede asignar ``APROBADA``, ``RECHAZADA`` o
+    ``EMPATADA``. ``INCONCLUSA`` permanece en el vocabulario para otros flujos,
+    pero no es una salida válida del cálculo por completitud.
     """
 
     APROBADA = "APROBADA"
@@ -80,6 +80,48 @@ class VotoOrdinario:
 
     dni: str
     valor: ValorVotoOrdinario
+
+
+@dataclass(frozen=True, slots=True)
+class ConteosVotosOrdinarios:
+    """Resume los votos almacenados sin convertirse en otra fuente de verdad.
+
+    La estructura se construye de nuevo desde ``Votacion.votos_ordinarios`` en
+    cada cálculo. Sirve para transportar los tres conteos y sus dos sumas
+    derivadas hacia la auditoría, pero nunca conserva ni reemplaza votos.
+    """
+
+    positivos: int
+    negativos: int
+    abstenciones: int
+
+    @property
+    def votos_emitidos(self) -> int:
+        """Cuenta todos los votos ordinarios, incluidas las abstenciones."""
+
+        return self.positivos + self.negativos + self.abstenciones
+
+    @property
+    def votos_computables(self) -> int:
+        """Cuenta solo positivos y negativos, como exige esa base."""
+
+        return self.positivos + self.negativos
+
+
+@dataclass(frozen=True, slots=True)
+class CalculoResultadoVotacion:
+    """Describe una decisión calculada que todavía no fue aplicada.
+
+    Separar el cálculo de la mutación permite persistir primero el hecho
+    institucional. ``denominador`` y ``cociente`` se completan para mayorías
+    especiales; el cociente queda ausente en el caso documentado de
+    ``VOTOS_COMPUTABLES=0`` para demostrar que no hubo división por cero.
+    """
+
+    resultado: ResultadoVotacion
+    conteos: ConteosVotosOrdinarios
+    denominador: int | None
+    cociente: float | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -172,7 +214,7 @@ class Votacion:
 
     @property
     def resultado(self) -> ResultadoVotacion | None:
-        """Devuelve el resultado institucional, todavía ausente en WP-010."""
+        """Devuelve el resultado institucional o ``None`` antes de aplicarlo."""
 
         return self.__resultado
 
@@ -220,7 +262,7 @@ class Votacion:
 
         El llamador debe persistir antes el evento de autocierre. Mantener la
         transición encapsulada garantiza que la fecha no pueda regenerarse y
-        que WP-010 deje siempre ``resultado=None``.
+        que el resultado continúe en ``None`` hasta su auditoría separada.
 
         Raises:
             ValueError: si la recepción ya había sido cerrada.
@@ -230,6 +272,133 @@ class Votacion:
             raise ValueError("La recepción de votos ya fue cerrada")
         self.__fecha_hora_cierre = fecha_hora_cierre
         self.__estado = EstadoVotacion.CERRADA
+
+    def calcular_resultado_ordinario(
+        self,
+        *,
+        cantidad_total_cuerpo: int,
+    ) -> CalculoResultadoVotacion:
+        """Calcula, sin mutar, el resultado ordinario de una votación cerrada.
+
+        La única fuente de los conteos es el mapa de votos de esta instancia.
+        Para ``CUERPO`` el llamador aporta la cantidad del padrón congelado de
+        la sesión; nunca se relee configuración ni se consulta presencia actual.
+        La comparación especial usa directamente ``cociente >= factor`` sin
+        redondeo, epsilon ni tolerancia.
+
+        Args:
+            cantidad_total_cuerpo: total de concejales del padrón congelado.
+
+        Returns:
+            El resultado y los datos exactos que explican su cálculo, todavía
+            sin modificar ``resultado``.
+
+        Raises:
+            ValueError: si la recepción sigue abierta, ya existe un resultado o
+                el contexto recibido viola una invariante constitutiva.
+        """
+
+        self._validar_resultado_ordinario_pendiente()
+        conteos = self._contar_votos_ordinarios()
+
+        if self.tipo_mayoria is TipoMayoria.SIMPLE:
+            if conteos.positivos > conteos.negativos:
+                resultado = ResultadoVotacion.APROBADA
+            elif conteos.positivos < conteos.negativos:
+                resultado = ResultadoVotacion.RECHAZADA
+            else:
+                resultado = ResultadoVotacion.EMPATADA
+            return CalculoResultadoVotacion(
+                resultado=resultado,
+                conteos=conteos,
+                denominador=None,
+                cociente=None,
+            )
+
+        if self.base is BaseMayoria.VOTOS_COMPUTABLES:
+            denominador = conteos.votos_computables
+        elif self.base is BaseMayoria.PRESENTES:
+            # PRESENTES es una denominación institucional: técnicamente son
+            # quienes lograron votar, incluidas las abstenciones. No se mira el
+            # mapa dinámico de presencia al momento de calcular.
+            denominador = conteos.votos_emitidos
+        elif self.base is BaseMayoria.CUERPO:
+            denominador = cantidad_total_cuerpo
+        else:  # pragma: no cover - el enum cerrado hace defensiva esta rama.
+            raise ValueError("Base de mayoría especial desconocida")
+
+        if denominador == 0:
+            if self.base is not BaseMayoria.VOTOS_COMPUTABLES:
+                raise ValueError("La base especial no puede tener denominador cero")
+            return CalculoResultadoVotacion(
+                resultado=ResultadoVotacion.RECHAZADA,
+                conteos=conteos,
+                denominador=0,
+                cociente=None,
+            )
+        if denominador < 0:
+            raise ValueError("El denominador de una mayoría no puede ser negativo")
+
+        cociente = conteos.positivos / denominador
+        resultado = (
+            ResultadoVotacion.APROBADA if cociente >= self.factor else ResultadoVotacion.RECHAZADA
+        )
+        return CalculoResultadoVotacion(
+            resultado=resultado,
+            conteos=conteos,
+            denominador=denominador,
+            cociente=cociente,
+        )
+
+    def aplicar_resultado_ordinario(self, resultado: ResultadoVotacion) -> None:
+        """Aplica una sola vez un resultado ordinario previamente auditado.
+
+        Este método no vuelve a contar votos ni modifica cierre, datos
+        constitutivos o votos. Sus validaciones protegen la entidad aun si un
+        servicio interno intenta usarla fuera de la transición autorizada.
+
+        Raises:
+            ValueError: si la votación no está ``CERRADA + None``, se intenta
+                producir ``INCONCLUSA`` o una ESPECIAL intenta quedar empatada.
+        """
+
+        self._validar_resultado_ordinario_pendiente()
+        if resultado not in (
+            ResultadoVotacion.APROBADA,
+            ResultadoVotacion.RECHAZADA,
+            ResultadoVotacion.EMPATADA,
+        ):
+            raise ValueError("El flujo ordinario no admite ese resultado")
+        if self.tipo_mayoria is TipoMayoria.ESPECIAL and resultado is ResultadoVotacion.EMPATADA:
+            raise ValueError("Una mayoría especial no puede quedar EMPATADA")
+        self.__resultado = resultado
+
+    def _validar_resultado_ordinario_pendiente(self) -> None:
+        """Exige la etapa intermedia exacta autorizada por DEC-010."""
+
+        if self.__estado is not EstadoVotacion.CERRADA:
+            raise ValueError("Solo una votación cerrada puede recibir resultado")
+        if self.__resultado is not None:
+            raise ValueError("La votación ya posee un resultado irreversible")
+
+    def _contar_votos_ordinarios(self) -> ConteosVotosOrdinarios:
+        """Deriva los conteos directamente de los votos de esta instancia."""
+
+        positivos = 0
+        negativos = 0
+        abstenciones = 0
+        for voto in self.__votos_ordinarios.values():
+            if voto.valor is ValorVotoOrdinario.POSITIVO:
+                positivos += 1
+            elif voto.valor is ValorVotoOrdinario.NEGATIVO:
+                negativos += 1
+            else:
+                abstenciones += 1
+        return ConteosVotosOrdinarios(
+            positivos=positivos,
+            negativos=negativos,
+            abstenciones=abstenciones,
+        )
 
     @property
     def id(self) -> str:

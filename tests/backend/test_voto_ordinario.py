@@ -26,6 +26,7 @@ from botonera2_backend.dominio.votacion import (
     BaseMayoria,
     DatosAperturaVotacion,
     EstadoVotacion,
+    ResultadoVotacion,
     TipoMayoria,
     ValorVotoOrdinario,
     Votacion,
@@ -301,10 +302,10 @@ async def test_ausente_que_se_presenta_puede_emitir_su_primer_voto(
     assert votacion.estado is EstadoVotacion.EN_CURSO
 
 
-async def test_autocierre_por_ultimo_voto_conserva_instancia_y_resultado_none(
+async def test_autocierre_por_ultimo_voto_conserva_instancia_y_aplica_empate(
     tmp_path: Path,
 ) -> None:
-    """El último presente cierra recepción, fija fecha y no calcula mayoría."""
+    """El último presente cierra, fija fecha y aplica el empate en la instancia."""
 
     entorno, votacion = await crear_votacion(tmp_path)
     sesion = entorno.estado.sesion_activa
@@ -317,15 +318,17 @@ async def test_autocierre_por_ultimo_voto_conserva_instancia_y_resultado_none(
     assert resultado_voto(segunda).estado_recepcion is EstadoVotacion.CERRADA
     assert votacion.estado is EstadoVotacion.CERRADA
     assert votacion.fecha_hora_cierre == HORA_CIERRE
-    assert votacion.resultado is None
+    assert votacion.resultado is ResultadoVotacion.EMPATADA
     assert entorno.estado.votacion_activa is votacion is sesion.votaciones[0]
     assert filas_l1(entorno)[-1][2:5] == [
         "L3",
         "VOTACION",
-        "VOTACION_CERRADA_COMPLETITUD",
+        "VOTACION_RESULTADO_EMPATE",
     ]
-    assert "motivo=COMPLETITUD" in filas_l1(entorno)[-1][5]
-    assert "quorum_alcanzado=true" in filas_l1(entorno)[-1][5]
+    codigos = [fila[4] for fila in filas_l1(entorno)]
+    assert codigos.index("VOTACION_CERRADA_COMPLETITUD") < codigos.index(
+        "VOTACION_RESULTADO_EMPATE"
+    )
 
 
 async def test_presencia_puede_autocerrar_solo_si_se_mantiene_quorum(
@@ -342,7 +345,8 @@ async def test_presencia_puede_autocerrar_solo_si_se_mantiene_quorum(
     await entorno.entrada.procesar_pulsacion(Pulsacion("D-02", "2"))
     await entorno.entrada.procesar_pulsacion(Pulsacion("D-03", "9"))
     assert votacion.estado is EstadoVotacion.CERRADA
-    assert votacion.resultado is None
+    assert votacion.resultado is ResultadoVotacion.APROBADA
+    assert entorno.estado.votacion_activa is None
 
     entorno_sin_quorum, votacion_sin_quorum = await crear_votacion(
         tmp_path / "pierde-quorum",
@@ -358,10 +362,10 @@ async def test_presencia_puede_autocerrar_solo_si_se_mantiene_quorum(
     assert votacion_sin_quorum.fecha_hora_cierre is None
 
 
-async def test_cerrada_rechaza_votos_no_reabre_y_permanece_pendiente(
+async def test_cerrada_rechaza_votos_no_reabre_y_resultado_final_libera(
     tmp_path: Path,
 ) -> None:
-    """Presencia posterior no cambia cierre y los guards pendientes continúan."""
+    """Presencia posterior no recalcula y un resultado final habilita otra apertura."""
 
     entorno, votacion = await crear_votacion(tmp_path)
     await entorno.entrada.procesar_pulsacion(Pulsacion("D-01", "1"))
@@ -376,10 +380,10 @@ async def test_cerrada_rechaza_votos_no_reabre_y_permanece_pendiente(
     assert votacion.estado is EstadoVotacion.CERRADA
     assert votacion.fecha_hora_cierre == fecha == HORA_CIERRE
     assert dict(votacion.votos_ordinarios) == votos
-    assert votacion.resultado is None
-    assert entorno.estado.votacion_activa is votacion
-    with pytest.raises(ErrorVotacionPendiente):
-        await entorno.votaciones.abrir_votacion(datos_votacion())
+    assert votacion.resultado is ResultadoVotacion.APROBADA
+    assert entorno.estado.votacion_activa is None
+    nueva = await entorno.votaciones.abrir_votacion(datos_votacion())
+    assert nueva is entorno.estado.votacion_activa
     with pytest.raises(ErrorVotacionPendiente):
         await entorno.sesion.cerrar_sesion()
 
@@ -545,15 +549,22 @@ async def test_votos_concurrentes_distintos_se_ordenan_y_completan(
     assert all(respuesta.aceptada for respuesta in respuestas)
     assert set(votacion.votos_ordinarios) == {"30000001", "30000002"}
     assert votacion.estado is EstadoVotacion.CERRADA
+    assert votacion.resultado is ResultadoVotacion.APROBADA
     codigos = [
         fila[4]
         for fila in filas_l1(entorno)
-        if fila[4] in {"VOTO_ORDINARIO_REGISTRADO", "VOTACION_CERRADA_COMPLETITUD"}
+        if fila[4]
+        in {
+            "VOTO_ORDINARIO_REGISTRADO",
+            "VOTACION_CERRADA_COMPLETITUD",
+            "VOTACION_RESULTADO_FINAL",
+        }
     ]
     assert codigos == [
         "VOTO_ORDINARIO_REGISTRADO",
         "VOTO_ORDINARIO_REGISTRADO",
         "VOTACION_CERRADA_COMPLETITUD",
+        "VOTACION_RESULTADO_FINAL",
     ]
 
 
@@ -575,6 +586,7 @@ async def test_voto_concurrente_con_presencia_deja_un_estado_serializable(
     assert presencia.aceptada is True
     if voto.aceptada:
         assert votacion.estado is EstadoVotacion.CERRADA
+        assert votacion.resultado is ResultadoVotacion.EMPATADA
         assert "30000002" in votacion.votos_ordinarios
         assert contexto.presencias["30000002"] is False
     else:
