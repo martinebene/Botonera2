@@ -180,11 +180,15 @@ Si la finalización es anticipada con presentes sin votar, prevalece `INCONCLUSA
 
 **Actor:** Presidencia a través de Moderación.
 
-**Precondición:** votación simple `EMPATADA`.
+**Precondición:** sesión abierta y la votación identificada es la activa, permanece `CERRADA + EMPATADA`, es `SIMPLE` y todavía no posee voto presidencial.
 
-El operador selecciona positivo o negativo. No existe abstención. La decisión es irreversible, se registra explícitamente y produce `APROBADA` o `RECHAZADA`.
+Moderación envía `POST /api/v1/votaciones/{id}/desempate` con únicamente `sentido=POSITIVO|NEGATIVO`. El backend valida id y estado y toma la Presidencia vigente dentro del único serializador. No exige quórum posterior al empate ni relaciona esa autoridad con presencia o voto ordinario de un Concejal.
+
+Primero persiste `VOTO_DESEMPATE_PRESIDENCIAL` y almacena el voto irreversible. Luego persiste `VOTACION_RESULTADO_DESEMPATE`, aplica `POSITIVO -> APROBADA` o `NEGATIVO -> RECHAZADA` y libera la referencia activa. La misma instancia conserva fecha de cierre, votos y conteos ordinarios.
 
 El voto de Presidencia no se agrega al conteo de votos ordinarios.
+
+Si falla el primer evento, no se almacena voto. Si falla el segundo, se conserva el voto presidencial ya durable pero el resultado permanece `EMPATADA` y la referencia sigue activa. Ninguno de esos fallos implementa rollback, repetición o recuperación.
 
 ## CU-19 Pedir/retirar palabra
 

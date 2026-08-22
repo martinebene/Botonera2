@@ -31,6 +31,7 @@ from botonera2_backend.configuracion.errores import (
     ErrorValidacionConfiguracion,
 )
 from botonera2_backend.dominio.errores import (
+    ErrorDesempateYaEmitido,
     ErrorEstadoIncompatible,
     ErrorNumeroSesionRequerido,
     ErrorPresidenciaRequerida,
@@ -38,6 +39,7 @@ from botonera2_backend.dominio.errores import (
     ErrorSecretariaLegislativaRequerida,
     ErrorTipoVotacionNoPermitido,
     ErrorVotacionNoCoincide,
+    ErrorVotacionNoEmpatada,
     ErrorVotacionNoEnCurso,
     ErrorVotacionPendiente,
 )
@@ -71,7 +73,9 @@ CODIGOS_CONFLICTO: dict[type[Exception], str] = {
     ErrorSecretariaLegislativaRequerida: "SECRETARIA_LEGISLATIVA_REQUERIDA",
     ErrorVotacionPendiente: "VOTACION_PENDIENTE",
     ErrorVotacionNoCoincide: "VOTACION_NO_COINCIDE",
+    ErrorVotacionNoEmpatada: "VOTACION_NO_EMPATADA",
     ErrorVotacionNoEnCurso: "VOTACION_NO_EN_CURSO",
+    ErrorDesempateYaEmitido: "DESEMPATE_YA_EMITIDO",
 }
 
 CODIGOS_ENTIDAD_NO_PROCESABLE: dict[type[Exception], str] = {

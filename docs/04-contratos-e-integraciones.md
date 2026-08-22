@@ -185,11 +185,29 @@ Una finalización manual válida siempre produce `CERRADA + INCONCLUSA` sobre la
 
 ## 10. Desempate presidencial
 
-Solo disponible para votación `SIMPLE` y `EMPATADA`.
+El único endpoint es:
 
-Entrada: `POSITIVO` o `NEGATIVO`.
+```text
+POST /api/v1/votaciones/{id}/desempate
+```
 
-No recibe concejal ni modifica votos ordinarios. Se registra Presidencia vigente, sentido y resultado.
+Body cerrado:
+
+```json
+{
+  "sentido": "POSITIVO"
+}
+```
+
+`sentido` es obligatorio y admite exclusivamente `POSITIVO` o `NEGATIVO`; no admite `ABSTENCION`, `null`, booleanos, números, listas, objetos, strings arbitrarios ni campos extra. Presidencia, DNI, banca, concejal, resultado y motivo no pertenecen al body. Los errores de esquema responden `422`.
+
+El comando exige `SESION_ABIERTA`, coincidencia exacta del id con la referencia activa y una votación `CERRADA + EMPATADA + SIMPLE` sin voto presidencial previo. Todas esas validaciones y la captura de la Presidencia vigente ocurren dentro del único `EjecutorMutaciones`. No se exige quórum posterior al empate.
+
+Éxito responde `204 No Content`. Los conflictos responden `409` con `ESTADO_INCOMPATIBLE`, `VOTACION_NO_COINCIDE`, `VOTACION_NO_EMPATADA` o `DESEMPATE_YA_EMITIDO`. Auditoría no disponible responde `503 AUDITORIA_NO_DISPONIBLE`; un fallo inesperado conserva `500 ERROR_INTERNO`.
+
+La operación persiste primero L3 `VOTO_DESEMPATE_PRESIDENCIAL`, almacena el voto separado, persiste después L3 `VOTACION_RESULTADO_DESEMPATE`, aplica el resultado derivado y libera la referencia activa. No recalcula SIMPLE, no altera votos ordinarios ni fecha de cierre y no expone un endpoint adicional de lectura.
+
+Si falla el primer evento no existe voto presidencial. Si falla el segundo, el voto ya almacenado permanece irreversible mientras el resultado sigue `EMPATADA` y la votación continúa activa. El estado parcial no habilita retry ni recovery. Los rechazos funcionales con contexto auditable persisten L2 antes de devolver `409`; si esa escritura falla prevalece el `503`.
 
 ## 11. Orden del Día
 

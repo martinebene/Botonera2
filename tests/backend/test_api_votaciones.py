@@ -19,9 +19,11 @@ from botonera2_backend.dominio.votacion import (
     BaseMayoria,
     EstadoVotacion,
     ResultadoVotacion,
+    SentidoVotoDesempate,
     TipoMayoria,
 )
 from botonera2_backend.recursos import obtener_recursos_aplicacion
+from botonera2_backend.servicios.votacion import ServicioVotacion
 from conftest import (
     LINEA_LOGS,
     LINEA_QUORUM,
@@ -116,6 +118,19 @@ def cuerpo_especial(**cambios: Any) -> dict[str, Any]:
     }
     cuerpo.update(cambios)
     return cuerpo
+
+
+async def crear_empate_http(cliente: AsyncClient) -> str:
+    """Abre una SIMPLE y la empata con una abstención de la única presente."""
+
+    apertura = await cliente.post("/api/v1/votaciones", json=cuerpo_simple())
+    assert apertura.status_code == 201
+    voto = await cliente.post(
+        "/api/v1/entradas/tecla",
+        json={"dispositivo": "D-01", "tecla": "2"},
+    )
+    assert voto.status_code == 200
+    return str(apertura.json()["id"])
 
 
 @pytest.mark.parametrize(
@@ -766,6 +781,276 @@ async def test_api_fallo_auditoria_de_rechazo_prevalece_sobre_409(
         assert estado.votacion_activa is votacion
 
 
+@pytest.mark.parametrize(
+    ("sentido", "resultado"),
+    [
+        ("POSITIVO", ResultadoVotacion.APROBADA),
+        ("NEGATIVO", ResultadoVotacion.RECHAZADA),
+    ],
+)
+async def test_api_desempate_responde_204_y_aplica_resultado(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    sentido: str,
+    resultado: ResultadoVotacion,
+) -> None:
+    """El endpoint exacto completa ambos sentidos sin devolver contenido."""
+
+    async with cliente_abierto(tmp_path, monkeypatch) as (cliente, aplicacion, _ruta):
+        id_votacion = await crear_empate_http(cliente)
+        estado = obtener_recursos_aplicacion(aplicacion).estado_operativo
+        votacion = estado.votacion_activa
+        assert votacion is not None
+        fecha_antes = votacion.fecha_hora_cierre
+        votos_antes = dict(votacion.votos_ordinarios)
+
+        respuesta = await cliente.post(
+            f"/api/v1/votaciones/{id_votacion}/desempate",
+            json={"sentido": sentido},
+        )
+
+        assert respuesta.status_code == 204
+        assert respuesta.content == b""
+        assert votacion.resultado is resultado
+        assert votacion.voto_desempate is not None
+        assert votacion.voto_desempate.sentido.value == sentido
+        assert votacion.voto_desempate.presidencia == "Presidencia"
+        assert votacion.fecha_hora_cierre == fecha_antes
+        assert dict(votacion.votos_ordinarios) == votos_antes
+        assert estado.votacion_activa is None
+
+
+@pytest.mark.parametrize(
+    "cuerpo",
+    [
+        {"sentido": "ABSTENCION"},
+        {"sentido": None},
+        {"sentido": True},
+        {"sentido": 1},
+        {"sentido": ["POSITIVO"]},
+        {"sentido": {"valor": "POSITIVO"}},
+        {"sentido": "OTRO"},
+        {},
+        {"sentido": "POSITIVO", "extra": "prohibido"},
+        {"sentido": "POSITIVO", "presidencia": "Inyectada"},
+    ],
+    ids=[
+        "abstencion",
+        "null",
+        "booleano",
+        "numero",
+        "lista",
+        "objeto",
+        "string-arbitrario",
+        "omitido",
+        "extra",
+        "presidencia-inyectada",
+    ],
+)
+async def test_api_desempate_rechaza_body_estricto_antes_del_servicio(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    cuerpo: dict[str, Any],
+) -> None:
+    """Todo valor ajeno a los dos literales exactos produce 422 sin auditar."""
+
+    async with cliente_abierto(tmp_path, monkeypatch) as (cliente, aplicacion, _ruta):
+        id_votacion = await crear_empate_http(cliente)
+        estado = obtener_recursos_aplicacion(aplicacion).estado_operativo
+        votacion = estado.votacion_activa
+        assert votacion is not None
+        cantidad_eventos = len(filas_auditoria(aplicacion))
+
+        respuesta = await cliente.post(
+            f"/api/v1/votaciones/{id_votacion}/desempate",
+            json=cuerpo,
+        )
+
+        assert respuesta.status_code == 422
+        assert votacion.resultado is ResultadoVotacion.EMPATADA
+        assert votacion.voto_desempate is None
+        assert estado.votacion_activa is votacion
+        assert len(filas_auditoria(aplicacion)) == cantidad_eventos
+
+
+async def test_api_desempate_expone_conflictos_estables_y_auditables(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Distingue estado, ausencia, id, etapa y voto presidencial previo."""
+
+    preparar_archivos(tmp_path / "sin-sesion")
+    monkeypatch.chdir(tmp_path / "sin-sesion")
+    aplicacion_vacia = crear_aplicacion()
+    async with aplicacion_vacia.router.lifespan_context(aplicacion_vacia):
+        transporte = ASGITransport(app=aplicacion_vacia)
+        async with AsyncClient(transport=transporte, base_url="http://pruebas") as cliente:
+            respuesta = await cliente.post(
+                "/api/v1/votaciones/inexistente/desempate",
+                json={"sentido": "POSITIVO"},
+            )
+            assert respuesta.status_code == 409
+            assert respuesta.json()["codigo"] == "ESTADO_INCOMPATIBLE"
+
+    async with cliente_abierto(tmp_path / "sesion", monkeypatch) as (
+        cliente,
+        aplicacion,
+        _ruta,
+    ):
+        sin_activa = await cliente.post(
+            "/api/v1/votaciones/inexistente/desempate",
+            json={"sentido": "POSITIVO"},
+        )
+        assert sin_activa.status_code == 409
+        assert sin_activa.json()["codigo"] == "VOTACION_NO_EMPATADA"
+
+        apertura = await cliente.post("/api/v1/votaciones", json=cuerpo_simple())
+        id_votacion = str(apertura.json()["id"])
+        no_empatada = await cliente.post(
+            f"/api/v1/votaciones/{id_votacion}/desempate",
+            json={"sentido": "POSITIVO"},
+        )
+        assert no_empatada.status_code == 409
+        assert no_empatada.json()["codigo"] == "VOTACION_NO_EMPATADA"
+
+        await cliente.post(
+            "/api/v1/entradas/tecla",
+            json={"dispositivo": "D-01", "tecla": "2"},
+        )
+        id_incorrecto = await cliente.post(
+            "/api/v1/votaciones/otra-votacion/desempate",
+            json={"sentido": "NEGATIVO"},
+        )
+        assert id_incorrecto.status_code == 409
+        assert id_incorrecto.json()["codigo"] == "VOTACION_NO_COINCIDE"
+        assert "id_solicitado=otra-votacion" in filas_auditoria(aplicacion)[-1][5]
+
+        estado = obtener_recursos_aplicacion(aplicacion).estado_operativo
+        votacion = estado.votacion_activa
+        assert votacion is not None
+        voto = votacion.preparar_voto_desempate(
+            SentidoVotoDesempate.POSITIVO,
+            "Presidencia",
+        )
+        votacion.registrar_voto_desempate(voto)
+        repetido = await cliente.post(
+            f"/api/v1/votaciones/{id_votacion}/desempate",
+            json={"sentido": "NEGATIVO"},
+        )
+        assert repetido.status_code == 409
+        assert repetido.json()["codigo"] == "DESEMPATE_YA_EMITIDO"
+        assert votacion.resultado is ResultadoVotacion.EMPATADA
+        assert votacion.voto_desempate is voto
+
+
+@pytest.mark.parametrize(
+    "codigo_fallado",
+    ["VOTO_DESEMPATE_PRESIDENCIAL", "VOTACION_RESULTADO_DESEMPATE"],
+)
+async def test_api_desempate_mapea_fallo_cerrado_a_503(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    codigo_fallado: str,
+) -> None:
+    """Ambas fronteras de auditoría conservan el último hecho durable."""
+
+    async with cliente_abierto(tmp_path, monkeypatch) as (cliente, aplicacion, _ruta):
+        id_votacion = await crear_empate_http(cliente)
+        estado = obtener_recursos_aplicacion(aplicacion).estado_operativo
+        votacion = estado.votacion_activa
+        sesion = estado.sesion_activa
+        assert votacion is not None
+        assert sesion is not None
+        escritor = sesion.contexto_operativo.escritor_auditoria
+        registrar_original = escritor.registrar_evento
+
+        def fallar_evento(
+            nivel: NivelAuditoria,
+            etiqueta: str,
+            codigo_evento: str,
+            mensaje: str,
+        ) -> int:
+            if codigo_evento == codigo_fallado:
+                monkeypatch.setattr(escritor, "_fallado", True)
+                raise ErrorAuditoria("fallo simulado de desempate")
+            return registrar_original(nivel, etiqueta, codigo_evento, mensaje)
+
+        monkeypatch.setattr(escritor, "registrar_evento", fallar_evento)
+        respuesta = await cliente.post(
+            f"/api/v1/votaciones/{id_votacion}/desempate",
+            json={"sentido": "POSITIVO"},
+        )
+
+        assert respuesta.status_code == 503
+        assert respuesta.json()["codigo"] == "AUDITORIA_NO_DISPONIBLE"
+        assert votacion.resultado is ResultadoVotacion.EMPATADA
+        assert estado.votacion_activa is votacion
+        assert escritor.fallado is True
+        if codigo_fallado == "VOTO_DESEMPATE_PRESIDENCIAL":
+            assert votacion.voto_desempate is None
+        else:
+            assert votacion.voto_desempate is not None
+            assert votacion.voto_desempate.sentido is SentidoVotoDesempate.POSITIVO
+
+
+async def test_api_desempate_fallo_al_auditar_rechazo_prevalece_sobre_409(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Un id obsoleto no se informa como conflicto saludable con writer fallado."""
+
+    async with cliente_abierto(tmp_path, monkeypatch) as (cliente, aplicacion, _ruta):
+        await crear_empate_http(cliente)
+        estado = obtener_recursos_aplicacion(aplicacion).estado_operativo
+        votacion = estado.votacion_activa
+        sesion = estado.sesion_activa
+        assert votacion is not None
+        assert sesion is not None
+        sesion.contexto_operativo.escritor_auditoria.cerrar()
+
+        respuesta = await cliente.post(
+            "/api/v1/votaciones/id-obsoleto/desempate",
+            json={"sentido": "POSITIVO"},
+        )
+
+        assert respuesta.status_code == 503
+        assert respuesta.json()["codigo"] == "AUDITORIA_NO_DISPONIBLE"
+        assert votacion.resultado is ResultadoVotacion.EMPATADA
+        assert votacion.voto_desempate is None
+        assert estado.votacion_activa is votacion
+
+
+async def test_api_desempate_fallo_inesperado_devuelve_error_interno(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Una excepción no clasificada conserva el mapeo transversal a 500."""
+
+    async with cliente_abierto(tmp_path, monkeypatch) as (cliente, aplicacion, _ruta):
+        id_votacion = await crear_empate_http(cliente)
+
+        async def fallar_desempate(
+            _servicio: ServicioVotacion,
+            _id_votacion: str,
+            _sentido: SentidoVotoDesempate,
+        ) -> None:
+            raise RuntimeError("detalle privado inesperado")
+
+        monkeypatch.setattr(ServicioVotacion, "desempatar_votacion", fallar_desempate)
+        transporte = ASGITransport(app=aplicacion, raise_app_exceptions=False)
+        async with AsyncClient(transport=transporte, base_url="http://pruebas") as cliente_error:
+            respuesta = await cliente_error.post(
+                f"/api/v1/votaciones/{id_votacion}/desempate",
+                json={"sentido": "POSITIVO"},
+            )
+
+        assert respuesta.status_code == 500
+        assert respuesta.json() == {
+            "codigo": "ERROR_INTERNO",
+            "mensaje": "Ocurrió un error interno.",
+        }
+
+
 def filas_auditoria(aplicacion: FastAPI) -> list[list[str]]:
     """Lee el CSV L1 del contexto activo para comprobar efectos institucionales."""
 
@@ -817,4 +1102,13 @@ def test_openapi_expone_union_discriminada_respuesta_y_errores() -> None:
     assert esquema_finalizacion["required"] == ["motivo"]
     assert esquema_finalizacion["additionalProperties"] is False
     assert esquema_finalizacion["properties"]["motivo"]["type"] == "string"
+    ruta_desempate = especificacion["paths"]["/api/v1/votaciones/{id}/desempate"]
+    assert set(ruta_desempate) == {"post"}
+    operacion_desempate = ruta_desempate["post"]
+    assert set(("204", "409", "422", "503", "500")) <= set(operacion_desempate["responses"])
+    esquema_desempate = esquemas["SolicitudDesempate"]
+    assert esquema_desempate["required"] == ["sentido"]
+    assert esquema_desempate["additionalProperties"] is False
+    assert esquema_desempate["properties"]["sentido"]["enum"] == ["POSITIVO", "NEGATIVO"]
+    assert set(esquema_desempate["properties"]) == {"sentido"}
     assert "/api/v1/votaciones/{id}" not in especificacion["paths"]

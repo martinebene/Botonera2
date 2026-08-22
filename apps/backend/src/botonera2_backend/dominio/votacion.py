@@ -82,6 +82,13 @@ class ValorVotoOrdinario(StrEnum):
     NEGATIVO = "NEGATIVO"
 
 
+class SentidoVotoDesempate(StrEnum):
+    """Limita la decisión presidencial a los dos sentidos reglamentarios."""
+
+    POSITIVO = "POSITIVO"
+    NEGATIVO = "NEGATIVO"
+
+
 @dataclass(frozen=True, slots=True)
 class VotoOrdinario:
     """Conserva el voto irreversible de un concejal dentro de una votación.
@@ -93,6 +100,27 @@ class VotoOrdinario:
 
     dni: str
     valor: ValorVotoOrdinario
+
+
+@dataclass(frozen=True, slots=True)
+class VotoDesempate:
+    """Conserva la decisión irreversible de la Presidencia vigente.
+
+    No contiene DNI ni banca porque Presidencia y Concejal son roles
+    independientes. ``frozen=True`` impide reescribir retrospectivamente la
+    identidad o el sentido aunque luego cambie la autoridad de la sesión.
+    """
+
+    presidencia: str
+    sentido: SentidoVotoDesempate
+
+    @property
+    def resultado_final(self) -> ResultadoVotacion:
+        """Deriva el resultado sin recalcular ni alterar los votos ordinarios."""
+
+        if self.sentido is SentidoVotoDesempate.POSITIVO:
+            return ResultadoVotacion.APROBADA
+        return ResultadoVotacion.RECHAZADA
 
 
 @dataclass(frozen=True, slots=True)
@@ -188,6 +216,7 @@ class Votacion:
         "__fecha_hora_cierre",
         "__motivo_finalizacion_manual",
         "__resultado",
+        "__voto_desempate",
         "__votos_ordinarios",
     )
 
@@ -219,6 +248,7 @@ class Votacion:
         self.__fecha_hora_cierre: datetime | None = None
         self.__motivo_finalizacion_manual: str | None = None
         self.__resultado: ResultadoVotacion | None = None
+        self.__voto_desempate: VotoDesempate | None = None
         self.__votos_ordinarios: dict[str, VotoOrdinario] = {}
 
     @property
@@ -251,6 +281,12 @@ class Votacion:
         return self.__motivo_finalizacion_manual
 
     @property
+    def voto_desempate(self) -> VotoDesempate | None:
+        """Devuelve el único voto presidencial, separado de los ordinarios."""
+
+        return self.__voto_desempate
+
+    @property
     def votos_ordinarios(self) -> Mapping[str, VotoOrdinario]:
         """Expone los votos por DNI sin permitir editar el diccionario interno.
 
@@ -260,6 +296,85 @@ class Votacion:
         """
 
         return MappingProxyType(self.__votos_ordinarios)
+
+    def contar_votos_ordinarios(self) -> ConteosVotosOrdinarios:
+        """Expone un resumen inmutable derivado del mapa autoritativo de votos.
+
+        El desempate usa este resumen solo para demostrar en auditoría que los
+        conteos ordinarios se preservaron. El resumen no incorpora el voto de
+        Presidencia ni se convierte en una segunda fuente de verdad.
+        """
+
+        return self._contar_votos_ordinarios()
+
+    def preparar_voto_desempate(
+        self,
+        sentido: SentidoVotoDesempate,
+        presidencia: str,
+    ) -> VotoDesempate:
+        """Valida sin mutar y construye la decisión presidencial candidata.
+
+        Esta fase permite que el servicio forme y persista el primer hecho L3
+        antes de almacenar el voto. No se consulta quórum: la recepción ya está
+        cerrada y la pérdida posterior no invalida un empate.
+
+        Raises:
+            ValueError: si no existe exactamente ``CERRADA + EMPATADA + SIMPLE``,
+                ya hay voto presidencial o la identidad de Presidencia es vacía.
+        """
+
+        self._validar_desempate_pendiente()
+        presidencia_normalizada = presidencia.strip()
+        if not presidencia_normalizada:
+            raise ValueError("El desempate exige una Presidencia vigente")
+        return VotoDesempate(
+            presidencia=presidencia_normalizada,
+            sentido=sentido,
+        )
+
+    def registrar_voto_desempate(self, voto: VotoDesempate) -> None:
+        """Almacena una sola vez el voto después de su primer hecho durable.
+
+        La entidad permanece ``CERRADA + EMPATADA``. Ese estado intermedio es
+        deliberado: el resultado final todavía no puede aplicarse hasta que su
+        segundo evento institucional haya sido persistido.
+        """
+
+        self._validar_desempate_pendiente()
+        self.__voto_desempate = voto
+
+    def consolidar_resultado_desempate(self) -> None:
+        """Aplica determinísticamente el resultado del voto ya almacenado.
+
+        El servicio invoca esta primitiva solo después de auditar el segundo
+        hecho L3. No llama al cálculo de mayoría simple: ``POSITIVO`` conduce a
+        ``APROBADA`` y ``NEGATIVO`` a ``RECHAZADA`` de forma directa.
+        """
+
+        voto = self.__voto_desempate
+        if voto is None:
+            raise ValueError("No existe un voto presidencial para consolidar")
+        if self.__estado is not EstadoVotacion.CERRADA:
+            raise ValueError("El desempate debe conservar la votación CERRADA")
+        if self.__resultado is not ResultadoVotacion.EMPATADA:
+            raise ValueError("Solo un empate puede consolidar desempate")
+        if self.tipo_mayoria is not TipoMayoria.SIMPLE:
+            raise ValueError("Una mayoría especial no admite desempate")
+        self.__resultado = voto.resultado_final
+
+    def _validar_desempate_pendiente(self) -> None:
+        """Protege la precondición exacta y la unicidad del voto presidencial."""
+
+        if self.__voto_desempate is not None:
+            raise ValueError("El voto presidencial ya fue emitido")
+        if self.__estado is not EstadoVotacion.CERRADA:
+            raise ValueError("El desempate exige una votación CERRADA")
+        if self.__resultado is not ResultadoVotacion.EMPATADA:
+            raise ValueError("El desempate exige resultado EMPATADA")
+        if self.tipo_mayoria is not TipoMayoria.SIMPLE:
+            raise ValueError("Una mayoría especial no admite desempate")
+        if self.__fecha_hora_cierre is None:
+            raise ValueError("Una votación empatada debe conservar fecha de cierre")
 
     def ya_emitio_voto(self, dni_concejal: str) -> bool:
         """Indica si el DNI ya consumió su único voto en esta votación."""

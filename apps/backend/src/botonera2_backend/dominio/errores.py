@@ -61,6 +61,24 @@ class ErrorVotacionNoEnCurso(Exception):
     """
 
 
+class ErrorVotacionNoEmpatada(Exception):
+    """La votación activa no admite el desempate presidencial solicitado.
+
+    El comando exige una mayoría ``SIMPLE`` que permanezca exactamente
+    ``CERRADA + EMPATADA``. También representa la ausencia de una referencia
+    activa, porque en ese caso no existe un empate pendiente que resolver.
+    """
+
+
+class ErrorDesempateYaEmitido(Exception):
+    """La votación ya conserva su único voto presidencial irreversible.
+
+    Esta distinción resulta especialmente importante en el estado técnico de
+    fallo cerrado donde el voto fue durable pero el resultado final no pudo
+    auditarse. Ese estado nunca habilita una segunda decisión presidencial.
+    """
+
+
 class ErrorTipoVotacionNoPermitido(Exception):
     """El tipo recibido no integra el snapshot congelado de la sesión.
 
