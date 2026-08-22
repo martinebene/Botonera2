@@ -158,6 +158,9 @@ async def test_apertura_publica_una_sola_instancia_normalizada_y_auditada(
     assert len(sesion.votaciones) == 1
     assert votacion.id == "votacion-opaca-1"
     assert votacion.estado is EstadoVotacion.EN_CURSO
+    assert votacion.resultado is None
+    assert votacion.fecha_hora_cierre is None
+    assert votacion.votos_ordinarios == {}
     assert votacion.factor == 0
     assert votacion.base is BaseMayoria.VOTOS_COMPUTABLES
     assert votacion.fecha_hora_apertura == HORA_VOTACION
@@ -336,7 +339,7 @@ async def test_fallo_de_auditoria_no_publica_mutacion_parcial(tmp_path: Path) ->
 
 
 async def test_capacidades_de_sesion_conviven_con_votacion_activa(tmp_path: Path) -> None:
-    """WP-009 no bloquea autoridades, teclas 8/9 ni habilita 1/2/3/7."""
+    """Autoridades y 8/9 conviven; voto exige presencia y 7 sigue deshabilitada."""
 
     estado, servicio_sesion, entrada, servicio = await crear_servicios(tmp_path)
     await abrir_sesion(servicio_sesion, entrada)
@@ -354,10 +357,13 @@ async def test_capacidades_de_sesion_conviven_con_votacion_activa(tmp_path: Path
     retiro = await entrada.procesar_pulsacion(Pulsacion("D-01", "9"))
     assert prueba.aceptada is True
     assert retiro.aceptada is True
-    for tecla in ("1", "2", "3", "7"):
+    for tecla in ("1", "2", "3"):
         respuesta = await entrada.procesar_pulsacion(Pulsacion("D-01", tecla))
         assert respuesta.aceptada is False
-        assert respuesta.motivo == "TECLA_NO_HABILITADA"
+        assert respuesta.motivo == "CONCEJAL_AUSENTE"
+    palabra = await entrada.procesar_pulsacion(Pulsacion("D-01", "7"))
+    assert palabra.aceptada is False
+    assert palabra.motivo == "TECLA_NO_HABILITADA"
 
     with pytest.raises(ErrorVotacionPendiente):
         await servicio_sesion.cerrar_sesion()

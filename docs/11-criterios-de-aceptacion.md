@@ -134,7 +134,7 @@ Un concejal ausente que pasa a presente durante `EN_CURSO` puede votar si todav�
 
 ## CA-026 Autocierre
 
-Cuando todos los concejales actualmente presentes votaron, debe cerrarse automáticamente sin confirmación de Moderación.
+Cuando todos los concejales actualmente presentes votaron y se mantiene quórum, la recepción debe cerrarse automáticamente sin confirmación de Moderación. Queda `CERRADA`, con fecha/hora de cierre única y `resultado = None`; la pérdida de quórum no puede confundirse con este cierre normal.
 
 ## CA-027 Mayoría simple positiva
 

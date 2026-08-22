@@ -158,7 +158,7 @@ Número de votación y número de sesión son datos externos. El sistema no vali
 Cada concejal puede emitir un solo voto ordinario por votación. Es irreversible y no puede corregirse desde Moderación.
 
 ### RN-VOT-06
-Una votación se cierra automáticamente cuando todos los concejales actualmente presentes ya votaron.
+Una votación se cierra automáticamente cuando todos los concejales actualmente presentes ya votaron y se mantiene quórum. Ese cierre termina la recepción, fija una única fecha/hora y deja `resultado = None` hasta que el WP propietario calcule la mayoría.
 
 ### RN-VOT-07
 Moderación puede finalizar una votación en cualquier momento. Si no se completó normalmente, termina `INCONCLUSA`.

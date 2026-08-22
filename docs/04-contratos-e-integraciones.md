@@ -165,7 +165,11 @@ La apertura expresa explícitamente:
 - para `SIMPLE`: factor omitido/nulo/cero y base omitida o `VOTOS_COMPUTABLES`, normalizados a `0` y `VOTOS_COMPUTABLES`;
 - para `ESPECIAL`: factor real finito `> 0 <= 1` y base `VOTOS_COMPUTABLES | PRESENTES | CUERPO`.
 
-No inferir el tipo de mayoría a partir de un factor. `PRESENTES` representa a quienes emitieron voto ordinario, incluidas abstenciones. Una votación abierta es inmutable.
+No inferir el tipo de mayoría a partir de un factor. `PRESENTES` representa a quienes emitieron voto ordinario, incluidas abstenciones. Los datos constitutivos de una votación abierta son inmutables; votos, estado de recepción y fecha de cierre evolucionan únicamente mediante las transiciones autorizadas.
+
+Los votos ordinarios ingresan exclusivamente por `POST /api/v1/entradas/tecla`: `1 -> POSITIVO`, `2 -> ABSTENCION`, `3 -> NEGATIVO`. La respuesta funcional agrega la variante tipada `VOTO`, con el valor aceptado y `estado_recepcion = EN_CURSO | CERRADA`, sin exponer todavía resultado ni cómputo de mayoría.
+
+La recepción completa con quórum pasa a `CERRADA`, fija una única fecha/hora y permanece pendiente con `resultado = None`. La misma instancia continúa en el historial y en `votacion_activa`; por eso bloquea otra apertura y el cierre normal de sesión.
 
 ## 9. Finalización manual
 

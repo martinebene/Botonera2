@@ -135,6 +135,10 @@ Deben registrarse apropiadamente, según nivel:
 - remapeo físico de dispositivo cuando se implemente;
 - errores técnicos relevantes.
 
+Para la recepción ordinaria, cada aceptación persiste un evento L3 `VOTO_ORDINARIO_REGISTRADO` antes de incorporar el voto. Los intentos rechazados permanecen como `PULSACION_RECHAZADA` L2 con motivo estable y no crean un voto ficticio. El autocierre persiste un evento L3 separado `VOTACION_CERRADA_COMPLETITUD` antes de cambiar la recepción a `CERRADA`; ese evento no declara resultado de mayoría.
+
+Si el voto o la presencia que completan la recepción ya fueron auditados y aplicados, pero falla la persistencia del evento derivado de autocierre, el hecho previo no se revierte. La recepción permanece `EN_CURSO`, el writer queda en fallo cerrado y no se informa éxito técnico de la operación externa.
+
 ## 10. Identidad de concejales
 
 La implementación histórica usa principalmente nombre, apellido y banca en mensajes funcionales.

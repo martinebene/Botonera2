@@ -389,17 +389,29 @@ async def test_cambios_de_autoridades_en_sesion_son_normalizados_y_noop(
     ]
 
 
-@pytest.mark.parametrize("tecla", ["1", "2", "3", "7"])
-async def test_teclas_sin_propietario_siguen_rechazadas_en_sesion(
+@pytest.mark.parametrize("tecla", ["1", "2", "3"])
+async def test_votos_sin_votacion_siguen_rechazados_en_sesion(
     tmp_path: Path,
     tecla: str,
 ) -> None:
-    """WP-008 no adelanta voto ni palabra."""
+    """WP-010 distingue una tecla de voto cuando no hay recepción abierta."""
 
     _estado, servicio, entrada = await crear_contexto(tmp_path)
     await abrir_contexto_valido(servicio, entrada)
 
     respuesta = await entrada.procesar_pulsacion(Pulsacion("D-01", tecla))
+
+    assert respuesta.aceptada is False
+    assert respuesta.motivo == "VOTACION_NO_EN_CURSO"
+
+
+async def test_tecla_de_palabra_sigue_sin_propietario_en_sesion(tmp_path: Path) -> None:
+    """La tecla 7 permanece fuera de alcance y conserva el rechazo histórico."""
+
+    _estado, servicio, entrada = await crear_contexto(tmp_path)
+    await abrir_contexto_valido(servicio, entrada)
+
+    respuesta = await entrada.procesar_pulsacion(Pulsacion("D-01", "7"))
 
     assert respuesta.aceptada is False
     assert respuesta.motivo == "TECLA_NO_HABILITADA"

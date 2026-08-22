@@ -123,13 +123,13 @@ Al abrir, `tipo_mayoria` es explícito y los datos quedan normalizados e inmutab
 
 Solo durante `EN_CURSO`. Un concejal que ya votó no puede volver a votar aunque se ausente y regrese.
 
-Cada voto aceptado se persiste inmediatamente.
+Cada voto aceptado se persiste inmediatamente, queda vinculado al DNI del padrón congelado y no puede editarse ni eliminarse.
 
 ## CU-13 Autocerrar votación
 
-Después de cada voto o cambio de presencia, si todos los concejales actualmente presentes ya votaron y se mantiene quórum, calcular el resultado y cerrar automáticamente.
+Después de cada voto o cambio de presencia, si todos los concejales actualmente presentes ya votaron y se mantiene quórum, cerrar automáticamente la recepción.
 
-Mayoría simple puede quedar `EMPATADA`; mayoría especial no.
+El autocierre fija `estado = CERRADA`, conserva los votos, registra una única fecha/hora de cierre y deja `resultado = None`. El cálculo SIMPLE o ESPECIAL corresponde al WP posterior definido por DEC-010.
 
 ## CU-14 Finalizar votación manualmente
 

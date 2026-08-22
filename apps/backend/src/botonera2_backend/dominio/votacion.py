@@ -1,15 +1,18 @@
 """Entidades y vocabulario canónico de una votación de Botonera2.
 
-WP-009 solo abre votaciones. Por eso este módulo reconoce todos los estados
-conceptuales ya documentados, pero la única construcción habilitada comienza
-en ``EN_CURSO`` y todavía no incorpora votos, resultados ni datos de cierre.
+La entidad separa deliberadamente el estado de recepción del resultado
+institucional. WP-010 puede cerrar la recepción y conservar votos sin calcular
+todavía una mayoría: esa etapa se representa como ``CERRADA`` con
+``resultado=None`` conforme a DEC-010.
 """
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
+from types import MappingProxyType
 
 
 class TipoMayoria(StrEnum):
@@ -38,18 +41,45 @@ class BaseMayoria(StrEnum):
 
 
 class EstadoVotacion(StrEnum):
-    """Enumera los estados conceptuales aprobados para una votación.
-
-    Los WPs posteriores serán propietarios de las transiciones fuera de
-    ``EN_CURSO``. Declararlos ahora evita que esos trabajos deban reemplazar el
-    tipo de la entidad para representar resultados ya previstos.
-    """
+    """Indica exclusivamente si la recepción todavía admite votos."""
 
     EN_CURSO = "EN_CURSO"
+    CERRADA = "CERRADA"
+
+
+class ResultadoVotacion(StrEnum):
+    """Enumera las interpretaciones institucionales separadas de la recepción.
+
+    WP-010 no asigna ninguno de estos valores: los declara para expresar el
+    modelo aprobado por DEC-010 y mantiene ``resultado=None``. Cada transición
+    será responsabilidad del WP que calcule o finalice la votación.
+    """
+
     APROBADA = "APROBADA"
     RECHAZADA = "RECHAZADA"
     EMPATADA = "EMPATADA"
     INCONCLUSA = "INCONCLUSA"
+
+
+class ValorVotoOrdinario(StrEnum):
+    """Representa los tres valores que puede emitir una banca mediante 1/2/3."""
+
+    POSITIVO = "POSITIVO"
+    ABSTENCION = "ABSTENCION"
+    NEGATIVO = "NEGATIVO"
+
+
+@dataclass(frozen=True, slots=True)
+class VotoOrdinario:
+    """Conserva el voto irreversible de un concejal dentro de una votación.
+
+    El DNI vincula el hecho con el padrón congelado y ``frozen=True`` impide
+    cambiar su identidad o valor después de aceptarlo. Los intentos posteriores
+    se auditan como rechazos, pero nunca reemplazan esta instancia.
+    """
+
+    dni: str
+    valor: ValorVotoOrdinario
 
 
 @dataclass(frozen=True, slots=True)
@@ -91,13 +121,19 @@ class DatosConstitutivosVotacion:
 class Votacion:
     """Representa una única votación publicada en historial y estado activo.
 
-    La entidad encapsula un objeto constitutivo congelado y mantiene ``estado``
-    separado para las transiciones que implementarán WPs posteriores. Las
-    propiedades son de solo lectura: no existe setter ni comando de servicio
-    capaz de editar los metadatos una vez creada la entidad.
+    La entidad encapsula los datos constitutivos congelados y mantiene en una
+    única instancia el estado evolutivo autorizado. Los votos se indexan por
+    DNI para que la unicidad sea estructural y se exponen mediante una vista de
+    solo lectura; no existe operación para reemplazarlos o eliminarlos.
     """
 
-    __slots__ = ("__datos_constitutivos", "estado")
+    __slots__ = (
+        "__datos_constitutivos",
+        "__estado",
+        "__fecha_hora_cierre",
+        "__resultado",
+        "__votos_ordinarios",
+    )
 
     def __init__(
         self,
@@ -123,7 +159,77 @@ class Votacion:
             base=base,
             fecha_hora_apertura=fecha_hora_apertura,
         )
-        self.estado = EstadoVotacion.EN_CURSO
+        self.__estado = EstadoVotacion.EN_CURSO
+        self.__fecha_hora_cierre: datetime | None = None
+        self.__resultado: ResultadoVotacion | None = None
+        self.__votos_ordinarios: dict[str, VotoOrdinario] = {}
+
+    @property
+    def estado(self) -> EstadoVotacion:
+        """Devuelve si la recepción continúa abierta o ya quedó cerrada."""
+
+        return self.__estado
+
+    @property
+    def resultado(self) -> ResultadoVotacion | None:
+        """Devuelve el resultado institucional, todavía ausente en WP-010."""
+
+        return self.__resultado
+
+    @property
+    def fecha_hora_cierre(self) -> datetime | None:
+        """Devuelve el único instante de cierre o ``None`` mientras está abierta."""
+
+        return self.__fecha_hora_cierre
+
+    @property
+    def votos_ordinarios(self) -> Mapping[str, VotoOrdinario]:
+        """Expone los votos por DNI sin permitir editar el diccionario interno.
+
+        ``MappingProxyType`` es una vista viva de solo lectura. Así el historial
+        y ``votacion_activa`` observan siempre el mismo conjunto autoritativo,
+        pero ningún consumidor puede borrar o sustituir un voto directamente.
+        """
+
+        return MappingProxyType(self.__votos_ordinarios)
+
+    def ya_emitio_voto(self, dni_concejal: str) -> bool:
+        """Indica si el DNI ya consumió su único voto en esta votación."""
+
+        return dni_concejal in self.__votos_ordinarios
+
+    def registrar_voto(self, voto: VotoOrdinario) -> None:
+        """Incorpora el primer voto de un DNI durante una recepción abierta.
+
+        El servicio llama a este método únicamente después de persistir el
+        evento L3. Las validaciones internas protegen además la entidad frente a
+        un uso incorrecto: nunca se sobrescribe un valor existente.
+
+        Raises:
+            ValueError: si la recepción ya cerró o el DNI ya tiene un voto.
+        """
+
+        if self.__estado is not EstadoVotacion.EN_CURSO:
+            raise ValueError("La recepción de votos ya está cerrada")
+        if voto.dni in self.__votos_ordinarios:
+            raise ValueError("El concejal ya emitió su voto ordinario")
+        self.__votos_ordinarios[voto.dni] = voto
+
+    def cerrar_recepcion(self, fecha_hora_cierre: datetime) -> None:
+        """Cierra una sola vez la recepción sin calcular resultado institucional.
+
+        El llamador debe persistir antes el evento de autocierre. Mantener la
+        transición encapsulada garantiza que la fecha no pueda regenerarse y
+        que WP-010 deje siempre ``resultado=None``.
+
+        Raises:
+            ValueError: si la recepción ya había sido cerrada.
+        """
+
+        if self.__estado is not EstadoVotacion.EN_CURSO:
+            raise ValueError("La recepción de votos ya fue cerrada")
+        self.__fecha_hora_cierre = fecha_hora_cierre
+        self.__estado = EstadoVotacion.CERRADA
 
     @property
     def id(self) -> str:

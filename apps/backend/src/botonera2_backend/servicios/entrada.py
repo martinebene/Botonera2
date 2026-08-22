@@ -2,19 +2,22 @@
 
 La ruta recibe un dispositivo lógico, nunca un fingerprint físico, y resuelve
 la identidad únicamente contra el padrón congelado del contexto operativo.
-WP-008 amplía la misma lógica de WP-006 a ``SESION_ABIERTA`` para teclas 8/9
-sin crear otro servicio, mapa de presencia ni escritor.
+WP-008 amplía la misma lógica de WP-006 a ``SESION_ABIERTA`` para teclas 8/9;
+WP-010 incorpora 1/2/3, voto irreversible y autocierre sin crear otro servicio,
+mapa de presencia, escritor ni mecanismo de serialización.
 
 La parte más importante del flujo es el orden: cada operación válida en
 un contexto auditable registra primero la pulsación, luego el resultado
-obligatorio y recién entonces muta presencia o test. Todo el método se ejecuta
-mediante el ``EjecutorMutaciones`` existente; el servicio no crea otro lock.
+obligatorio y recién entonces muta presencia, test, voto o recepción. Todo el
+método se ejecuta mediante el ``EjecutorMutaciones`` existente; el servicio no
+crea otro lock.
 """
 
 from __future__ import annotations
 
 import time
 from collections.abc import Callable
+from datetime import datetime
 
 from botonera2_backend.auditoria import NivelAuditoria
 from botonera2_backend.configuracion.modelos import Concejal
@@ -24,27 +27,46 @@ from botonera2_backend.dominio.entrada import (
     RespuestaEntrada,
     ResultadoPresencia,
     ResultadoTest,
+    ResultadoVoto,
 )
 from botonera2_backend.dominio.estado import EstadoGlobal, EstadoOperativo
 from botonera2_backend.dominio.preparacion import Preparacion
+from botonera2_backend.dominio.votacion import (
+    EstadoVotacion,
+    ValorVotoOrdinario,
+    Votacion,
+    VotoOrdinario,
+)
 from botonera2_backend.servicios.serializacion import EjecutorMutaciones
 
+VALOR_VOTO_POR_TECLA = {
+    "1": ValorVotoOrdinario.POSITIVO,
+    "2": ValorVotoOrdinario.ABSTENCION,
+    "3": ValorVotoOrdinario.NEGATIVO,
+}
 TECLA_TEST = "8"
 TECLA_PRESENCIA = "9"
 
+MOTIVO_VOTO_REGISTRADO = "VOTO_REGISTRADO"
 MOTIVO_PRESENCIA_ACTUALIZADA = "PRESENCIA_ACTUALIZADA"
 MOTIVO_TEST_ACTIVADO = "TEST_ACTIVADO"
 MOTIVO_SIN_PREPARAR = "SIN_PREPARAR"
 MOTIVO_DISPOSITIVO_NO_ASIGNADO = "DISPOSITIVO_NO_ASIGNADO"
 MOTIVO_TECLA_NO_HABILITADA = "TECLA_NO_HABILITADA"
+MOTIVO_VOTACION_NO_EN_CURSO = "VOTACION_NO_EN_CURSO"
+MOTIVO_CONCEJAL_AUSENTE = "CONCEJAL_AUSENTE"
+MOTIVO_VOTO_YA_EMITIDO = "VOTO_YA_EMITIDO"
 
 ETIQUETA_INPUT = "INPUT"
 ETIQUETA_PRESENCIA = "PRESENCIA"
+ETIQUETA_VOTACION = "VOTACION"
 CODIGO_PULSACION_RECIBIDA = "PULSACION_RECIBIDA"
 CODIGO_PULSACION_RECHAZADA = "PULSACION_RECHAZADA"
 CODIGO_CONCEJAL_PRESENTE = "CONCEJAL_PRESENTE"
 CODIGO_CONCEJAL_AUSENTE = "CONCEJAL_AUSENTE"
 CODIGO_TEST_DISPOSITIVO_ACTIVADO = "TEST_DISPOSITIVO_ACTIVADO"
+CODIGO_VOTO_ORDINARIO_REGISTRADO = "VOTO_ORDINARIO_REGISTRADO"
+CODIGO_VOTACION_CERRADA_COMPLETITUD = "VOTACION_CERRADA_COMPLETITUD"
 
 
 class ServicioEntradaTecla:
@@ -52,9 +74,9 @@ class ServicioEntradaTecla:
 
     El servicio no conserva estado funcional propio. Recibe por constructor el
     ``EstadoOperativo`` y el ``EjecutorMutaciones`` compartidos, igual que el
-    servicio de preparación. El reloj monotónico es una dependencia inyectable
-    solo para poder probar expiraciones de test de forma determinista; en
-    producción se usa ``time.monotonic``.
+    servicio de preparación. Los relojes son dependencias inyectables para
+    probar expiraciones de test y fecha de autocierre de forma determinista; en
+    producción se usan ``time.monotonic`` y ``datetime.now``.
     """
 
     def __init__(
@@ -63,10 +85,12 @@ class ServicioEntradaTecla:
         ejecutor_mutaciones: EjecutorMutaciones,
         *,
         reloj_monotono: Callable[[], float] = time.monotonic,
+        reloj: Callable[[], datetime] = datetime.now,
     ) -> None:
         self._estado = estado_operativo
         self._ejecutor = ejecutor_mutaciones
         self._reloj_monotono = reloj_monotono
+        self._reloj = reloj
 
     async def procesar_pulsacion(self, pulsacion: Pulsacion) -> RespuestaEntrada:
         """Procesa una pulsación en el mismo serializador que el resto del backend.
@@ -123,6 +147,24 @@ class ServicioEntradaTecla:
             return self._respuesta_rechazo(pulsacion, MOTIVO_DISPOSITIVO_NO_ASIGNADO, concejal=None)
 
         identidad = self._crear_identidad(concejal)
+        if pulsacion.tecla in VALOR_VOTO_POR_TECLA:
+            if self._estado.estado_global is not EstadoGlobal.SESION_ABIERTA:
+                self._registrar_pulsacion_rechazada(
+                    preparacion, pulsacion, MOTIVO_TECLA_NO_HABILITADA
+                )
+                return self._respuesta_rechazo(
+                    pulsacion,
+                    MOTIVO_TECLA_NO_HABILITADA,
+                    concejal=identidad,
+                )
+            return self._procesar_voto(
+                preparacion,
+                pulsacion,
+                concejal.dni,
+                identidad,
+                VALOR_VOTO_POR_TECLA[pulsacion.tecla],
+            )
+
         if pulsacion.tecla not in (TECLA_TEST, TECLA_PRESENCIA):
             self._registrar_pulsacion_rechazada(preparacion, pulsacion, MOTIVO_TECLA_NO_HABILITADA)
             return self._respuesta_rechazo(
@@ -160,6 +202,12 @@ class ServicioEntradaTecla:
         # obligatorios: PULSACION_RECIBIDA (ya escrita por el llamador) y el
         # evento institucional de presencia que acabamos de persistir.
         preparacion.presencias[dni] = nuevo_valor
+
+        # La presencia ya es un hecho auditado y aplicado. Si este cambio deja
+        # completa una votación, su cierre constituye otro hecho institucional
+        # y se persiste por separado. Un fallo en ese segundo evento no revierte
+        # retrospectivamente la presencia confirmada.
+        self._autocerrar_si_corresponde(preparacion)
         return RespuestaEntrada(
             aceptada=True,
             dispositivo=pulsacion.dispositivo,
@@ -173,6 +221,106 @@ class ServicioEntradaTecla:
                 quorum_alcanzado=preparacion.quorum_alcanzado(),
             ),
         )
+
+    def _procesar_voto(
+        self,
+        preparacion: Preparacion,
+        pulsacion: Pulsacion,
+        dni: str,
+        identidad: IdentidadConcejal,
+        valor: ValorVotoOrdinario,
+    ) -> RespuestaEntrada:
+        """Valida, audita e incorpora el único voto ordinario de un concejal.
+
+        La identidad y presencia provienen del snapshot operativo, nunca del
+        cliente. Cada rechazo conserva HTTP 200 funcional y se registra como
+        ``PULSACION_RECHAZADA`` L2. Un voto aceptado se persiste L3 antes de
+        entrar al mapa irreversible de la misma instancia ``Votacion``.
+        """
+
+        votacion = self._estado.votacion_activa
+        if votacion is None or votacion.estado is not EstadoVotacion.EN_CURSO:
+            self._registrar_pulsacion_rechazada(preparacion, pulsacion, MOTIVO_VOTACION_NO_EN_CURSO)
+            return self._respuesta_rechazo(
+                pulsacion,
+                MOTIVO_VOTACION_NO_EN_CURSO,
+                concejal=identidad,
+            )
+        if not preparacion.presencias[dni]:
+            self._registrar_pulsacion_rechazada(preparacion, pulsacion, MOTIVO_CONCEJAL_AUSENTE)
+            return self._respuesta_rechazo(
+                pulsacion,
+                MOTIVO_CONCEJAL_AUSENTE,
+                concejal=identidad,
+            )
+        if votacion.ya_emitio_voto(dni):
+            self._registrar_pulsacion_rechazada(preparacion, pulsacion, MOTIVO_VOTO_YA_EMITIDO)
+            return self._respuesta_rechazo(
+                pulsacion,
+                MOTIVO_VOTO_YA_EMITIDO,
+                concejal=identidad,
+            )
+
+        voto = VotoOrdinario(dni=dni, valor=valor)
+        preparacion.escritor_auditoria.registrar_evento(
+            NivelAuditoria.L3,
+            ETIQUETA_VOTACION,
+            CODIGO_VOTO_ORDINARIO_REGISTRADO,
+            self._mensaje_voto(votacion, identidad, valor),
+        )
+
+        # El voto se incorpora únicamente después del fsync de su evento. Si el
+        # autocierre derivado falla después, este hecho ya confirmado permanece.
+        votacion.registrar_voto(voto)
+        self._autocerrar_si_corresponde(preparacion)
+        return RespuestaEntrada(
+            aceptada=True,
+            dispositivo=pulsacion.dispositivo,
+            tecla=pulsacion.tecla,
+            motivo=MOTIVO_VOTO_REGISTRADO,
+            concejal=identidad,
+            resultado=ResultadoVoto(
+                tipo="VOTO",
+                valor=valor,
+                estado_recepcion=votacion.estado,
+            ),
+        )
+
+    def _autocerrar_si_corresponde(self, preparacion: Preparacion) -> None:
+        """Cierra por completitud solamente con recepción abierta y quórum.
+
+        La completitud se deriva de la presencia actual: cada DNI presente debe
+        existir en el mapa de votos. No se congela una lista al abrir y los
+        votos de quienes se retiraron permanecen. La validación, el evento L3 y
+        la mutación ocurren dentro de la misma sección crítica de la pulsación.
+        """
+
+        if self._estado.estado_global is not EstadoGlobal.SESION_ABIERTA:
+            return
+        votacion = self._estado.votacion_activa
+        if votacion is None or votacion.estado is not EstadoVotacion.EN_CURSO:
+            return
+        if not preparacion.quorum_alcanzado():
+            # WP-010 no convierte la pérdida de quórum en INCONCLUSA ni en un
+            # cierre normal, aunque todos los presentes restantes hayan votado.
+            return
+
+        dnis_presentes = {dni for dni, presente in preparacion.presencias.items() if presente}
+        if not dnis_presentes.issubset(votacion.votos_ordinarios):
+            return
+
+        fecha_hora_cierre = self._reloj()
+        preparacion.escritor_auditoria.registrar_evento(
+            NivelAuditoria.L3,
+            ETIQUETA_VOTACION,
+            CODIGO_VOTACION_CERRADA_COMPLETITUD,
+            (
+                f"Votación cerrada: número={votacion.numero_votacion}; id={votacion.id}; "
+                "motivo=COMPLETITUD; todos_los_presentes_votaron=true; "
+                "quorum_alcanzado=true"
+            ),
+        )
+        votacion.cerrar_recepcion(fecha_hora_cierre)
 
     def _procesar_test(
         self,
@@ -284,3 +432,17 @@ class ServicioEntradaTecla:
 
         estado = "PRESENTÓ" if presente else "AUSENTÓ"
         return f"{identidad.nombre} {identidad.apellido} (banca Nro:{identidad.banca}) se {estado}"
+
+    @staticmethod
+    def _mensaje_voto(
+        votacion: Votacion,
+        identidad: IdentidadConcejal,
+        valor: ValorVotoOrdinario,
+    ) -> str:
+        """Describe el voto con identidad, banca, valor y votación asociada."""
+
+        return (
+            f"Voto ordinario: {identidad.nombre} {identidad.apellido} "
+            f"(banca Nro:{identidad.banca}) votó {valor.value}; "
+            f"votación número={votacion.numero_votacion}; id={votacion.id}"
+        )
