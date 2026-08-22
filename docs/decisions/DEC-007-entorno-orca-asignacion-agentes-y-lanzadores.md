@@ -19,7 +19,7 @@ El 20 de agosto de 2026 se verificó empíricamente sobre el runtime Orca dispon
 - `orca worktree rm` elimina de forma normal el worktree Orca y su rama local cuando el árbol está limpio;
 - Antigravity/AGY, Codex y OpenCode están disponibles en el host; los hooks de estado de agentes están habilitados.
 
-También se decidió administrar con mayor cuidado la capacidad/cuota de los agentes: reservar los agentes de mayor coste o capacidad para trabajos realmente complejos y aprovechar agentes que demostraron buen rendimiento en WPs sencillos o medios.
+También se decidió administrar con mayor cuidado la capacidad/cuota de los agentes. La oferta de modelos, sus capacidades relativas, los límites de suscripciones y las cuotas disponibles cambian con suficiente frecuencia como para que una pareja fija implementador/revisor se vuelva obsoleta rápidamente. Por eso la selección debe resolverse para cada WP con información operativa vigente.
 
 Esta decisión modifica reglas operativas de DT-033, DT-036 y DEC-002, sin alterar arquitectura ni reglas funcionales del producto.
 
@@ -121,37 +121,51 @@ No se renombra por detrás una rama administrada por Orca únicamente para forza
 
 Esta regla precisa y reemplaza, para worktrees Orca, la forma literal única indicada originalmente por DT-033.
 
-### 6. Asignación de agentes por complejidad, capacidad y cuota
+### 6. Asignación dinámica de implementador y revisor por WP
 
-Deja de existir un **implementador universal predeterminado**. La frase de DT-036 que declara a Codex como implementador predeterminado queda reemplazada por esta política.
+Deja de existir un **implementador universal predeterminado** y tampoco se fija una pareja permanente implementador/revisor. La frase de DT-036 que declara a Codex como implementador predeterminado queda reemplazada por esta política.
 
-El orquestador propone y el operador autoriza el agente de cada WP considerando:
+Antes de iniciar cada WP, ChatGPT Web/orquestador debe consultar al operador el estado operativo vigente de los agentes y modelos que tenga a disposición, incluyendo cuando sea relevante:
+
+- agentes/arneses disponibles;
+- modelos efectivos disponibles en cada uno;
+- cuota o capacidad remanente de las suscripciones;
+- restricciones temporales, costes o límites que hagan conveniente reservar capacidad.
+
+Con esos datos, el orquestador evalúa el WP y propone al operador **tanto el implementador como el revisor independiente previsto**. La elección se acuerda explícitamente antes del lanzamiento del implementador.
+
+La recomendación debe considerar en conjunto:
 
 - complejidad y sensibilidad del cambio;
 - necesidad de razonamiento transversal;
 - riesgo sobre estados, concurrencia, auditoría, seguridad o contratos;
-- desempeño observado de los agentes disponibles;
+- desempeño observado de agentes/modelos disponibles;
+- capacidad relativa de los modelos disponibles en ese momento;
 - disponibilidad y cuota/coste operativo;
-- integración del agente con el entorno actual.
+- integración de cada agente con el entorno actual;
+- independencia razonable entre implementador y revisor, prefiriendo familias de modelo distintas.
 
-Política operativa preferida mientras siga resultando adecuada:
+Los modelos y sus capacidades cambian durante la vida del proyecto. Por ello:
 
-- **Antigravity/AGY**: preferencia para WPs sencillos o medios bien delimitados;
-- **Codex**: reservar preferentemente para WPs complejos, sensibles o con alto acoplamiento/razonamiento;
-- **OpenCode**: puede actuar como implementador o revisor según el modelo efectivo seleccionado y la tarea;
-- Claude Code u otra capacidad equivalente continúa siendo válida cuando corresponda.
+- la documentación canónica **no fija modelos concretos como elección obligatoria**;
+- no se asume que la pareja usada en un WP seguirá siendo óptima para el siguiente;
+- el orquestador puede sugerir una combinación basándose en experiencia previa, pero debe volver a consultar disponibilidad/cuotas para el nuevo WP;
+- la pareja prevista puede reconsiderarse antes de comenzar la revisión si cambió materialmente la disponibilidad, cuota o capacidad, siempre conservando independencia y dejando claro el cambio al operador;
+- reducir consumo de una suscripción es un criterio operativo válido, pero nunca habilita a reducir alcance, pruebas, calidad ni profundidad de revisión.
 
-La documentación canónica no fija una versión concreta de modelo. El modelo efectivo utilizado debe registrarse en la PR cuando sea relevante para trazabilidad e independencia.
+El implementador finalmente autorizado se registra en `PLAN.md` según el flujo vigente. El revisor es una asignación operativa de revisión y no requiere agregar una columna fija al PLAN.
 
-### 7. Revisión independiente y uso de OpenCode
+El modelo efectivo utilizado por implementador y revisor debe registrarse en la PR/informe cuando sea relevante para trazabilidad e independencia.
+
+### 7. Revisión independiente
 
 DT-037 continúa vigente: implementador y revisor deben ser sesiones/agentes independientes y se prefiere una familia de modelo diferente.
 
-Como política operativa:
+La selección concreta del revisor se rige por la evaluación dinámica del punto anterior, no por una preferencia permanente por un arnés o proveedor específico.
 
-- cuando Antigravity/AGY implemente, se prefiere revisar mediante OpenCode con una familia de modelo distinta de Gemini, si está disponible y es adecuada;
-- cuando Codex implemente, puede revisar Antigravity/AGY u OpenCode con una familia distinta del implementador;
-- cambiar solamente de arnés manteniendo el mismo modelo efectivo no satisface por sí mismo la independencia.
+Antes de iniciar efectivamente la revisión, el orquestador puede reconfirmar con el operador que el revisor previsto sigue siendo adecuado según disponibilidad y cuota actuales. Si se cambia, debe acordarse la nueva elección antes de lanzar la sesión revisora.
+
+Cambiar solamente de arnés manteniendo el mismo modelo efectivo no satisface por sí mismo la independencia.
 
 El revisor permanece en modo solo lectura y las correcciones vuelven al implementador original.
 
@@ -205,9 +219,9 @@ Se descarta como flujo normal porque agrega fricción y hace que el agente nazca
 
 Se descarta por defecto. No aporta una garantía funcional adicional y puede introducir discrepancias entre metadata Orca y Git.
 
-### Reservar siempre Codex como implementador
+### Reservar siempre un agente o modelo concreto
 
-Se descarta. La herramienta debe elegirse por adecuación al WP, riesgo, capacidad disponible y coste/cuota, manteniendo siempre las mismas fuentes y criterios de aceptación.
+Se descarta. La herramienta y el modelo deben elegirse por adecuación al WP, riesgo, capacidad disponible, independencia de revisión y coste/cuota vigentes, manteniendo siempre las mismas fuentes y criterios de aceptación.
 
 ## Consecuencias
 
@@ -216,9 +230,9 @@ Se descarta. La herramienta debe elegirse por adecuación al WP, riesgo, capacid
 - Se conservan todas las puertas de seguridad del lanzador original.
 - El flujo continúa funcionando fuera de Orca mediante el lanzador genérico.
 - La convención de ramas pasa a ser semántica y trazable, no dependiente de una única forma literal.
-- Codex puede reservarse para tareas donde su mayor capacidad aporte más valor.
-- Antigravity/AGY pasa a ser implementador válido y preferido para trabajo sencillo/medio cuando corresponda.
-- OpenCode gana un rol preferente de revisión cuando permite una familia de modelo realmente independiente.
+- La selección de implementador y revisor se adapta a la complejidad real del WP y al estado vigente de modelos, cuotas y suscripciones.
+- La documentación no queda atada a una generación concreta de modelos ni a una pareja fija de proveedores.
+- Se conserva la independencia de revisión sin desperdiciar innecesariamente capacidad escasa o costosa.
 
 ## Documentos y WPs afectados
 
@@ -229,4 +243,4 @@ Se descarta. La herramienta debe elegirse por adecuación al WP, riesgo, capacid
 - `docs/implementation/PLAN.md`;
 - `AGENTS.md` y `docs/work-packages/TEMPLATE.md` cuando se sincronicen sus resúmenes operativos;
 - el WP de tooling que implemente el lanzador Orca;
-- todos los WPs posteriores en selección de agente, inicio y limpieza.
+- todos los WPs posteriores en selección de implementador, revisor, inicio y limpieza.
