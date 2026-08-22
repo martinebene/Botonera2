@@ -1,4 +1,4 @@
-"""Pruebas HTTP del endpoint ``POST /api/v1/entradas/tecla`` (WP-006).
+"""Pruebas HTTP del endpoint ``POST /api/v1/entradas/tecla`` (WP-006/WP-010).
 
 Se usa la aplicación FastAPI real con su lifespan, el router versionado y los
 manejadores de errores compartidos. Los cuerpos ficticios solo contienen la
@@ -17,6 +17,7 @@ from botonera2_backend.recursos import obtener_recursos_aplicacion
 from botonera2_backend.servicios.entrada import ServicioEntradaTecla
 from conftest import (
     LINEA_LOGS,
+    LINEA_QUORUM,
     LINEA_TIMER_TEST_DISPOSITIVO,
     TOML_CANONICO,
     escribir_padron,
@@ -28,14 +29,17 @@ from httpx import ASGITransport, AsyncClient
 pytestmark = pytest.mark.anyio
 
 
-def preparar_archivos_canonicos(directorio: Path) -> None:
+def preparar_archivos_canonicos(directorio: Path, *, quorum: int = 7) -> None:
     """Crea los archivos que ``POST /preparacion`` carga por contrato."""
 
     carpeta_configuracion = directorio / "config"
     carpeta_configuracion.mkdir(parents=True, exist_ok=True)
     escribir_system_toml(
         carpeta_configuracion / "system.toml",
-        TOML_CANONICO.replace(LINEA_LOGS, f'logs_dir = "{directorio / "logs"}"'),
+        TOML_CANONICO.replace(
+            LINEA_LOGS,
+            f'logs_dir = "{directorio / "logs"}"',
+        ).replace(LINEA_QUORUM, f"quorum = {quorum}"),
     )
     escribir_padron(carpeta_configuracion / "concejales.csv", filas_padron_valido())
 
@@ -45,6 +49,38 @@ async def preparar_sala(cliente: AsyncClient) -> None:
 
     respuesta = await cliente.post("/api/v1/preparacion")
     assert respuesta.status_code == 204
+
+
+async def preparar_sesion_y_votacion(cliente: AsyncClient) -> None:
+    """Abre una votación con dos presentes usando exclusivamente la API real."""
+
+    await preparar_sala(cliente)
+    actualizacion = await cliente.patch(
+        "/api/v1/preparacion",
+        json={
+            "numero_sesion": 59,
+            "presidencia": "Presidencia",
+            "secretaria_legislativa": "Secretaría",
+        },
+    )
+    assert actualizacion.status_code == 204
+    for dispositivo in ("D-01", "D-02"):
+        presencia = await cliente.post(
+            "/api/v1/entradas/tecla",
+            json={"dispositivo": dispositivo, "tecla": "9"},
+        )
+        assert presencia.status_code == 200
+    assert (await cliente.post("/api/v1/sesion")).status_code == 204
+    apertura = await cliente.post(
+        "/api/v1/votaciones",
+        json={
+            "numero_votacion": 37,
+            "tipo": "Mocion",
+            "tema": "Tratamiento API",
+            "tipo_mayoria": "SIMPLE",
+        },
+    )
+    assert apertura.status_code == 201
 
 
 async def test_sin_preparar_devuelve_rechazo_normal_sin_csv(
@@ -276,6 +312,57 @@ async def test_auditoria_no_disponible_devuelve_503_sin_mutar(
         assert preparacion.presencias["30000001"] is False
 
 
+async def test_api_devuelve_variante_voto_abierta_y_cerrada(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """La unión HTTP informa valor y estado de recepción después de cada voto."""
+
+    preparar_archivos_canonicos(tmp_path, quorum=2)
+    monkeypatch.chdir(tmp_path)
+    aplicacion = crear_aplicacion()
+
+    async with aplicacion.router.lifespan_context(aplicacion):
+        transporte = ASGITransport(app=aplicacion)
+        async with AsyncClient(transport=transporte, base_url="http://pruebas") as cliente:
+            await preparar_sesion_y_votacion(cliente)
+            positiva = await cliente.post(
+                "/api/v1/entradas/tecla",
+                json={"dispositivo": "D-01", "tecla": "1"},
+            )
+            negativa = await cliente.post(
+                "/api/v1/entradas/tecla",
+                json={"dispositivo": "D-02", "tecla": "3"},
+            )
+
+        assert positiva.status_code == negativa.status_code == 200
+        assert positiva.json() == {
+            "aceptada": True,
+            "dispositivo": "D-01",
+            "tecla": "1",
+            "motivo": "VOTO_REGISTRADO",
+            "concejal": {
+                "dni": "30000001",
+                "nombre": "Ana",
+                "apellido": "Garcia",
+                "banca": 1,
+            },
+            "resultado": {
+                "tipo": "VOTO",
+                "valor": "POSITIVO",
+                "estado_recepcion": "EN_CURSO",
+            },
+        }
+        assert negativa.json()["resultado"] == {
+            "tipo": "VOTO",
+            "valor": "NEGATIVO",
+            "estado_recepcion": "CERRADA",
+        }
+        estado = obtener_recursos_aplicacion(aplicacion).estado_operativo
+        assert estado.votacion_activa is not None
+        assert estado.votacion_activa.resultado is None
+
+
 async def test_fallo_inesperado_devuelve_500_generico(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -323,3 +410,28 @@ def test_openapi_expone_request_y_respuestas_de_entrada() -> None:
 
     esquema_respuesta = operacion["responses"]["200"]["content"]["application/json"]["schema"]
     assert esquema_respuesta["$ref"] == "#/components/schemas/RespuestaTecla"
+
+    esquemas = especificacion["components"]["schemas"]
+    esquema_resultado = esquemas["RespuestaTecla"]["properties"]["resultado"]
+    referencias = {
+        variante["$ref"].rsplit("/", 1)[1]
+        for variante in esquema_resultado["anyOf"]
+        if "$ref" in variante
+    }
+    assert referencias == {
+        "ResultadoPresenciaRespuesta",
+        "ResultadoTestRespuesta",
+        "ResultadoVotoRespuesta",
+    }
+    assert set(esquemas["ResultadoVotoRespuesta"]["properties"]) == {
+        "tipo",
+        "valor",
+        "estado_recepcion",
+    }
+    assert set(esquemas["ValorVotoOrdinario"]["enum"]) == {
+        "POSITIVO",
+        "ABSTENCION",
+        "NEGATIVO",
+    }
+    assert set(esquemas["EstadoVotacion"]["enum"]) == {"EN_CURSO", "CERRADA"}
+    assert not any("correg" in ruta or "eliminar" in ruta for ruta in especificacion["paths"])

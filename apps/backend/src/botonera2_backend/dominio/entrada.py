@@ -1,14 +1,16 @@
-"""Tipos internos del flujo de entrada lógica de dispositivos (WP-006).
+"""Tipos internos del flujo de entrada lógica de dispositivos (WP-006/WP-010).
 
 El endpoint HTTP utiliza modelos Pydantic en su frontera, pero el servicio de
 dominio no necesita conocer ``Request`` ni ``APIRouter``. Estas dataclasses
 representan el resultado funcional que el servicio entrega a la API y permiten
-probar la lógica de estado/auditoría sin levantar FastAPI.
+probar presencia, test y voto sin levantar FastAPI.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+
+from botonera2_backend.dominio.votacion import EstadoVotacion, ValorVotoOrdinario
 
 
 @dataclass(frozen=True, slots=True)
@@ -53,7 +55,21 @@ class ResultadoTest:
     duracion_segundos: int | float
 
 
-type ResultadoEntrada = ResultadoPresencia | ResultadoTest
+@dataclass(frozen=True, slots=True)
+class ResultadoVoto:
+    """Resultado funcional de aceptar una tecla de voto ordinario.
+
+    El concejal asociado continúa en el campo común de ``RespuestaEntrada``.
+    Aquí se informa el valor persistido y si esa misma operación dejó la
+    recepción abierta o produjo su autocierre.
+    """
+
+    tipo: str
+    valor: ValorVotoOrdinario
+    estado_recepcion: EstadoVotacion
+
+
+type ResultadoEntrada = ResultadoPresencia | ResultadoTest | ResultadoVoto
 
 
 @dataclass(frozen=True, slots=True)

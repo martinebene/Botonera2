@@ -351,12 +351,17 @@ async def test_entradas_y_quorum_continuan_durante_sesion(
             json={"dispositivo": "D-02", "tecla": "8"},
         )
         assert prueba.json()["motivo"] == "TEST_ACTIVADO"
-        for tecla in ("1", "2", "3", "7"):
+        for tecla in ("1", "2", "3"):
             rechazo = await cliente.post(
                 "/api/v1/entradas/tecla",
                 json={"dispositivo": "D-01", "tecla": tecla},
             )
-            assert rechazo.json()["motivo"] == "TECLA_NO_HABILITADA"
+            assert rechazo.json()["motivo"] == "VOTACION_NO_EN_CURSO"
+        palabra = await cliente.post(
+            "/api/v1/entradas/tecla",
+            json={"dispositivo": "D-01", "tecla": "7"},
+        )
+        assert palabra.json()["motivo"] == "TECLA_NO_HABILITADA"
         desconocido = await cliente.post(
             "/api/v1/entradas/tecla",
             json={"dispositivo": "NO-ASIGNADO", "tecla": "9"},
