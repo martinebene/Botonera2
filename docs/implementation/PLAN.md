@@ -75,7 +75,7 @@ WP-008 quedó integrado mediante squash merge de PR #15 después de CI verde y r
 |---|---|---|---|---|
 | WP-009 | Implementar apertura e inmutabilidad de una votación y bloqueo de aperturas incompatibles | INTEGRADO | WP-008 | - |
 | WP-010 | Implementar voto ordinario, unicidad, irreversibilidad y autocierre de recepción por completitud, sin calcular resultado | INTEGRADO | WP-009, WP-006, WP-004 | - |
-| WP-011 | Calcular y aplicar el resultado de una votación cerrada para mayoría SIMPLE o ESPECIAL, incluido `EMPATADA` transitorio en SIMPLE | EN_CURSO | WP-010 | codex |
+| WP-011 | Calcular y aplicar el resultado de una votación cerrada para mayoría SIMPLE o ESPECIAL, incluido `EMPATADA` transitorio en SIMPLE | INTEGRADO | WP-010 | - |
 | WP-013 | Implementar finalización manual, pérdida de quórum, resultado `INCONCLUSA` y cierre de sesión con votación pendiente | PENDIENTE | WP-011, WP-008 | - |
 | WP-014 | Implementar desempate presidencial sobre una votación `EMPATADA` y registrar su resultado final | PENDIENTE | WP-011, WP-013 | - |
 
@@ -83,9 +83,9 @@ WP-009 quedó integrado mediante squash merge de PR #16 sobre el candidato final
 
 WP-010 quedó integrado mediante squash merge de PR #17 sobre el candidato final `25b39529edf124f59454a23f57949581ff57df1a`, después de CI verde en el run `32542647934` y revisión independiente secuencial con Antigravity + Gemini 3.7 Flash High. La revisión concluyó `LISTA PARA INTEGRAR`, con cero hallazgos BLOQUEANTES, IMPORTANTES y MENORES. El squash merge produjo el commit `20ca95b783ab81f516a5f0bd413c5b241201b607` en `main`.
 
-DEC-010 separa el ciclo de vida de la votación (`EN_CURSO`/`CERRADA`) de su resultado (`APROBADA`/`RECHAZADA`/`EMPATADA`/`INCONCLUSA`). WP-010 cierra la recepción sin calcular resultado; WP-011 concentra en un único alcance el cálculo SIMPLE y ESPECIAL. El alcance que se había previsto para WP-012 queda absorbido por WP-011: no se creará `WP-012.md` para ese alcance y la numeración posterior se conserva sin renumerar para mantener trazabilidad. `EMPATADA` es un resultado transitorio y pendiente que debe resolverse posteriormente por desempate presidencial sobre la misma instancia de votación.
+WP-011 quedó integrado mediante squash merge de PR #18 sobre el candidato final `e49ae2d2825ab92f36fd97ac0b7f218d498adce4`, después de CI verde en el run `32585394682` y revisión independiente secuencial con Antigravity + Gemini 3.7 Flash High. La revisión concluyó `LISTA PARA INTEGRAR`, con cero hallazgos BLOQUEANTES, IMPORTANTES y MENORES. El squash merge produjo el commit `f36a1a9ec1d36966b4c31f89411452e130f82840` en `main`.
 
-Para WP-011 se acordó operativamente Codex con GPT-5.6 Sol como implementador y Antigravity con Gemini 3.7 Flash como revisor independiente previsto. Esta pareja responde al estado de capacidad/cuotas informado para este WP y no constituye una asignación permanente para trabajos posteriores; antes de iniciar la revisión se reconfirmará que el revisor siga disponible y adecuado.
+DEC-010 separa el ciclo de vida de la votación (`EN_CURSO`/`CERRADA`) de su resultado (`APROBADA`/`RECHAZADA`/`EMPATADA`/`INCONCLUSA`). WP-010 cierra la recepción sin calcular resultado; WP-011 concentra en un único alcance el cálculo SIMPLE y ESPECIAL. El alcance que se había previsto para WP-012 queda absorbido por WP-011: no se creará `WP-012.md` para ese alcance y la numeración posterior se conserva sin renumerar para mantener trazabilidad. `EMPATADA` es un resultado transitorio y pendiente que debe resolverse posteriormente por desempate presidencial sobre la misma instancia de votación.
 
 ## Fase 4 - Capacidades backend complementarias
 
@@ -164,8 +164,8 @@ Los lanzadores no pueden aprobar WPs, cambiar su estado en PLAN ni modificar `ma
 
 ## Próximo punto de control
 
-WP-001, WP-002, WP-003, WP-004, WP-005, WP-006, WP-007, WP-008, WP-009, WP-010, WP-030 y WP-031 están `INTEGRADO` y sin agente operativo asignado.
+WP-001, WP-002, WP-003, WP-004, WP-005, WP-006, WP-007, WP-008, WP-009, WP-010, WP-011, WP-030 y WP-031 están `INTEGRADO` y sin agente operativo asignado.
 
 DEC-007, DEC-009 y DEC-010 están vigentes. Orca continúa como entorno operativo preferido mientras esté en uso.
 
-WP-011 está `EN_CURSO`, su documento individual está `APROBADO`, depende únicamente de WP-010 ya integrado y tiene `codex` como implementador asignado. El revisor independiente previsto es Antigravity con Gemini 3.7 Flash, sujeto a reconfirmación operativa antes de la revisión. El próximo punto de control es sincronizar el checkout coordinador, crear el worktree Orca mediante el lanzador y entregar a Codex el prompt exhaustivo visible para pegado manual.
+El próximo punto de control es **WP-013**, que permanece `PENDIENTE` y sin agente asignado. Sus dependencias WP-011 y WP-008 ya están integradas; antes de iniciarlo debe definirse y aprobarse su especificación individual, verificarse el formato parseable, acordarse implementador y revisor según capacidad/cupos vigentes y recién entonces pasar a `EN_CURSO`.
