@@ -74,15 +74,14 @@ WP-008 quedó integrado mediante squash merge de PR #15 después de CI verde y r
 | WP | Objetivo | Estado | Depende de | Agente |
 |---|---|---|---|---|
 | WP-009 | Implementar apertura e inmutabilidad de una votación y bloqueo de aperturas incompatibles | INTEGRADO | WP-008 | - |
-| WP-010 | Implementar voto ordinario, unicidad, irreversibilidad y autocierre por completitud | PENDIENTE | WP-009, WP-006, WP-004 | - |
-| WP-011 | Implementar mayoría SIMPLE y estado `EMPATADA` | PENDIENTE | WP-010 | - |
-| WP-012 | Implementar mayoría ESPECIAL sobre VOTOS_COMPUTABLES/PRESENTES/CUERPO | PENDIENTE | WP-010 | - |
-| WP-013 | Implementar finalización manual, pérdida de quórum, `INCONCLUSA` y cierre de sesión con votación pendiente | PENDIENTE | WP-011, WP-012, WP-008 | - |
-| WP-014 | Implementar desempate presidencial | PENDIENTE | WP-011, WP-013 | - |
+| WP-010 | Implementar voto ordinario, unicidad, irreversibilidad y autocierre de recepción por completitud, sin calcular resultado | PENDIENTE | WP-009, WP-006, WP-004 | - |
+| WP-011 | Calcular y aplicar el resultado de una votación cerrada para mayoría SIMPLE o ESPECIAL, incluido `EMPATADA` transitorio en SIMPLE | PENDIENTE | WP-010 | - |
+| WP-013 | Implementar finalización manual, pérdida de quórum, resultado `INCONCLUSA` y cierre de sesión con votación pendiente | PENDIENTE | WP-011, WP-008 | - |
+| WP-014 | Implementar desempate presidencial sobre una votación `EMPATADA` y registrar su resultado final | PENDIENTE | WP-011, WP-013 | - |
 
 WP-009 quedó integrado mediante squash merge de PR #16 sobre el candidato final `c68dfe94852b598a2cdd2edf243eb8b78420916c`, después de CI verde y revisión independiente secuencial con OpenCode + DeepSeek V4 Pro. La re-revisión final concluyó `LISTA PARA INTEGRAR`, con cero hallazgos BLOQUEANTES, IMPORTANTES y MENORES. El squash merge produjo el commit `c2d5e29f8beb0a010cd69ba0df252cef45856cf9` en `main`. Durante la primera revisión se emitió un hallazgo IMPORTANTE sobre la construcción de un body JSON no finito; la re-revisión demostró que la premisa sobre el escape `}}` del f-string era incorrecta, retiró ese hallazgo y confirmó que el commit adicional solo fortaleció la especificidad de la prueba.
 
-WP-011 y WP-012 pueden ejecutarse en paralelo después de WP-010.
+DEC-010 separa el ciclo de vida de la votación (`EN_CURSO`/`CERRADA`) de su resultado (`APROBADA`/`RECHAZADA`/`EMPATADA`/`INCONCLUSA`). WP-010 cierra la recepción sin calcular resultado; WP-011 concentra en un único alcance el cálculo SIMPLE y ESPECIAL. El alcance que se había previsto para WP-012 queda absorbido por WP-011: no se creará `WP-012.md` para ese alcance y la numeración posterior se conserva sin renumerar para mantener trazabilidad. `EMPATADA` es un resultado transitorio y pendiente que debe resolverse posteriormente por desempate presidencial sobre la misma instancia de votación.
 
 ## Fase 4 - Capacidades backend complementarias
 
@@ -163,6 +162,6 @@ Los lanzadores no pueden aprobar WPs, cambiar su estado en PLAN ni modificar `ma
 
 WP-001, WP-002, WP-003, WP-004, WP-005, WP-006, WP-007, WP-008, WP-009, WP-030 y WP-031 están `INTEGRADO` y sin agente operativo asignado.
 
-DEC-007 y DEC-009 están vigentes. Orca continúa como entorno operativo preferido mientras esté en uso.
+DEC-007, DEC-009 y DEC-010 están vigentes. Orca continúa como entorno operativo preferido mientras esté en uso.
 
-El próximo punto de control es **WP-010**, que permanece `PENDIENTE` y sin agente asignado. Sus dependencias WP-009, WP-006 y WP-004 están integradas; el siguiente paso es planificar y redactar su especificación individual antes de cualquier asignación o implementación.
+El próximo punto de control es **WP-010**, que permanece `PENDIENTE` y sin agente asignado. Sus dependencias WP-009, WP-006 y WP-004 están integradas; el siguiente paso es redactar y aprobar su especificación individual conforme a DEC-010 antes de cualquier asignación o implementación.

@@ -14,6 +14,8 @@ Las decisiones aquí registradas no reemplazan reglas de negocio ni decisiones t
 - `DEC-006-entrada-logica-presencia-test-y-quorum.md`: contrato de entrada lógica, presencia, test y quórum de WP-006.
 - `DEC-007-entorno-orca-asignacion-agentes-y-lanzadores.md`: entorno Orca, selección de agentes, lanzadores, prompts manuales y limpieza segura de worktrees.
 - `DEC-008-sesion-autoridades-y-contrato-rest.md`: contrato de número de sesión, autoridades, transición `PREPARANDO -> SESION_ABIERTA`, REST de sesión, auditoría y extensión de presencia/test durante sesión para WP-008.
+- `DEC-009-apertura-votacion-mayorias-y-contrato-rest.md`: contrato de apertura de votaciones, mayoría SIMPLE/ESPECIAL, bases, inmutabilidad y REST de WP-009.
+- `DEC-010-ciclo-vida-cierre-y-resultado-votacion.md`: separación entre ciclo de vida y resultado, autocierre sin cálculo, cálculo unificado de mayorías y carácter transitorio de `EMPATADA`.
 
 ## Criterio de uso
 
