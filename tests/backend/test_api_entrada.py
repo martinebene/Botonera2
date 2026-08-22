@@ -13,6 +13,8 @@ from pathlib import Path
 
 import pytest
 from botonera2_backend.aplicacion import crear_aplicacion
+from botonera2_backend.auditoria import ErrorAuditoria, NivelAuditoria
+from botonera2_backend.dominio.votacion import ResultadoVotacion
 from botonera2_backend.recursos import obtener_recursos_aplicacion
 from botonera2_backend.servicios.entrada import ServicioEntradaTecla
 from conftest import (
@@ -360,7 +362,61 @@ async def test_api_devuelve_variante_voto_abierta_y_cerrada(
         }
         estado = obtener_recursos_aplicacion(aplicacion).estado_operativo
         assert estado.votacion_activa is not None
-        assert estado.votacion_activa.resultado is None
+        assert estado.votacion_activa.resultado is ResultadoVotacion.EMPATADA
+
+
+async def test_api_no_informa_exito_si_falla_auditoria_del_resultado(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """El último voto responde 503 y conserva CERRADA+None si falla su resultado."""
+
+    preparar_archivos_canonicos(tmp_path, quorum=2)
+    monkeypatch.chdir(tmp_path)
+    aplicacion = crear_aplicacion()
+
+    async with aplicacion.router.lifespan_context(aplicacion):
+        transporte = ASGITransport(app=aplicacion)
+        async with AsyncClient(transport=transporte, base_url="http://pruebas") as cliente:
+            await preparar_sesion_y_votacion(cliente)
+            primera = await cliente.post(
+                "/api/v1/entradas/tecla",
+                json={"dispositivo": "D-01", "tecla": "1"},
+            )
+            assert primera.status_code == 200
+
+            estado = obtener_recursos_aplicacion(aplicacion).estado_operativo
+            votacion = estado.votacion_activa
+            contexto = estado.contexto_operativo_activo()
+            assert votacion is not None
+            assert contexto is not None
+            escritor = contexto.escritor_auditoria
+            registrar_original = escritor.registrar_evento
+
+            def registrar_evento(
+                nivel: NivelAuditoria,
+                etiqueta: str,
+                codigo_evento: str,
+                mensaje: str,
+            ) -> int:
+                if codigo_evento == "VOTACION_RESULTADO_FINAL":
+                    monkeypatch.setattr(escritor, "_fallado", True)
+                    raise ErrorAuditoria("fallo simulado en resultado")
+                return registrar_original(nivel, etiqueta, codigo_evento, mensaje)
+
+            monkeypatch.setattr(escritor, "registrar_evento", registrar_evento)
+            respuesta = await cliente.post(
+                "/api/v1/entradas/tecla",
+                json={"dispositivo": "D-02", "tecla": "2"},
+            )
+
+        assert respuesta.status_code == 503
+        assert respuesta.json()["codigo"] == "AUDITORIA_NO_DISPONIBLE"
+        assert votacion.estado.value == "CERRADA"
+        assert votacion.fecha_hora_cierre is not None
+        assert votacion.resultado is None
+        assert estado.votacion_activa is votacion
+        assert escritor.fallado is True
 
 
 async def test_fallo_inesperado_devuelve_500_generico(
@@ -435,3 +491,4 @@ def test_openapi_expone_request_y_respuestas_de_entrada() -> None:
     }
     assert set(esquemas["EstadoVotacion"]["enum"]) == {"EN_CURSO", "CERRADA"}
     assert not any("correg" in ruta or "eliminar" in ruta for ruta in especificacion["paths"])
+    assert not any("calcular" in ruta or "resultado" in ruta for ruta in especificacion["paths"])

@@ -139,6 +139,15 @@ Para la recepción ordinaria, cada aceptación persiste un evento L3 `VOTO_ORDIN
 
 Si el voto o la presencia que completan la recepción ya fueron auditados y aplicados, pero falla la persistencia del evento derivado de autocierre, el hecho previo no se revierte. La recepción permanece `EN_CURSO`, el writer queda en fallo cerrado y no se informa éxito técnico de la operación externa.
 
+Después de un autocierre exitoso, el resultado ordinario se persiste como otro evento L3 antes de mutar `Votacion.resultado`:
+
+- `VOTACION_RESULTADO_FINAL` distingue `APROBADA` o `RECHAZADA` mediante el mensaje;
+- `VOTACION_RESULTADO_EMPATE` identifica inequívocamente `EMPATADA`.
+
+El mensaje registra número e id de votación, tipo de mayoría, positivos, negativos, abstenciones y resultado. SIMPLE explicita que las abstenciones quedaron fuera de la comparación. ESPECIAL agrega base, denominador, factor y cociente; si `VOTOS_COMPUTABLES=0`, registra que el cociente no fue calculado y que se evitó la división.
+
+Si el cierre ya fue persistido y aplicado pero falla el evento de resultado, no se revierte el cierre. La votación permanece `CERRADA + resultado=None`, conserva su fecha y la referencia activa, el writer queda en fallo cerrado y la operación externa no informa éxito.
+
 ## 10. Identidad de concejales
 
 La implementación histórica usa principalmente nombre, apellido y banca en mensajes funcionales.

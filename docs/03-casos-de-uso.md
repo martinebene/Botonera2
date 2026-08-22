@@ -129,7 +129,9 @@ Cada voto aceptado se persiste inmediatamente, queda vinculado al DNI del padró
 
 Después de cada voto o cambio de presencia, si todos los concejales actualmente presentes ya votaron y se mantiene quórum, cerrar automáticamente la recepción.
 
-El autocierre fija `estado = CERRADA`, conserva los votos, registra una única fecha/hora de cierre y deja `resultado = None`. El cálculo SIMPLE o ESPECIAL corresponde al WP posterior definido por DEC-010.
+El autocierre fija `estado = CERRADA`, conserva los votos y registra una única fecha/hora. Sin liberar el serializador, continúa con CU-16 o CU-17: calcula desde los votos de la misma instancia, audita el resultado y lo aplica. `APROBADA`/`RECHAZADA` liberan la referencia activa; `EMPATADA` la conserva.
+
+Si el cierre pudo persistirse pero falla la auditoría del resultado, no se revierte: la votación queda `CERRADA + resultado=None`, con su fecha y referencia activa, y la operación externa informa fallo técnico.
 
 ## CU-14 Finalizar votación manualmente
 
@@ -157,6 +159,8 @@ Al cierre normal:
 
 Abstenciones excluidas del cálculo.
 
+Solo abstenciones después de un cierre normal producen `EMPATADA`, no `INCONCLUSA`.
+
 ## CU-17 Calcular mayoría especial
 
 Al cierre normal:
@@ -167,6 +171,8 @@ Al cierre normal:
 - aprueba si `cociente >= factor`.
 
 Si `VOTOS_COMPUTABLES` vale cero porque solo se emitieron abstenciones, resulta `RECHAZADA` sin efectuar una división por cero.
+
+La comparación usa el factor numérico exacto congelado, sin redondeo ni tolerancia. Por eso `8/12` alcanza un factor efectivo `2/3`, pero no alcanza `0.6666666667`.
 
 Si la finalización es anticipada con presentes sin votar, prevalece `INCONCLUSA`.
 

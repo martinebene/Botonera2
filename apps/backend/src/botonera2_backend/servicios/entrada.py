@@ -3,8 +3,9 @@
 La ruta recibe un dispositivo lógico, nunca un fingerprint físico, y resuelve
 la identidad únicamente contra el padrón congelado del contexto operativo.
 WP-008 amplía la misma lógica de WP-006 a ``SESION_ABIERTA`` para teclas 8/9;
-WP-010 incorpora 1/2/3, voto irreversible y autocierre sin crear otro servicio,
-mapa de presencia, escritor ni mecanismo de serialización.
+WP-010 incorpora 1/2/3, voto irreversible y autocierre; WP-011 encadena el
+resultado ordinario en ese mismo flujo, sin crear otro servicio, mapa de
+presencia, escritor ni mecanismo de serialización.
 
 La parte más importante del flujo es el orden: cada operación válida en
 un contexto auditable registra primero la pulsación, luego el resultado
@@ -32,7 +33,10 @@ from botonera2_backend.dominio.entrada import (
 from botonera2_backend.dominio.estado import EstadoGlobal, EstadoOperativo
 from botonera2_backend.dominio.preparacion import Preparacion
 from botonera2_backend.dominio.votacion import (
+    CalculoResultadoVotacion,
     EstadoVotacion,
+    ResultadoVotacion,
+    TipoMayoria,
     ValorVotoOrdinario,
     Votacion,
     VotoOrdinario,
@@ -67,6 +71,8 @@ CODIGO_CONCEJAL_AUSENTE = "CONCEJAL_AUSENTE"
 CODIGO_TEST_DISPOSITIVO_ACTIVADO = "TEST_DISPOSITIVO_ACTIVADO"
 CODIGO_VOTO_ORDINARIO_REGISTRADO = "VOTO_ORDINARIO_REGISTRADO"
 CODIGO_VOTACION_CERRADA_COMPLETITUD = "VOTACION_CERRADA_COMPLETITUD"
+CODIGO_VOTACION_RESULTADO_FINAL = "VOTACION_RESULTADO_FINAL"
+CODIGO_VOTACION_RESULTADO_EMPATE = "VOTACION_RESULTADO_EMPATE"
 
 
 class ServicioEntradaTecla:
@@ -287,12 +293,13 @@ class ServicioEntradaTecla:
         )
 
     def _autocerrar_si_corresponde(self, preparacion: Preparacion) -> None:
-        """Cierra por completitud solamente con recepción abierta y quórum.
+        """Cierra y resuelve por completitud con recepción abierta y quórum.
 
         La completitud se deriva de la presencia actual: cada DNI presente debe
         existir en el mapa de votos. No se congela una lista al abrir y los
-        votos de quienes se retiraron permanecen. La validación, el evento L3 y
-        la mutación ocurren dentro de la misma sección crítica de la pulsación.
+        votos de quienes se retiraron permanecen. Cierre, cálculo, auditoría de
+        resultado, aplicación y liberación/retención ocurren dentro de esta
+        misma llamada, que ya posee la única sección crítica del backend.
         """
 
         if self._estado.estado_global is not EstadoGlobal.SESION_ABIERTA:
@@ -321,6 +328,81 @@ class ServicioEntradaTecla:
             ),
         )
         votacion.cerrar_recepcion(fecha_hora_cierre)
+
+        # El cierre ya es un hecho persistido y aplicado. El resultado es otro
+        # hecho institucional: se calcula sin mutar, se persiste y solo entonces
+        # se aplica. Si esa segunda escritura falla, no se revierte el cierre y
+        # la referencia activa continúa apuntando a CERRADA + resultado=None.
+        self._calcular_auditar_y_aplicar_resultado(preparacion, votacion)
+
+    def _calcular_auditar_y_aplicar_resultado(
+        self,
+        preparacion: Preparacion,
+        votacion: Votacion,
+    ) -> None:
+        """Completa el resultado sin abandonar la adquisición del serializador.
+
+        El padrón ya está congelado en ``preparacion`` y aporta únicamente el
+        denominador CUERPO. Todos los demás conteos se derivan de los votos de
+        la propia entidad. No hay ``await`` ni readquisición del ejecutor entre
+        el cierre y la publicación final.
+        """
+
+        if self._estado.votacion_activa is not votacion:
+            raise RuntimeError("La votación cerrada no coincide con la referencia activa")
+
+        calculo = votacion.calcular_resultado_ordinario(
+            cantidad_total_cuerpo=len(preparacion.padron.concejales)
+        )
+        codigo_evento = (
+            CODIGO_VOTACION_RESULTADO_EMPATE
+            if calculo.resultado is ResultadoVotacion.EMPATADA
+            else CODIGO_VOTACION_RESULTADO_FINAL
+        )
+        preparacion.escritor_auditoria.registrar_evento(
+            NivelAuditoria.L3,
+            ETIQUETA_VOTACION,
+            codigo_evento,
+            self._mensaje_resultado(votacion, calculo),
+        )
+
+        votacion.aplicar_resultado_ordinario(calculo.resultado)
+        if calculo.resultado in (
+            ResultadoVotacion.APROBADA,
+            ResultadoVotacion.RECHAZADA,
+        ):
+            self._estado.votacion_activa = None
+
+    @staticmethod
+    def _mensaje_resultado(
+        votacion: Votacion,
+        calculo: CalculoResultadoVotacion,
+    ) -> str:
+        """Explica con datos humanos cómo se obtuvo el resultado institucional."""
+
+        conteos = calculo.conteos
+        comun = (
+            f"Resultado ordinario: número={votacion.numero_votacion}; id={votacion.id}; "
+            f"tipo_mayoria={votacion.tipo_mayoria.value}; positivos={conteos.positivos}; "
+            f"negativos={conteos.negativos}; abstenciones={conteos.abstenciones}; "
+        )
+        if votacion.tipo_mayoria is TipoMayoria.SIMPLE:
+            return (
+                f"{comun}comparación=positivos_vs_negativos; "
+                "abstenciones_excluidas=true; "
+                f"resultado={calculo.resultado.value}"
+            )
+
+        detalle_cociente = (
+            "cociente=no_calculado; caso_sin_division=true"
+            if calculo.cociente is None
+            else f"cociente={calculo.cociente}; caso_sin_division=false"
+        )
+        return (
+            f"{comun}base={votacion.base.value}; denominador={calculo.denominador}; "
+            f"factor={votacion.factor}; {detalle_cociente}; "
+            f"resultado={calculo.resultado.value}"
+        )
 
     def _procesar_test(
         self,

@@ -158,7 +158,7 @@ Número de votación y número de sesión son datos externos. El sistema no vali
 Cada concejal puede emitir un solo voto ordinario por votación. Es irreversible y no puede corregirse desde Moderación.
 
 ### RN-VOT-06
-Una votación se cierra automáticamente cuando todos los concejales actualmente presentes ya votaron y se mantiene quórum. Ese cierre termina la recepción, fija una única fecha/hora y deja `resultado = None` hasta que el WP propietario calcule la mayoría.
+Una votación se cierra automáticamente cuando todos los concejales actualmente presentes ya votaron y se mantiene quórum. Ese cierre termina la recepción y fija una única fecha/hora. Bajo la misma serialización, el backend calcula, audita y aplica inmediatamente el resultado ordinario sobre la misma instancia; el cierre y el resultado son hechos institucionales separados.
 
 ### RN-VOT-07
 Moderación puede finalizar una votación en cualquier momento. Si no se completó normalmente, termina `INCONCLUSA`.
@@ -187,6 +187,9 @@ Una votación empatada bloquea la apertura de otra hasta resolverse o hasta que 
 ### RN-VOT-15
 Si se cierra la sesión con una votación `EMPATADA`, esa votación pasa a `INCONCLUSA` y luego se cierra la sesión.
 
+### RN-VOT-16
+Una votación `APROBADA` o `RECHAZADA` deja de ocupar la referencia activa después de auditar y aplicar el resultado, pero permanece en el historial. Una `EMPATADA` conserva la misma referencia activa y continúa bloqueando otra apertura.
+
 ## RN-MAY - Mayorías
 
 ### RN-MAY-01
@@ -207,8 +210,10 @@ Solo una mayoría simple puede terminar `EMPATADA` y requerir desempate presiden
 ### RN-MAY-04 - Mayoría especial
 Tiene factor real finito explícito `> 0` y `<= 1`, y base de cálculo `VOTOS_COMPUTABLES`, `PRESENTES` o `CUERPO`.
 
+`VOTOS_COMPUTABLES` usa positivos + negativos. Las abstenciones no integran el denominador; si este vale cero porque solo hubo abstenciones en un cierre normal, el resultado es `RECHAZADA` sin realizar división.
+
 ### RN-MAY-05
-Una mayoría especial aprueba cuando el cociente aplicable es `>= factor`. Alcanzar exactamente el umbral aprueba.
+Una mayoría especial aprueba cuando el cociente aplicable es `>= factor`. Alcanzar exactamente el umbral aprueba. La comparación utiliza el valor numérico congelado sin redondeo, epsilon, tolerancia ni conversión a otra fracción.
 
 ### RN-MAY-06 - Especial sobre presentes
 `PRESENTES` denomina institucionalmente a quienes emitieron voto ordinario en esa votación. El denominador técnico son positivos + negativos + abstenciones y no se reduce si alguien se retira después de votar.
