@@ -211,22 +211,55 @@ Si falla el primer evento no existe voto presidencial. Si falla el segundo, el v
 
 ## 11. Orden del Día
 
-Moderación envía el archivo al backend y el backend es el único parser.
+Moderación envía el archivo al backend y el backend es el único parser. La colección resultante se almacena temporalmente en el contexto operativo activo (`Preparacion`), permanece disponible en la transición `PREPARANDO -> SESION_ABIERTA` y se descarta al cancelar preparación o cerrar sesión.
 
-Contrato de importación canónico:
+### Contrato de importación CSV
+
+El encabezado canónico exacto es:
 
 ```text
 nro_votacion,tipo,tema,tipo_mayoria,factor,base
 ```
 
-- CSV separado por coma con soporte de quoting CSV normal;
-- `tipo_mayoria` explícito: `SIMPLE | ESPECIAL`;
-- `SIMPLE`: `factor` vacío o `0` y `base` vacía o `VOTOS_COMPUTABLES`, normalizados a esos valores canónicos;
+- CSV separado por coma con soporte de quoting CSV normal y UTF-8 con o sin BOM;
+- `nro_votacion`: entero estricto mayor o igual a 1; no se exige secuencia ni unicidad;
+- `tipo_mayoria` explícito: `SIMPLE | ESPECIAL` (case-insensitive);
+- `SIMPLE`: `factor` vacío o `0` y `base` vacía o `VOTOS_COMPUTABLES`, normalizados canónicamente a `0.0` y `VOTOS_COMPUTABLES`;
 - `ESPECIAL`: factor real finito obligatorio `> 0 <= 1` y `base = VOTOS_COMPUTABLES | PRESENTES | CUERPO`;
 - el formato histórico de cinco columnas no es compatible ni se adapta automáticamente;
 - no se infiere el tipo de mayoría a partir del factor.
 
 El backend distingue error técnico de lectura/formato de datos interpretables y no valida secuencia, unicidad ni legitimidad institucional del contenido.
+
+### Operaciones REST de Orden del Día
+
+- `POST /api/v1/orden-del-dia`: recibe `multipart/form-data` con el campo `archivo` conteniendo el CSV canónico. Valida atómicamente, audita L2 `ORDEN_DEL_DIA_CARGADO` e instala la colección. Responde `200 OK` con los puntos normalizados:
+
+```json
+{
+  "puntos": [
+    {
+      "nro_votacion": 1,
+      "tipo": "Despacho",
+      "tema": "Tema a debatir",
+      "tipo_mayoria": "SIMPLE",
+      "factor": 0,
+      "base": "VOTOS_COMPUTABLES"
+    }
+  ]
+}
+```
+
+- `DELETE /api/v1/orden-del-dia`: sin body. Si existe una colección activa, audita L2 `ORDEN_DEL_DIA_DESCARTADO` y la limpia en memoria. Si no había colección, es un no-op exitoso sin evento ficticio. Responde `204 No Content`.
+
+No existe endpoint `GET` de lectura: la interfaz de moderación recibe los puntos como resultado del `POST` y la proyección de estado se actualizará en capacidades posteriores.
+
+### Errores aplicables
+
+- `409 Conflict` + `ESTADO_INCOMPATIBLE`: la operación fue solicitada en `SIN_PREPARAR`;
+- `422 Unprocessable Entity` + `ORDEN_DEL_DIA_INVALIDO`: el archivo no es UTF-8 válido, es un CSV malformado, no coincide el encabezado canónico, utiliza el formato histórico de 5 columnas o contiene campos con valores inválidos;
+- `503 Service Unavailable` + `AUDITORIA_NO_DISPONIBLE`: no puede garantizarse la persistencia del evento obligatorio L2;
+- `500 Internal Server Error` + `ERROR_INTERNO`: fallo inesperado no clasificado.
 
 ## 12. REST + SSE
 

@@ -85,3 +85,13 @@ class ErrorTipoVotacionNoPermitido(Exception):
     El texto ya cumplió el contrato técnico de Pydantic; el rechazo es
     funcional y corresponde a HTTP 422 con ``TIPO_VOTACION_NO_PERMITIDO``.
     """
+
+
+class ErrorOrdenDelDiaInvalido(Exception):
+    """El archivo de Orden del Día recibido no es técnicamente interpretable.
+
+    Aplica para bytes no UTF-8, CSV malformado, encabezado incorrecto o
+    columnas inválidas (como el formato histórico de 5 columnas), o valores de
+    campos incompatibles con las reglas canónicas de DT-039.
+    Corresponde al código HTTP 422 con ``ORDEN_DEL_DIA_INVALIDO``.
+    """
