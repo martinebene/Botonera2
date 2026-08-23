@@ -406,8 +406,8 @@ async def test_regresion_test_presencia_y_tecla_siete(
     assert prueba.aceptada is True
     assert prueba.motivo == "TEST_ACTIVADO"
     assert presencia.aceptada is True
-    assert palabra.aceptada is False
-    assert palabra.motivo == "TECLA_NO_HABILITADA"
+    assert palabra.aceptada is True
+    assert palabra.motivo == "PEDIDO_PALABRA_REGISTRADO"
     assert votacion.estado is EstadoVotacion.EN_CURSO
 
 

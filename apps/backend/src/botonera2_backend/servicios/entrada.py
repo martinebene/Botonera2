@@ -4,8 +4,8 @@ La ruta recibe un dispositivo lógico, nunca un fingerprint físico, y resuelve
 la identidad únicamente contra el padrón congelado del contexto operativo.
 WP-008 amplía la misma lógica de WP-006 a ``SESION_ABIERTA`` para teclas 8/9;
 WP-010 incorpora 1/2/3, voto irreversible y autocierre; WP-011 encadena el
-resultado ordinario en ese mismo flujo, sin crear otro servicio, mapa de
-presencia, escritor ni mecanismo de serialización.
+resultado ordinario y WP-015 agrega palabra y sus efectos de ausencia en ese
+mismo flujo, sin crear otro mapa, escritor ni mecanismo de serialización.
 
 La parte más importante del flujo es el orden: cada operación válida en
 un contexto auditable registra primero la pulsación, luego el resultado
@@ -23,9 +23,11 @@ from datetime import datetime
 from botonera2_backend.auditoria import NivelAuditoria
 from botonera2_backend.configuracion.modelos import Concejal
 from botonera2_backend.dominio.entrada import (
+    AccionPalabra,
     IdentidadConcejal,
     Pulsacion,
     RespuestaEntrada,
+    ResultadoPalabra,
     ResultadoPresencia,
     ResultadoTest,
     ResultadoVoto,
@@ -54,6 +56,7 @@ VALOR_VOTO_POR_TECLA = {
 }
 TECLA_TEST = "8"
 TECLA_PRESENCIA = "9"
+TECLA_PALABRA = "7"
 
 MOTIVO_VOTO_REGISTRADO = "VOTO_REGISTRADO"
 MOTIVO_PRESENCIA_ACTUALIZADA = "PRESENCIA_ACTUALIZADA"
@@ -64,10 +67,14 @@ MOTIVO_TECLA_NO_HABILITADA = "TECLA_NO_HABILITADA"
 MOTIVO_VOTACION_NO_EN_CURSO = "VOTACION_NO_EN_CURSO"
 MOTIVO_CONCEJAL_AUSENTE = "CONCEJAL_AUSENTE"
 MOTIVO_VOTO_YA_EMITIDO = "VOTO_YA_EMITIDO"
+MOTIVO_PEDIDO_PALABRA_REGISTRADO = "PEDIDO_PALABRA_REGISTRADO"
+MOTIVO_PEDIDO_PALABRA_RETIRADO = "PEDIDO_PALABRA_RETIRADO"
+MOTIVO_USO_PALABRA_FINALIZADO = "USO_PALABRA_FINALIZADO"
 
 ETIQUETA_INPUT = "INPUT"
 ETIQUETA_PRESENCIA = "PRESENCIA"
 ETIQUETA_VOTACION = "VOTACION"
+ETIQUETA_PALABRA = "PALABRA"
 CODIGO_PULSACION_RECIBIDA = "PULSACION_RECIBIDA"
 CODIGO_PULSACION_RECHAZADA = "PULSACION_RECHAZADA"
 CODIGO_CONCEJAL_PRESENTE = "CONCEJAL_PRESENTE"
@@ -77,6 +84,11 @@ CODIGO_VOTO_ORDINARIO_REGISTRADO = "VOTO_ORDINARIO_REGISTRADO"
 CODIGO_VOTACION_CERRADA_COMPLETITUD = "VOTACION_CERRADA_COMPLETITUD"
 CODIGO_VOTACION_RESULTADO_FINAL = "VOTACION_RESULTADO_FINAL"
 CODIGO_VOTACION_RESULTADO_EMPATE = "VOTACION_RESULTADO_EMPATE"
+CODIGO_PEDIDO_PALABRA_REGISTRADO = "PEDIDO_PALABRA_REGISTRADO"
+CODIGO_PEDIDO_PALABRA_RETIRADO = "PEDIDO_PALABRA_RETIRADO"
+CODIGO_USO_PALABRA_FINALIZADO = "USO_PALABRA_FINALIZADO"
+
+CAUSA_FINALIZACION_PROPIO = "PROPIO"
 
 
 class ServicioEntradaTecla:
@@ -175,6 +187,23 @@ class ServicioEntradaTecla:
                 VALOR_VOTO_POR_TECLA[pulsacion.tecla],
             )
 
+        if pulsacion.tecla == TECLA_PALABRA:
+            if self._estado.estado_global is not EstadoGlobal.SESION_ABIERTA:
+                self._registrar_pulsacion_rechazada(
+                    preparacion, pulsacion, MOTIVO_TECLA_NO_HABILITADA
+                )
+                return self._respuesta_rechazo(
+                    pulsacion,
+                    MOTIVO_TECLA_NO_HABILITADA,
+                    concejal=identidad,
+                )
+            return self._procesar_palabra(
+                preparacion,
+                pulsacion,
+                concejal,
+                identidad,
+            )
+
         if pulsacion.tecla not in (TECLA_TEST, TECLA_PRESENCIA):
             self._registrar_pulsacion_rechazada(preparacion, pulsacion, MOTIVO_TECLA_NO_HABILITADA)
             return self._respuesta_rechazo(
@@ -197,7 +226,22 @@ class ServicioEntradaTecla:
 
         nuevo_valor = not preparacion.presencias[dni]
         codigo_evento = CODIGO_CONCEJAL_PRESENTE if nuevo_valor else CODIGO_CONCEJAL_AUSENTE
-        mensaje = self._mensaje_presencia(identidad, nuevo_valor)
+        pedido_palabra_retirado = False
+        uso_palabra_finalizado = False
+        incluir_efectos_palabra = False
+        if not nuevo_valor:
+            sesion = self._estado.sesion_activa
+            if self._estado.estado_global is EstadoGlobal.SESION_ABIERTA and sesion is not None:
+                incluir_efectos_palabra = True
+                pedido_palabra_retirado = sesion.palabra.esta_esperando(dni)
+                uso_palabra_finalizado = sesion.palabra.es_orador(dni)
+        mensaje = self._mensaje_presencia(
+            identidad,
+            nuevo_valor,
+            incluir_efectos_palabra=incluir_efectos_palabra,
+            pedido_palabra_retirado=pedido_palabra_retirado,
+            uso_palabra_finalizado=uso_palabra_finalizado,
+        )
 
         # Si esta escritura falla, el writer queda en fallo cerrado y la
         # asignación siguiente no se ejecuta. La presencia anterior permanece.
@@ -212,6 +256,13 @@ class ServicioEntradaTecla:
         # obligatorios: PULSACION_RECIBIDA (ya escrita por el llamador) y el
         # evento institucional de presencia que acabamos de persistir.
         preparacion.presencias[dni] = nuevo_valor
+        if not nuevo_valor:
+            sesion = self._estado.sesion_activa
+            if self._estado.estado_global is EstadoGlobal.SESION_ABIERTA and sesion is not None:
+                # El mismo evento CONCEJAL_AUSENTE ya documentó y autorizó
+                # estos efectos. No se crea un segundo hecho de palabra para la
+                # consecuencia automática y nunca se promueve al siguiente.
+                sesion.palabra.limpiar_por_ausencia(dni)
 
         # La presencia ya es un hecho auditado y aplicado. La operación derivada
         # evalúa primero quórum y recién luego completitud. Si su evento falla,
@@ -229,6 +280,87 @@ class ServicioEntradaTecla:
                 presentes=preparacion.cantidad_presentes(),
                 quorum_alcanzado=preparacion.quorum_alcanzado(),
             ),
+        )
+
+    def _procesar_palabra(
+        self,
+        preparacion: Preparacion,
+        pulsacion: Pulsacion,
+        concejal: Concejal,
+        identidad: IdentidadConcejal,
+    ) -> RespuestaEntrada:
+        """Resuelve tecla 7 con la prioridad aprobada y auditoría previa.
+
+        La votación activa no interviene en esta decisión. La presencia se
+        valida primero; luego se prioriza finalizar el uso propio, retirar un
+        pedido existente y, por último, agregar un nuevo pedido al final FIFO.
+        """
+
+        if not preparacion.presencias[concejal.dni]:
+            self._registrar_pulsacion_rechazada(
+                preparacion,
+                pulsacion,
+                MOTIVO_CONCEJAL_AUSENTE,
+            )
+            return self._respuesta_rechazo(
+                pulsacion,
+                MOTIVO_CONCEJAL_AUSENTE,
+                concejal=identidad,
+            )
+
+        sesion = self._estado.sesion_activa
+        if sesion is None:
+            raise RuntimeError("Estado SESION_ABIERTA sin sesión para palabra")
+        estado_palabra = sesion.palabra
+        identidad_mensaje = self._mensaje_identidad(identidad)
+
+        if estado_palabra.es_orador(concejal.dni):
+            preparacion.escritor_auditoria.registrar_evento(
+                NivelAuditoria.L3,
+                ETIQUETA_PALABRA,
+                CODIGO_USO_PALABRA_FINALIZADO,
+                (
+                    f"Uso de palabra finalizado: {identidad_mensaje}; "
+                    f"causa={CAUSA_FINALIZACION_PROPIO}"
+                ),
+            )
+            estado_palabra.finalizar_uso(concejal.dni)
+            return self._respuesta_palabra(
+                pulsacion,
+                identidad,
+                MOTIVO_USO_PALABRA_FINALIZADO,
+                AccionPalabra.USO_FINALIZADO,
+            )
+
+        if estado_palabra.esta_esperando(concejal.dni):
+            posicion = estado_palabra.cola_dnis.index(concejal.dni) + 1
+            preparacion.escritor_auditoria.registrar_evento(
+                NivelAuditoria.L3,
+                ETIQUETA_PALABRA,
+                CODIGO_PEDIDO_PALABRA_RETIRADO,
+                f"Pedido de palabra retirado: {identidad_mensaje}; posicion_previa={posicion}",
+            )
+            estado_palabra.retirar_pedido(concejal.dni)
+            return self._respuesta_palabra(
+                pulsacion,
+                identidad,
+                MOTIVO_PEDIDO_PALABRA_RETIRADO,
+                AccionPalabra.PEDIDO_RETIRADO,
+            )
+
+        posicion = len(estado_palabra.cola_dnis) + 1
+        preparacion.escritor_auditoria.registrar_evento(
+            NivelAuditoria.L3,
+            ETIQUETA_PALABRA,
+            CODIGO_PEDIDO_PALABRA_REGISTRADO,
+            f"Pedido de palabra registrado: {identidad_mensaje}; posicion={posicion}",
+        )
+        estado_palabra.agregar_pedido(concejal.dni)
+        return self._respuesta_palabra(
+            pulsacion,
+            identidad,
+            MOTIVO_PEDIDO_PALABRA_REGISTRADO,
+            AccionPalabra.PEDIDO_AGREGADO,
         )
 
     def _procesar_voto(
@@ -546,11 +678,54 @@ class ServicioEntradaTecla:
         )
 
     @staticmethod
-    def _mensaje_presencia(identidad: IdentidadConcejal, presente: bool) -> str:
-        """Devuelve exactamente el mensaje humano fijado por DEC-006."""
+    def _respuesta_palabra(
+        pulsacion: Pulsacion,
+        identidad: IdentidadConcejal,
+        motivo: str,
+        accion: AccionPalabra,
+    ) -> RespuestaEntrada:
+        """Construye la variante funcional estable de una tecla 7 aceptada."""
+
+        return RespuestaEntrada(
+            aceptada=True,
+            dispositivo=pulsacion.dispositivo,
+            tecla=pulsacion.tecla,
+            motivo=motivo,
+            concejal=identidad,
+            resultado=ResultadoPalabra(tipo="PALABRA", accion=accion),
+        )
+
+    @staticmethod
+    def _mensaje_presencia(
+        identidad: IdentidadConcejal,
+        presente: bool,
+        *,
+        incluir_efectos_palabra: bool = False,
+        pedido_palabra_retirado: bool = False,
+        uso_palabra_finalizado: bool = False,
+    ) -> str:
+        """Describe presencia e incluye los efectos de palabra de una ausencia."""
 
         estado = "PRESENTÓ" if presente else "AUSENTÓ"
-        return f"{identidad.nombre} {identidad.apellido} (banca Nro:{identidad.banca}) se {estado}"
+        mensaje = (
+            f"{identidad.nombre} {identidad.apellido} (banca Nro:{identidad.banca}) se {estado}"
+        )
+        if presente or not incluir_efectos_palabra:
+            return mensaje
+        return (
+            f"{mensaje}; pedido_palabra_retirado="
+            f"{str(pedido_palabra_retirado).lower()}; uso_palabra_finalizado="
+            f"{str(uso_palabra_finalizado).lower()}"
+        )
+
+    @staticmethod
+    def _mensaje_identidad(identidad: IdentidadConcejal) -> str:
+        """Representa DNI, nombre y banca en los hechos directos de palabra."""
+
+        return (
+            f"DNI={identidad.dni}; concejal={identidad.nombre} {identidad.apellido}; "
+            f"banca={identidad.banca}"
+        )
 
     @staticmethod
     def _mensaje_voto(

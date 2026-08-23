@@ -339,7 +339,7 @@ async def test_fallo_de_auditoria_no_publica_mutacion_parcial(tmp_path: Path) ->
 
 
 async def test_capacidades_de_sesion_conviven_con_votacion_activa(tmp_path: Path) -> None:
-    """Autoridades y 8/9 conviven; voto exige presencia y 7 sigue deshabilitada."""
+    """Autoridades, 8/9 y palabra conviven; voto y palabra exigen presencia."""
 
     estado, servicio_sesion, entrada, servicio = await crear_servicios(tmp_path)
     await abrir_sesion(servicio_sesion, entrada)
@@ -367,7 +367,7 @@ async def test_capacidades_de_sesion_conviven_con_votacion_activa(tmp_path: Path
         assert respuesta.motivo == "CONCEJAL_AUSENTE"
     palabra = await entrada.procesar_pulsacion(Pulsacion("D-01", "7"))
     assert palabra.aceptada is False
-    assert palabra.motivo == "TECLA_NO_HABILITADA"
+    assert palabra.motivo == "CONCEJAL_AUSENTE"
 
     sesion = estado.sesion_activa
     assert sesion is not None

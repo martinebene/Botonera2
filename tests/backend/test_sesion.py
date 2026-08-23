@@ -21,7 +21,7 @@ from botonera2_backend.auditoria import (
     EscritorAuditoriaCsv,
     NivelAuditoria,
 )
-from botonera2_backend.dominio.entrada import Pulsacion, ResultadoPresencia
+from botonera2_backend.dominio.entrada import Pulsacion, ResultadoPalabra, ResultadoPresencia
 from botonera2_backend.dominio.errores import (
     ErrorEstadoIncompatible,
     ErrorNumeroSesionRequerido,
@@ -405,16 +405,17 @@ async def test_votos_sin_votacion_siguen_rechazados_en_sesion(
     assert respuesta.motivo == "VOTACION_NO_EN_CURSO"
 
 
-async def test_tecla_de_palabra_sigue_sin_propietario_en_sesion(tmp_path: Path) -> None:
-    """La tecla 7 permanece fuera de alcance y conserva el rechazo histórico."""
+async def test_tecla_de_palabra_usa_el_contexto_de_sesion(tmp_path: Path) -> None:
+    """WP-015 incorpora tecla 7 sin crear un contexto operativo paralelo."""
 
     _estado, servicio, entrada = await crear_contexto(tmp_path)
     await abrir_contexto_valido(servicio, entrada)
 
     respuesta = await entrada.procesar_pulsacion(Pulsacion("D-01", "7"))
 
-    assert respuesta.aceptada is False
-    assert respuesta.motivo == "TECLA_NO_HABILITADA"
+    assert respuesta.aceptada is True
+    assert respuesta.motivo == "PEDIDO_PALABRA_REGISTRADO"
+    assert isinstance(respuesta.resultado, ResultadoPalabra)
 
 
 async def test_entradas_ocho_nueve_y_dispositivo_inexistente_en_sesion(

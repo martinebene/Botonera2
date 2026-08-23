@@ -1,4 +1,4 @@
-"""Contrato REST de entrada lógica ``/api/v1/entradas/tecla`` (WP-006/WP-010).
+"""Contrato REST de entrada lógica ``/api/v1/entradas/tecla``.
 
 Esta capa valida únicamente el transporte con Pydantic y traduce los tipos
 internos del servicio a los modelos que FastAPI publica en OpenAPI. Las reglas
@@ -16,9 +16,11 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from botonera2_backend.api.errores import ErrorRespuesta
 from botonera2_backend.dominio.entrada import (
+    AccionPalabra,
     IdentidadConcejal,
     Pulsacion,
     RespuestaEntrada,
+    ResultadoPalabra,
     ResultadoPresencia,
     ResultadoTest,
     ResultadoVoto,
@@ -88,6 +90,13 @@ class ResultadoVotoRespuesta(BaseModel):
     estado_recepcion: EstadoVotacion
 
 
+class ResultadoPalabraRespuesta(BaseModel):
+    """Resultado tipado de una tecla ``7`` aceptada."""
+
+    tipo: Literal["PALABRA"]
+    accion: AccionPalabra
+
+
 class RespuestaTecla(BaseModel):
     """Forma estable de éxito o rechazo funcional normal de una pulsación."""
 
@@ -96,7 +105,13 @@ class RespuestaTecla(BaseModel):
     tecla: str
     motivo: str
     concejal: IdentidadConcejalRespuesta | None
-    resultado: ResultadoPresenciaRespuesta | ResultadoTestRespuesta | ResultadoVotoRespuesta | None
+    resultado: (
+        ResultadoPresenciaRespuesta
+        | ResultadoTestRespuesta
+        | ResultadoVotoRespuesta
+        | ResultadoPalabraRespuesta
+        | None
+    )
 
 
 RESPUESTAS_ERROR_ENTRADA: dict[int | str, dict[str, Any]] = {
@@ -142,7 +157,13 @@ def _convertir_identidad(
 def _convertir_respuesta(respuesta: RespuestaEntrada) -> RespuestaTecla:
     """Adapta la unión de resultados del dominio a los modelos OpenAPI."""
 
-    resultado: ResultadoPresenciaRespuesta | ResultadoTestRespuesta | ResultadoVotoRespuesta | None
+    resultado: (
+        ResultadoPresenciaRespuesta
+        | ResultadoTestRespuesta
+        | ResultadoVotoRespuesta
+        | ResultadoPalabraRespuesta
+        | None
+    )
     if isinstance(respuesta.resultado, ResultadoPresencia):
         resultado = ResultadoPresenciaRespuesta(
             tipo="PRESENCIA",
@@ -161,6 +182,11 @@ def _convertir_respuesta(respuesta: RespuestaEntrada) -> RespuestaTecla:
             tipo="VOTO",
             valor=respuesta.resultado.valor,
             estado_recepcion=respuesta.resultado.estado_recepcion,
+        )
+    elif isinstance(respuesta.resultado, ResultadoPalabra):
+        resultado = ResultadoPalabraRespuesta(
+            tipo="PALABRA",
+            accion=respuesta.resultado.accion,
         )
     else:
         resultado = None
