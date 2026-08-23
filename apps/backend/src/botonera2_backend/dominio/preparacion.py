@@ -28,6 +28,7 @@ from pathlib import Path
 
 from botonera2_backend.auditoria import EscritorAuditoriaCsv, NivelAuditoria
 from botonera2_backend.configuracion.modelos import ConfiguracionSistema, Padron
+from botonera2_backend.dominio.orden_del_dia import PuntoOrdenDelDia
 
 
 def _crear_expiraciones_test() -> dict[str, float]:
@@ -60,6 +61,9 @@ class Preparacion:
         presidencia: texto libre normalizado o ausencia mientras se prepara.
         secretaria_legislativa: texto libre normalizado o ausencia mientras
             se prepara.
+        orden_del_dia: colección opcional y temporal de puntos normalizados
+            del Orden del Día (WP-016). Si se carga durante preparación,
+            permanece disponible al abrir la sesión formal.
     """
 
     fecha_hora_inicio: datetime
@@ -71,6 +75,7 @@ class Preparacion:
     numero_sesion: int | None = None
     presidencia: str | None = None
     secretaria_legislativa: str | None = None
+    orden_del_dia: tuple[PuntoOrdenDelDia, ...] | None = None
 
     def cantidad_presentes(self) -> int:
         """Cuenta las presencias actuales sin guardar un contador paralelo.
