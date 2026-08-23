@@ -135,6 +135,28 @@ Deben registrarse apropiadamente, según nivel:
 - remapeo físico de dispositivo cuando se implemente;
 - errores técnicos relevantes.
 
+Las mutaciones directas de palabra utilizan hechos L3 con etiqueta `PALABRA`:
+
+- `PEDIDO_PALABRA_REGISTRADO`;
+- `PEDIDO_PALABRA_RETIRADO`;
+- `USO_PALABRA_OTORGADO`;
+- `USO_PALABRA_FINALIZADO`.
+
+Cada mensaje identifica DNI, nombre/apellido y banca; la finalización explicita
+la causa `PROPIO` o `MODERACION`. Los no-op de Moderación registran únicamente
+el diagnóstico L2 `COMANDO_PALABRA_SIN_EFECTO`, sin inventar hechos L3.
+
+Si `Otorgar palabra` reemplaza a un orador, primero persiste y aplica
+`USO_PALABRA_FINALIZADO`; después persiste `USO_PALABRA_OTORGADO` y recién
+entonces retira el primer pedido e instala el nuevo orador. Si falla el segundo
+evento, no se revierte el primero: queda sin orador y el pedido continúa primero
+en la cola.
+
+Cuando `CONCEJAL_AUSENTE` también elimina un pedido o finaliza un uso, su mensaje
+explicita `pedido_palabra_retirado=true` y/o
+`uso_palabra_finalizado=true`. Ese único hecho L3 se persiste antes de cambiar
+presencia y palabra; luego continúan los efectos derivados de votación.
+
 Para la recepción ordinaria, cada aceptación persiste un evento L3 `VOTO_ORDINARIO_REGISTRADO` antes de incorporar el voto. Los intentos rechazados permanecen como `PULSACION_RECHAZADA` L2 con motivo estable y no crean un voto ficticio. El autocierre persiste un evento L3 separado `VOTACION_CERRADA_COMPLETITUD` antes de cambiar la recepción a `CERRADA`; ese evento no declara resultado de mayoría.
 
 Si el voto o la presencia que completan la recepción ya fueron auditados y aplicados, pero falla la persistencia del evento derivado de autocierre, el hecho previo no se revierte. La recepción permanece `EN_CURSO`, el writer queda en fallo cerrado y no se informa éxito técnico de la operación externa.

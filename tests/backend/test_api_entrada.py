@@ -475,9 +475,15 @@ def test_openapi_expone_request_y_respuestas_de_entrada() -> None:
         if "$ref" in variante
     }
     assert referencias == {
+        "ResultadoPalabraRespuesta",
         "ResultadoPresenciaRespuesta",
         "ResultadoTestRespuesta",
         "ResultadoVotoRespuesta",
+    }
+    assert set(esquemas["AccionPalabra"]["enum"]) == {
+        "PEDIDO_AGREGADO",
+        "PEDIDO_RETIRADO",
+        "USO_FINALIZADO",
     }
     assert set(esquemas["ResultadoVotoRespuesta"]["properties"]) == {
         "tipo",

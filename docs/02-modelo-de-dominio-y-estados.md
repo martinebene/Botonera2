@@ -249,6 +249,10 @@ La pérdida de quórum mientras la recepción está `EN_CURSO` finaliza inmediat
 
 Estructura conceptual FIFO.
 
+La sesión conserva una única cola de DNI resueltos contra el padrón congelado y
+un único DNI opcional como orador actual. No se copian entidades `Concejal` ni
+se mantienen listas paralelas en API o servicios.
+
 Estados posibles de un concejal respecto de palabra:
 
 - sin solicitud;
@@ -258,6 +262,10 @@ Estados posibles de un concejal respecto de palabra:
 Un ausente no puede permanecer esperando ni en uso.
 
 Pedir y usar palabra es independiente de que exista una votación en curso.
+
+Finalizar el uso propio, quitarlo desde Moderación o perderlo por ausencia deja
+la cola intacta y sin nuevo orador. Únicamente el comando explícito
+`Otorgar palabra` retira el primer pedido FIFO y lo convierte en orador.
 
 ## 13. OrdenDelDia
 
@@ -298,4 +306,8 @@ Normalmente proviene de la configuración congelada al preparar. El futuro remap
 - máximo un `VotoDesempate` irreversible por votación simple empatada;
 - `EMPATADA` es transitorio y solo se resuelve mediante los flujos autorizados;
 - estado activo solo en memoria;
+- máximo un DNI por posición de la cola de palabra y máximo un orador;
+- el orador no aparece simultáneamente en la cola;
+- ningún ausente permanece en cola ni como orador;
+- finalizar un uso de palabra no promueve implícitamente al siguiente;
 - frontends no son autoridad de dominio.

@@ -9,6 +9,7 @@ probar presencia, test y voto sin levantar FastAPI.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import StrEnum
 
 from botonera2_backend.dominio.votacion import EstadoVotacion, ValorVotoOrdinario
 
@@ -69,7 +70,23 @@ class ResultadoVoto:
     estado_recepcion: EstadoVotacion
 
 
-type ResultadoEntrada = ResultadoPresencia | ResultadoTest | ResultadoVoto
+class AccionPalabra(StrEnum):
+    """Acciones estables que puede producir una tecla física ``7``."""
+
+    PEDIDO_AGREGADO = "PEDIDO_AGREGADO"
+    PEDIDO_RETIRADO = "PEDIDO_RETIRADO"
+    USO_FINALIZADO = "USO_FINALIZADO"
+
+
+@dataclass(frozen=True, slots=True)
+class ResultadoPalabra:
+    """Resultado funcional de pedir, retirar o finalizar el uso propio."""
+
+    tipo: str
+    accion: AccionPalabra
+
+
+type ResultadoEntrada = ResultadoPresencia | ResultadoTest | ResultadoVoto | ResultadoPalabra
 
 
 @dataclass(frozen=True, slots=True)

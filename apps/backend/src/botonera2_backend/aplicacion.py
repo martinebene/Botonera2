@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 from botonera2_backend.api.entradas import enrutador_entradas
 from botonera2_backend.api.errores import registrar_manejadores_errores
 from botonera2_backend.api.orden_del_dia import enrutador_orden_del_dia
+from botonera2_backend.api.palabra import enrutador_palabra
 from botonera2_backend.api.preparacion import enrutador_preparacion
 from botonera2_backend.api.salud import enrutador_salud
 from botonera2_backend.api.sesion import enrutador_sesion
@@ -80,4 +81,5 @@ def crear_aplicacion() -> FastAPI:
     aplicacion.include_router(enrutador_votaciones, prefix="/api/v1")
     aplicacion.include_router(enrutador_entradas, prefix="/api/v1")
     aplicacion.include_router(enrutador_orden_del_dia, prefix="/api/v1")
+    aplicacion.include_router(enrutador_palabra, prefix="/api/v1")
     return aplicacion

@@ -68,6 +68,20 @@ La respuesta al bridge/diagnóstico permite distinguir al menos:
 - concejal cuando corresponda;
 - resultado funcional relevante cuando corresponda.
 
+Para una tecla `7` aceptada, `resultado` agrega la variante tipada:
+
+```json
+{
+  "tipo": "PALABRA",
+  "accion": "PEDIDO_AGREGADO"
+}
+```
+
+`accion` puede ser `PEDIDO_AGREGADO`, `PEDIDO_RETIRADO` o `USO_FINALIZADO`.
+Los motivos estables correspondientes son `PEDIDO_PALABRA_REGISTRADO`,
+`PEDIDO_PALABRA_RETIRADO` y `USO_PALABRA_FINALIZADO`. Un concejal ausente se
+rechaza normalmente con `CONCEJAL_AUSENTE` y HTTP `200`.
+
 ## 6. Comandos de Moderación requeridos
 
 El backend debe ofrecer capacidades equivalentes a:
@@ -81,6 +95,18 @@ El backend debe ofrecer capacidades equivalentes a:
 - otorgar/quitar palabra;
 - consultar estado/eventos;
 - iniciar/confirmar remapeo rápido cuando se implemente.
+
+Los comandos backend exactos de palabra son:
+
+- `POST /api/v1/palabra`, sin body: finaliza al orador actual si existe y luego
+  otorga exclusivamente el primer pedido FIFO;
+- `DELETE /api/v1/palabra`, sin body: finaliza al orador actual y nunca promueve
+  al siguiente.
+
+Ambos responden `204 No Content`, incluidos sus no-op aprobados. Responden
+`409 ESTADO_INCOMPATIBLE` sin sesión abierta, `503 AUDITORIA_NO_DISPONIBLE`
+cuando no puede garantizarse un evento obligatorio y `500 ERROR_INTERNO` ante
+un fallo inesperado. No existen errores `SIN_ORADOR` ni `SIN_PEDIDOS`.
 
 ### Contrato REST de preparación
 
