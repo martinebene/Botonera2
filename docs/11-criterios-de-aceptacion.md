@@ -196,11 +196,15 @@ Mientras haya `EMPATADA`, la misma votación cerrada debe conservarse como activ
 
 Una simple `EMPATADA` debe permitir desde Moderación únicamente `POSITIVO` o `NEGATIVO`.
 
-Debe cambiar a `APROBADA`/`RECHAZADA`, ser irreversible y registrar explícitamente Presidente, sentido y resultado.
+El comando exacto `POST /api/v1/votaciones/{id}/desempate` valida bajo el serializador la sesión, la referencia/id, `CERRADA + EMPATADA + SIMPLE` y ausencia de voto previo. Toma la Presidencia vigente desde backend, sin recibirla del cliente ni exigir quórum posterior al empate.
+
+Debe persistir primero `VOTO_DESEMPATE_PRESIDENCIAL`, almacenar un único voto irreversible, persistir después `VOTACION_RESULTADO_DESEMPATE`, cambiar a `APROBADA`/`RECHAZADA` según el sentido y recién entonces liberar la referencia activa.
+
+Si falla el primer evento, no existe voto presidencial. Si falla el segundo, el voto permanece pero el resultado sigue `EMPATADA` y la votación continúa activa; no existe retry ni recovery en este alcance.
 
 ## CA-039 Desempate no ordinario
 
-El voto presidencial no debe incrementar la cantidad de votos ordinarios ni asociarse a una banca.
+El voto presidencial conserva Presidencia y sentido sin DNI ni banca. No debe incrementar o modificar votos, positivos, negativos, abstenciones o denominadores, no recalcula SIMPLE y conserva exactamente la fecha de cierre original.
 
 ## CA-040 Especial sin desempate
 

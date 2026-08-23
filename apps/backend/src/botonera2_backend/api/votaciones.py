@@ -1,8 +1,8 @@
-"""Contrato REST plural para abrir votaciones durante una sesión (WP-009).
+"""Contratos REST para abrir, finalizar y desempatar votaciones.
 
 Pydantic valida el transporte y las combinaciones SIMPLE/ESPECIAL antes de
 entrar al servicio. Las precondiciones que dependen del estado, el snapshot y
-la auditoría permanecen en ``ServicioVotacion``.
+la auditoría permanecen en ``ServicioVotacion`` bajo el serializador común.
 """
 
 from __future__ import annotations
@@ -19,6 +19,7 @@ from botonera2_backend.dominio.votacion import (
     BaseMayoria,
     DatosAperturaVotacion,
     EstadoVotacion,
+    SentidoVotoDesempate,
     TipoMayoria,
 )
 from botonera2_backend.recursos import obtener_recursos_aplicacion
@@ -191,6 +192,24 @@ class SolicitudFinalizarVotacion(BaseModel):
         return normalizado
 
 
+class SolicitudDesempate(BaseModel):
+    """Body cerrado del único comando presidencial definido por DEC-012.
+
+    El cliente solo elige el sentido. La identidad de Presidencia se obtiene
+    de la sesión activa dentro del serializador y no puede inyectarse mediante
+    campos adicionales.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    sentido: Literal["POSITIVO", "NEGATIVO"]
+
+    def convertir_sentido(self) -> SentidoVotoDesempate:
+        """Convierte el literal HTTP al vocabulario cerrado del dominio."""
+
+        return SentidoVotoDesempate(self.sentido)
+
+
 RESPUESTAS_ERROR_VOTACION: dict[int | str, dict[str, Any]] = {
     409: {
         "model": ErrorRespuesta,
@@ -216,6 +235,27 @@ RESPUESTAS_ERROR_FINALIZACION: dict[int | str, dict[str, Any]] = {
         "model": ErrorRespuesta,
         "description": (
             "Rechazo funcional: ESTADO_INCOMPATIBLE, VOTACION_NO_COINCIDE o VOTACION_NO_EN_CURSO."
+        ),
+    },
+    422: {
+        "description": "El path o body no cumple el contrato estricto de transporte.",
+    },
+    503: {
+        "model": ErrorRespuesta,
+        "description": "No puede garantizarse la auditoría obligatoria.",
+    },
+    500: {
+        "model": ErrorRespuesta,
+        "description": "Fallo inesperado no clasificado (ERROR_INTERNO).",
+    },
+}
+
+RESPUESTAS_ERROR_DESEMPATE: dict[int | str, dict[str, Any]] = {
+    409: {
+        "model": ErrorRespuesta,
+        "description": (
+            "Rechazo funcional: ESTADO_INCOMPATIBLE, VOTACION_NO_COINCIDE, "
+            "VOTACION_NO_EMPATADA o DESEMPATE_YA_EMITIDO."
         ),
     },
     422: {
@@ -276,5 +316,26 @@ async def finalizar_votacion(
     await _crear_servicio(solicitud).finalizar_votacion_manualmente(
         id,
         finalizacion.motivo,
+    )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@enrutador_votaciones.post(
+    "/votaciones/{id}/desempate",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+    responses=RESPUESTAS_ERROR_DESEMPATE,
+    summary="Emitir el desempate presidencial",
+)
+async def desempatar_votacion(
+    id: str,
+    solicitud: Request,
+    desempate: SolicitudDesempate,
+) -> Response:
+    """Desempata la votación exacta con la Presidencia vigente del backend."""
+
+    await _crear_servicio(solicitud).desempatar_votacion(
+        id,
+        desempate.convertir_sentido(),
     )
     return Response(status_code=status.HTTP_204_NO_CONTENT)

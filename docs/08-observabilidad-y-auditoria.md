@@ -152,6 +152,10 @@ Toda transición a `INCONCLUSA` persiste primero el evento L3 `VOTACION_FINALIZA
 
 Si falla ese evento, no se aplica la transición ni se libera la referencia activa. Cuando la causa fue una presencia ya auditada y aplicada, esa presencia no se revierte: la votación sigue `EN_CURSO + resultado=None` porque representa el último hecho durable. En el cierre de sesión, si la transición a `INCONCLUSA` ya fue auditada y aplicada pero luego falla `SESION_CERRADA`, tampoco se revierte; la sesión permanece abierta en memoria y la referencia activa queda liberada. Si `SESION_CERRADA` persistió pero falla el cierre físico del writer, se conserva el contexto conforme al fallo cerrado existente.
 
+El desempate presidencial persiste dos hechos L3 diferenciados bajo la misma adquisición. `VOTO_DESEMPATE_PRESIDENCIAL` registra número/id, Presidencia vigente, sentido, `estado_previo=CERRADA`, `resultado_previo=EMPATADA` y los conteos ordinarios preservados antes de almacenar el voto. Con ese voto ya durable y almacenado, `VOTACION_RESULTADO_DESEMPATE` registra la misma identidad/sentido, el empate previo, `resultado_final=APROBADA|RECHAZADA` y los mismos conteos antes de aplicar el resultado y liberar la referencia activa.
+
+Si falla el primer evento, no se almacena voto presidencial. Si falla el segundo, no se revierte el primer hecho: la misma votación conserva `CERRADA + EMPATADA`, el `VotoDesempate` y la referencia activa, sin publicar un resultado no auditado. En ambos casos el writer queda en fallo cerrado. Los rechazos funcionales del comando usan `COMANDO_VOTACION_RECHAZADO` L2 con operación, id solicitado y código estable; una falla de ese rechazo prevalece como indisponibilidad de auditoría.
+
 ## 10. Identidad de concejales
 
 La implementación histórica usa principalmente nombre, apellido y banca en mensajes funcionales.
@@ -168,7 +172,7 @@ El desempate registra explícitamente:
 - sentido `POSITIVO` o `NEGATIVO`;
 - resultado final.
 
-No se registra como voto ordinario de banca.
+La identidad se captura dentro del serializador y queda almacenada junto al voto aunque después cambie la autoridad. No se registra como voto ordinario de banca ni modifica sus conteos.
 
 ## 12. Remapeo
 

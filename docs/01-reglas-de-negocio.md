@@ -253,6 +253,27 @@ La pérdida posterior de quórum mientras una votación ya está `EMPATADA` no i
 ### RN-DES-07
 El registro debe indicar explícitamente el sentido del voto presidencial y el resultado final.
 
+### RN-DES-08
+El único comando REST de desempate es `POST /api/v1/votaciones/{id}/desempate`, con body cerrado `{ "sentido": "POSITIVO|NEGATIVO" }`. El id debe coincidir con la votación activa al ejecutar dentro del serializador, para que una intención obsoleta nunca afecte una votación posterior.
+
+### RN-DES-09
+La identidad autora se toma de la Presidencia vigente en la sesión dentro del `EjecutorMutaciones`; no se recibe ni se infiere desde el frontend o el padrón. Un cambio posterior de autoridad no modifica el voto presidencial ya almacenado.
+
+### RN-DES-10
+El desempate no exige quórum: la votación ya permanece `CERRADA + EMPATADA`. La apertura de una votación posterior sí vuelve a evaluar el quórum vigente mediante sus precondiciones normales.
+
+### RN-DES-11
+El voto presidencial se conserva una única vez como `VotoDesempate` separado e inmutable, con Presidencia y sentido. No tiene DNI ni banca, no se agrega a `votos_ordinarios` y no modifica positivos, negativos, abstenciones ni denominadores.
+
+### RN-DES-12
+El desempate registra dos hechos L3 distintos bajo una sola adquisición: primero `VOTO_DESEMPATE_PRESIDENCIAL`, antes de almacenar el voto; luego `VOTACION_RESULTADO_DESEMPATE`, antes de aplicar el resultado y liberar la referencia activa. `POSITIVO` deriva directamente en `APROBADA` y `NEGATIVO` en `RECHAZADA`, sin recalcular la mayoría simple.
+
+### RN-DES-13
+Si falla el primer hecho, la votación continúa `EMPATADA`, activa y sin voto presidencial. Si falla el segundo después de almacenar el voto, continúa `EMPATADA`, activa y con ese `VotoDesempate` irreversible. En ambos casos el writer queda en fallo cerrado y no se implementan rollback, retry ni recovery.
+
+### RN-DES-14
+Un desempate exitoso conserva exactamente la fecha de cierre y los votos ordinarios de la misma instancia, aplica el resultado final y recién entonces deja `votacion_activa = None`.
+
 ## RN-PAL - Uso de la palabra
 
 ### RN-PAL-01

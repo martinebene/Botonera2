@@ -161,8 +161,11 @@ El desempate presidencial produce:
 
 ```text
 CERRADA + resultado=EMPATADA
+    -> CERRADA + resultado=EMPATADA + VotoDesempate
     -> CERRADA + resultado=APROBADA|RECHAZADA
 ```
+
+La etapa intermedia solo es observable en memoria si falla la auditoría del resultado después de persistir y almacenar el voto presidencial. Es un estado técnico de fallo cerrado: no habilita un segundo voto, retry ni recovery. Tras el segundo hecho durable, el sentido ya almacenado determina directamente el resultado y se libera la referencia activa.
 
 Una finalización manual, la pérdida de quórum durante `EN_CURSO` o el cierre de sesión producen sobre la misma instancia:
 
@@ -224,11 +227,13 @@ Representa una decisión del rol Presidencia, no un voto ordinario de concejal.
 
 - solo cuando una votación simple cerrada tiene `resultado = EMPATADA`;
 - valor `POSITIVO` o `NEGATIVO`;
+- identidad textual de la Presidencia vigente al ejecutar bajo el serializador;
 - ingresado desde Moderación;
 - irreversible;
+- opcional al crear la votación y asignable una sola vez;
 - debe quedar registrado explícitamente.
 
-No debe agregarse como si fuera otro voto ordinario dentro del conteo de concejales.
+No contiene DNI ni banca y no debe agregarse como si fuera otro voto ordinario dentro del conteo de concejales. Tampoco modifica la fecha de cierre ni los conteos. `POSITIVO` deriva en `APROBADA` y `NEGATIVO` en `RECHAZADA` sin recalcular la mayoría simple.
 
 ## 11. Presencia
 
@@ -290,6 +295,7 @@ Normalmente proviene de la configuración congelada al preparar. El futuro remap
 - votación solo abre con sesión y quórum;
 - pérdida de quórum durante recepción `EN_CURSO` => cierre con resultado `INCONCLUSA`, con prioridad sobre completitud;
 - ningún resultado final se revierte;
+- máximo un `VotoDesempate` irreversible por votación simple empatada;
 - `EMPATADA` es transitorio y solo se resuelve mediante los flujos autorizados;
 - estado activo solo en memoria;
 - frontends no son autoridad de dominio.
