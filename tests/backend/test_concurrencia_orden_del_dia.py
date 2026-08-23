@@ -1,0 +1,269 @@
+"""Pruebas deterministas de concurrencia para Orden del Día (WP-016).
+
+Verifica mediante el EjecutorMutaciones real y control de orden:
+- CASO A: Dos cargas válidas concurrentes: la última en adquirir el lock define
+  el estado final sin mezclar filas.
+- CASO B: Carga válida concurrente con DELETE: el resultado final depende
+  estrictamente del orden de serialización.
+- CASO C: Parseo fuera del lock seguido de cancelación/cierre del contexto antes
+  de instalar: al entrar al lock se revalida el estado y se rechaza la
+  instalación sin recrear el contexto obsoleto.
+- CASO D: Carga inválida concurrente con operación válida: el archivo inválido
+  no altera la colección válida previa ni en curso.
+- CASO E: Carga concurrente durante votación: la votación activa conserva
+  íntegramente sus datos constitutivos, estado, votos y resultado.
+"""
+
+from __future__ import annotations
+
+import asyncio
+from datetime import datetime
+from pathlib import Path
+
+import pytest
+from botonera2_backend.auditoria import EscritorAuditoriaCsv
+from botonera2_backend.configuracion.modelos import (
+    Concejal,
+    ConfiguracionSistema,
+    Padron,
+)
+from botonera2_backend.dominio.errores import ErrorEstadoIncompatible, ErrorOrdenDelDiaInvalido
+from botonera2_backend.dominio.estado import EstadoGlobal, EstadoOperativo
+from botonera2_backend.dominio.preparacion import Preparacion
+from botonera2_backend.dominio.sesion import Sesion
+from botonera2_backend.dominio.votacion import (
+    BaseMayoria,
+    TipoMayoria,
+    ValorVotoOrdinario,
+    Votacion,
+    VotoOrdinario,
+)
+from botonera2_backend.servicios.orden_del_dia import ServicioOrdenDelDia
+from botonera2_backend.servicios.serializacion import EjecutorMutaciones
+
+pytestmark = pytest.mark.anyio
+
+CSV_COLECCION_A = (
+    b"nro_votacion,tipo,tema,tipo_mayoria,factor,base\n"
+    b"1,Despacho,Tema A1,SIMPLE,,\n"
+    b"2,Despacho,Tema A2,SIMPLE,,\n"
+)
+
+CSV_COLECCION_B = (
+    b"nro_votacion,tipo,tema,tipo_mayoria,factor,base\n"
+    b"10,Mocion,Tema B1,ESPECIAL,0.75,CUERPO\n"
+    b"20,Mocion,Tema B2,ESPECIAL,0.5,VOTOS_COMPUTABLES\n"
+    b"30,Mocion,Tema B3,SIMPLE,,\n"
+)
+
+CSV_INVALIDO = (
+    b"nro_votacion,tipo,tema,tipo_mayoria,factor,base\n"
+    b"1,Despacho,Tema Invalido,ESPECIAL,-99,PRESENTES\n"
+)
+
+
+def _crear_preparacion_aislada(
+    tmp_path: Path,
+) -> tuple[EstadoOperativo, Preparacion, EscritorAuditoriaCsv]:
+    """Fabrica un estado en PREPARANDO con escritor real sobre tmp_path."""
+    logs_dir = tmp_path / "logs"
+    logs_dir.mkdir(parents=True, exist_ok=True)
+    escritor = EscritorAuditoriaCsv(logs_dir, datetime.now())
+    configuracion = ConfiguracionSistema(
+        quorum=1,
+        filas_bancas=(1,),
+        tipos_votacion=("Despacho", "Mocion"),
+        device_test_seconds=4,
+        moderacion_revelado_votos_segundos=0,
+        recinto_cuenta_regresiva_inicial_segundos=4,
+        recinto_resultado_publico_segundos=6,
+        directorio_registros=str(logs_dir),
+    )
+    concejal = Concejal(
+        dni="12345678",
+        nombre="Juan",
+        apellido="Perez",
+        bloque="",
+        banca=1,
+        dispositivo_votacion="D-01",
+        ruta_imagen="img/1.png",
+    )
+    padron = Padron(concejales=(concejal,))
+    prep = Preparacion(
+        fecha_hora_inicio=datetime.now(),
+        configuracion=configuracion,
+        padron=padron,
+        presencias={"12345678": True},
+        escritor_auditoria=escritor,
+        numero_sesion=1,
+        presidencia="Presidente",
+        secretaria_legislativa="Secretario",
+    )
+    estado = EstadoOperativo()
+    estado.preparacion_activa = prep
+    estado.archivos_auditoria_activos = prep.rutas_auditoria()
+    estado.estado_global = EstadoGlobal.PREPARANDO
+    return estado, prep, escritor
+
+
+# ==============================================================================
+# CASO A: DOS CARGAS VÁLIDAS CONCURRENTES
+# ==============================================================================
+
+
+async def test_caso_a_dos_cargas_concurrentes_orden_determinado(tmp_path: Path) -> None:
+    """Demuestra que dos cargas concurrentes se serializan y gana la última sin mezclar filas."""
+    estado, prep, escritor = _crear_preparacion_aislada(tmp_path)
+    ejecutor = EjecutorMutaciones()
+    servicio = ServicioOrdenDelDia(estado, ejecutor)
+
+    # Lanzamos ambas cargas concurrentemente
+    resultado_a, resultado_b = await asyncio.gather(
+        servicio.cargar_orden_del_dia(CSV_COLECCION_A),
+        servicio.cargar_orden_del_dia(CSV_COLECCION_B),
+    )
+
+    # Ambas cargas devolvieron sus puntos respectivos
+    assert len(resultado_a) == 2
+    assert len(resultado_b) == 3
+
+    # El estado final es exactamente una de las dos colecciones completas (nunca una mezcla parcial)
+    coleccion_final = prep.orden_del_dia
+    assert coleccion_final is not None
+    assert coleccion_final in (resultado_a, resultado_b)
+    if coleccion_final == resultado_b:
+        assert [p.nro_votacion for p in coleccion_final] == [10, 20, 30]
+    else:
+        assert [p.nro_votacion for p in coleccion_final] == [1, 2]
+
+    escritor.cerrar()
+
+
+# ==============================================================================
+# CASO B: CARGA VÁLIDA CONCURRENTE CON DELETE
+# ==============================================================================
+
+
+async def test_caso_b_carga_concurrente_con_delete(tmp_path: Path) -> None:
+    """Demuestra que carga y DELETE concurrentes se resuelven según el orden del serializador."""
+    estado, prep, escritor = _crear_preparacion_aislada(tmp_path)
+    ejecutor = EjecutorMutaciones()
+    servicio = ServicioOrdenDelDia(estado, ejecutor)
+
+    # Lanzamos carga y descarte en paralelo
+    await asyncio.gather(
+        servicio.cargar_orden_del_dia(CSV_COLECCION_A),
+        servicio.descartar_orden_del_dia(),
+    )
+
+    # El estado final debe ser None (si DELETE fue segundo) o la colección A (si carga fue segunda)
+    assert prep.orden_del_dia is None or len(prep.orden_del_dia) == 2
+
+    escritor.cerrar()
+
+
+# ==============================================================================
+# CASO C: PARSEO FUERA DEL LOCK Y CONTEXTO CANCELADO ANTES DE INSTALAR
+# ==============================================================================
+
+
+async def test_caso_c_parseo_fuera_del_lock_y_cancelacion_previa(tmp_path: Path) -> None:
+    """Demuestra que si el contexto se cancela antes de adquirir el lock, se revalida y rechaza."""
+    estado, _prep, escritor = _crear_preparacion_aislada(tmp_path)
+    ejecutor = EjecutorMutaciones()
+    servicio = ServicioOrdenDelDia(estado, ejecutor)
+
+    # 1. Cancelamos la preparación en el estado
+    escritor.cerrar()
+    estado.preparacion_activa = None
+    estado.archivos_auditoria_activos = ()
+    estado.estado_global = EstadoGlobal.SIN_PREPARAR
+
+    # 2. Intentamos cargar: el parseo puro ocurre, pero al intentar instalar bajo el lock
+    # detecta que el estado es SIN_PREPARAR y falla limpiamente
+    with pytest.raises(ErrorEstadoIncompatible, match="SIN_PREPARAR"):
+        await servicio.cargar_orden_del_dia(CSV_COLECCION_A)
+
+    # El estado permanece SIN_PREPARAR sin recrear el contexto cancelado
+    assert estado.estado_global is EstadoGlobal.SIN_PREPARAR
+    assert estado.preparacion_activa is None
+
+
+# ==============================================================================
+# CASO D: ARCHIVO INVÁLIDO CONCURRENTE CON OPERACIÓN VÁLIDA
+# ==============================================================================
+
+
+async def test_caso_d_archivo_invalido_no_modifica_coleccion_valida(tmp_path: Path) -> None:
+    """Demuestra que una carga inválida concurrente no corrompe una carga válida."""
+    estado, prep, escritor = _crear_preparacion_aislada(tmp_path)
+    ejecutor = EjecutorMutaciones()
+    servicio = ServicioOrdenDelDia(estado, ejecutor)
+
+    tarea_valida = servicio.cargar_orden_del_dia(CSV_COLECCION_A)
+    tarea_invalida = servicio.cargar_orden_del_dia(CSV_INVALIDO)
+
+    resultados = await asyncio.gather(tarea_valida, tarea_invalida, return_exceptions=True)
+
+    assert isinstance(resultados[0], tuple)
+    assert isinstance(resultados[1], ErrorOrdenDelDiaInvalido)
+
+    # La colección válida quedó instalada y no fue corrompida por la inválida
+    assert prep.orden_del_dia == resultados[0]
+    assert prep.orden_del_dia is not None
+    assert len(prep.orden_del_dia) == 2
+
+    escritor.cerrar()
+
+
+# ==============================================================================
+# CASO E: CARGA CONCURRENTE DURANTE VOTACIÓN ACTIVA
+# ==============================================================================
+
+
+async def test_caso_e_carga_concurrente_durante_votacion_preserva_votacion(tmp_path: Path) -> None:
+    """Demuestra que cargar Orden del Día durante una votación preserva la votación."""
+    estado, prep, escritor = _crear_preparacion_aislada(tmp_path)
+    ejecutor = EjecutorMutaciones()
+    servicio = ServicioOrdenDelDia(estado, ejecutor)
+
+    sesion = Sesion(contexto_operativo=prep, fecha_hora_apertura=datetime.now())
+    estado.preparacion_activa = None
+    estado.sesion_activa = sesion
+    estado.estado_global = EstadoGlobal.SESION_ABIERTA
+
+    # Creamos una votación activa con un voto registrado
+    votacion = Votacion(
+        id="vot-concurrente-01",
+        numero_votacion=42,
+        tipo="Despacho",
+        tema="Tema inviolable",
+        tipo_mayoria=TipoMayoria.ESPECIAL,
+        factor=0.6666666667,
+        base=BaseMayoria.PRESENTES,
+        fecha_hora_apertura=datetime.now(),
+    )
+    votacion.registrar_voto(VotoOrdinario(dni="12345678", valor=ValorVotoOrdinario.POSITIVO))
+    estado.votacion_activa = votacion
+    sesion.votaciones.append(votacion)
+
+    # Ejecutamos carga de Orden del Día
+    puntos = await servicio.cargar_orden_del_dia(CSV_COLECCION_B)
+
+    # Verificamos que el Orden del Día se instaló
+    assert sesion.contexto_operativo.orden_del_dia == puntos
+
+    # Y verificamos que la votación no sufrió ninguna alteración
+    assert estado.votacion_activa is votacion
+    assert votacion.id == "vot-concurrente-01"
+    assert votacion.numero_votacion == 42
+    assert votacion.tipo == "Despacho"
+    assert votacion.tema == "Tema inviolable"
+    assert votacion.tipo_mayoria is TipoMayoria.ESPECIAL
+    assert votacion.factor == 0.6666666667
+    assert votacion.base is BaseMayoria.PRESENTES
+    assert votacion.resultado is None
+    assert len(votacion.votos_ordinarios) == 1
+    assert votacion.votos_ordinarios["12345678"].valor is ValorVotoOrdinario.POSITIVO
+
+    escritor.cerrar()

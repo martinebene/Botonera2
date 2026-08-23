@@ -34,6 +34,7 @@ from botonera2_backend.dominio.errores import (
     ErrorDesempateYaEmitido,
     ErrorEstadoIncompatible,
     ErrorNumeroSesionRequerido,
+    ErrorOrdenDelDiaInvalido,
     ErrorPresidenciaRequerida,
     ErrorQuorumInsuficiente,
     ErrorSecretariaLegislativaRequerida,
@@ -80,6 +81,7 @@ CODIGOS_CONFLICTO: dict[type[Exception], str] = {
 
 CODIGOS_ENTIDAD_NO_PROCESABLE: dict[type[Exception], str] = {
     ErrorTipoVotacionNoPermitido: "TIPO_VOTACION_NO_PERMITIDO",
+    ErrorOrdenDelDiaInvalido: "ORDEN_DEL_DIA_INVALIDO",
 }
 
 
