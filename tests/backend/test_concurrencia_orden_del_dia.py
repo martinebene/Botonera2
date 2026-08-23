@@ -5,9 +5,10 @@ Verifica mediante el EjecutorMutaciones real y control de orden:
   el estado final sin mezclar filas.
 - CASO B: Carga válida concurrente con DELETE: el resultado final depende
   estrictamente del orden de serialización.
-- CASO C: Parseo fuera del lock seguido de cancelación/cierre del contexto antes
-  de instalar: al entrar al lock se revalida el estado y se rechaza la
-  instalación sin recrear el contexto obsoleto.
+- CASO C: Parseo fuera del lock seguido de cancelación o cierre del contexto
+  antes de instalar bajo el lock: la carga revalida el estado operativo activo,
+  detecta SIN_PREPARAR y falla con ErrorEstadoIncompatible sin recrear el
+  contexto cancelado ni escribir en el contexto obsoleto.
 - CASO D: Carga inválida concurrente con operación válida: el archivo inválido
   no altera la colección válida previa ni en curso.
 - CASO E: Carga concurrente durante votación: la votación activa conserva
@@ -17,8 +18,10 @@ Verifica mediante el EjecutorMutaciones real y control de orden:
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable, Coroutine
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 import pytest
 from botonera2_backend.auditoria import EscritorAuditoriaCsv
@@ -39,7 +42,9 @@ from botonera2_backend.dominio.votacion import (
     VotoOrdinario,
 )
 from botonera2_backend.servicios.orden_del_dia import ServicioOrdenDelDia
+from botonera2_backend.servicios.preparacion import ServicioPreparacion
 from botonera2_backend.servicios.serializacion import EjecutorMutaciones
+from botonera2_backend.servicios.sesion import ServicioSesion
 
 pytestmark = pytest.mark.anyio
 
@@ -163,30 +168,117 @@ async def test_caso_b_carga_concurrente_con_delete(tmp_path: Path) -> None:
 
 
 # ==============================================================================
-# CASO C: PARSEO FUERA DEL LOCK Y CONTEXTO CANCELADO ANTES DE INSTALAR
+# CASO C: PARSEO FUERA DEL LOCK Y CONTEXTO CANCELADO/CERRADO ANTES DE INSTALAR
 # ==============================================================================
 
 
 async def test_caso_c_parseo_fuera_del_lock_y_cancelacion_previa(tmp_path: Path) -> None:
-    """Demuestra que si el contexto se cancela antes de adquirir el lock, se revalida y rechaza."""
-    estado, _prep, escritor = _crear_preparacion_aislada(tmp_path)
+    """Demuestra que si el contexto se cancela entre el parseo y la instalación, se rechaza."""
+    estado, prep_original, _escritor = _crear_preparacion_aislada(tmp_path)
     ejecutor = EjecutorMutaciones()
-    servicio = ServicioOrdenDelDia(estado, ejecutor)
+    servicio_prep = ServicioPreparacion(estado, ejecutor)
+    servicio_od = ServicioOrdenDelDia(estado, ejecutor)
 
-    # 1. Cancelamos la preparación en el estado
-    escritor.cerrar()
-    estado.preparacion_activa = None
-    estado.archivos_auditoria_activos = ()
-    estado.estado_global = EstadoGlobal.SIN_PREPARAR
+    parseo_completado = asyncio.Event()
+    cancelacion_completada = asyncio.Event()
 
-    # 2. Intentamos cargar: el parseo puro ocurre, pero al intentar instalar bajo el lock
-    # detecta que el estado es SIN_PREPARAR y falla limpiamente
-    with pytest.raises(ErrorEstadoIncompatible, match="SIN_PREPARAR"):
-        await servicio.cargar_orden_del_dia(CSV_COLECCION_A)
+    metodo_ejecutar_original = ejecutor.ejecutar
 
-    # El estado permanece SIN_PREPARAR sin recrear el contexto cancelado
+    async def ejecutar_con_pausa(
+        mutacion: Callable[[], Coroutine[Any, Any, Any]],
+    ) -> Any:
+        # Detectamos la mutación interna de instalación del Orden del Día
+        if getattr(mutacion, "__name__", "") == "_instalar_bajo_lock":
+            # Notificamos que el parseo previo fuera del lock ya completó
+            parseo_completado.set()
+            # Esperamos a que la cancelación formal ocurra antes de entrar al lock
+            await cancelacion_completada.wait()
+        return await metodo_ejecutar_original(mutacion)
+
+    ejecutor.ejecutar = ejecutar_con_pausa  # type: ignore[method-assign]
+
+    async def flujo_carga() -> Any:
+        return await servicio_od.cargar_orden_del_dia(CSV_COLECCION_A)
+
+    async def flujo_cancelacion() -> None:
+        # Esperamos a que el archivo haya sido parseado fuera del lock
+        await parseo_completado.wait()
+        # Cancelamos la preparación bajo el lock
+        await servicio_prep.cancelar_preparacion()
+        # Notificamos que la cancelación ya ocurrió y el estado es SIN_PREPARAR
+        cancelacion_completada.set()
+
+    resultados = await asyncio.gather(
+        flujo_carga(),
+        flujo_cancelacion(),
+        return_exceptions=True,
+    )
+
+    # 1. La carga falló limpiamente con ErrorEstadoIncompatible al revalidar bajo el lock
+    assert isinstance(resultados[0], ErrorEstadoIncompatible)
+    assert "SIN_PREPARAR" in str(resultados[0])
+
+    # 2. La cancelación completó con éxito
+    assert resultados[1] is None
+
+    # 3. El estado del sistema permanece en SIN_PREPARAR
     assert estado.estado_global is EstadoGlobal.SIN_PREPARAR
     assert estado.preparacion_activa is None
+    assert estado.contexto_operativo_activo() is None
+
+    # 4. El contexto cancelado nunca recibió la colección
+    assert prep_original.orden_del_dia is None
+
+
+async def test_caso_c_parseo_fuera_del_lock_y_cierre_sesion_previo(tmp_path: Path) -> None:
+    """Demuestra que si la sesión se cierra entre el parseo y la instalación, se rechaza."""
+    estado, prep_original, _escritor = _crear_preparacion_aislada(tmp_path)
+    ejecutor = EjecutorMutaciones()
+    servicio_sesion = ServicioSesion(estado, ejecutor)
+    servicio_od = ServicioOrdenDelDia(estado, ejecutor)
+
+    # Abrimos sesión
+    sesion = Sesion(contexto_operativo=prep_original, fecha_hora_apertura=datetime.now())
+    estado.preparacion_activa = None
+    estado.sesion_activa = sesion
+    estado.estado_global = EstadoGlobal.SESION_ABIERTA
+
+    parseo_completado = asyncio.Event()
+    cierre_completado = asyncio.Event()
+
+    metodo_ejecutar_original = ejecutor.ejecutar
+
+    async def ejecutar_con_pausa(
+        mutacion: Callable[[], Coroutine[Any, Any, Any]],
+    ) -> Any:
+        if getattr(mutacion, "__name__", "") == "_instalar_bajo_lock":
+            parseo_completado.set()
+            await cierre_completado.wait()
+        return await metodo_ejecutar_original(mutacion)
+
+    ejecutor.ejecutar = ejecutar_con_pausa  # type: ignore[method-assign]
+
+    async def flujo_carga() -> Any:
+        return await servicio_od.cargar_orden_del_dia(CSV_COLECCION_A)
+
+    async def flujo_cierre() -> None:
+        await parseo_completado.wait()
+        await servicio_sesion.cerrar_sesion()
+        cierre_completado.set()
+
+    resultados = await asyncio.gather(
+        flujo_carga(),
+        flujo_cierre(),
+        return_exceptions=True,
+    )
+
+    assert isinstance(resultados[0], ErrorEstadoIncompatible)
+    assert "SIN_PREPARAR" in str(resultados[0])
+    assert resultados[1] is None
+    assert estado.estado_global is EstadoGlobal.SIN_PREPARAR
+    assert estado.sesion_activa is None
+    assert estado.contexto_operativo_activo() is None
+    assert prep_original.orden_del_dia is None
 
 
 # ==============================================================================

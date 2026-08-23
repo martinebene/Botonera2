@@ -193,13 +193,39 @@ def test_nro_votacion_repetidos_y_desordenados_son_validos() -> None:
 
 @pytest.mark.parametrize(
     "nro_invalido",
-    ["0", "-1", "-10", "1.0", "1.5", "abc", "True", "False", ""],
+    [
+        "0",
+        "-1",
+        "-10",
+        "+1",
+        "1.0",
+        "1.5",
+        "abc",
+        "True",
+        "False",
+        "",
+        "²",
+        "³",
+        "¹",
+        "½",
+        "٣",
+        "①",
+    ],
 )
 def test_nro_votacion_invalido_es_rechazado(nro_invalido: str) -> None:
-    """Demuestra que 0, negativos, decimales, texto y vacío son rechazados."""
+    """Demuestra que negativos, signos, decimales, texto, vacío y no-ASCII son rechazados."""
     csv_bytes = (
         f"nro_votacion,tipo,tema,tipo_mayoria,factor,base\n{nro_invalido},Tipo,Tema,SIMPLE,,\n"
     ).encode()
+    with pytest.raises(ErrorOrdenDelDiaInvalido, match="nro_votacion"):
+        parsear_orden_del_dia(csv_bytes)
+
+
+def test_nro_votacion_unicode_superindice_no_genera_value_error_inesperado() -> None:
+    """Demuestra que '²' no escapa como ValueError sino como ErrorOrdenDelDiaInvalido."""
+    csv_bytes = (
+        b"nro_votacion,tipo,tema,tipo_mayoria,factor,base\n\xc2\xb2,Despacho,Tema,SIMPLE,,\n"
+    )
     with pytest.raises(ErrorOrdenDelDiaInvalido, match="nro_votacion"):
         parsear_orden_del_dia(csv_bytes)
 

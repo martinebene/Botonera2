@@ -4,10 +4,12 @@ Verifica:
 - POST /api/v1/orden-del-dia con multipart/form-data válido (200 OK con DTO normalizado).
 - Rechazo de archivo faltante o campo con nombre incorrecto (422 FastAPI).
 - Rechazo de archivo técnicamente inválido (422 ORDEN_DEL_DIA_INVALIDO).
+- Rechazo de caracteres Unicode no-ASCII en nro_votacion (422 ORDEN_DEL_DIA_INVALIDO).
 - Rechazo del formato histórico de 5 columnas (422 ORDEN_DEL_DIA_INVALIDO).
 - Intento de carga o descarte en SIN_PREPARAR (409 ESTADO_INCOMPATIBLE).
 - DELETE /api/v1/orden-del-dia efectivo y no-op (204 No Content).
 - Fallo de auditoría durante carga o descarte (503 AUDITORIA_NO_DISPONIBLE).
+- Fallo inesperado no controlado durante carga o descarte (500 ERROR_INTERNO).
 - Esquema OpenAPI canónico (existencia de POST multipart y DELETE, ausencia de GET).
 """
 
@@ -17,7 +19,9 @@ import csv
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Any
 
+import botonera2_backend.servicios.orden_del_dia as modulo_servicio_od
 import pytest
 from botonera2_backend.aplicacion import crear_aplicacion
 from botonera2_backend.auditoria import NivelAuditoria
@@ -64,13 +68,17 @@ async def cliente_de_prueba(
     monkeypatch: pytest.MonkeyPatch,
     *,
     quorum: int = 1,
+    raise_app_exceptions: bool = True,
 ) -> AsyncGenerator[tuple[AsyncClient, FastAPI]]:
     """Entrega cliente y aplicación con lifespan y archivos canónicos reales."""
     preparar_archivos_canonicos(tmp_path, quorum=quorum)
     monkeypatch.chdir(tmp_path)
     aplicacion = crear_aplicacion()
     async with aplicacion.router.lifespan_context(aplicacion):
-        transporte = ASGITransport(app=aplicacion)
+        transporte = ASGITransport(
+            app=aplicacion,
+            raise_app_exceptions=raise_app_exceptions,
+        )
         async with AsyncClient(
             transport=transporte,
             base_url="http://pruebas",
@@ -214,6 +222,22 @@ async def test_post_orden_del_dia_invalido_devuelve_422_orden_del_dia_invalido(
         assert cuerpo["codigo"] == "ORDEN_DEL_DIA_INVALIDO"
 
 
+async def test_post_orden_del_dia_unicode_no_ascii_en_nro_votacion_devuelve_422(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Demuestra que caracteres Unicode como '²' en nro_votacion responden 422 y no 500."""
+    async with cliente_de_prueba(tmp_path, monkeypatch) as (cliente, _aplicacion):
+        await preparar_sala_valida(cliente)
+        csv_unicode = (
+            b"nro_votacion,tipo,tema,tipo_mayoria,factor,base\n\xc2\xb2,Despacho,Tema,SIMPLE,,\n"
+        )
+        archivos = {"archivo": ("orden.csv", csv_unicode, "text/csv")}
+        respuesta = await cliente.post("/api/v1/orden-del-dia", files=archivos)
+        assert respuesta.status_code == 422
+        cuerpo = respuesta.json()
+        assert cuerpo["codigo"] == "ORDEN_DEL_DIA_INVALIDO"
+
+
 async def test_post_orden_del_dia_formato_historico_cinco_columnas_devuelve_422(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -237,6 +261,56 @@ async def test_post_orden_del_dia_encabezado_sin_filas_devuelve_puntos_vacio(
         respuesta = await cliente.post("/api/v1/orden-del-dia", files=archivos)
         assert respuesta.status_code == 200
         assert respuesta.json() == {"puntos": []}
+
+
+async def test_post_orden_del_dia_fallo_auditoria_devuelve_503(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Demuestra que si la auditoría obligatoria falla, responde 503 AUDITORIA_NO_DISPONIBLE."""
+    async with cliente_de_prueba(tmp_path, monkeypatch) as (cliente, aplicacion):
+        await preparar_sala_valida(cliente)
+
+        # Cerramos el escritor para forzar ErrorAuditoria
+        contexto = obtener_recursos_aplicacion(aplicacion).estado_operativo.preparacion_activa
+        assert contexto is not None
+        contexto.escritor_auditoria.cerrar()
+
+        archivos = {"archivo": ("orden.csv", CSV_VALIDO, "text/csv")}
+        respuesta = await cliente.post("/api/v1/orden-del-dia", files=archivos)
+        assert respuesta.status_code == 503
+        assert respuesta.json()["codigo"] == "AUDITORIA_NO_DISPONIBLE"
+        # Fallo cerrado: no se instaló la colección
+        assert contexto.orden_del_dia is None
+
+
+async def test_post_orden_del_dia_error_inesperado_devuelve_500_sin_filtrar_detalles(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Demuestra que un fallo no clasificado responde 500 ERROR_INTERNO sin filtrar trazas."""
+
+    async def _fallar_inesperadamente(_self: Any, _bytes: bytes) -> Any:
+        raise RuntimeError("detalle_interno_confidencial_post")
+
+    monkeypatch.setattr(
+        modulo_servicio_od.ServicioOrdenDelDia,
+        "cargar_orden_del_dia",
+        _fallar_inesperadamente,
+    )
+
+    async with cliente_de_prueba(tmp_path, monkeypatch, raise_app_exceptions=False) as (
+        cliente,
+        _aplicacion,
+    ):
+        await preparar_sala_valida(cliente)
+
+        archivos = {"archivo": ("orden.csv", CSV_VALIDO, "text/csv")}
+        respuesta = await cliente.post("/api/v1/orden-del-dia", files=archivos)
+        assert respuesta.status_code == 500
+        assert respuesta.json() == {
+            "codigo": "ERROR_INTERNO",
+            "mensaje": "Ocurrió un error interno.",
+        }
+        assert "detalle_interno_confidencial_post" not in respuesta.text
 
 
 # ==============================================================================
@@ -290,6 +364,58 @@ async def test_delete_orden_del_dia_en_sin_preparar_devuelve_409(
         respuesta = await cliente.delete("/api/v1/orden-del-dia")
         assert respuesta.status_code == 409
         assert respuesta.json()["codigo"] == "ESTADO_INCOMPATIBLE"
+
+
+async def test_delete_orden_del_dia_fallo_auditoria_devuelve_503(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Demuestra que si la auditoría falla al descartar, responde 503 AUDITORIA_NO_DISPONIBLE."""
+    async with cliente_de_prueba(tmp_path, monkeypatch) as (cliente, aplicacion):
+        await preparar_sala_valida(cliente)
+
+        archivos = {"archivo": ("orden.csv", CSV_VALIDO, "text/csv")}
+        assert (await cliente.post("/api/v1/orden-del-dia", files=archivos)).status_code == 200
+
+        # Cerramos el escritor para forzar ErrorAuditoria
+        contexto = obtener_recursos_aplicacion(aplicacion).estado_operativo.preparacion_activa
+        assert contexto is not None
+        assert contexto.orden_del_dia is not None
+        contexto.escritor_auditoria.cerrar()
+
+        respuesta = await cliente.delete("/api/v1/orden-del-dia")
+        assert respuesta.status_code == 503
+        assert respuesta.json()["codigo"] == "AUDITORIA_NO_DISPONIBLE"
+        # Fallo cerrado: la colección sigue intacta
+        assert contexto.orden_del_dia is not None
+
+
+async def test_delete_orden_del_dia_error_inesperado_devuelve_500_sin_filtrar_detalles(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Demuestra que un fallo no clasificado en DELETE responde 500 ERROR_INTERNO."""
+
+    async def _fallar_inesperadamente(_self: Any) -> None:
+        raise RuntimeError("detalle_interno_confidencial_delete")
+
+    monkeypatch.setattr(
+        modulo_servicio_od.ServicioOrdenDelDia,
+        "descartar_orden_del_dia",
+        _fallar_inesperadamente,
+    )
+
+    async with cliente_de_prueba(tmp_path, monkeypatch, raise_app_exceptions=False) as (
+        cliente,
+        _aplicacion,
+    ):
+        await preparar_sala_valida(cliente)
+
+        respuesta = await cliente.delete("/api/v1/orden-del-dia")
+        assert respuesta.status_code == 500
+        assert respuesta.json() == {
+            "codigo": "ERROR_INTERNO",
+            "mensaje": "Ocurrió un error interno.",
+        }
+        assert "detalle_interno_confidencial_delete" not in respuesta.text
 
 
 # ==============================================================================

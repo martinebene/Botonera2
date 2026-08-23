@@ -5,7 +5,8 @@ Verifica:
 - Preservación de la colección previa ante intento de carga inválida.
 - Descarte efectivo y descarte no-op (sin auditoría ficticia).
 - Conservación del Orden del Día en la transición PREPARANDO -> SESION_ABIERTA.
-- Descarte del Orden del Día al cancelar preparación o cerrar sesión.
+- Limpieza y descarte del Orden del Día al cancelar preparación.
+- Limpieza y descarte del Orden del Día al cerrar sesión.
 - Carga y descarte durante una votación activa sin modificar dicha votación.
 - Rechazo con ErrorEstadoIncompatible en SIN_PREPARAR.
 - Comportamiento de fallo cerrado ante fallas en la auditoría.
@@ -36,7 +37,9 @@ from botonera2_backend.dominio.votacion import (
     Votacion,
 )
 from botonera2_backend.servicios.orden_del_dia import ServicioOrdenDelDia
+from botonera2_backend.servicios.preparacion import ServicioPreparacion
 from botonera2_backend.servicios.serializacion import EjecutorMutaciones
+from botonera2_backend.servicios.sesion import ServicioSesion
 
 pytestmark = pytest.mark.anyio
 
@@ -189,6 +192,61 @@ async def test_conservacion_preparando_a_sesion_abierta(tmp_path: Path) -> None:
     assert sesion.contexto_operativo.orden_del_dia is None
 
     escritor.cerrar()
+
+
+async def test_limpieza_al_cancelar_preparacion(tmp_path: Path) -> None:
+    """Demuestra que cancelar la preparación descarta el Orden del Día junto con el contexto."""
+    estado, prep, _escritor = _crear_preparacion_aislada(tmp_path)
+    ejecutor = EjecutorMutaciones()
+    servicio_od = ServicioOrdenDelDia(estado, ejecutor)
+    servicio_prep = ServicioPreparacion(estado, ejecutor)
+
+    # 1. Cargamos Orden del Día en PREPARANDO
+    puntos = await servicio_od.cargar_orden_del_dia(CSV_VALIDO_A)
+    assert prep.orden_del_dia == puntos
+    assert estado.contexto_operativo_activo() is not None
+
+    # 2. Cancelamos la preparación formalmente
+    await servicio_prep.cancelar_preparacion()
+
+    # 3. El estado pasa a SIN_PREPARAR y el contexto operativo desaparece
+    assert estado.estado_global is EstadoGlobal.SIN_PREPARAR
+    assert estado.preparacion_activa is None
+    assert estado.contexto_operativo_activo() is None
+
+    # 4. Intentar acceder o descartar Orden del Día es rechazado por estado incompatible
+    with pytest.raises(ErrorEstadoIncompatible, match="SIN_PREPARAR"):
+        await servicio_od.descartar_orden_del_dia()
+
+
+async def test_limpieza_al_cerrar_sesion(tmp_path: Path) -> None:
+    """Demuestra que cerrar la sesión descarta el Orden del Día junto con el contexto."""
+    estado, prep, _escritor = _crear_preparacion_aislada(tmp_path)
+    ejecutor = EjecutorMutaciones()
+    servicio_od = ServicioOrdenDelDia(estado, ejecutor)
+    servicio_sesion = ServicioSesion(estado, ejecutor)
+
+    # 1. Abrimos sesión formalmente
+    sesion = Sesion(contexto_operativo=prep, fecha_hora_apertura=datetime.now())
+    estado.preparacion_activa = None
+    estado.sesion_activa = sesion
+    estado.estado_global = EstadoGlobal.SESION_ABIERTA
+
+    # 2. Cargamos Orden del Día en SESION_ABIERTA
+    puntos = await servicio_od.cargar_orden_del_dia(CSV_VALIDO_A)
+    assert sesion.contexto_operativo.orden_del_dia == puntos
+
+    # 3. Cerramos la sesión formalmente
+    await servicio_sesion.cerrar_sesion()
+
+    # 4. El estado pasa a SIN_PREPARAR y no existe contexto operativo
+    assert estado.estado_global is EstadoGlobal.SIN_PREPARAR
+    assert estado.sesion_activa is None
+    assert estado.contexto_operativo_activo() is None
+
+    # 5. Intentar acceder al Orden del Día es rechazado por estado incompatible
+    with pytest.raises(ErrorEstadoIncompatible, match="SIN_PREPARAR"):
+        await servicio_od.descartar_orden_del_dia()
 
 
 async def test_carga_y_descarte_durante_votacion_activa(tmp_path: Path) -> None:

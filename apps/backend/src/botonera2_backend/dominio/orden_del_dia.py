@@ -94,15 +94,23 @@ def _validar_y_parsear_nro_votacion(valor_crudo: str, indice_fila: int) -> int:
             f"Fila {indice_fila}: el campo 'nro_votacion' es obligatorio y no puede estar vacío."
         )
 
-    # Verificamos que contenga únicamente dígitos numéricos. Esto rechaza
-    # automáticamente signos negativos ('-1'), decimales ('1.5', '1.0') y texto.
-    if not limpio.isdigit():
+    # Exigimos dígitos ASCII puros ('0'-'9'). Esto rechaza signos ('-1', '+1'),
+    # decimales ('1.0', '1.5'), texto ('uno') y caracteres numéricos Unicode
+    # que isdigit() aceptaría pero int() no puede convertir (ej: '²', '³', '½').
+    if not all("0" <= caracter <= "9" for caracter in limpio):
         raise ErrorOrdenDelDiaInvalido(
             f"Fila {indice_fila}: el campo 'nro_votacion' debe ser un entero estricto "
             f"(recibido: '{valor_crudo}')."
         )
 
-    valor_entero = int(limpio)
+    try:
+        valor_entero = int(limpio)
+    except ValueError as error:
+        raise ErrorOrdenDelDiaInvalido(
+            f"Fila {indice_fila}: el campo 'nro_votacion' no es un entero interpretable "
+            f"(recibido: '{valor_crudo}')."
+        ) from error
+
     if valor_entero < 1:
         raise ErrorOrdenDelDiaInvalido(
             f"Fila {indice_fila}: el campo 'nro_votacion' debe ser mayor o igual a 1 "
