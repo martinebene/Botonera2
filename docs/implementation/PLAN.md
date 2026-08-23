@@ -96,11 +96,11 @@ DEC-010 separa el ciclo de vida de la votación (`EN_CURSO`/`CERRADA`) de su res
 | WP | Objetivo | Estado | Depende de | Agente |
 |---|---|---|---|---|
 | WP-015 | Implementar cola y uso de la palabra, incluida pérdida por ausencia y transiciones sin avance implícito | EN_CURSO | WP-008, WP-006 | codex |
-| WP-016 | Implementar parser backend de Orden del Día y contrato de carga | EN_CURSO | WP-002 | antigravity |
+| WP-016 | Implementar parser backend de Orden del Día y contrato de carga | INTEGRADO | WP-002 | - |
 | WP-017 | Implementar snapshots `ModerationState`/`PublicState`, secreto temporal y streams SSE | PENDIENTE | WP-013, WP-014, WP-015 | - |
 | WP-018 | Implementar paquete TypeScript `api-client` derivado de OpenAPI con REST/SSE/reconexión | PENDIENTE | WP-017 | - |
 
-WP-015 y WP-016 están autorizados para ejecutarse en paralelo en worktrees independientes. WP-016 debe respetar el contrato explícito de Orden del Día cerrado en DT-039.
+WP-015 continúa `EN_CURSO` en su worktree independiente. WP-016 quedó integrado mediante squash merge de PR #21 sobre el candidato final `a9f33169b2958428edcec8458351f90c73a90ee1`, después de CI verde en el run `32645383185` y re-revisión independiente final con OpenCode + DeepSeek V4 Pro. La revisión concluyó `LISTA PARA INTEGRAR`, con cero hallazgos BLOQUEANTES e IMPORTANTES. Se aceptó un único hallazgo MENOR no bloqueante sobre mantenibilidad del test determinista de concurrencia Caso C ante un futuro renombre interno de `_instalar_bajo_lock`. La dependencia directa `python-multipart>=0.0.18,<1` había sido aprobada explícitamente conforme DT-038. El squash merge produjo el commit `5ef8c293ffdaff2a3007cc926ece358a3a011ff7` en `main`.
 
 ## Fase 5 - Hardware y bridge
 
@@ -168,8 +168,8 @@ Los lanzadores no pueden aprobar WPs, cambiar su estado en PLAN ni modificar `ma
 
 ## Próximo punto de control
 
-WP-001, WP-002, WP-003, WP-004, WP-005, WP-006, WP-007, WP-008, WP-009, WP-010, WP-011, WP-013, WP-014, WP-030 y WP-031 están `INTEGRADO` y sin agente operativo asignado.
+WP-001, WP-002, WP-003, WP-004, WP-005, WP-006, WP-007, WP-008, WP-009, WP-010, WP-011, WP-013, WP-014, WP-016, WP-030 y WP-031 están `INTEGRADO` y sin agente operativo asignado.
 
 DEC-007, DEC-009, DEC-010, DEC-011 y DEC-012 están vigentes. Orca continúa como entorno operativo preferido mientras esté en uso.
 
-WP-015 y WP-016 están `EN_CURSO` y autorizados para ejecutarse en paralelo desde el mismo `origin/main` vigente, cada uno con su propio worktree y sesión de agente. WP-015 tiene `codex` como implementador y revisión independiente prevista con Antigravity/AGY. WP-016 tiene `antigravity` como implementador y revisión independiente prevista con OpenCode + DeepSeek. Se integrará cada PR únicamente después de candidato remoto, CI verde y revisión independiente satisfactoria; el orden de integración será el orden en que cada WP complete esas puertas, sincronizando el segundo candidato con `main` si el primero ya hubiera sido integrado.
+WP-015 continúa `EN_CURSO` con `codex` como implementador en su worktree independiente y revisión independiente prevista con Antigravity/AGY. Como `main` avanzó por la integración y cierre documental de WP-016, cualquier candidato de WP-015 deberá sincronizarse mediante merge normal de `origin/main`, repetir los gates y publicar un nuevo SHA antes de revisión/integración.
