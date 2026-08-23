@@ -95,12 +95,12 @@ DEC-010 separa el ciclo de vida de la votación (`EN_CURSO`/`CERRADA`) de su res
 
 | WP | Objetivo | Estado | Depende de | Agente |
 |---|---|---|---|---|
-| WP-015 | Implementar cola y uso de la palabra, incluida pérdida por ausencia y transiciones sin avance implícito | PENDIENTE | WP-008, WP-006 | - |
-| WP-016 | Implementar parser backend de Orden del Día y contrato de carga | PENDIENTE | WP-002 | - |
+| WP-015 | Implementar cola y uso de la palabra, incluida pérdida por ausencia y transiciones sin avance implícito | EN_CURSO | WP-008, WP-006 | codex |
+| WP-016 | Implementar parser backend de Orden del Día y contrato de carga | EN_CURSO | WP-002 | antigravity |
 | WP-017 | Implementar snapshots `ModerationState`/`PublicState`, secreto temporal y streams SSE | PENDIENTE | WP-013, WP-014, WP-015 | - |
 | WP-018 | Implementar paquete TypeScript `api-client` derivado de OpenAPI con REST/SSE/reconexión | PENDIENTE | WP-017 | - |
 
-WP-015 y WP-016 pueden ejecutarse en paralelo con otros WPs cuando sus dependencias estén integradas. WP-016 debe respetar el contrato explícito de Orden del Día cerrado en DT-039.
+WP-015 y WP-016 están autorizados para ejecutarse en paralelo en worktrees independientes. WP-016 debe respetar el contrato explícito de Orden del Día cerrado en DT-039.
 
 ## Fase 5 - Hardware y bridge
 
@@ -172,4 +172,4 @@ WP-001, WP-002, WP-003, WP-004, WP-005, WP-006, WP-007, WP-008, WP-009, WP-010, 
 
 DEC-007, DEC-009, DEC-010, DEC-011 y DEC-012 están vigentes. Orca continúa como entorno operativo preferido mientras esté en uso.
 
-WP-015 y WP-016 permanecen `PENDIENTE` y ya tienen sus dependencias integradas, por lo que ambos son candidatos válidos para el próximo punto de control. WP-017 continúa `PENDIENTE`: con WP-013 y WP-014 integrados, su única dependencia todavía pendiente es WP-015. El próximo paso es seleccionar qué WP pendiente aprobar e iniciar; no hay un WP funcional `EN_CURSO` en este momento.
+WP-015 y WP-016 están `EN_CURSO` y autorizados para ejecutarse en paralelo desde el mismo `origin/main` vigente, cada uno con su propio worktree y sesión de agente. WP-015 tiene `codex` como implementador y revisión independiente prevista con Antigravity/AGY. WP-016 tiene `antigravity` como implementador y revisión independiente prevista con OpenCode + DeepSeek. Se integrará cada PR únicamente después de candidato remoto, CI verde y revisión independiente satisfactoria; el orden de integración será el orden en que cada WP complete esas puertas, sincronizando el segundo candidato con `main` si el primero ya hubiera sido integrado.
