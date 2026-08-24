@@ -1,5 +1,54 @@
-"""Punto de entrada importable del futuro bridge de dispositivos.
+"""Paquete del bridge de dispositivos físicos de Botonera2.
 
-Este paquete todavía no accede a hardware ni conoce pulsaciones. Mantener el
-scaffold vacío evita anticipar contratos que pertenecen a WPs posteriores.
+Este servicio captura eventos de teclados físicos en Linux mediante `evdev`,
+deriva el fingerprint canónico de cada hardware, resuelve su identificador lógico
+`devXX` a través de `devices.json`, normaliza las teclas físicas reconocidas
+y las transmite al backend FastAPI (`POST /api/v1/entradas/tecla`) con cero
+reintentos automáticos.
 """
+
+from __future__ import annotations
+
+from botonera2_device_bridge.adaptador_linux import (
+    AdaptadorEntradaFisica,
+    AdaptadorEvdevLinux,
+    AdaptadorFalso,
+    DispositivoFisico,
+    ErrorDispositivoDesconectado,
+)
+from botonera2_device_bridge.cliente_http import ClienteHttpBackend
+from botonera2_device_bridge.configuracion import (
+    ConfiguracionBridge,
+    ErrorConfiguracionBridge,
+    cargar_dispositivos_json,
+)
+from botonera2_device_bridge.fingerprint import (
+    construir_fingerprint_linux,
+    validar_fingerprint_linux,
+)
+from botonera2_device_bridge.modelos import (
+    EventoTeclaFisica,
+    RespuestaEnvioBackend,
+    SolicitudEntradaLogica,
+)
+from botonera2_device_bridge.normalizador import normalizar_tecla
+from botonera2_device_bridge.servicio import ServicioDeviceBridge
+
+__all__ = [
+    "AdaptadorEntradaFisica",
+    "AdaptadorEvdevLinux",
+    "AdaptadorFalso",
+    "ClienteHttpBackend",
+    "ConfiguracionBridge",
+    "DispositivoFisico",
+    "ErrorConfiguracionBridge",
+    "ErrorDispositivoDesconectado",
+    "EventoTeclaFisica",
+    "RespuestaEnvioBackend",
+    "ServicioDeviceBridge",
+    "SolicitudEntradaLogica",
+    "cargar_dispositivos_json",
+    "construir_fingerprint_linux",
+    "normalizar_tecla",
+    "validar_fingerprint_linux",
+]

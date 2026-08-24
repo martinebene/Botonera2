@@ -1,0 +1,14 @@
+{
+  "lin|vendor=1a2c|product=2d43|version=0110|phys=usb-0000:00:14.0-1/input0|uniq=|name=USB Keyboard": "dev01",
+  "lin|vendor=1a2c|product=2d43|version=0110|phys=usb-0000:00:14.0-2/input0|uniq=|name=USB Keyboard": "dev02",
+  "lin|vendor=1a2c|product=2d43|version=0110|phys=usb-0000:00:14.0-3/input0|uniq=|name=USB Keyboard": "dev03",
+  "lin|vendor=1a2c|product=2d43|version=0110|phys=usb-0000:00:14.0-4/input0|uniq=|name=USB Keyboard": "dev04",
+  "lin|vendor=1a2c|product=2d43|version=0110|phys=usb-0000:00:14.0-5/input0|uniq=|name=USB Keyboard": "dev05",
+  "lin|vendor=1a2c|product=2d43|version=0110|phys=usb-0000:00:14.0-6/input0|uniq=|name=USB Keyboard": "dev06",
+  "lin|vendor=1a2c|product=2d43|version=0110|phys=usb-0000:00:14.0-7/input0|uniq=|name=USB Keyboard": "dev07",
+  "lin|vendor=1a2c|product=2d43|version=0110|phys=usb-0000:00:14.0-8/input0|uniq=|name=USB Keyboard": "dev08",
+  "lin|vendor=1a2c|product=2d43|version=0110|phys=usb-0000:00:14.0-9/input0|uniq=|name=USB Keyboard": "dev09",
+  "lin|vendor=1a2c|product=2d43|version=0110|phys=usb-0000:00:14.0-10/input0|uniq=|name=USB Keyboard": "dev10",
+  "lin|vendor=1a2c|product=2d43|version=0110|phys=usb-0000:00:14.0-11/input0|uniq=|name=USB Keyboard": "dev11",
+  "lin|vendor=1a2c|product=2d43|version=0110|phys=usb-0000:00:14.0-12/input0|uniq=|name=USB Keyboard": "dev12"
+}
