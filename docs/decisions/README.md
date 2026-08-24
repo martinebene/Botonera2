@@ -20,6 +20,7 @@ Las decisiones aquí registradas no reemplazan reglas de negocio ni decisiones t
 - `DEC-012-desempate-presidencial-contrato-rest-y-fallo-cerrado.md`: contrato REST de desempate presidencial, voto separado y frontera de fallo cerrado.
 - `DEC-013-proyecciones-snapshots-sse-y-secreto-temporal.md`: contratos REST/SSE de `ModerationState`/`PublicState`, revisión, reconexión, secreto temporal, eventos recientes y capacidades.
 - `DEC-014-cliente-api-typescript-openapi-y-reconexion.md`: contrato del cliente TypeScript compartido, generación OpenAPI/tipos, superficies separadas de Moderación/Recinto y recuperación/reconexión.
+- `DEC-015-device-bridge-linux-fingerprint-y-entrega-de-pulsaciones.md`: contrato Linux del bridge físico, `evdev`, fingerprint compatible con producción histórica, `devices.json`, normalización amplia de teclas y entrega HTTP sin reintentos.
 
 ## Criterio de uso
 
