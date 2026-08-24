@@ -84,7 +84,7 @@ apps/backend/              paquete Python importable; FastAPI llegará en WP-002
 apps/moderacion/           SPA Nuxt 4 de Moderación
 apps/recinto/              SPA Nuxt 4 pública
 services/device-bridge/    paquete Python importable; todavía sin hardware
-packages/api-client/       entrada reservada para REST/SSE y tipos
+packages/api-client/       cliente TypeScript REST/SSE, reconexión y tipos derivados de OpenAPI
 packages/frontend-shared/  entrada reservada para código realmente común
 tools/device-simulator/    ubicación reservada para la futura CLI
 scripts/iniciar_wp.py      lanzador seguro de Work Packages
@@ -130,6 +130,10 @@ pnpm format:check
 pnpm typecheck
 pnpm test
 pnpm build
+
+# Contrato OpenAPI y tipos TypeScript (detección de drift / regeneración)
+pnpm check:contrato
+pnpm generate:contrato
 ```
 
 `pnpm build` ejecuta `nuxt generate` para ambos frontends. Los artefactos

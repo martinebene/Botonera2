@@ -29,6 +29,8 @@ jobs:
       - run: uv run ruff check .
       - run: uv run ruff format --check .
       - run: uv run pyright
+      # Comprueba que el snapshot OpenAPI versionado coincide con el backend actual (sin drift)
+      - run: uv run python scripts/exportar_openapi.py --check
 
   backend-tests:
     name: Backend · pruebas
@@ -56,6 +58,8 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # Comprueba que los tipos TypeScript coinciden con el snapshot OpenAPI versionado
+      - run: pnpm check:types
       - run: pnpm lint
       - run: pnpm format:check
       - run: pnpm typecheck

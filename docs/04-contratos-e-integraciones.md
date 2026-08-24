@@ -348,17 +348,19 @@ reinician junto con el proceso.
 
 ## 13. Cliente compartido
 
-`packages/api-client/` concentra:
+`packages/api-client/` (`@botonera2/api-client`) concentra:
 
 - tipos derivados de OpenAPI;
-- REST;
-- SSE;
-- reconexión;
-- snapshot;
-- errores estables;
-- control de secuencia/sincronización.
+- REST con fetch nativo inyectable;
+- SSE con EventSource nativo inyectable;
+- separación estricta entre `ClienteModeracion` y `ClienteRecinto` (solo lectura);
+- reconexión mediante cierre inmediato de EventSource, backoff cancelable y recuperación por snapshot;
+- adopción de nueva baseline que permite aceptar revisión 0 tras reinicio del backend;
+- modelo uniforme de errores discriminados (`ErrorHttp`, `ErrorTransporte`, `ErrorProtocolo`, `ErrorCancelacion`);
+- control de revisión monotónica sin exigir continuidad numérica;
+- soporte de `multipart/form-data` para Orden del Día y `204 No Content`.
 
-Los componentes no duplican estas responsabilidades.
+Los componentes y frontends futuros no duplican estas responsabilidades.
 
 ## 14. Concurrencia
 
@@ -394,4 +396,8 @@ No existe flujo de recuperación. Tras reinicio el backend inicia en `SIN_PREPAR
 
 ## 18. Tipos compartidos
 
-Cuando sea práctico, los tipos TypeScript se generan/derivan de OpenAPI y se consumen a través de `packages/api-client/`, evitando copias manuales de modelos Pydantic.
+Los tipos TypeScript se generan determinísticamente desde el snapshot OpenAPI versionado en `packages/api-client/openapi/openapi.json` mediante `openapi-typescript@7.13.0` hacia `packages/api-client/src/esquema.ts`.
+
+La CI y los scripts locales verifican automáticamente la ausencia de drift entre:
+1. `apps/backend` (FastAPI) y el snapshot `openapi.json`;
+2. el snapshot `openapi.json` y los tipos generados en `src/esquema.ts`.
