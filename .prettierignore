@@ -4,3 +4,5 @@
 node_modules
 pnpm-lock.yaml
 uv.lock
+packages/api-client/openapi/openapi.json
+packages/api-client/src/esquema.ts

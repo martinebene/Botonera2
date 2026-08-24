@@ -3,5 +3,18 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "exports": "./src/index.ts"
+  "exports": "./src/index.ts",
+  "scripts": {
+    "generate:openapi": "uv run python ../../scripts/exportar_openapi.py",
+    "generate:types": "openapi-typescript openapi/openapi.json -o src/esquema.ts",
+    "generate": "pnpm run generate:openapi && pnpm run generate:types",
+    "check:openapi": "uv run python ../../scripts/exportar_openapi.py --check",
+    "check:types": "openapi-typescript openapi/openapi.json -o src/esquema.ts --check",
+    "check:contrato": "pnpm run check:openapi && pnpm run check:types",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "openapi-typescript": "7.13.0"
+  }
 }
