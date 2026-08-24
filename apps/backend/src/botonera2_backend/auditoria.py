@@ -10,8 +10,10 @@ from __future__ import annotations
 
 import csv
 import os
+from collections import deque
 from collections.abc import Callable, Mapping
 from contextlib import suppress
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import StrEnum
 from pathlib import Path
@@ -43,6 +45,24 @@ class ErrorAuditoria(RuntimeError):
 
 class ErrorEscritorNoDisponible(ErrorAuditoria):
     """Indica que un escritor cerrado o fallado ya no admite nuevos eventos."""
+
+
+@dataclass(frozen=True, slots=True)
+class EventoAuditoriaReciente:
+    """Copia inmutable de un evento ya confirmado en los CSV institucionales.
+
+    Esta estructura no reemplaza los archivos ni intenta reconstruirlos. El
+    escritor la crea exclusivamente después de completar escritura, ``flush``
+    y ``fsync`` en todos los destinos, de modo que la proyección de Moderación
+    nunca anuncie como confirmado un hecho cuya persistencia terminó fallando.
+    """
+
+    secuencia: int
+    timestamp: str
+    nivel: NivelAuditoria
+    etiqueta: str
+    codigo_evento: str
+    mensaje: str
 
 
 class _ColisionNominal(Exception):
@@ -98,6 +118,10 @@ class EscritorAuditoriaCsv:
         self._secuencia = 0
         self._cerrado = False
         self._fallado = False
+        # ``deque(maxlen=200)`` descarta automáticamente el elemento más
+        # antiguo al confirmar el 201.º. No existe una lista paralela en la
+        # capa HTTP ni se vuelven a leer CSV cerrados para reconstruirla.
+        self._eventos_recientes: deque[EventoAuditoriaReciente] = deque(maxlen=200)
 
         try:
             self._crear_conjunto(Path(directorio_base), fecha_hora_inicio)
@@ -127,6 +151,17 @@ class EscritorAuditoriaCsv:
 
         return self._cerrado
 
+    @property
+    def eventos_recientes(self) -> tuple[EventoAuditoriaReciente, ...]:
+        """Devuelve los eventos confirmados en orden ascendente de ``seq``.
+
+        La tupla impide que un consumidor modifique el buffer del escritor. El
+        tamaño queda acotado estructuralmente a 200 y cada preparación obtiene
+        un escritor nuevo, por lo que nunca hereda eventos de la anterior.
+        """
+
+        return tuple(self._eventos_recientes)
+
     def registrar_evento(
         self,
         nivel: NivelAuditoria,
@@ -151,9 +186,10 @@ class EscritorAuditoriaCsv:
         siguiente_secuencia = self._secuencia + 1
 
         try:
+            timestamp = self._reloj().strftime(FORMATO_TIMESTAMP)
             fila = (
                 siguiente_secuencia,
-                self._reloj().strftime(FORMATO_TIMESTAMP),
+                timestamp,
                 nivel.value,
                 etiqueta,
                 codigo_evento,
@@ -174,6 +210,19 @@ class EscritorAuditoriaCsv:
             ) from error
 
         self._secuencia = siguiente_secuencia
+        # Este append ocurre deliberadamente después del último ``fsync``. Si
+        # cualquier destino falló, el bloque ``except`` ya propagó el error y
+        # el evento no aparece en esta proyección de conveniencia.
+        self._eventos_recientes.append(
+            EventoAuditoriaReciente(
+                secuencia=siguiente_secuencia,
+                timestamp=timestamp,
+                nivel=nivel,
+                etiqueta=etiqueta,
+                codigo_evento=codigo_evento,
+                mensaje=mensaje,
+            )
+        )
         return siguiente_secuencia
 
     def cerrar(self) -> None:

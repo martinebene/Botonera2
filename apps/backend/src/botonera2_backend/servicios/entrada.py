@@ -499,6 +499,7 @@ class ServicioEntradaTecla:
                 votacion=votacion,
                 causa=CausaFinalizacionInconclusa.PERDIDA_QUORUM,
                 fecha_hora_cierre=self._reloj(),
+                reloj_resultado=self._reloj,
             )
             return
 
@@ -535,7 +536,9 @@ class ServicioEntradaTecla:
             self._mensaje_resultado(votacion, calculo),
         )
 
-        votacion.aplicar_resultado_ordinario(calculo.resultado)
+        # La marca se toma después de persistir el hecho de resultado. Es
+        # metadata volátil de presentación, no una nueva fila institucional.
+        votacion.aplicar_resultado_ordinario(calculo.resultado, self._reloj())
         if calculo.resultado in (
             ResultadoVotacion.APROBADA,
             ResultadoVotacion.RECHAZADA,

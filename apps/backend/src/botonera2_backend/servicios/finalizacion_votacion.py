@@ -8,6 +8,7 @@ MUTAR -> LIBERAR`` evita que los tres flujos de WP-013 diverjan.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import datetime
 
 from botonera2_backend.auditoria import NivelAuditoria
@@ -31,6 +32,7 @@ def finalizar_votacion_inconclusa_bajo_lock(
     votacion: Votacion,
     causa: CausaFinalizacionInconclusa,
     fecha_hora_cierre: datetime,
+    reloj_resultado: Callable[[], datetime],
     motivo_manual: str | None = None,
 ) -> None:
     """Audita y aplica una finalización inconclusa con el lock ya adquirido.
@@ -41,6 +43,8 @@ def finalizar_votacion_inconclusa_bajo_lock(
         votacion: la misma instancia publicada en el historial de la sesión.
         causa: una de las tres causas institucionales autorizadas por WP-013.
         fecha_hora_cierre: instante a usar solo si la recepción sigue abierta.
+        reloj_resultado: reloj inyectado que se consulta después del ``fsync``
+            para marcar cuándo el resultado quedó realmente publicable.
         motivo_manual: texto humano obligatorio exclusivamente para ``MANUAL``.
 
     Raises:
@@ -100,21 +104,26 @@ def finalizar_votacion_inconclusa_bajo_lock(
         CODIGO_VOTACION_FINALIZADA_INCONCLUSA,
         mensaje,
     )
+    fecha_hora_resultado = reloj_resultado()
 
     # Recién después del fsync se modifica la misma entidad. Si el writer falla
     # antes, ninguna de estas líneas corre y permanece el último hecho durable.
     if causa is CausaFinalizacionInconclusa.MANUAL:
         assert motivo_normalizado is not None
-        votacion.finalizar_inconclusa_manual(fecha_hora_cierre, motivo_normalizado)
+        votacion.finalizar_inconclusa_manual(
+            fecha_hora_cierre,
+            motivo_normalizado,
+            fecha_hora_resultado,
+        )
     elif (
         causa is CausaFinalizacionInconclusa.CIERRE_SESION
         and resultado_previo is ResultadoVotacion.EMPATADA
     ):
         # Esta es la única llamada autorizada del WP para EMPATADA ->
         # INCONCLUSA. La primitiva conserva la fecha del cierre normal.
-        votacion.finalizar_empate_inconcluso_por_cierre_sesion()
+        votacion.finalizar_empate_inconcluso_por_cierre_sesion(fecha_hora_resultado)
     else:
-        votacion.finalizar_inconclusa_derivada(fecha_hora_cierre)
+        votacion.finalizar_inconclusa_derivada(fecha_hora_cierre, fecha_hora_resultado)
 
     estado_operativo.votacion_activa = None
 
