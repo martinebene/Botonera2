@@ -112,8 +112,10 @@ WP-018 quedó integrado mediante squash merge de PR #24 sobre el candidato final
 
 | WP | Objetivo | Estado | Depende de | Agente |
 |---|---|---|---|---|
-| WP-019 | Implementar bridge físico base y compatibilidad de pulsaciones fingerprint → dispositivo lógico → backend | PENDIENTE | WP-006 | - |
+| WP-019 | Implementar bridge físico base y compatibilidad de pulsaciones fingerprint → dispositivo lógico → backend | EN_CURSO | WP-006 | antigravity |
 | WP-020 | Implementar remapeo rápido físico→lógico coordinado desde Moderación/backend | PENDIENTE | WP-019, WP-017 | - |
+
+WP-019 tiene documento individual `APROBADO` y contrato específico cerrado por DEC-015. Implementador acordado: Antigravity/AGY con Gemini 3.7 Flash High. Revisor independiente previsto: OpenCode con DeepSeek V4 Pro. El WP queda `EN_CURSO` y habilitado para lanzamiento Orca conforme DEC-007.
 
 ## Fase 6 - Frontend de Moderación
 
@@ -176,6 +178,6 @@ Los lanzadores no pueden aprobar WPs, cambiar su estado en PLAN ni modificar `ma
 
 WP-001, WP-002, WP-003, WP-004, WP-005, WP-006, WP-007, WP-008, WP-009, WP-010, WP-011, WP-013, WP-014, WP-015, WP-016, WP-017, WP-018, WP-030 y WP-031 están `INTEGRADO` y sin agente operativo asignado.
 
-DEC-007, DEC-009, DEC-010, DEC-011, DEC-012, DEC-013 y DEC-014 están vigentes. Orca continúa como entorno operativo preferido mientras esté en uso.
+DEC-007, DEC-009, DEC-010, DEC-011, DEC-012, DEC-013, DEC-014 y DEC-015 están vigentes. Orca continúa como entorno operativo preferido mientras esté en uso.
 
-WP-019 es el próximo candidato funcional por secuencia. Permanece `PENDIENTE` y no debe lanzarse hasta completar su planificación individual, cerrar decisiones humanas/DT-038 que correspondan y acordar implementador/revisor conforme DEC-007.
+WP-019 está `EN_CURSO`, con Antigravity/AGY + Gemini 3.7 Flash High como implementador y OpenCode + DeepSeek V4 Pro como revisor independiente previsto. Su dependencia WP-006 está integrada. El siguiente paso permitido es sincronizar el checkout coordinador con `main`, ejecutar `scripts/iniciar_wp_orca.py 019 antigravity`, revisar la salida del launcher y pegar al agente el prompt exhaustivo del orquestador.
