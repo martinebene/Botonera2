@@ -98,7 +98,7 @@ DEC-010 separa el ciclo de vida de la votación (`EN_CURSO`/`CERRADA`) de su res
 | WP-015 | Implementar cola y uso de la palabra, incluida pérdida por ausencia y transiciones sin avance implícito | INTEGRADO | WP-008, WP-006 | - |
 | WP-016 | Implementar parser backend de Orden del Día y contrato de carga | INTEGRADO | WP-002 | - |
 | WP-017 | Implementar snapshots `ModerationState`/`PublicState`, secreto temporal y streams SSE | INTEGRADO | WP-013, WP-014, WP-015, WP-016 | - |
-| WP-018 | Implementar paquete TypeScript `api-client` derivado de OpenAPI con REST/SSE/reconexión | EN_CURSO | WP-017 | antigravity |
+| WP-018 | Implementar paquete TypeScript `api-client` derivado de OpenAPI con REST/SSE/reconexión | INTEGRADO | WP-017 | - |
 
 WP-015 quedó integrado mediante squash merge de PR #22 sobre el candidato final `a9f7a304fb332fb40c3574bbf1b825db182b88cd`, después de CI verde en el run `32648143986` y revisión independiente final con Antigravity/AGY + Gemini 3.7 Flash High. La revisión concluyó `LISTA PARA INTEGRAR`, con cero hallazgos BLOQUEANTES, IMPORTANTES y MENORES. El candidato había incorporado previamente por merge normal el `main` que contenía WP-016, preservando ambos contratos. El squash merge produjo el commit `922b4076d25da1f9055f84c3f2b637db08fa851b` en `main`.
 
@@ -106,7 +106,7 @@ WP-016 quedó integrado mediante squash merge de PR #21 sobre el candidato final
 
 WP-017 quedó integrado mediante squash merge de PR #23 sobre el candidato final `40180d2d05e673151204769b40232871ca1e559a`, después de CI verde en el run `32677898954` y revisión independiente final con Antigravity/AGY + Gemini 3.7 Flash High. La revisión concluyó `LISTA PARA INTEGRAR`, con cero hallazgos BLOQUEANTES, IMPORTANTES y MENORES; verificó 653 tests backend y todos los gates aplicables. El squash merge produjo el commit `25e1ffa4c3be3af5e6a3610dd1c3cef5434c657b` en `main`. DEC-013 quedó implementada sin nuevas dependencias directas ni decisiones DT-038 pendientes.
 
-WP-018 tiene documento individual `APROBADO` y contrato transversal cerrado por DEC-014. Implementador acordado: Antigravity/AGY con Gemini 3.7 Flash High. Revisor independiente previsto: OpenCode con DeepSeek V4 Pro. El WP queda `EN_CURSO` y habilitado para lanzamiento Orca conforme DEC-007.
+WP-018 quedó integrado mediante squash merge de PR #24 sobre el candidato final `01f0af26c42b81e444750400eb588239fe9dc6d2`, después de CI verde en el run `32681901272` y revisión independiente final con OpenCode + DeepSeek V4 Pro. La revisión concluyó `LISTA PARA INTEGRAR`, con cero hallazgos BLOQUEANTES e IMPORTANTES y cinco hallazgos MENORES no bloqueantes sobre cobertura nominal de un test de cancelación, política de reset de backoff, respuesta 2xx vacía no-204, un comentario de CI y mantenibilidad futura del alias `SolicitudAperturaVotacion`. Verificó 28 tests Vitest y 658 tests pytest. La única nueva dependencia directa externa fue `openapi-typescript@7.13.0` como `devDependency`, previamente aprobada por DEC-014/DT-038. El squash merge produjo el commit `5375a246e0040c54e6750ab9f76520c21a305925` en `main`.
 
 ## Fase 5 - Hardware y bridge
 
@@ -174,8 +174,8 @@ Los lanzadores no pueden aprobar WPs, cambiar su estado en PLAN ni modificar `ma
 
 ## Próximo punto de control
 
-WP-001, WP-002, WP-003, WP-004, WP-005, WP-006, WP-007, WP-008, WP-009, WP-010, WP-011, WP-013, WP-014, WP-015, WP-016, WP-017, WP-030 y WP-031 están `INTEGRADO` y sin agente operativo asignado.
+WP-001, WP-002, WP-003, WP-004, WP-005, WP-006, WP-007, WP-008, WP-009, WP-010, WP-011, WP-013, WP-014, WP-015, WP-016, WP-017, WP-018, WP-030 y WP-031 están `INTEGRADO` y sin agente operativo asignado.
 
 DEC-007, DEC-009, DEC-010, DEC-011, DEC-012, DEC-013 y DEC-014 están vigentes. Orca continúa como entorno operativo preferido mientras esté en uso.
 
-WP-018 está `EN_CURSO`, con Antigravity/AGY + Gemini 3.7 Flash High como implementador y OpenCode + DeepSeek V4 Pro como revisor independiente previsto. Su dependencia WP-017 está integrada. El siguiente paso permitido es sincronizar el checkout coordinador con `main`, ejecutar `scripts/iniciar_wp_orca.py 018 antigravity`, revisar la salida del launcher y pegar al agente el prompt exhaustivo del orquestador.
+WP-019 es el próximo candidato funcional por secuencia. Permanece `PENDIENTE` y no debe lanzarse hasta completar su planificación individual, cerrar decisiones humanas/DT-038 que correspondan y acordar implementador/revisor conforme DEC-007.
