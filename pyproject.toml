@@ -20,7 +20,7 @@ members = ["apps/backend", "services/device-bridge"]
 [tool.pytest.ini_options]
 addopts = "--strict-config --strict-markers"
 testpaths = ["tests"]
-pythonpath = ["apps/backend/src", "tools/device-simulator", "."]
+pythonpath = ["apps/backend/src", "services/device-bridge/src", "tools/device-simulator", "."]
 
 [tool.ruff]
 target-version = "py314"
