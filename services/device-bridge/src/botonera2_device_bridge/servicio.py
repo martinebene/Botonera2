@@ -35,6 +35,7 @@ from botonera2_device_bridge.modelos import (
     SolicitudEntradaLogica,
 )
 from botonera2_device_bridge.normalizador import normalizar_tecla
+from botonera2_device_bridge.remapeo import CoordinadorRemapeoBridge
 
 if TYPE_CHECKING:
     pass
@@ -63,7 +64,12 @@ class ServicioDeviceBridge:
         self.configuracion = configuracion
         self.adaptador = adaptador
         self.cliente_http = cliente_http
-        self.mapeo_dispositivos = mapeo_dispositivos
+        # La configuración base y la efectiva ya no comparten un diccionario
+        # mutable: el coordinador conserva copias y protege ambas con un RLock.
+        self.coordinador_remapeo = CoordinadorRemapeoBridge(
+            configuracion.ruta_devices_json,
+            mapeo_dispositivos,
+        )
 
         # Registro de dispositivos abiertos actualmente (indexados por su ruta de sistema)
         self.dispositivos_activos: dict[str, DispositivoFisico] = {}
@@ -75,8 +81,10 @@ class ServicioDeviceBridge:
 
         Flujo paso a paso:
         1. Ignorar si no es una pulsación (es_bajada == False).
-        2. Verificar si el fingerprint está mapeado en devices.json:
-           - Si NO está mapeado: Registrar diagnóstico y NO enviar POST.
+        2. Resolver el fingerprint en el mapping efectivo vigente:
+           - Si está mapeado: continuar siempre por el flujo funcional normal.
+           - Si no está mapeado: ofrecerlo al coordinador de captura y NO enviar
+             esa pulsación como entrada funcional.
         3. Normalizar el nombre o código de la tecla física:
            - Si la tecla no es reconocida: Registrar diagnóstico y NO enviar POST.
         4. Transmitir {dispositivo, tecla} al backend mediante un único intento HTTP.
@@ -96,14 +104,24 @@ class ServicioDeviceBridge:
             )
             return None
 
-        # 1. Resolución de dispositivo lógico
-        dispositivo_logico = self.mapeo_dispositivos.get(evento.fingerprint)
+        # Resolver primero el mapping efectivo es crítico: un teclado ya
+        # mapeado jamás queda absorbido por la captura concurrente.
+        dispositivo_logico = self.coordinador_remapeo.resolver_dispositivo(evento.fingerprint)
         if not dispositivo_logico:
-            logger.info(
-                "Pulsación de dispositivo NO MAPEADO en devices.json: fp='%s', tecla='%s'",
-                evento.fingerprint,
-                evento.nombre_tecla,
-            )
+            candidato = self.coordinador_remapeo.considerar_candidato(evento)
+            if candidato is not None:
+                # La red queda deliberadamente fuera del RLock del coordinador.
+                self.cliente_http.informar_candidato(
+                    candidato["remapeo_id"],
+                    candidato["fingerprint"],
+                    candidato["diagnostico"],
+                )
+            else:
+                logger.info(
+                    "Pulsación de dispositivo no mapeado/no elegible: fp='%s', tecla='%s'",
+                    evento.fingerprint,
+                    evento.nombre_tecla,
+                )
             return None
 
         # 2. Normalización de tecla
@@ -146,7 +164,7 @@ class ServicioDeviceBridge:
                 self.dispositivos_activos[disp.ruta] = disp
                 nuevos_dispositivos.append(disp)
 
-                dev_id = self.mapeo_dispositivos.get(disp.fingerprint)
+                dev_id = self.coordinador_remapeo.resolver_dispositivo(disp.fingerprint)
                 if dev_id:
                     logger.info(
                         "Hardware reconocido y MAPEADO: %s -> %s ('%s' en %s)",
@@ -238,7 +256,7 @@ class ServicioDeviceBridge:
         logger.info(
             "Iniciando servicio de bridge físico Linux (URL API: %s, Mapeos: %d)",
             self.configuracion.url_base_api,
-            len(self.mapeo_dispositivos),
+            len(self.coordinador_remapeo.instantanea_mapeo_efectivo()),
         )
 
         try:

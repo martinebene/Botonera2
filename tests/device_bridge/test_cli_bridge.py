@@ -25,6 +25,8 @@ def test_parser_argumentos_defaults() -> None:
     assert opciones.timeout_http == 3.0
     assert opciones.intervalo_escaneo == 2.0
     assert opciones.nivel_log == "INFO"
+    assert opciones.host_control == "127.0.0.1"
+    assert opciones.puerto_control == 8765
 
 
 def test_parser_argumentos_explicitos() -> None:
@@ -42,6 +44,10 @@ def test_parser_argumentos_explicitos() -> None:
             "1.0",
             "--log-level",
             "DEBUG",
+            "--control-host",
+            "localhost",
+            "--control-port",
+            "9876",
         ]
     )
 
@@ -50,6 +56,8 @@ def test_parser_argumentos_explicitos() -> None:
     assert opciones.timeout_http == 5.0
     assert opciones.intervalo_escaneo == 1.0
     assert opciones.nivel_log == "DEBUG"
+    assert opciones.host_control == "localhost"
+    assert opciones.puerto_control == 9876
 
 
 def test_cli_falla_si_config_no_existe(tmp_path: Path) -> None:

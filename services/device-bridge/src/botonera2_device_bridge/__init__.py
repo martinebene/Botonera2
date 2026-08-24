@@ -32,20 +32,30 @@ from botonera2_device_bridge.modelos import (
     SolicitudEntradaLogica,
 )
 from botonera2_device_bridge.normalizador import normalizar_tecla
+from botonera2_device_bridge.remapeo import (
+    CoordinadorRemapeoBridge,
+    EstadoRemapeoBridge,
+    PersistenciaRemapeo,
+)
 from botonera2_device_bridge.servicio import ServicioDeviceBridge
+from botonera2_device_bridge.servidor_control import ServidorControlBridge
 
 __all__ = [
     "AdaptadorEntradaFisica",
     "AdaptadorEvdevLinux",
     "AdaptadorFalso",
     "ClienteHttpBackend",
+    "CoordinadorRemapeoBridge",
     "ConfiguracionBridge",
     "DispositivoFisico",
     "ErrorConfiguracionBridge",
     "ErrorDispositivoDesconectado",
     "EventoTeclaFisica",
+    "EstadoRemapeoBridge",
+    "PersistenciaRemapeo",
     "RespuestaEnvioBackend",
     "ServicioDeviceBridge",
+    "ServidorControlBridge",
     "SolicitudEntradaLogica",
     "cargar_dispositivos_json",
     "construir_fingerprint_linux",

@@ -51,6 +51,8 @@ export type {
   RespuestaOrdenDelDia,
   EventoRecienteProyectado,
   EstadoAuditoriaProyectado,
+  EstadoRemapeoModeracion,
+  EstadoRemapeoRespuesta,
   Capacidad,
   CapacidadesModeracion,
   EstadoVotacion,
@@ -69,6 +71,8 @@ export type {
   SolicitudAperturaVotacion,
   SolicitudFinalizarVotacion,
   SolicitudDesempate,
+  SolicitudIniciarRemapeo,
+  SolicitudConfirmarRemapeo,
   // Tipos de cliente y ciclo de vida
   Temporizador,
   ConfiguracionBackoff,

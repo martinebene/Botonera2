@@ -886,6 +886,303 @@
           }
         }
       }
+    },
+    "/api/v1/remapeos": {
+      "post": {
+        "tags": [
+          "remapeos"
+        ],
+        "summary": "Iniciar captura física para un dispositivo lógico existente",
+        "description": "Valida estado/padrón, genera UUID y ordena captura al bridge.",
+        "operationId": "iniciar_remapeo_api_v1_remapeos_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SolicitudIniciarRemapeo"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EstadoRemapeoRespuesta"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicto funcional: ESTADO_INCOMPATIBLE, DISPOSITIVO_REMAPEO_NO_EXISTENTE, REMAPEO_YA_ACTIVO, REMAPEO_NO_COINCIDE, REMAPEO_SIN_CANDIDATO, CANDIDATO_YA_REGISTRADO o PARAMETROS_REMAPEO_INCOMPATIBLES.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Indisponibilidad: BRIDGE_NO_DISPONIBLE, APLICACION_BRIDGE_RECHAZADA o AUDITORIA_NO_DISPONIBLE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Fallo inesperado (ERROR_INTERNO).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/interno/remapeos/{remapeo_id}/candidato": {
+      "post": {
+        "tags": [
+          "remapeos"
+        ],
+        "summary": "Informar candidato físico desde el device-bridge (interno)",
+        "description": "Congela el primer candidato sin aplicar el mapping.",
+        "operationId": "informar_candidato_api_v1_interno_remapeos__remapeo_id__candidato_post",
+        "parameters": [
+          {
+            "name": "remapeo_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Remapeo Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SolicitudCandidatoRemapeo"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EstadoRemapeoRespuesta"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicto funcional: ESTADO_INCOMPATIBLE, DISPOSITIVO_REMAPEO_NO_EXISTENTE, REMAPEO_YA_ACTIVO, REMAPEO_NO_COINCIDE, REMAPEO_SIN_CANDIDATO, CANDIDATO_YA_REGISTRADO o PARAMETROS_REMAPEO_INCOMPATIBLES.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Indisponibilidad: BRIDGE_NO_DISPONIBLE, APLICACION_BRIDGE_RECHAZADA o AUDITORIA_NO_DISPONIBLE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Fallo inesperado (ERROR_INTERNO).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/remapeos/{remapeo_id}/confirmacion": {
+      "post": {
+        "tags": [
+          "remapeos"
+        ],
+        "summary": "Autorizar y aplicar el candidato temporal o persistentemente",
+        "description": "Persiste L3 de autorización antes de ordenar el apply físico.",
+        "operationId": "confirmar_remapeo_api_v1_remapeos__remapeo_id__confirmacion_post",
+        "parameters": [
+          {
+            "name": "remapeo_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Remapeo Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SolicitudConfirmarRemapeo"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "409": {
+            "description": "Conflicto funcional: ESTADO_INCOMPATIBLE, DISPOSITIVO_REMAPEO_NO_EXISTENTE, REMAPEO_YA_ACTIVO, REMAPEO_NO_COINCIDE, REMAPEO_SIN_CANDIDATO, CANDIDATO_YA_REGISTRADO o PARAMETROS_REMAPEO_INCOMPATIBLES.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Indisponibilidad: BRIDGE_NO_DISPONIBLE, APLICACION_BRIDGE_RECHAZADA o AUDITORIA_NO_DISPONIBLE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Fallo inesperado (ERROR_INTERNO).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/remapeos/{remapeo_id}": {
+      "delete": {
+        "tags": [
+          "remapeos"
+        ],
+        "summary": "Cancelar la captura sin modificar el mapping",
+        "description": "Cancela idempotentemente el mismo ID en backend y bridge.",
+        "operationId": "cancelar_remapeo_api_v1_remapeos__remapeo_id__delete",
+        "parameters": [
+          {
+            "name": "remapeo_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Remapeo Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "409": {
+            "description": "Conflicto funcional: ESTADO_INCOMPATIBLE, DISPOSITIVO_REMAPEO_NO_EXISTENTE, REMAPEO_YA_ACTIVO, REMAPEO_NO_COINCIDE, REMAPEO_SIN_CANDIDATO, CANDIDATO_YA_REGISTRADO o PARAMETROS_REMAPEO_INCOMPATIBLES.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Indisponibilidad: BRIDGE_NO_DISPONIBLE, APLICACION_BRIDGE_RECHAZADA o AUDITORIA_NO_DISPONIBLE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Fallo inesperado (ERROR_INTERNO).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1512,6 +1809,16 @@
           "auditoria": {
             "$ref": "#/components/schemas/EstadoAuditoriaProyectado"
           },
+          "remapeo": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EstadoRemapeoModeracion"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "capacidades": {
             "$ref": "#/components/schemas/CapacidadesModeracion"
           }
@@ -1531,6 +1838,7 @@
           "orden_del_dia",
           "eventos_recientes",
           "auditoria",
+          "remapeo",
           "capacidades"
         ],
         "title": "EstadoModeracion",
@@ -1703,6 +2011,126 @@
         "title": "EstadoRecinto",
         "description": "Snapshot público por allowlist, sin capacidades ni eventos de auditoría."
       },
+      "EstadoRemapeoModeracion": {
+        "properties": {
+          "remapeo_id": {
+            "type": "string",
+            "title": "Remapeo Id"
+          },
+          "dispositivo": {
+            "type": "string",
+            "title": "Dispositivo"
+          },
+          "estado": {
+            "type": "string",
+            "title": "Estado"
+          },
+          "fingerprint_anterior": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fingerprint Anterior"
+          },
+          "candidato": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidato"
+          },
+          "diagnostico": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Diagnostico"
+          }
+        },
+        "type": "object",
+        "required": [
+          "remapeo_id",
+          "dispositivo",
+          "estado",
+          "fingerprint_anterior",
+          "candidato",
+          "diagnostico"
+        ],
+        "title": "EstadoRemapeoModeracion",
+        "description": "Operación física activa visible exclusivamente para Moderación."
+      },
+      "EstadoRemapeoRespuesta": {
+        "properties": {
+          "remapeo_id": {
+            "type": "string",
+            "title": "Remapeo Id"
+          },
+          "dispositivo": {
+            "type": "string",
+            "title": "Dispositivo"
+          },
+          "estado": {
+            "type": "string",
+            "title": "Estado"
+          },
+          "fingerprint_anterior": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fingerprint Anterior"
+          },
+          "candidato": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidato"
+          },
+          "diagnostico": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Diagnostico"
+          }
+        },
+        "type": "object",
+        "required": [
+          "remapeo_id",
+          "dispositivo",
+          "estado",
+          "fingerprint_anterior",
+          "candidato",
+          "diagnostico"
+        ],
+        "title": "EstadoRemapeoRespuesta",
+        "description": "Estado físico seguro que la futura UI obtiene por snapshot/SSE."
+      },
       "EstadoVotacion": {
         "type": "string",
         "enum": [
@@ -1758,6 +2186,19 @@
       },
       "FactorNumerico": {
         "type": "number"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
       },
       "IdentidadConcejalRespuesta": {
         "properties": {
@@ -2201,6 +2642,54 @@
         "title": "SolicitudActualizarSesion",
         "description": "Body parcial para autoridades de una sesión abierta.\n\nEl modelo no declara ``numero_sesion`` y prohíbe extras, de modo que todo\nintento de editarlo produce 422. Una autoridad suministrada se normaliza en\nel servicio, pero debe contener algo distinto de espacios."
       },
+      "SolicitudCandidatoRemapeo": {
+        "properties": {
+          "fingerprint": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Fingerprint"
+          },
+          "diagnostico": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Diagnostico"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "fingerprint"
+        ],
+        "title": "SolicitudCandidatoRemapeo",
+        "description": "Callback interno del bridge; nunca se expone en ClienteModeracion."
+      },
+      "SolicitudConfirmarRemapeo": {
+        "properties": {
+          "persistencia": {
+            "type": "string",
+            "enum": [
+              "TEMPORAL",
+              "PERSISTENTE"
+            ],
+            "title": "Persistencia"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "persistencia"
+        ],
+        "title": "SolicitudConfirmarRemapeo",
+        "description": "Decisión humana cerrada; no admite coerciones ni otros modos."
+      },
       "SolicitudDesempate": {
         "properties": {
           "sentido": {
@@ -2234,6 +2723,22 @@
         ],
         "title": "SolicitudFinalizarVotacion",
         "description": "Body exacto de la finalización manual anticipada de DEC-011.\n\n``strict=True`` evita convertir booleanos, números u otras estructuras en\ntexto. El validador normaliza antes de llegar al dominio y rechaza tanto la\ncadena vacía como la compuesta únicamente por espacios."
+      },
+      "SolicitudIniciarRemapeo": {
+        "properties": {
+          "dispositivo": {
+            "type": "string",
+            "pattern": "^dev\\d{2}$",
+            "title": "Dispositivo"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "dispositivo"
+        ],
+        "title": "SolicitudIniciarRemapeo",
+        "description": "Body cerrado para seleccionar un devXX existente del padrón activo."
       },
       "SolicitudTecla": {
         "properties": {
@@ -2352,6 +2857,46 @@
         ],
         "title": "TipoMayoria",
         "description": "Distingue la regla de decisión declarada por Moderación.\n\nEl tipo es autoritativo: nunca se deduce una mayoría simple o especial a\npartir del factor. Los valores coinciden con el contrato REST de DEC-009."
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
       },
       "ValorVotoOrdinario": {
         "type": "string",

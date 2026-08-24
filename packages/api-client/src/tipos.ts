@@ -84,6 +84,12 @@ export type EventoRecienteProyectado = components['schemas']['EventoRecienteProy
 /** Estado técnico del escritor institucional de auditoría */
 export type EstadoAuditoriaProyectado = components['schemas']['EstadoAuditoriaProyectado']
 
+/** Operación física activa visible exclusivamente para Moderación */
+export type EstadoRemapeoModeracion = components['schemas']['EstadoRemapeoModeracion']
+
+/** Respuesta del inicio/callback de una coordinación de remapeo */
+export type EstadoRemapeoRespuesta = components['schemas']['EstadoRemapeoRespuesta']
+
 /** Capacidad operativa individual evaluada por el backend */
 export type Capacidad = components['schemas']['Capacidad']
 
@@ -122,6 +128,8 @@ export type SolicitudVotacionEspecial = components['schemas']['SolicitudVotacion
 export type SolicitudAperturaVotacion = SolicitudVotacionSimple | SolicitudVotacionEspecial
 export type SolicitudFinalizarVotacion = components['schemas']['SolicitudFinalizarVotacion']
 export type SolicitudDesempate = components['schemas']['SolicitudDesempate']
+export type SolicitudIniciarRemapeo = components['schemas']['SolicitudIniciarRemapeo']
+export type SolicitudConfirmarRemapeo = components['schemas']['SolicitudConfirmarRemapeo']
 
 // =============================================================================
 // 2. Tipos y contratos del cliente TypeScript (no-DTOs de backend)

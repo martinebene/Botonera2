@@ -1,10 +1,12 @@
 """Recursos compartidos que existen exactamente durante el lifespan."""
 
+import os
 from dataclasses import dataclass
 
 from fastapi import FastAPI
 
 from botonera2_backend.dominio.estado import EstadoOperativo
+from botonera2_backend.servicios.cliente_bridge import ClienteControlBridge
 from botonera2_backend.servicios.proyecciones import ServicioProyecciones
 from botonera2_backend.servicios.publicacion import CoordinadorPublicacion
 from botonera2_backend.servicios.serializacion import EjecutorMutaciones
@@ -25,6 +27,7 @@ class RecursosAplicacion:
     ejecutor_mutaciones: EjecutorMutaciones
     coordinador_publicacion: CoordinadorPublicacion
     servicio_proyecciones: ServicioProyecciones
+    cliente_control_bridge: ClienteControlBridge
 
 
 def crear_recursos_aplicacion() -> RecursosAplicacion:
@@ -40,11 +43,16 @@ def crear_recursos_aplicacion() -> RecursosAplicacion:
         ejecutor,
         coordinador,
     )
+    cliente_control_bridge = ClienteControlBridge(
+        url_base=os.getenv("BOTONERA2_BRIDGE_CONTROL_URL", "http://127.0.0.1:8765"),
+        timeout_segundos=float(os.getenv("BOTONERA2_BRIDGE_CONTROL_TIMEOUT", "3.0")),
+    )
     return RecursosAplicacion(
         estado_operativo=estado_operativo,
         ejecutor_mutaciones=ejecutor,
         coordinador_publicacion=coordinador,
         servicio_proyecciones=servicio_proyecciones,
+        cliente_control_bridge=cliente_control_bridge,
     )
 
 

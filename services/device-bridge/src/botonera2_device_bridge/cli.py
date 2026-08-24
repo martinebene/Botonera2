@@ -6,6 +6,7 @@ Este módulo implementa `ejecutar_cli` y el console script `botonera2-device-bri
 3. Registra manejadores de señales `SIGINT` (Ctrl+C) y `SIGTERM` para parada limpia y segura.
 4. Carga y valida rigurosamente `devices.json`.
 5. Inicia el `ServicioDeviceBridge` con `AdaptadorEvdevLinux` y `ClienteHttpBackend`.
+6. Expone la API HTTP local de control con bind loopback predeterminado.
 """
 
 from __future__ import annotations
@@ -27,6 +28,7 @@ from botonera2_device_bridge.configuracion import (
     cargar_dispositivos_json,
 )
 from botonera2_device_bridge.servicio import ServicioDeviceBridge
+from botonera2_device_bridge.servidor_control import ServidorControlBridge
 
 logger = logging.getLogger("botonera2_device_bridge")
 
@@ -91,6 +93,20 @@ def construir_parser_argumentos() -> argparse.ArgumentParser:
         help="Nivel de detalle para los registros en stdout/stderr (default: INFO)",
     )
 
+    parser.add_argument(
+        "--control-host",
+        dest="host_control",
+        default=os.getenv("BOTONERA2_CONTROL_HOST", "127.0.0.1"),
+        help="Host de la API local de control (default: 127.0.0.1)",
+    )
+    parser.add_argument(
+        "--control-port",
+        dest="puerto_control",
+        type=int,
+        default=int(os.getenv("BOTONERA2_CONTROL_PORT", "8765")),
+        help="Puerto de la API local de control (default: 8765)",
+    )
+
     return parser
 
 
@@ -145,6 +161,8 @@ def ejecutar_cli(argumentos: Sequence[str] | None = None) -> int:
         timeout_http_segundos=opciones.timeout_http,
         ruta_devices_json=opciones.ruta_config,
         intervalo_escaneo_segundos=opciones.intervalo_escaneo,
+        host_control=opciones.host_control,
+        puerto_control=opciones.puerto_control,
     )
 
     # 2. Inicializar adaptadores y cliente HTTP
@@ -165,6 +183,11 @@ def ejecutar_cli(argumentos: Sequence[str] | None = None) -> int:
         cliente_http=cliente_http,
         mapeo_dispositivos=mapeo,
     )
+    servidor_control = ServidorControlBridge(
+        servicio.coordinador_remapeo,
+        host=configuracion.host_control,
+        puerto=configuracion.puerto_control,
+    )
 
     evento_detencion = threading.Event()
 
@@ -184,11 +207,14 @@ def ejecutar_cli(argumentos: Sequence[str] | None = None) -> int:
 
     # 3. Ejecutar el servicio
     try:
+        servidor_control.iniciar()
         servicio.ejecutar_servicio(evento_detencion=evento_detencion)
         return 0
     except Exception as exc:
         logger.error("Error fatal durante la ejecución del servicio: %s", exc, exc_info=True)
         return 1
+    finally:
+        servidor_control.detener()
 
 
 if __name__ == "__main__":

@@ -15,12 +15,14 @@ import type {
   EstadoModeracion,
   OpcionesSuscripcion,
   RespuestaOrdenDelDia,
+  EstadoRemapeoRespuesta,
   RespuestaVotacion,
   SolicitudActualizarPreparacion,
   SolicitudActualizarSesion,
   SolicitudAperturaVotacion,
   SolicitudDesempate,
   SolicitudFinalizarVotacion,
+  SolicitudIniciarRemapeo,
   Suscripcion,
 } from './tipos'
 
@@ -249,6 +251,37 @@ export class ClienteModeracion {
    */
   async quitarPalabra(signal?: AbortSignal): Promise<void> {
     return this.rest.deleteVacio('/api/v1/palabra', signal)
+  }
+
+  // ===========================================================================
+  // 7. Coordinación pública de remapeo físico
+  // ===========================================================================
+
+  /**
+   * Inicia captura para un devXX del padrón activo. El navegador sigue
+   * comunicándose solo con FastAPI; nunca conoce la URL local del bridge.
+   */
+  async iniciarRemapeo(dispositivo: string, signal?: AbortSignal): Promise<EstadoRemapeoRespuesta> {
+    const cuerpo: SolicitudIniciarRemapeo = { dispositivo }
+    return this.rest.post<EstadoRemapeoRespuesta>('/api/v1/remapeos', cuerpo, signal)
+  }
+
+  /** Autoriza el candidato congelado con la persistencia elegida. */
+  async confirmarRemapeo(
+    remapeoId: string,
+    persistencia: 'TEMPORAL' | 'PERSISTENTE',
+    signal?: AbortSignal,
+  ): Promise<void> {
+    return this.rest.postVacio(
+      `/api/v1/remapeos/${encodeURIComponent(remapeoId)}/confirmacion`,
+      { persistencia },
+      signal,
+    )
+  }
+
+  /** Cancela captura/candidato sin cambiar el mapping físico. */
+  async cancelarRemapeo(remapeoId: string, signal?: AbortSignal): Promise<void> {
+    return this.rest.deleteVacio(`/api/v1/remapeos/${encodeURIComponent(remapeoId)}`, signal)
   }
 }
 
