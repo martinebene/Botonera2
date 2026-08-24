@@ -16,6 +16,9 @@ Las decisiones aquí registradas no reemplazan reglas de negocio ni decisiones t
 - `DEC-008-sesion-autoridades-y-contrato-rest.md`: contrato de número de sesión, autoridades, transición `PREPARANDO -> SESION_ABIERTA`, REST de sesión, auditoría y extensión de presencia/test durante sesión para WP-008.
 - `DEC-009-apertura-votacion-mayorias-y-contrato-rest.md`: contrato de apertura de votaciones, mayoría SIMPLE/ESPECIAL, bases, inmutabilidad y REST de WP-009.
 - `DEC-010-ciclo-vida-cierre-y-resultado-votacion.md`: separación entre ciclo de vida y resultado, autocierre sin cálculo, cálculo unificado de mayorías y carácter transitorio de `EMPATADA`.
+- `DEC-011-finalizacion-inconclusa-y-cierre-de-sesion.md`: finalización `INCONCLUSA`, pérdida de quórum, cierre de sesión con votación pendiente y fallo cerrado asociado.
+- `DEC-012-desempate-presidencial-contrato-rest-y-fallo-cerrado.md`: contrato REST de desempate presidencial, voto separado y frontera de fallo cerrado.
+- `DEC-013-proyecciones-snapshots-sse-y-secreto-temporal.md`: contratos REST/SSE de `ModerationState`/`PublicState`, revisión, reconexión, secreto temporal, eventos recientes y capacidades.
 
 ## Criterio de uso
 
