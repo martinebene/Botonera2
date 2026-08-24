@@ -12,12 +12,18 @@ Durante una votación `EN_CURSO` no recibe ni muestra votos individuales ni even
 
 ## 2. Sincronización
 
-- snapshot completo de `PublicState` por REST al cargar/reconectar;
-- actualizaciones por SSE;
+- snapshot completo de `EstadoRecinto` por
+  `GET /api/v1/estado/recinto` al cargar/reconectar;
+- actualizaciones completas por `GET /api/v1/estado/recinto/stream` (SSE);
 - cliente común en `packages/api-client/`;
 - ante reconexión del stream se recupera snapshot antes de continuar.
 
 No utiliza polling periódico como mecanismo normal.
+
+El primer evento SSE vuelve a contener el estado vigente completo y cada
+versión lleva `revision`, de modo que una mutación entre snapshot y stream no
+se pierde. El DTO público es propio y restrictivo: no deriva de ocultar campos
+de Moderación en CSS o JavaScript.
 
 ## 3. SIN_PREPARAR
 
@@ -75,6 +81,12 @@ Puede mostrar una cuenta regresiva/efecto inicial configurable. Valor inicial: 4
 
 No existe límite temporal reglamentario para votar. La votación puede continuar mientras existen pedidos/usos de palabra.
 
+El DTO expone `cuenta_regresiva_hasta`, calculado una sola vez desde
+`fecha_hora_apertura + public_initial_countdown_seconds`. El frontend deriva
+localmente el número visible; el backend no emite un evento por segundo. El fin
+de esta presentación no modifica el secreto: mientras siga `EN_CURSO`, la red
+no transporta votos ni mensajes de auditoría.
+
 ## 8. Cierre de votación
 
 Cuando alcanza estado final:
@@ -86,11 +98,22 @@ Cuando alcanza estado final:
 
 El resultado permanece un tiempo configurable, inicialmente 6 segundos, y luego se limpia la información transitoria sin borrar el estado general de sesión.
 
+Para `APROBADA`, `RECHAZADA` e `INCONCLUSA`, `resultado_visible_hasta` se
+calcula desde el instante en que ese resultado final quedó disponible después
+de su hecho durable. Al vencer, backend omite la votación transitoria del DTO y
+emite una nueva revisión; el historial interno no se borra.
+
 ## 9. Empate
 
 Mientras una mayoría simple está `EMPATADA` esperando Presidencia, puede mostrar el empate sin inventar un resultado.
 
 Al desempatar Presidencia, pasa a `APROBADA` o `RECHAZADA`.
+
+`CERRADA + EMPATADA` no expira mientras espera Presidencia y puede mostrar los
+votos ya cerrados. Si el desempate llega mucho después, la ventana completa de
+`public_result_display_seconds` comienza en ese resultado final, no en la fecha
+de cierre original. Una nueva `EN_CURSO` reemplaza inmediatamente cualquier
+presentación anterior.
 
 ## 10. Uso de la palabra
 
@@ -130,6 +153,10 @@ Las pruebas visuales/E2E deben incluir Full HD y al menos otra resolución repre
 Tras recargar o reconectar, reconstruye la vista desde backend.
 
 No reproduce temporizadores antiguos como si acabaran de ocurrir. Countdown y permanencia se derivan de timestamps/estado actual de forma consistente.
+
+Reconectar dentro de una ventana conserva el deadline original; hacerlo
+después no revive el resultado. La pantalla nunca consume `message` crudo ni el
+buffer de auditoría de Moderación.
 
 ## 15. Solo lectura
 
