@@ -1,0 +1,2751 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Botonera2 Backend",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/api/v1/health": {
+      "get": {
+        "tags": [
+          "salud"
+        ],
+        "summary": "Consultar Salud",
+        "description": "Confirma disponibilidad técnica sin leer ni modificar estado operativo.",
+        "operationId": "consultar_salud_api_v1_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespuestaSalud"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/preparacion": {
+      "post": {
+        "tags": [
+          "preparacion"
+        ],
+        "summary": "Preparar Sala",
+        "description": "Inicia una nueva preparación de sala (CU-01).\n\nCarga y congela ``config/system.toml`` y ``config/concejales.csv``, crea\nel conjunto de auditoría L1/L2/L3, persiste ``PREPARACION_INICIADA`` y\nrecién entonces deja el sistema en ``PREPARANDO`` con todos los\nconcejales ausentes. Si algún paso obligatorio falla, no se confirma\néxito y el sistema permanece en ``SIN_PREPARAR``.",
+        "operationId": "preparar_sala_api_v1_preparacion_post",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "409": {
+            "description": "El comando no es válido para el estado global actual (ESTADO_INCOMPATIBLE).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Indisponibilidad técnica: CONFIGURACION_INVALIDA, PADRON_INVALIDO o AUDITORIA_NO_DISPONIBLE según el caso.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Fallo inesperado no clasificado (ERROR_INTERNO).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "preparacion"
+        ],
+        "summary": "Cancelar Preparacion",
+        "description": "Cancela la preparación activa (CU-02), sin recibir ni exigir motivo.\n\nPersiste ``PREPARACION_CANCELADA``, cierra definitivamente los tres CSV\n(que se conservan en disco) y devuelve el sistema a ``SIN_PREPARAR`` con\nel contexto operativo completamente descartado. Si la auditoría no puede\ngarantizar esos pasos, no se confirma la cancelación y el estado\npermanece en ``PREPARANDO`` en fallo cerrado.",
+        "operationId": "cancelar_preparacion_api_v1_preparacion_delete",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "409": {
+            "description": "El comando no es válido para el estado global actual (ESTADO_INCOMPATIBLE).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Indisponibilidad técnica: CONFIGURACION_INVALIDA, PADRON_INVALIDO o AUDITORIA_NO_DISPONIBLE según el caso.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Fallo inesperado no clasificado (ERROR_INTERNO).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "preparacion"
+        ],
+        "summary": "Actualizar número y autoridades de la preparación",
+        "description": "Aplica uno o más cambios efectivos con auditoría previa y ordenada.",
+        "operationId": "actualizar_preparacion_api_v1_preparacion_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SolicitudActualizarPreparacion"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "409": {
+            "description": "El comando no es válido para el estado global actual (ESTADO_INCOMPATIBLE).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Indisponibilidad técnica: CONFIGURACION_INVALIDA, PADRON_INVALIDO o AUDITORIA_NO_DISPONIBLE según el caso.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Fallo inesperado no clasificado (ERROR_INTERNO).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Body vacío/inválido o número que no es entero estricto positivo."
+          }
+        }
+      }
+    },
+    "/api/v1/sesion": {
+      "post": {
+        "tags": [
+          "sesion"
+        ],
+        "summary": "Abrir la sesión preparada",
+        "description": "Abre sin body y solo después de auditar todas sus precondiciones.",
+        "operationId": "abrir_sesion_api_v1_sesion_post",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "409": {
+            "description": "Rechazo funcional con código estable según la precondición.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "No puede garantizarse la auditoría obligatoria.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Fallo inesperado no clasificado (ERROR_INTERNO).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "La solicitud no cumple el contrato de transporte."
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "sesion"
+        ],
+        "summary": "Cerrar normalmente la sesión",
+        "description": "Cierra sin body y resuelve antes una EN_CURSO o EMPATADA pendiente.",
+        "operationId": "cerrar_sesion_api_v1_sesion_delete",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "409": {
+            "description": "Rechazo funcional con código estable según la precondición.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "No puede garantizarse la auditoría obligatoria.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Fallo inesperado no clasificado (ERROR_INTERNO).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "La solicitud no cumple el contrato de transporte."
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "sesion"
+        ],
+        "summary": "Actualizar autoridades de la sesión",
+        "description": "Cambia una o ambas autoridades; el número no integra este modelo.",
+        "operationId": "actualizar_sesion_api_v1_sesion_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SolicitudActualizarSesion"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "409": {
+            "description": "Rechazo funcional con código estable según la precondición.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "No puede garantizarse la auditoría obligatoria.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Fallo inesperado no clasificado (ERROR_INTERNO).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "La solicitud no cumple el contrato de transporte."
+          }
+        }
+      }
+    },
+    "/api/v1/votaciones": {
+      "post": {
+        "tags": [
+          "votaciones"
+        ],
+        "summary": "Abrir una votación",
+        "description": "Valida el body, abre bajo exclusión y devuelve la entidad normalizada.",
+        "operationId": "abrir_votacion_api_v1_votaciones_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/SolicitudVotacionSimple"
+                  },
+                  {
+                    "$ref": "#/components/schemas/SolicitudVotacionEspecial"
+                  }
+                ],
+                "title": "Apertura",
+                "discriminator": {
+                  "propertyName": "tipo_mayoria",
+                  "mapping": {
+                    "SIMPLE": "#/components/schemas/SolicitudVotacionSimple",
+                    "ESPECIAL": "#/components/schemas/SolicitudVotacionEspecial"
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespuestaVotacion"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Estado, quórum o votación pendiente impiden la apertura.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Body inválido o tipo descriptivo no permitido por la configuración congelada."
+          },
+          "503": {
+            "description": "No puede garantizarse la auditoría obligatoria.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Fallo inesperado no clasificado (ERROR_INTERNO).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/votaciones/{id}/finalizacion": {
+      "post": {
+        "tags": [
+          "votaciones"
+        ],
+        "summary": "Finalizar manualmente una votación como inconclusa",
+        "description": "Aplica el motivo validado sobre la votación exacta bajo exclusión.",
+        "operationId": "finalizar_votacion_api_v1_votaciones__id__finalizacion_post",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SolicitudFinalizarVotacion"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "409": {
+            "description": "Rechazo funcional: ESTADO_INCOMPATIBLE, VOTACION_NO_COINCIDE o VOTACION_NO_EN_CURSO.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "El path o body no cumple el contrato estricto de transporte."
+          },
+          "503": {
+            "description": "No puede garantizarse la auditoría obligatoria.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Fallo inesperado no clasificado (ERROR_INTERNO).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/votaciones/{id}/desempate": {
+      "post": {
+        "tags": [
+          "votaciones"
+        ],
+        "summary": "Emitir el desempate presidencial",
+        "description": "Desempata la votación exacta con la Presidencia vigente del backend.",
+        "operationId": "desempatar_votacion_api_v1_votaciones__id__desempate_post",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SolicitudDesempate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "409": {
+            "description": "Rechazo funcional: ESTADO_INCOMPATIBLE, VOTACION_NO_COINCIDE, VOTACION_NO_EMPATADA o DESEMPATE_YA_EMITIDO.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "El path o body no cumple el contrato estricto de transporte."
+          },
+          "503": {
+            "description": "No puede garantizarse la auditoría obligatoria.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Fallo inesperado no clasificado (ERROR_INTERNO).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/entradas/tecla": {
+      "post": {
+        "tags": [
+          "entradas"
+        ],
+        "summary": "Procesar una pulsación lógica de dispositivo",
+        "description": "Procesa ``{dispositivo, tecla}`` y devuelve aceptación o rechazo estable.\n\nFastAPI ejecuta la validación de ``SolicitudTecla`` antes de entrar aquí, de\nmodo que un body inválido responde ``422`` sin tocar el estado ni la\nauditoría. Para un body válido, el servicio reutiliza el serializador único;\nsi el writer falla, la excepción se transforma en ``503`` por el manejador\ncompartido de auditoría.",
+        "operationId": "procesar_tecla_api_v1_entradas_tecla_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SolicitudTecla"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespuestaTecla"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "El body no cumple el esquema de transporte de la pulsación."
+          },
+          "503": {
+            "description": "No puede garantizarse la auditoría obligatoria.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Fallo inesperado no clasificado (ERROR_INTERNO).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orden-del-dia": {
+      "post": {
+        "tags": [
+          "orden-del-dia"
+        ],
+        "summary": "Cargar y normalizar archivo de Orden del Día",
+        "description": "Recibe un archivo CSV, lo valida atómicamente y lo instala en el contexto activo.",
+        "operationId": "cargar_orden_del_dia_api_v1_orden_del_dia_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_cargar_orden_del_dia_api_v1_orden_del_dia_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CargaOrdenDelDiaRespuesta"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Estado incompatible (intento de carga en SIN_PREPARAR).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Archivo recibido pero técnicamente inválido (ORDEN_DEL_DIA_INVALIDO).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Auditoría obligatoria no disponible (AUDITORIA_NO_DISPONIBLE).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error interno inesperado (ERROR_INTERNO).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "orden-del-dia"
+        ],
+        "summary": "Descartar el Orden del Día activo",
+        "description": "Descarta la colección activa. Si no existía colección, es un no-op exitoso.",
+        "operationId": "descartar_orden_del_dia_api_v1_orden_del_dia_delete",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "409": {
+            "description": "Estado incompatible (intento de descarte en SIN_PREPARAR).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Auditoría obligatoria no disponible (AUDITORIA_NO_DISPONIBLE).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error interno inesperado (ERROR_INTERNO).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/palabra": {
+      "post": {
+        "tags": [
+          "palabra"
+        ],
+        "summary": "Otorgar palabra al primer pedido FIFO",
+        "description": "Finaliza al orador actual y otorga el primer pedido, sin body.",
+        "operationId": "otorgar_palabra_api_v1_palabra_post",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "409": {
+            "description": "No existe una sesión abierta (ESTADO_INCOMPATIBLE).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "No puede garantizarse la auditoría obligatoria.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Fallo inesperado no clasificado (ERROR_INTERNO).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "palabra"
+        ],
+        "summary": "Finalizar el uso actual sin avanzar la cola",
+        "description": "Finaliza al orador si existe y conserva toda la cola pendiente.",
+        "operationId": "quitar_palabra_api_v1_palabra_delete",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "409": {
+            "description": "No existe una sesión abierta (ESTADO_INCOMPATIBLE).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "No puede garantizarse la auditoría obligatoria.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Fallo inesperado no clasificado (ERROR_INTERNO).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/estado/moderacion": {
+      "get": {
+        "tags": [
+          "estado"
+        ],
+        "summary": "Obtener snapshot completo de Moderación",
+        "description": "Responde en cualquiera de los tres estados globales sin mutar dominio.",
+        "operationId": "obtener_estado_moderacion_api_v1_estado_moderacion_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EstadoModeracion"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/estado/recinto": {
+      "get": {
+        "tags": [
+          "estado"
+        ],
+        "summary": "Obtener snapshot público completo del Recinto",
+        "description": "Responde el DTO restrictivo que nunca incluye votos durante EN_CURSO.",
+        "operationId": "obtener_estado_recinto_api_v1_estado_recinto_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EstadoRecinto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/estado/moderacion/stream": {
+      "get": {
+        "tags": [
+          "estado"
+        ],
+        "summary": "Seguir estados completos de Moderación por SSE",
+        "description": "Envía un primer snapshot inmediato y luego revisiones completas.",
+        "operationId": "transmitir_estado_moderacion_api_v1_estado_moderacion_stream_get",
+        "responses": {
+          "200": {
+            "description": "Stream Server-Sent Events. Cada evento `estado` contiene un EstadoModeracion completo; `id` coincide con su revision. No transporta deltas ni ofrece replay durable.",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string",
+                  "description": "Stream Server-Sent Events. Cada evento `estado` contiene un EstadoModeracion completo; `id` coincide con su revision. No transporta deltas ni ofrece replay durable."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/estado/recinto/stream": {
+      "get": {
+        "tags": [
+          "estado"
+        ],
+        "summary": "Seguir estados públicos completos del Recinto por SSE",
+        "description": "Usa exactamente el mismo constructor público restrictivo que REST.",
+        "operationId": "transmitir_estado_recinto_api_v1_estado_recinto_stream_get",
+        "responses": {
+          "200": {
+            "description": "Stream Server-Sent Events. Cada evento `estado` contiene un EstadoRecinto completo con el secreto público aplicado en servidor; `id` coincide con su revision.",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string",
+                  "description": "Stream Server-Sent Events. Cada evento `estado` contiene un EstadoRecinto completo con el secreto público aplicado en servidor; `id` coincide con su revision."
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AccionPalabra": {
+        "type": "string",
+        "enum": [
+          "PEDIDO_AGREGADO",
+          "PEDIDO_RETIRADO",
+          "USO_FINALIZADO"
+        ],
+        "title": "AccionPalabra",
+        "description": "Acciones estables que puede producir una tecla física ``7``."
+      },
+      "BaseMayoria": {
+        "type": "string",
+        "enum": [
+          "VOTOS_COMPUTABLES",
+          "PRESENTES",
+          "CUERPO"
+        ],
+        "title": "BaseMayoria",
+        "description": "Representa el denominador conceptual de una regla de mayoría.\n\n``VOTOS_COMPUTABLES`` cuenta positivos y negativos. ``PRESENTES`` es el\ntérmino institucional para quienes emitieron voto ordinario en esa\nvotación, incluidas abstenciones. ``CUERPO`` es el total del padrón\ncongelado. La elección se almacena al abrir y WP-011 la consume al cerrar."
+      },
+      "Body_cargar_orden_del_dia_api_v1_orden_del_dia_post": {
+        "properties": {
+          "archivo": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "Archivo",
+            "description": "Archivo CSV canónico de seis columnas del Orden del Día."
+          }
+        },
+        "type": "object",
+        "required": [
+          "archivo"
+        ],
+        "title": "Body_cargar_orden_del_dia_api_v1_orden_del_dia_post"
+      },
+      "Capacidad": {
+        "properties": {
+          "habilitada": {
+            "type": "boolean",
+            "title": "Habilitada"
+          },
+          "motivos": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Motivos"
+          }
+        },
+        "type": "object",
+        "required": [
+          "habilitada"
+        ],
+        "title": "Capacidad",
+        "description": "Indica disponibilidad actual y códigos estables que explican el bloqueo."
+      },
+      "CapacidadesModeracion": {
+        "properties": {
+          "preparar_sala": {
+            "$ref": "#/components/schemas/Capacidad"
+          },
+          "actualizar_preparacion": {
+            "$ref": "#/components/schemas/Capacidad"
+          },
+          "cancelar_preparacion": {
+            "$ref": "#/components/schemas/Capacidad"
+          },
+          "abrir_sesion": {
+            "$ref": "#/components/schemas/Capacidad"
+          },
+          "actualizar_sesion": {
+            "$ref": "#/components/schemas/Capacidad"
+          },
+          "cerrar_sesion": {
+            "$ref": "#/components/schemas/Capacidad"
+          },
+          "cargar_orden_del_dia": {
+            "$ref": "#/components/schemas/Capacidad"
+          },
+          "descartar_orden_del_dia": {
+            "$ref": "#/components/schemas/Capacidad"
+          },
+          "abrir_votacion": {
+            "$ref": "#/components/schemas/Capacidad"
+          },
+          "finalizar_votacion": {
+            "$ref": "#/components/schemas/Capacidad"
+          },
+          "desempatar": {
+            "$ref": "#/components/schemas/Capacidad"
+          },
+          "otorgar_palabra": {
+            "$ref": "#/components/schemas/Capacidad"
+          },
+          "quitar_palabra": {
+            "$ref": "#/components/schemas/Capacidad"
+          }
+        },
+        "type": "object",
+        "required": [
+          "preparar_sala",
+          "actualizar_preparacion",
+          "cancelar_preparacion",
+          "abrir_sesion",
+          "actualizar_sesion",
+          "cerrar_sesion",
+          "cargar_orden_del_dia",
+          "descartar_orden_del_dia",
+          "abrir_votacion",
+          "finalizar_votacion",
+          "desempatar",
+          "otorgar_palabra",
+          "quitar_palabra"
+        ],
+        "title": "CapacidadesModeracion",
+        "description": "Precondiciones derivables sin intentar validar bodies futuros."
+      },
+      "CargaOrdenDelDiaRespuesta": {
+        "properties": {
+          "puntos": {
+            "items": {
+              "$ref": "#/components/schemas/PuntoOrdenDelDiaRespuesta"
+            },
+            "type": "array",
+            "title": "Puntos",
+            "description": "Colección de puntos normalizados del Orden del Día."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "puntos"
+        ],
+        "title": "CargaOrdenDelDiaRespuesta",
+        "description": "Respuesta exitosa de carga con la lista de puntos normalizados."
+      },
+      "ConcejalModeracion": {
+        "properties": {
+          "dni": {
+            "type": "string",
+            "title": "Dni"
+          },
+          "nombre": {
+            "type": "string",
+            "title": "Nombre"
+          },
+          "apellido": {
+            "type": "string",
+            "title": "Apellido"
+          },
+          "bloque": {
+            "type": "string",
+            "title": "Bloque"
+          },
+          "banca": {
+            "type": "integer",
+            "title": "Banca"
+          },
+          "dispositivo_votacion": {
+            "type": "string",
+            "title": "Dispositivo Votacion"
+          },
+          "ruta_imagen": {
+            "type": "string",
+            "title": "Ruta Imagen"
+          },
+          "presente": {
+            "type": "boolean",
+            "title": "Presente"
+          },
+          "test_activo": {
+            "type": "boolean",
+            "title": "Test Activo"
+          },
+          "test_expira_en": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Test Expira En"
+          }
+        },
+        "type": "object",
+        "required": [
+          "dni",
+          "nombre",
+          "apellido",
+          "bloque",
+          "banca",
+          "dispositivo_votacion",
+          "ruta_imagen",
+          "presente",
+          "test_activo",
+          "test_expira_en"
+        ],
+        "title": "ConcejalModeracion",
+        "description": "Banca completa disponible para el operador institucional."
+      },
+      "ConcejalPublico": {
+        "properties": {
+          "nombre": {
+            "type": "string",
+            "title": "Nombre"
+          },
+          "apellido": {
+            "type": "string",
+            "title": "Apellido"
+          },
+          "bloque": {
+            "type": "string",
+            "title": "Bloque"
+          },
+          "banca": {
+            "type": "integer",
+            "title": "Banca"
+          },
+          "ruta_imagen": {
+            "type": "string",
+            "title": "Ruta Imagen"
+          },
+          "presente": {
+            "type": "boolean",
+            "title": "Presente"
+          },
+          "test_activo": {
+            "type": "boolean",
+            "title": "Test Activo"
+          },
+          "test_expira_en": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Test Expira En"
+          }
+        },
+        "type": "object",
+        "required": [
+          "nombre",
+          "apellido",
+          "bloque",
+          "banca",
+          "ruta_imagen",
+          "presente",
+          "test_activo",
+          "test_expira_en"
+        ],
+        "title": "ConcejalPublico",
+        "description": "Banca pública por allowlist, sin DNI ni identificador de dispositivo."
+      },
+      "ConfiguracionProyectada": {
+        "properties": {
+          "quorum": {
+            "type": "integer",
+            "title": "Quorum"
+          },
+          "filas_bancas": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Filas Bancas"
+          },
+          "tipos_votacion": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tipos Votacion"
+          },
+          "duracion_test_segundos": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "title": "Duracion Test Segundos"
+          },
+          "revelado_votos_moderacion_segundos": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "title": "Revelado Votos Moderacion Segundos"
+          },
+          "cuenta_regresiva_recinto_segundos": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "title": "Cuenta Regresiva Recinto Segundos"
+          },
+          "resultado_publico_recinto_segundos": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "title": "Resultado Publico Recinto Segundos"
+          }
+        },
+        "type": "object",
+        "required": [
+          "quorum",
+          "filas_bancas",
+          "tipos_votacion",
+          "duracion_test_segundos",
+          "revelado_votos_moderacion_segundos",
+          "cuenta_regresiva_recinto_segundos",
+          "resultado_publico_recinto_segundos"
+        ],
+        "title": "ConfiguracionProyectada",
+        "description": "Configuración congelada necesaria para construir la UI de Moderación."
+      },
+      "ConteosVotosProyectados": {
+        "properties": {
+          "positivos": {
+            "type": "integer",
+            "title": "Positivos"
+          },
+          "negativos": {
+            "type": "integer",
+            "title": "Negativos"
+          },
+          "abstenciones": {
+            "type": "integer",
+            "title": "Abstenciones"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "positivos",
+          "negativos",
+          "abstenciones",
+          "total"
+        ],
+        "title": "ConteosVotosProyectados",
+        "description": "Conteos derivados que nunca incluyen el voto presidencial."
+      },
+      "DatosPreparacion": {
+        "properties": {
+          "fecha_hora_inicio": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Fecha Hora Inicio"
+          },
+          "numero_sesion": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Numero Sesion"
+          },
+          "presidencia": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Presidencia"
+          },
+          "secretaria_legislativa": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Secretaria Legislativa"
+          }
+        },
+        "type": "object",
+        "required": [
+          "fecha_hora_inicio",
+          "numero_sesion",
+          "presidencia",
+          "secretaria_legislativa"
+        ],
+        "title": "DatosPreparacion",
+        "description": "Identifica el contexto que todavía no es una sesión formal."
+      },
+      "DatosSesion": {
+        "properties": {
+          "fecha_hora_inicio_preparacion": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Fecha Hora Inicio Preparacion"
+          },
+          "fecha_hora_apertura": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Fecha Hora Apertura"
+          },
+          "numero_sesion": {
+            "type": "integer",
+            "title": "Numero Sesion"
+          },
+          "presidencia": {
+            "type": "string",
+            "title": "Presidencia"
+          },
+          "secretaria_legislativa": {
+            "type": "string",
+            "title": "Secretaria Legislativa"
+          }
+        },
+        "type": "object",
+        "required": [
+          "fecha_hora_inicio_preparacion",
+          "fecha_hora_apertura",
+          "numero_sesion",
+          "presidencia",
+          "secretaria_legislativa"
+        ],
+        "title": "DatosSesion",
+        "description": "Identifica la sesión formal y sus autoridades vigentes."
+      },
+      "ErrorRespuesta": {
+        "properties": {
+          "codigo": {
+            "type": "string",
+            "title": "Codigo"
+          },
+          "mensaje": {
+            "type": "string",
+            "title": "Mensaje"
+          }
+        },
+        "type": "object",
+        "required": [
+          "codigo",
+          "mensaje"
+        ],
+        "title": "ErrorRespuesta",
+        "description": "Cuerpo JSON estable de toda respuesta de error funcional/técnica.\n\n``codigo`` es el identificador estable legible por máquina; ``mensaje``\naporta diagnóstico humano seguro (nunca trazas ni datos internos)."
+      },
+      "EstadoAuditoriaProyectado": {
+        "properties": {
+          "activa": {
+            "type": "boolean",
+            "title": "Activa"
+          },
+          "disponible": {
+            "type": "boolean",
+            "title": "Disponible"
+          },
+          "fallado": {
+            "type": "boolean",
+            "title": "Fallado"
+          },
+          "cerrado": {
+            "type": "boolean",
+            "title": "Cerrado"
+          },
+          "motivo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Motivo"
+          }
+        },
+        "type": "object",
+        "required": [
+          "activa",
+          "disponible",
+          "fallado",
+          "cerrado",
+          "motivo"
+        ],
+        "title": "EstadoAuditoriaProyectado",
+        "description": "Condición técnica del escritor, separada del estado reglamentario."
+      },
+      "EstadoGlobal": {
+        "type": "string",
+        "enum": [
+          "SIN_PREPARAR",
+          "PREPARANDO",
+          "SESION_ABIERTA"
+        ],
+        "title": "EstadoGlobal",
+        "description": "Representa las únicas etapas globales permitidas por el dominio.\n\nDeclarar los valores en un tipo evita que servicios futuros guarden textos\narbitrarios. Que los tres valores existan aquí no habilita sus transiciones:\ncada una es responsabilidad del Work Package que la implementa."
+      },
+      "EstadoModeracion": {
+        "properties": {
+          "revision": {
+            "type": "integer",
+            "title": "Revision"
+          },
+          "generado_en": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Generado En"
+          },
+          "estado_global": {
+            "$ref": "#/components/schemas/EstadoGlobal"
+          },
+          "preparacion": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DatosPreparacion"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sesion": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DatosSesion"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "configuracion": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ConfiguracionProyectada"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "concejales": {
+            "items": {
+              "$ref": "#/components/schemas/ConcejalModeracion"
+            },
+            "type": "array",
+            "title": "Concejales"
+          },
+          "quorum": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EstadoQuorum"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "votacion": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VotacionModeracion"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "palabra": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EstadoPalabraModeracion"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "orden_del_dia": {
+            "items": {
+              "$ref": "#/components/schemas/PuntoOrdenDelDiaProyectado"
+            },
+            "type": "array",
+            "title": "Orden Del Dia"
+          },
+          "eventos_recientes": {
+            "items": {
+              "$ref": "#/components/schemas/EventoRecienteProyectado"
+            },
+            "type": "array",
+            "title": "Eventos Recientes"
+          },
+          "auditoria": {
+            "$ref": "#/components/schemas/EstadoAuditoriaProyectado"
+          },
+          "capacidades": {
+            "$ref": "#/components/schemas/CapacidadesModeracion"
+          }
+        },
+        "type": "object",
+        "required": [
+          "revision",
+          "generado_en",
+          "estado_global",
+          "preparacion",
+          "sesion",
+          "configuracion",
+          "concejales",
+          "quorum",
+          "votacion",
+          "palabra",
+          "orden_del_dia",
+          "eventos_recientes",
+          "auditoria",
+          "capacidades"
+        ],
+        "title": "EstadoModeracion",
+        "description": "Snapshot completo y reconstruible del frontend de Moderación."
+      },
+      "EstadoPalabraModeracion": {
+        "properties": {
+          "cola": {
+            "items": {
+              "$ref": "#/components/schemas/PersonaPalabraModeracion"
+            },
+            "type": "array",
+            "title": "Cola"
+          },
+          "orador": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PersonaPalabraModeracion"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "cola",
+          "orador"
+        ],
+        "title": "EstadoPalabraModeracion",
+        "description": "Copia ordenada de la única cola y el único orador del dominio."
+      },
+      "EstadoPalabraPublico": {
+        "properties": {
+          "cola": {
+            "items": {
+              "$ref": "#/components/schemas/PersonaPalabraPublica"
+            },
+            "type": "array",
+            "title": "Cola"
+          },
+          "orador": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PersonaPalabraPublica"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "cola",
+          "orador"
+        ],
+        "title": "EstadoPalabraPublico",
+        "description": "Versión pública del uso de palabra."
+      },
+      "EstadoQuorum": {
+        "properties": {
+          "cantidad_presentes": {
+            "type": "integer",
+            "title": "Cantidad Presentes"
+          },
+          "requerido": {
+            "type": "integer",
+            "title": "Requerido"
+          },
+          "alcanzado": {
+            "type": "boolean",
+            "title": "Alcanzado"
+          }
+        },
+        "type": "object",
+        "required": [
+          "cantidad_presentes",
+          "requerido",
+          "alcanzado"
+        ],
+        "title": "EstadoQuorum",
+        "description": "Expone los cálculos de quórum para que la UI no los reimplemente."
+      },
+      "EstadoRecinto": {
+        "properties": {
+          "revision": {
+            "type": "integer",
+            "title": "Revision"
+          },
+          "generado_en": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Generado En"
+          },
+          "estado_global": {
+            "$ref": "#/components/schemas/EstadoGlobal"
+          },
+          "preparacion": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DatosPreparacion"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sesion": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DatosSesion"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "concejales": {
+            "items": {
+              "$ref": "#/components/schemas/ConcejalPublico"
+            },
+            "type": "array",
+            "title": "Concejales"
+          },
+          "quorum": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EstadoQuorum"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "votacion": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VotacionPublica"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "palabra": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EstadoPalabraPublico"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "revision",
+          "generado_en",
+          "estado_global",
+          "preparacion",
+          "sesion",
+          "concejales",
+          "quorum",
+          "votacion",
+          "palabra"
+        ],
+        "title": "EstadoRecinto",
+        "description": "Snapshot público por allowlist, sin capacidades ni eventos de auditoría."
+      },
+      "EstadoVotacion": {
+        "type": "string",
+        "enum": [
+          "EN_CURSO",
+          "CERRADA"
+        ],
+        "title": "EstadoVotacion",
+        "description": "Indica exclusivamente si la recepción todavía admite votos."
+      },
+      "EventoRecienteProyectado": {
+        "properties": {
+          "seq": {
+            "type": "integer",
+            "title": "Seq"
+          },
+          "timestamp": {
+            "type": "string",
+            "title": "Timestamp"
+          },
+          "nivel": {
+            "type": "string",
+            "title": "Nivel"
+          },
+          "etiqueta": {
+            "type": "string",
+            "title": "Etiqueta"
+          },
+          "codigo_evento": {
+            "type": "string",
+            "title": "Codigo Evento"
+          },
+          "mensaje": {
+            "type": "string",
+            "title": "Mensaje"
+          }
+        },
+        "type": "object",
+        "required": [
+          "seq",
+          "timestamp",
+          "nivel",
+          "etiqueta",
+          "codigo_evento",
+          "mensaje"
+        ],
+        "title": "EventoRecienteProyectado",
+        "description": "Evento cuyo ``fsync`` ya fue confirmado por el escritor activo."
+      },
+      "FactorEspecial": {
+        "type": "number",
+        "maximum": 1.0,
+        "exclusiveMinimum": 0.0
+      },
+      "FactorNumerico": {
+        "type": "number"
+      },
+      "IdentidadConcejalRespuesta": {
+        "properties": {
+          "dni": {
+            "type": "string",
+            "title": "Dni"
+          },
+          "nombre": {
+            "type": "string",
+            "title": "Nombre"
+          },
+          "apellido": {
+            "type": "string",
+            "title": "Apellido"
+          },
+          "banca": {
+            "type": "integer",
+            "title": "Banca"
+          }
+        },
+        "type": "object",
+        "required": [
+          "dni",
+          "nombre",
+          "apellido",
+          "banca"
+        ],
+        "title": "IdentidadConcejalRespuesta",
+        "description": "Identidad pública mínima de un concejal asociado al dispositivo."
+      },
+      "NumeroSesionOmitible": {
+        "type": "integer",
+        "minimum": 1.0
+      },
+      "NumeroVotacion": {
+        "type": "integer",
+        "minimum": 1.0
+      },
+      "PersonaPalabraModeracion": {
+        "properties": {
+          "dni": {
+            "type": "string",
+            "title": "Dni"
+          },
+          "nombre": {
+            "type": "string",
+            "title": "Nombre"
+          },
+          "apellido": {
+            "type": "string",
+            "title": "Apellido"
+          },
+          "banca": {
+            "type": "integer",
+            "title": "Banca"
+          }
+        },
+        "type": "object",
+        "required": [
+          "dni",
+          "nombre",
+          "apellido",
+          "banca"
+        ],
+        "title": "PersonaPalabraModeracion",
+        "description": "Identidad de cola/orador apropiada para Moderación."
+      },
+      "PersonaPalabraPublica": {
+        "properties": {
+          "nombre": {
+            "type": "string",
+            "title": "Nombre"
+          },
+          "apellido": {
+            "type": "string",
+            "title": "Apellido"
+          },
+          "banca": {
+            "type": "integer",
+            "title": "Banca"
+          }
+        },
+        "type": "object",
+        "required": [
+          "nombre",
+          "apellido",
+          "banca"
+        ],
+        "title": "PersonaPalabraPublica",
+        "description": "Identidad pública de cola/orador sin DNI."
+      },
+      "PuntoOrdenDelDiaProyectado": {
+        "properties": {
+          "nro_votacion": {
+            "type": "integer",
+            "title": "Nro Votacion"
+          },
+          "tipo": {
+            "type": "string",
+            "title": "Tipo"
+          },
+          "tema": {
+            "type": "string",
+            "title": "Tema"
+          },
+          "tipo_mayoria": {
+            "type": "string",
+            "title": "Tipo Mayoria"
+          },
+          "factor": {
+            "type": "number",
+            "title": "Factor"
+          },
+          "base": {
+            "type": "string",
+            "title": "Base"
+          }
+        },
+        "type": "object",
+        "required": [
+          "nro_votacion",
+          "tipo",
+          "tema",
+          "tipo_mayoria",
+          "factor",
+          "base"
+        ],
+        "title": "PuntoOrdenDelDiaProyectado",
+        "description": "Punto asistencial normalizado disponible solo para Moderación."
+      },
+      "PuntoOrdenDelDiaRespuesta": {
+        "properties": {
+          "nro_votacion": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Nro Votacion",
+            "description": "Número externo sugerido para la votación (entero >= 1)."
+          },
+          "tipo": {
+            "type": "string",
+            "title": "Tipo",
+            "description": "Tipo descriptivo de votación."
+          },
+          "tema": {
+            "type": "string",
+            "title": "Tema",
+            "description": "Tema o asunto a tratar."
+          },
+          "tipo_mayoria": {
+            "$ref": "#/components/schemas/TipoMayoria",
+            "description": "Regla de mayoría: SIMPLE o ESPECIAL."
+          },
+          "factor": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "title": "Factor",
+            "description": "Factor numérico normalizado (0 para SIMPLE, > 0 y <= 1 para ESPECIAL)."
+          },
+          "base": {
+            "$ref": "#/components/schemas/BaseMayoria",
+            "description": "Denominador institucional normalizado: VOTOS_COMPUTABLES, PRESENTES o CUERPO."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "nro_votacion",
+          "tipo",
+          "tema",
+          "tipo_mayoria",
+          "factor",
+          "base"
+        ],
+        "title": "PuntoOrdenDelDiaRespuesta",
+        "description": "Representación normalizada de un punto del Orden del Día en la API.\n\nExpone los campos exactos de DT-039. Para mayoría SIMPLE, factor se expone\ncomo 0 y base como VOTOS_COMPUTABLES."
+      },
+      "RespuestaSalud": {
+        "properties": {
+          "estado": {
+            "type": "string",
+            "const": "ok",
+            "title": "Estado",
+            "default": "ok"
+          }
+        },
+        "type": "object",
+        "title": "RespuestaSalud",
+        "description": "Respuesta pública mínima, sin datos funcionales ni institucionales."
+      },
+      "RespuestaTecla": {
+        "properties": {
+          "aceptada": {
+            "type": "boolean",
+            "title": "Aceptada"
+          },
+          "dispositivo": {
+            "type": "string",
+            "title": "Dispositivo"
+          },
+          "tecla": {
+            "type": "string",
+            "title": "Tecla"
+          },
+          "motivo": {
+            "type": "string",
+            "title": "Motivo"
+          },
+          "concejal": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IdentidadConcejalRespuesta"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "resultado": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResultadoPresenciaRespuesta"
+              },
+              {
+                "$ref": "#/components/schemas/ResultadoTestRespuesta"
+              },
+              {
+                "$ref": "#/components/schemas/ResultadoVotoRespuesta"
+              },
+              {
+                "$ref": "#/components/schemas/ResultadoPalabraRespuesta"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resultado"
+          }
+        },
+        "type": "object",
+        "required": [
+          "aceptada",
+          "dispositivo",
+          "tecla",
+          "motivo",
+          "concejal",
+          "resultado"
+        ],
+        "title": "RespuestaTecla",
+        "description": "Forma estable de éxito o rechazo funcional normal de una pulsación."
+      },
+      "RespuestaVotacion": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "numero_votacion": {
+            "type": "integer",
+            "title": "Numero Votacion"
+          },
+          "tipo": {
+            "type": "string",
+            "title": "Tipo"
+          },
+          "tema": {
+            "type": "string",
+            "title": "Tema"
+          },
+          "tipo_mayoria": {
+            "$ref": "#/components/schemas/TipoMayoria"
+          },
+          "factor": {
+            "type": "number",
+            "title": "Factor"
+          },
+          "base": {
+            "$ref": "#/components/schemas/BaseMayoria"
+          },
+          "estado": {
+            "$ref": "#/components/schemas/EstadoVotacion"
+          },
+          "fecha_hora_apertura": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Fecha Hora Apertura"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "numero_votacion",
+          "tipo",
+          "tema",
+          "tipo_mayoria",
+          "factor",
+          "base",
+          "estado",
+          "fecha_hora_apertura"
+        ],
+        "title": "RespuestaVotacion",
+        "description": "Representación HTTP mínima y normalizada de la votación creada."
+      },
+      "ResultadoPalabraRespuesta": {
+        "properties": {
+          "tipo": {
+            "type": "string",
+            "const": "PALABRA",
+            "title": "Tipo"
+          },
+          "accion": {
+            "$ref": "#/components/schemas/AccionPalabra"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tipo",
+          "accion"
+        ],
+        "title": "ResultadoPalabraRespuesta",
+        "description": "Resultado tipado de una tecla ``7`` aceptada."
+      },
+      "ResultadoPresenciaRespuesta": {
+        "properties": {
+          "tipo": {
+            "type": "string",
+            "const": "PRESENCIA",
+            "title": "Tipo"
+          },
+          "presente": {
+            "type": "boolean",
+            "title": "Presente"
+          },
+          "presentes": {
+            "type": "integer",
+            "title": "Presentes"
+          },
+          "quorum_alcanzado": {
+            "type": "boolean",
+            "title": "Quorum Alcanzado"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tipo",
+          "presente",
+          "presentes",
+          "quorum_alcanzado"
+        ],
+        "title": "ResultadoPresenciaRespuesta",
+        "description": "Resultado tipado de una tecla ``9`` aceptada."
+      },
+      "ResultadoTestRespuesta": {
+        "properties": {
+          "tipo": {
+            "type": "string",
+            "const": "TEST",
+            "title": "Tipo"
+          },
+          "activo": {
+            "type": "boolean",
+            "title": "Activo"
+          },
+          "duracion_segundos": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "title": "Duracion Segundos"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tipo",
+          "activo",
+          "duracion_segundos"
+        ],
+        "title": "ResultadoTestRespuesta",
+        "description": "Resultado tipado de una tecla ``8`` aceptada."
+      },
+      "ResultadoVotoRespuesta": {
+        "properties": {
+          "tipo": {
+            "type": "string",
+            "const": "VOTO",
+            "title": "Tipo"
+          },
+          "valor": {
+            "$ref": "#/components/schemas/ValorVotoOrdinario"
+          },
+          "estado_recepcion": {
+            "$ref": "#/components/schemas/EstadoVotacion"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tipo",
+          "valor",
+          "estado_recepcion"
+        ],
+        "title": "ResultadoVotoRespuesta",
+        "description": "Resultado tipado de una tecla ``1``, ``2`` o ``3`` aceptada."
+      },
+      "SolicitudActualizarPreparacion": {
+        "properties": {
+          "numero_sesion": {
+            "$ref": "#/components/schemas/NumeroSesionOmitible"
+          },
+          "presidencia": {
+            "$ref": "#/components/schemas/TextoOmitible"
+          },
+          "secretaria_legislativa": {
+            "$ref": "#/components/schemas/TextoOmitible"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "SolicitudActualizarPreparacion",
+        "description": "Body parcial para número y autoridades durante ``PREPARANDO``.\n\nCada propiedad puede omitirse, pero el body debe contener al menos una.\nLos textos vacíos son válidos aquí porque significan limpiar la autoridad.\nEl entero estricto evita la coerción de booleanos, floats y strings."
+      },
+      "SolicitudActualizarSesion": {
+        "properties": {
+          "presidencia": {
+            "$ref": "#/components/schemas/TextoOmitible"
+          },
+          "secretaria_legislativa": {
+            "$ref": "#/components/schemas/TextoOmitible"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "SolicitudActualizarSesion",
+        "description": "Body parcial para autoridades de una sesión abierta.\n\nEl modelo no declara ``numero_sesion`` y prohíbe extras, de modo que todo\nintento de editarlo produce 422. Una autoridad suministrada se normaliza en\nel servicio, pero debe contener algo distinto de espacios."
+      },
+      "SolicitudDesempate": {
+        "properties": {
+          "sentido": {
+            "type": "string",
+            "enum": [
+              "POSITIVO",
+              "NEGATIVO"
+            ],
+            "title": "Sentido"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "sentido"
+        ],
+        "title": "SolicitudDesempate",
+        "description": "Body cerrado del único comando presidencial definido por DEC-012.\n\nEl cliente solo elige el sentido. La identidad de Presidencia se obtiene\nde la sesión activa dentro del serializador y no puede inyectarse mediante\ncampos adicionales."
+      },
+      "SolicitudFinalizarVotacion": {
+        "properties": {
+          "motivo": {
+            "type": "string",
+            "title": "Motivo"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "motivo"
+        ],
+        "title": "SolicitudFinalizarVotacion",
+        "description": "Body exacto de la finalización manual anticipada de DEC-011.\n\n``strict=True`` evita convertir booleanos, números u otras estructuras en\ntexto. El validador normaliza antes de llegar al dominio y rechaza tanto la\ncadena vacía como la compuesta únicamente por espacios."
+      },
+      "SolicitudTecla": {
+        "properties": {
+          "dispositivo": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Dispositivo"
+          },
+          "tecla": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Tecla"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "dispositivo",
+          "tecla"
+        ],
+        "title": "SolicitudTecla",
+        "description": "Body exacto de la pulsación lógica que recibe el backend.\n\n``extra='forbid'`` hace que DNI, banca, fingerprint u otros datos que no\npertenecen al contrato produzcan ``422`` en vez de ser ignorados. El bridge\nya debe haber resuelto lo físico a un dispositivo lógico antes de llamar a\nesta ruta."
+      },
+      "SolicitudVotacionEspecial": {
+        "properties": {
+          "numero_votacion": {
+            "$ref": "#/components/schemas/NumeroVotacion"
+          },
+          "tipo": {
+            "type": "string",
+            "title": "Tipo"
+          },
+          "tema": {
+            "type": "string",
+            "title": "Tema"
+          },
+          "tipo_mayoria": {
+            "type": "string",
+            "const": "ESPECIAL",
+            "title": "Tipo Mayoria"
+          },
+          "factor": {
+            "$ref": "#/components/schemas/FactorEspecial"
+          },
+          "base": {
+            "$ref": "#/components/schemas/BaseMayoria"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "numero_votacion",
+          "tipo",
+          "tema",
+          "tipo_mayoria",
+          "factor",
+          "base"
+        ],
+        "title": "SolicitudVotacionEspecial",
+        "description": "Variante ESPECIAL con factor finito y una base canónica obligatoria."
+      },
+      "SolicitudVotacionSimple": {
+        "properties": {
+          "numero_votacion": {
+            "$ref": "#/components/schemas/NumeroVotacion"
+          },
+          "tipo": {
+            "type": "string",
+            "title": "Tipo"
+          },
+          "tema": {
+            "type": "string",
+            "title": "Tema"
+          },
+          "tipo_mayoria": {
+            "type": "string",
+            "const": "SIMPLE",
+            "title": "Tipo Mayoria"
+          },
+          "factor": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FactorNumerico"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "base": {
+            "type": "string",
+            "const": "VOTOS_COMPUTABLES",
+            "title": "Base",
+            "default": "VOTOS_COMPUTABLES"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "numero_votacion",
+          "tipo",
+          "tema",
+          "tipo_mayoria"
+        ],
+        "title": "SolicitudVotacionSimple",
+        "description": "Variante SIMPLE con factor/base opcionales y salida normalizada.\n\nUn factor omitido, nulo o numéricamente cero es equivalente. Toda base\ndistinta de ``VOTOS_COMPUTABLES`` queda fuera del propio esquema de esta\nvariante y por eso FastAPI responde 422 antes de invocar el servicio."
+      },
+      "TextoOmitible": {
+        "type": "string"
+      },
+      "TipoMayoria": {
+        "type": "string",
+        "enum": [
+          "SIMPLE",
+          "ESPECIAL"
+        ],
+        "title": "TipoMayoria",
+        "description": "Distingue la regla de decisión declarada por Moderación.\n\nEl tipo es autoritativo: nunca se deduce una mayoría simple o especial a\npartir del factor. Los valores coinciden con el contrato REST de DEC-009."
+      },
+      "ValorVotoOrdinario": {
+        "type": "string",
+        "enum": [
+          "POSITIVO",
+          "ABSTENCION",
+          "NEGATIVO"
+        ],
+        "title": "ValorVotoOrdinario",
+        "description": "Representa los tres valores que puede emitir una banca mediante 1/2/3."
+      },
+      "VotacionModeracion": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "numero_votacion": {
+            "type": "integer",
+            "title": "Numero Votacion"
+          },
+          "tipo": {
+            "type": "string",
+            "title": "Tipo"
+          },
+          "tema": {
+            "type": "string",
+            "title": "Tema"
+          },
+          "tipo_mayoria": {
+            "type": "string",
+            "title": "Tipo Mayoria"
+          },
+          "factor": {
+            "type": "number",
+            "title": "Factor"
+          },
+          "base": {
+            "type": "string",
+            "title": "Base"
+          },
+          "estado_recepcion": {
+            "type": "string",
+            "title": "Estado Recepcion"
+          },
+          "resultado": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resultado"
+          },
+          "fecha_hora_apertura": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Fecha Hora Apertura"
+          },
+          "fecha_hora_cierre": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fecha Hora Cierre"
+          },
+          "fecha_hora_resultado": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fecha Hora Resultado"
+          },
+          "motivo_finalizacion_manual": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Motivo Finalizacion Manual"
+          },
+          "cantidad_votos_recibidos": {
+            "type": "integer",
+            "title": "Cantidad Votos Recibidos"
+          },
+          "revelado_individual_desde": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Revelado Individual Desde"
+          },
+          "votos_individuales_revelados": {
+            "type": "boolean",
+            "title": "Votos Individuales Revelados"
+          },
+          "votos_individuales": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/VotoModeracion"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Votos Individuales"
+          },
+          "conteos": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ConteosVotosProyectados"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "voto_presidencial": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VotoPresidencialProyectado"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "numero_votacion",
+          "tipo",
+          "tema",
+          "tipo_mayoria",
+          "factor",
+          "base",
+          "estado_recepcion",
+          "resultado",
+          "fecha_hora_apertura",
+          "fecha_hora_cierre",
+          "fecha_hora_resultado",
+          "motivo_finalizacion_manual",
+          "cantidad_votos_recibidos",
+          "revelado_individual_desde",
+          "votos_individuales_revelados",
+          "votos_individuales",
+          "conteos",
+          "voto_presidencial"
+        ],
+        "title": "VotacionModeracion",
+        "description": "Vista completa de la votación relevante para el operador."
+      },
+      "VotacionPublica": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "numero_votacion": {
+            "type": "integer",
+            "title": "Numero Votacion"
+          },
+          "tipo": {
+            "type": "string",
+            "title": "Tipo"
+          },
+          "tema": {
+            "type": "string",
+            "title": "Tema"
+          },
+          "tipo_mayoria": {
+            "type": "string",
+            "title": "Tipo Mayoria"
+          },
+          "factor": {
+            "type": "number",
+            "title": "Factor"
+          },
+          "base": {
+            "type": "string",
+            "title": "Base"
+          },
+          "estado_recepcion": {
+            "type": "string",
+            "title": "Estado Recepcion"
+          },
+          "resultado": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resultado"
+          },
+          "fecha_hora_apertura": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Fecha Hora Apertura"
+          },
+          "fecha_hora_cierre": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fecha Hora Cierre"
+          },
+          "cuenta_regresiva_hasta": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cuenta Regresiva Hasta"
+          },
+          "resultado_visible_hasta": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resultado Visible Hasta"
+          },
+          "votos_individuales": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/VotoPublico"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Votos Individuales"
+          },
+          "conteos": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ConteosVotosProyectados"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "voto_presidencial": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VotoPresidencialProyectado"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "numero_votacion",
+          "tipo",
+          "tema",
+          "tipo_mayoria",
+          "factor",
+          "base",
+          "estado_recepcion",
+          "resultado",
+          "fecha_hora_apertura",
+          "fecha_hora_cierre",
+          "cuenta_regresiva_hasta",
+          "resultado_visible_hasta",
+          "votos_individuales",
+          "conteos",
+          "voto_presidencial"
+        ],
+        "title": "VotacionPublica",
+        "description": "Vista pública restrictiva construida sin serializar el dominio completo."
+      },
+      "VotoModeracion": {
+        "properties": {
+          "dni": {
+            "type": "string",
+            "title": "Dni"
+          },
+          "nombre": {
+            "type": "string",
+            "title": "Nombre"
+          },
+          "apellido": {
+            "type": "string",
+            "title": "Apellido"
+          },
+          "banca": {
+            "type": "integer",
+            "title": "Banca"
+          },
+          "valor": {
+            "type": "string",
+            "title": "Valor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "dni",
+          "nombre",
+          "apellido",
+          "banca",
+          "valor"
+        ],
+        "title": "VotoModeracion",
+        "description": "Voto ordinario individual revelable a Moderación según su deadline."
+      },
+      "VotoPresidencialProyectado": {
+        "properties": {
+          "presidencia": {
+            "type": "string",
+            "title": "Presidencia"
+          },
+          "sentido": {
+            "type": "string",
+            "title": "Sentido"
+          }
+        },
+        "type": "object",
+        "required": [
+          "presidencia",
+          "sentido"
+        ],
+        "title": "VotoPresidencialProyectado",
+        "description": "Desempate separado que no se mezcla con los votos de concejales."
+      },
+      "VotoPublico": {
+        "properties": {
+          "nombre": {
+            "type": "string",
+            "title": "Nombre"
+          },
+          "apellido": {
+            "type": "string",
+            "title": "Apellido"
+          },
+          "banca": {
+            "type": "integer",
+            "title": "Banca"
+          },
+          "valor": {
+            "type": "string",
+            "title": "Valor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "nombre",
+          "apellido",
+          "banca",
+          "valor"
+        ],
+        "title": "VotoPublico",
+        "description": "Voto ordinario público posterior al cierre, asociado solo a la banca."
+      }
+    }
+  }
+}
