@@ -113,9 +113,11 @@ WP-018 quedó integrado mediante squash merge de PR #24 sobre el candidato final
 | WP | Objetivo | Estado | Depende de | Agente |
 |---|---|---|---|---|
 | WP-019 | Implementar bridge físico base y compatibilidad de pulsaciones fingerprint → dispositivo lógico → backend | INTEGRADO | WP-006 | - |
-| WP-020 | Implementar remapeo rápido físico→lógico coordinado desde Moderación/backend | EN_CURSO | WP-019, WP-017, WP-018 | codex |
+| WP-020 | Implementar remapeo rápido físico→lógico coordinado desde Moderación/backend | INTEGRADO | WP-019, WP-017, WP-018 | - |
 
 WP-019 quedó integrado mediante squash merge de PR #25 sobre el candidato final `20ee564b132d46b2f9cdfe39ea4e7642ffaf54ee`, después de CI verde en el run `32734716124` y re-revisión independiente final con OpenCode + DeepSeek V4 Pro. La primera revisión había detectado tres hallazgos IMPORTANTES sobre replay tardío por HTTP síncrono, clasificación de respuestas HTTP y falta de cobertura directa del adaptador evdev real; el implementador los corrigió y la re-revisión concluyó `LISTA PARA INTEGRAR`, con cero hallazgos BLOQUEANTES e IMPORTANTES y seis hallazgos MENORES no bloqueantes. Se verificaron 813 tests pytest, 155 tests específicos del bridge y 28 tests Vitest, además de todos los gates aplicables. La única nueva dependencia runtime directa fue `evdev>=1.9.3,<2`, previamente aprobada por DEC-015/DT-038. El squash merge produjo el commit `edc04af6baabbeeba29ee6fcf0c6e33af9ef5bec` en `main`.
+
+WP-020 quedó integrado mediante squash merge de PR #26 sobre el candidato final `10d1a7763f3889e543c0cc7e3b65fa6bb6c76250`, después de CI verde en el run `32749012562` y revisión independiente con Antigravity/AGY + Gemini 3.7 Flash High. La revisión concluyó `LISTA PARA INTEGRAR`, con cero hallazgos BLOQUEANTES, IMPORTANTES y MENORES; verificó 836 tests pytest, 29 tests TypeScript y todos los gates aplicables. No se agregaron dependencias directas. El squash merge produjo el commit `a0e755654ab67ad8e137bce30f7ad0ccef9df19c` en `main`. La revisión confirmó además que la discrepancia preexistente entre `D-01..D-12` en `config/concejales.csv` y `dev01..dev12` en `devices.json` no fue introducida ni agravada por WP-020 y no bloquea esta integración, pero debe alinearse antes de una prueba integrada que utilice la configuración raíz.
 
 ## Fase 6 - Frontend de Moderación
 
@@ -176,8 +178,8 @@ Los lanzadores no pueden aprobar WPs, cambiar su estado en PLAN ni modificar `ma
 
 ## Próximo punto de control
 
-WP-001, WP-002, WP-003, WP-004, WP-005, WP-006, WP-007, WP-008, WP-009, WP-010, WP-011, WP-013, WP-014, WP-015, WP-016, WP-017, WP-018, WP-019, WP-030 y WP-031 están `INTEGRADO` y sin agente operativo asignado.
+WP-001, WP-002, WP-003, WP-004, WP-005, WP-006, WP-007, WP-008, WP-009, WP-010, WP-011, WP-013, WP-014, WP-015, WP-016, WP-017, WP-018, WP-019, WP-020, WP-030 y WP-031 están `INTEGRADO` y sin agente operativo asignado.
 
 DEC-007, DEC-009, DEC-010, DEC-011, DEC-012, DEC-013, DEC-014, DEC-015 y DEC-016 están vigentes. Orca continúa como entorno operativo preferido mientras esté en uso.
 
-WP-020 está documentalmente `APROBADO`, sus dependencias WP-019, WP-017 y WP-018 están integradas y está `EN_CURSO` con Codex como implementador. El revisor independiente previsto es AGY/Antigravity, a reconfirmar antes de la revisión conforme DEC-007.
+WP-021 es el siguiente candidato funcional por secuencia. Su dependencia WP-018 está integrada. Antes de iniciarlo corresponde completar su planificación individual, cerrar cualquier decisión reservada por DT-038 y acordar explícitamente implementador y revisor conforme a DEC-007. La discrepancia preexistente `D-01..D-12` versus `dev01..dev12` debe resolverse antes de una prueba integrada que dependa de la configuración raíz, pero no bloquea la planificación de WP-021.
