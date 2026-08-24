@@ -78,6 +78,10 @@ class AdaptadorEntradaFisica(Protocol):
         """
         ...
 
+    def descartar_eventos_pendientes(self, dispositivo: DispositivoFisico | None = None) -> int:
+        """Drena y descarta eventos pendientes para evitar replay tardío."""
+        ...
+
     def cerrar_dispositivo(self, dispositivo: DispositivoFisico) -> None:
         """Cierra el descriptor asociado al dispositivo."""
         ...
@@ -226,8 +230,8 @@ class AdaptadorEvdevLinux:
         except BlockingIOError:
             # No hay eventos disponibles en este momento
             return []
-        except (OSError, Exception) as exc:
-            # Desconexión física del hardware (ej: error ENODEV número 19)
+        except OSError as exc:
+            # Desconexión física del hardware o fallo del descriptor (ej: ENODEV)
             logger.warning(
                 "Dispositivo en %s desconectado o error de lectura: %s",
                 dispositivo.ruta,
@@ -239,6 +243,43 @@ class AdaptadorEvdevLinux:
             ) from exc
 
         return eventos_resultado
+
+    def descartar_eventos_pendientes(self, dispositivo: DispositivoFisico | None = None) -> int:
+        """Drena y descarta todos los eventos pendientes en los descriptores evdev.
+
+        Se utiliza tras un fallo de transporte o timeout para evitar que los eventos
+        físicos acumulados en los búferes del kernel durante el bloqueo se transmitan
+        tardíamente en ráfaga cuando el backend vuelva a responder.
+
+        Args:
+            dispositivo: Dispositivo específico a purgar o None para purgar todos.
+
+        Returns:
+            Cantidad total de eventos físicos leídos y descartados.
+        """
+        if dispositivo is not None:
+            dev = self._dispositivos_abiertos.get(dispositivo.ruta)
+            dispositivos = [dev] if dev is not None else []
+        else:
+            dispositivos = list(self._dispositivos_abiertos.values())
+
+        total_descartados = 0
+        for dev in dispositivos:
+            try:
+                for _ in dev.read():
+                    total_descartados += 1
+            except BlockingIOError:
+                # Búfer vacío, comportamiento normal cuando no hay eventos pendientes
+                continue
+            except OSError as exc:
+                logger.debug(
+                    "Error drenando búfer de %s: %s",
+                    getattr(dev, "path", "desconocido"),
+                    exc,
+                )
+                continue
+
+        return total_descartados
 
     def cerrar_dispositivo(self, dispositivo: DispositivoFisico) -> None:
         """Cierra el descriptor evdev y lo remueve del registro."""
@@ -309,6 +350,18 @@ class AdaptadorFalso:
         # Vaciamos la cola y devolvemos los eventos
         self.eventos_pendientes[dispositivo.ruta] = []
         return cola
+
+    def descartar_eventos_pendientes(self, dispositivo: DispositivoFisico | None = None) -> int:
+        """Drena y descarta los eventos acumulados en memoria."""
+        total = 0
+        if dispositivo is not None:
+            total = len(self.eventos_pendientes.get(dispositivo.ruta, []))
+            self.eventos_pendientes[dispositivo.ruta] = []
+        else:
+            for ruta in list(self.eventos_pendientes.keys()):
+                total += len(self.eventos_pendientes[ruta])
+                self.eventos_pendientes[ruta] = []
+        return total
 
     def cerrar_dispositivo(self, dispositivo: DispositivoFisico) -> None:
         """Marca el dispositivo simulado como cerrado."""

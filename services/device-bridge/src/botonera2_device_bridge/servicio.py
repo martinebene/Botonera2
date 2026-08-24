@@ -182,6 +182,23 @@ class ServicioDeviceBridge:
                     resp = self.procesar_evento_tecla(ev)
                     if resp is not None:
                         respuestas.append(resp)
+                        # Si ocurrió un fallo de transporte, timeout o error de servidor (5xx),
+                        # interrumpimos el procesamiento del lote actual y purgamos los búferes
+                        # para garantizar cero replay tardío conforme a WP-019 §11.
+                        if (
+                            resp.error_transporte is not None
+                            or resp.codigo_http is None
+                            or resp.codigo_http >= 500
+                        ):
+                            descartados = self.adaptador.descartar_eventos_pendientes()
+                            logger.warning(
+                                "Fallo de comunicación con el backend (motivo=%s). "
+                                "Se interrumpe el lote y se descartan %d eventos acumulados "
+                                "para evitar ráfaga tardía.",
+                                resp.motivo,
+                                descartados,
+                            )
+                            return respuestas
             except ErrorDispositivoDesconectado as exc:
                 logger.warning(
                     "Detectada desconexión de hardware en %s ('%s'): %s",

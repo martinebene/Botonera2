@@ -122,8 +122,34 @@ class ClienteHttpBackend:
                     )
 
                 cuerpo_dict = cast(dict[str, Any], cuerpo_json)
-                aceptada = bool(cuerpo_dict.get("aceptada", False))
-                motivo = str(cuerpo_dict.get("motivo", "OK"))
+
+                # Validación estricta del contrato funcional (I-2):
+                # 'aceptada' DEBE existir y ser de tipo bool nativo
+                # (no coerción bool("false") ni enteros 1/0).
+                # 'motivo' DEBE existir y ser de tipo str.
+                valor_aceptada = cuerpo_dict.get("aceptada")
+                valor_motivo = cuerpo_dict.get("motivo")
+
+                if type(valor_aceptada) is not bool or not isinstance(valor_motivo, str):
+                    logger.warning(
+                        "Backend respondió HTTP %d con esquema o tipos inválidos para %s: %r",
+                        codigo_http,
+                        solicitud.dispositivo,
+                        cuerpo_dict,
+                    )
+                    return RespuestaEnvioBackend(
+                        aceptada=None,
+                        codigo_http=codigo_http,
+                        motivo="RESPUESTA_INVALIDA",
+                        cuerpo=cuerpo_dict,
+                        error_transporte=(
+                            "El cuerpo JSON 2xx no cumple el contrato "
+                            "('aceptada': bool, 'motivo': str)"
+                        ),
+                    )
+
+                aceptada = valor_aceptada
+                motivo = valor_motivo
 
                 if aceptada:
                     logger.info(
@@ -158,8 +184,11 @@ class ClienteHttpBackend:
                 cuerpo_error_json = None
 
             motivo_error = f"HTTP_{codigo_http}"
-            if isinstance(cuerpo_error_json, dict) and "codigo" in cuerpo_error_json:
-                motivo_error = str(cuerpo_error_json["codigo"])
+            if isinstance(cuerpo_error_json, dict):
+                if "codigo" in cuerpo_error_json and isinstance(cuerpo_error_json["codigo"], str):
+                    motivo_error = str(cuerpo_error_json["codigo"])
+                elif "motivo" in cuerpo_error_json and isinstance(cuerpo_error_json["motivo"], str):
+                    motivo_error = str(cuerpo_error_json["motivo"])
 
             logger.warning(
                 "Backend respondió error HTTP %d para %s (tecla '%s'): motivo=%s, cuerpo=%r",
@@ -170,8 +199,10 @@ class ClienteHttpBackend:
                 cuerpo_error_crudo,
             )
 
+            # En HTTP 4xx/5xx (incluido 422, 500, 503), NO es una decisión de dominio
+            # por lo que se reporta con aceptada=None conforme a I-2.
             return RespuestaEnvioBackend(
-                aceptada=False if codigo_http in (422, 500, 503) else None,
+                aceptada=None,
                 codigo_http=codigo_http,
                 motivo=motivo_error,
                 cuerpo=cuerpo_error_json,

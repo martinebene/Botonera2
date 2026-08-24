@@ -40,6 +40,8 @@ class FakeClienteHttp(ClienteHttpBackend):
         self.peticiones_enviadas: list[dict[str, str]] = []
         self.proxima_respuesta_aceptada: bool = True
         self.proximo_motivo: str = "PRESENCIA_ACTUALIZADA"
+        self.proximo_error_transporte: str | None = None
+        self.proximo_codigo_http: int | None = 200
 
     def enviar_pulsacion(self, solicitud: Any) -> Any:
         from botonera2_device_bridge.modelos import RespuestaEnvioBackend
@@ -50,9 +52,19 @@ class FakeClienteHttp(ClienteHttpBackend):
                 "tecla": solicitud.tecla,
             }
         )
+
+        if self.proximo_error_transporte is not None or self.proximo_codigo_http is None:
+            return RespuestaEnvioBackend(
+                aceptada=None,
+                codigo_http=self.proximo_codigo_http,
+                motivo=self.proximo_motivo,
+                cuerpo=None,
+                error_transporte=self.proximo_error_transporte or "Error simulado",
+            )
+
         return RespuestaEnvioBackend(
             aceptada=self.proxima_respuesta_aceptada,
-            codigo_http=200,
+            codigo_http=self.proximo_codigo_http or 200,
             motivo=self.proximo_motivo,
             cuerpo={"aceptada": self.proxima_respuesta_aceptada, "motivo": self.proximo_motivo},
         )
@@ -286,3 +298,141 @@ def test_ejecucion_servicio_bucle_y_parada_limpia(
     # Verifica que al terminar se hayan cerrado todos los recursos
     assert len(servicio.dispositivos_activos) == 0
     assert "/dev/input/event0" in adaptador.dispositivos_cerrados
+
+
+def test_prevencion_replay_tardio_tras_fallo_transporte_o_timeout(
+    entorno_bridge: tuple[ServicioDeviceBridge, AdaptadorFalso, FakeClienteHttp],
+) -> None:
+    """Demuestra que los eventos acumulados durante un fallo de transporte NO se reenvían.
+
+    Escenario exacto (I-1):
+    1. Bridge operativo con dos dispositivos activos ('dev01' y 'dev02').
+    2. Primer evento en 'dev01' inicia un envío.
+    3. El backend/transporte falla por TIMEOUT.
+    4. Mientras ese envío falla, aparecen pulsaciones adicionales en 'dev01' y 'dev02'.
+    5. Termina el fallo y el lote actual es interrumpido, purgando los eventos acumulados.
+    6. El backend se recupera.
+    7. Al ejecutarse el siguiente ciclo, las pulsaciones acumuladas NO se envían en ráfaga.
+    8. Una pulsación NUEVA posterior ('dev01', tecla 9) se envía normalmente.
+    """
+    servicio, adaptador, cliente_http = entorno_bridge
+
+    # 1. Bridge operativo con dev01 y dev02
+    adaptador.agregar_dispositivo("/dev/input/event0", FINGERPRINT_DEV01)
+    adaptador.agregar_dispositivo("/dev/input/event1", FINGERPRINT_DEV02)
+    servicio.ejecutar_ciclo_descubrimiento()
+    assert len(servicio.dispositivos_activos) == 2
+
+    # 2. Primer evento en dev01
+    adaptador.simular_evento(
+        "/dev/input/event0",
+        EventoTeclaFisica(
+            fingerprint=FINGERPRINT_DEV01,
+            codigo_tecla=2,
+            nombre_tecla="KEY_1",
+            es_bajada=True,
+        ),
+    )
+
+    # 3. Backend falla por TIMEOUT en el primer intento
+    cliente_http.proximo_codigo_http = None
+    cliente_http.proximo_motivo = "TIMEOUT"
+    cliente_http.proximo_error_transporte = "The read operation timed out"
+
+    # 4. Durante el bloqueo se acumulan pulsaciones adicionales en el hardware
+    adaptador.simular_evento(
+        "/dev/input/event0",
+        EventoTeclaFisica(
+            fingerprint=FINGERPRINT_DEV01,
+            codigo_tecla=3,
+            nombre_tecla="KEY_2",
+            es_bajada=True,
+        ),
+    )
+    adaptador.simular_evento(
+        "/dev/input/event1",
+        EventoTeclaFisica(
+            fingerprint=FINGERPRINT_DEV02,
+            codigo_tecla=4,
+            nombre_tecla="KEY_3",
+            es_bajada=True,
+        ),
+    )
+
+    # 5. Ejecutamos el paso: se intenta enviar el primer evento, falla y purga el backlog
+    respuestas = servicio.ejecutar_paso()
+    assert len(respuestas) == 1
+    assert respuestas[0].motivo == "TIMEOUT"
+    assert len(cliente_http.peticiones_enviadas) == 1
+    assert cliente_http.peticiones_enviadas[0] == {"dispositivo": "dev01", "tecla": "1"}
+
+    # 6. El backend se recupera
+    cliente_http.proximo_codigo_http = 200
+    cliente_http.proximo_motivo = "OK"
+    cliente_http.proximo_error_transporte = None
+    cliente_http.proxima_respuesta_aceptada = True
+
+    # 7. Siguiente ciclo del servicio: los eventos viejos acumulados NO se reenvían
+    respuestas_vacias = servicio.ejecutar_paso()
+    assert len(respuestas_vacias) == 0
+    # Sigue en 1, no se enviaron las teclas acumuladas 2 ni 3
+    assert len(cliente_http.peticiones_enviadas) == 1
+
+    # 8. Llega una pulsación NUEVA tras la recuperación
+    adaptador.simular_evento(
+        "/dev/input/event0",
+        EventoTeclaFisica(
+            fingerprint=FINGERPRINT_DEV01,
+            codigo_tecla=10,
+            nombre_tecla="KEY_9",
+            es_bajada=True,
+        ),
+    )
+    respuestas_nuevas = servicio.ejecutar_paso()
+    assert len(respuestas_nuevas) == 1
+    assert respuestas_nuevas[0].aceptada is True
+    assert len(cliente_http.peticiones_enviadas) == 2
+    assert cliente_http.peticiones_enviadas[1] == {"dispositivo": "dev01", "tecla": "9"}
+
+
+def test_prevencion_replay_interrupcion_lote_python_en_memoria(
+    entorno_bridge: tuple[ServicioDeviceBridge, AdaptadorFalso, FakeClienteHttp],
+) -> None:
+    """Demuestra que ante un fallo de transporte se interrumpe inmediatamente el lote ya leído."""
+    servicio, adaptador, cliente_http = entorno_bridge
+
+    adaptador.agregar_dispositivo("/dev/input/event0", FINGERPRINT_DEV01)
+    servicio.ejecutar_ciclo_descubrimiento()
+
+    # Encolamos 3 eventos en el mismo dispositivo para que leer_eventos devuelva un lote de 3
+    for k in ("KEY_1", "KEY_2", "KEY_3"):
+        adaptador.simular_evento(
+            "/dev/input/event0",
+            EventoTeclaFisica(
+                fingerprint=FINGERPRINT_DEV01,
+                codigo_tecla=2,
+                nombre_tecla=k,
+                es_bajada=True,
+            ),
+        )
+
+    # Configuramos fallo de conexión en el envío
+    cliente_http.proximo_codigo_http = None
+    cliente_http.proximo_motivo = "ERROR_CONEXION"
+    cliente_http.proximo_error_transporte = "Connection refused"
+
+    # Se ejecuta el paso: solo el primer evento se intenta; el lote restante se aborta
+    respuestas = servicio.ejecutar_paso()
+    assert len(respuestas) == 1
+    assert respuestas[0].motivo == "ERROR_CONEXION"
+    assert len(cliente_http.peticiones_enviadas) == 1
+    assert cliente_http.peticiones_enviadas[0] == {"dispositivo": "dev01", "tecla": "1"}
+
+    # Recuperación del backend
+    cliente_http.proximo_codigo_http = 200
+    cliente_http.proximo_motivo = "OK"
+    cliente_http.proximo_error_transporte = None
+
+    # El siguiente paso no tiene eventos residuales
+    assert len(servicio.ejecutar_paso()) == 0
+    assert len(cliente_http.peticiones_enviadas) == 1

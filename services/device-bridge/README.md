@@ -42,7 +42,7 @@ POST /api/v1/entradas/tecla (FastAPI)
 - **No evalúa reglas de negocio**: No decide presencia, quórum, validez de votos, irreversibilidad, pedidos de palabra ni resultados. Toda la semántica institucional reside en FastAPI.
 - **No interpreta el padrón**: No lee `config/concejales.csv`.
 - **No reintenta peticiones**: No realiza retries automáticos ante timeouts o errores de red.
-- **No acumula eventos (cero replay)**: No utiliza colas durables ni bases de datos locales; si el backend cae, no reproduce ráfagas de pulsaciones antiguas cuando se restablece la conexión.
+- **No acumula eventos (cero replay)**: No utiliza colas durables ni reintentos automáticos. Ante caídas de red, timeouts o fallos de transporte, interrumpe el procesamiento del lote y purga activamente los búferes de hardware para evitar ráfagas tardías de eventos antiguos cuando se restablece la conexión.
 - **No asigna dispositivos no mapeados**: Un fingerprint desconocido nunca se asigna automáticamente a un `devXX` libre.
 
 ---

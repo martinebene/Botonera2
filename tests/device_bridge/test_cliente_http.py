@@ -146,7 +146,10 @@ def test_envio_rechazo_funcional_aceptada_false(
 
 
 def test_error_http_422(servidor_local_http: tuple[str, type[ServidorPruebaHandler]]) -> None:
-    """Demuestra el manejo de error HTTP 422 (Unprocessable Entity)."""
+    """Demuestra el manejo de error HTTP 422 (Unprocessable Entity).
+
+    Conforme a I-2, un error HTTP no es un rechazo de dominio (aceptada=None).
+    """
     url_base, handler = servidor_local_http
     handler.codigo_respuesta = 422
     handler.cuerpo_respuesta = json.dumps({"detail": [{"msg": "Field required"}]})
@@ -155,7 +158,7 @@ def test_error_http_422(servidor_local_http: tuple[str, type[ServidorPruebaHandl
     respuesta = cliente.enviar_pulsacion(SolicitudEntradaLogica(dispositivo="dev01", tecla="1"))
 
     assert len(handler.peticiones_recibidas) == 1
-    assert respuesta.aceptada is False
+    assert respuesta.aceptada is None
     assert respuesta.codigo_http == 422
     assert "422" in respuesta.motivo
 
@@ -163,7 +166,10 @@ def test_error_http_422(servidor_local_http: tuple[str, type[ServidorPruebaHandl
 def test_error_http_503_auditoria_no_disponible(
     servidor_local_http: tuple[str, type[ServidorPruebaHandler]],
 ) -> None:
-    """Demuestra el manejo de error HTTP 503 cuando la auditoría no está disponible."""
+    """Demuestra el manejo de error HTTP 503 cuando la auditoría no está disponible.
+
+    Conforme a I-2, HTTP 503 es un fallo de servicio, no un rechazo funcional (aceptada=None).
+    """
     url_base, handler = servidor_local_http
     handler.codigo_respuesta = 503
     handler.cuerpo_respuesta = json.dumps(
@@ -177,7 +183,7 @@ def test_error_http_503_auditoria_no_disponible(
     respuesta = cliente.enviar_pulsacion(SolicitudEntradaLogica(dispositivo="dev01", tecla="9"))
 
     assert len(handler.peticiones_recibidas) == 1
-    assert respuesta.aceptada is False
+    assert respuesta.aceptada is None
     assert respuesta.codigo_http == 503
     assert respuesta.motivo == "AUDITORIA_NO_DISPONIBLE"
 
@@ -185,7 +191,7 @@ def test_error_http_503_auditoria_no_disponible(
 def test_error_http_500_error_interno(
     servidor_local_http: tuple[str, type[ServidorPruebaHandler]],
 ) -> None:
-    """Demuestra el manejo de error HTTP 500."""
+    """Demuestra el manejo de error HTTP 500 (aceptada=None)."""
     url_base, handler = servidor_local_http
     handler.codigo_respuesta = 500
     handler.cuerpo_respuesta = json.dumps(
@@ -199,23 +205,42 @@ def test_error_http_500_error_interno(
     respuesta = cliente.enviar_pulsacion(SolicitudEntradaLogica(dispositivo="dev01", tecla="1"))
 
     assert len(handler.peticiones_recibidas) == 1
-    assert respuesta.aceptada is False
+    assert respuesta.aceptada is None
     assert respuesta.codigo_http == 500
     assert respuesta.motivo == "ERROR_INTERNO"
 
 
-def test_cuerpo_no_json(servidor_local_http: tuple[str, type[ServidorPruebaHandler]]) -> None:
-    """Demuestra el manejo de respuesta 200 con cuerpo no parseable."""
+@pytest.mark.parametrize(
+    ("cuerpo_invalido", "motivo_esperado"),
+    [
+        ('{"motivo": "OK"}', "RESPUESTA_INVALIDA"),  # Falta 'aceptada'
+        ('{"aceptada": "false", "motivo": "OK"}', "RESPUESTA_INVALIDA"),  # 'aceptada' es string
+        ('{"aceptada": 1, "motivo": "OK"}', "RESPUESTA_INVALIDA"),  # 'aceptada' es entero
+        ('{"aceptada": 0, "motivo": "OK"}', "RESPUESTA_INVALIDA"),  # 'aceptada' es entero 0
+        ('{"aceptada": true}', "RESPUESTA_INVALIDA"),  # Falta 'motivo'
+        ('{"aceptada": true, "motivo": 123}', "RESPUESTA_INVALIDA"),  # 'motivo' no es string
+        ('["elemento1", "elemento2"]', "ESTRUCTURA_RESPUESTA_INVALIDA"),  # Raíz no objeto
+        ("esto no es un json", "RESPUESTA_NO_JSON"),  # JSON inválido
+    ],
+)
+def test_respuestas_2xx_protocolo_invalido(
+    servidor_local_http: tuple[str, type[ServidorPruebaHandler]],
+    cuerpo_invalido: str,
+    motivo_esperado: str,
+) -> None:
+    """Demuestra que 2xx malformados se clasifican como error de protocolo con aceptada=None."""
     url_base, handler = servidor_local_http
     handler.codigo_respuesta = 200
-    handler.cuerpo_respuesta = "esto no es un json"
+    handler.cuerpo_respuesta = cuerpo_invalido
 
     cliente = ClienteHttpBackend(url_base=url_base, timeout_segundos=2.0)
     respuesta = cliente.enviar_pulsacion(SolicitudEntradaLogica(dispositivo="dev01", tecla="1"))
 
     assert len(handler.peticiones_recibidas) == 1
     assert respuesta.aceptada is None
-    assert respuesta.motivo == "RESPUESTA_NO_JSON"
+    assert respuesta.codigo_http == 200
+    assert respuesta.motivo == motivo_esperado
+    assert respuesta.error_transporte is not None
 
 
 def test_error_conexion_servidor_caido() -> None:
