@@ -20,7 +20,7 @@ import type { ConfiguracionCliente, EstadoRecinto, OpcionesSuscripcion, Suscripc
  * Cliente para la Pantalla del Recinto.
  */
 export class ClienteRecinto {
-  readonly rest: ClienteRest
+  private readonly rest: ClienteRest
   private readonly configuracion: ConfiguracionCliente
 
   constructor(configuracion: ConfiguracionCliente = {}) {

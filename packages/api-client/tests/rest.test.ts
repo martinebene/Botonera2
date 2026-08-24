@@ -2,12 +2,12 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   ClienteModeracion,
   ClienteRecinto,
-  ClienteRest,
   ErrorCancelacion,
   ErrorHttp,
   ErrorProtocolo,
   ErrorTransporte,
 } from '../src'
+import { ClienteRest } from '../src/rest'
 import { crearMockEstadoModeracion, crearMockEstadoRecinto } from './helpers/datos_prueba'
 
 describe('ClienteRest y capa HTTP', () => {

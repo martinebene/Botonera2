@@ -1,4 +1,5 @@
 import { describe, expect, expectTypeOf, it } from 'vitest'
+import * as ModuloApiClient from '../src'
 import { ClienteModeracion, ClienteRecinto } from '../src'
 
 describe('Separación de superficies públicas de Moderación y Recinto', () => {
@@ -26,12 +27,14 @@ describe('Separación de superficies públicas de Moderación y Recinto', () => 
     expect((cliente as unknown as Record<string, unknown>).enviarTecla).toBeUndefined()
   })
 
-  it('ClienteRecinto expone únicamente métodos de solo lectura en runtime', () => {
+  it('ClienteRecinto expone estrictamente solo lectura y oculta ClienteRest', () => {
     const cliente = new ClienteRecinto()
 
+    // Métodos aprobados de solo lectura
     expect(typeof cliente.obtenerEstado).toBe('function')
     expect(typeof cliente.suscribirEstado).toBe('function')
 
+    // Comprobación de que no existen métodos mutantes directos en el objeto
     const registro = cliente as unknown as Record<string, unknown>
     expect(registro.prepararSala).toBeUndefined()
     expect(registro.actualizarPreparacion).toBeUndefined()
@@ -49,12 +52,18 @@ describe('Separación de superficies públicas de Moderación y Recinto', () => 
     expect(registro.procesarTecla).toBeUndefined()
   })
 
-  it('demuestra mediante tipos de TypeScript que ClienteRecinto no contiene métodos mutantes', () => {
-    // Verificación estricta a nivel de compilador TypeScript con expectTypeOf
+  it('demuestra mediante tipos de TypeScript que ClienteRecinto tiene solo métodos de lectura y no expone rest', () => {
+    // Verificación estricta de que la superficie pública de tipos de ClienteRecinto
+    // contiene ÚNICAMENTE 'obtenerEstado' y 'suscribirEstado'.
     type MetodosRecinto = keyof ClienteRecinto
+    expectTypeOf<MetodosRecinto>().toEqualTypeOf<'obtenerEstado' | 'suscribirEstado'>()
+
+    // Demuestra que 'rest' no forma parte de la clave pública del tipo ClienteRecinto
+    expectTypeOf<ClienteRecinto>().not.toHaveProperty('rest')
 
     // Métodos mutantes prohibidos en Recinto
     type MetodosProhibidos =
+      | 'rest'
       | 'prepararSala'
       | 'actualizarPreparacion'
       | 'cancelarPreparacion'
@@ -73,10 +82,37 @@ describe('Separación de superficies públicas de Moderación y Recinto', () => 
     // Verificamos que la intersección entre las claves de ClienteRecinto y los métodos prohibidos sea never
     expectTypeOf<Extract<MetodosRecinto, MetodosProhibidos>>().toBeNever()
 
-    // Verificamos que ClienteModeracion sí contenga los métodos mutantes
+    // Verificamos que ClienteModeracion sí contenga los métodos mutantes del operador
     type MetodosModeracion = keyof ClienteModeracion
     expectTypeOf<Extract<MetodosModeracion, 'abrirVotacion'>>().toEqualTypeOf<'abrirVotacion'>()
     expectTypeOf<Extract<MetodosModeracion, 'prepararSala'>>().toEqualTypeOf<'prepararSala'>()
     expectTypeOf<Extract<MetodosModeracion, 'abrirSesion'>>().toEqualTypeOf<'abrirSesion'>()
+
+    // Tampoco ClienteModeracion expone rest públicamente
+    expectTypeOf<ClienteModeracion>().not.toHaveProperty('rest')
+  })
+
+  it('el entrypoint público del paquete no exporta ClienteRest ni crearClienteRest', () => {
+    const exportaciones = ModuloApiClient as Record<string, unknown>
+
+    // En tiempo de ejecución
+    expect(exportaciones.ClienteRest).toBeUndefined()
+    expect(exportaciones.crearClienteRest).toBeUndefined()
+
+    // En el sistema de tipos de TypeScript
+    expectTypeOf<typeof ModuloApiClient>().not.toHaveProperty('ClienteRest')
+    expectTypeOf<typeof ModuloApiClient>().not.toHaveProperty('crearClienteRest')
+
+    // Exportaciones públicas legítimas presentes
+    expect(exportaciones.ClienteModeracion).toBeDefined()
+    expect(exportaciones.crearClienteModeracion).toBeDefined()
+    expect(exportaciones.ClienteRecinto).toBeDefined()
+    expect(exportaciones.crearClienteRecinto).toBeDefined()
+    expect(exportaciones.SincronizadorEstado).toBeDefined()
+    expect(exportaciones.iniciarSincronizacionEstado).toBeDefined()
+    expect(exportaciones.ErrorHttp).toBeDefined()
+    expect(exportaciones.ErrorTransporte).toBeDefined()
+    expect(exportaciones.ErrorProtocolo).toBeDefined()
+    expect(exportaciones.ErrorCancelacion).toBeDefined()
   })
 })

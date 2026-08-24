@@ -28,7 +28,7 @@ import type {
  * Cliente para la aplicación de Moderación.
  */
 export class ClienteModeracion {
-  readonly rest: ClienteRest
+  private readonly rest: ClienteRest
   private readonly configuracion: ConfiguracionCliente
 
   constructor(configuracion: ConfiguracionCliente = {}) {

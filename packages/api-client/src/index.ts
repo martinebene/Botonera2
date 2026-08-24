@@ -9,7 +9,6 @@
 // Clientes y fábricas públicas
 export { ClienteModeracion, crearClienteModeracion } from './moderacion'
 export { ClienteRecinto, crearClienteRecinto } from './recinto'
-export { ClienteRest, crearClienteRest } from './rest'
 export { SincronizadorEstado, iniciarSincronizacionEstado } from './sincronizador'
 export { EstrategiaBackoff, temporizadorPredeterminado } from './backoff'
 export { crearFabricaEventSourcePredeterminada } from './event_source'

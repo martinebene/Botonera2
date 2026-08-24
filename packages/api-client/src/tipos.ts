@@ -164,7 +164,7 @@ export interface InterfazEventSource {
 export type FabricaEventSource = (url: string) => InterfazEventSource
 
 /**
- * Configuración general para instanciar clientes de Moderación, Recinto o REST.
+ * Configuración general para instanciar clientes de Moderación o Recinto.
  */
 export interface ConfiguracionCliente {
   /**
