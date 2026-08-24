@@ -5,6 +5,8 @@ from dataclasses import dataclass
 from fastapi import FastAPI
 
 from botonera2_backend.dominio.estado import EstadoOperativo
+from botonera2_backend.servicios.proyecciones import ServicioProyecciones
+from botonera2_backend.servicios.publicacion import CoordinadorPublicacion
 from botonera2_backend.servicios.serializacion import EjecutorMutaciones
 
 NOMBRE_RECURSOS = "recursos_botonera2"
@@ -21,14 +23,28 @@ class RecursosAplicacion:
 
     estado_operativo: EstadoOperativo
     ejecutor_mutaciones: EjecutorMutaciones
+    coordinador_publicacion: CoordinadorPublicacion
+    servicio_proyecciones: ServicioProyecciones
 
 
 def crear_recursos_aplicacion() -> RecursosAplicacion:
     """Construye recursos nuevos, vacíos y sin recuperación desde disco."""
 
+    estado_operativo = EstadoOperativo()
+    coordinador = CoordinadorPublicacion()
+    # La llamada ocurre todavía dentro del lock del ejecutor. Por eso el número
+    # de revisión y la memoria proyectada pertenecen a la misma frontera.
+    ejecutor = EjecutorMutaciones(coordinador.publicar)
+    servicio_proyecciones = ServicioProyecciones(
+        estado_operativo,
+        ejecutor,
+        coordinador,
+    )
     return RecursosAplicacion(
-        estado_operativo=EstadoOperativo(),
-        ejecutor_mutaciones=EjecutorMutaciones(),
+        estado_operativo=estado_operativo,
+        ejecutor_mutaciones=ejecutor,
+        coordinador_publicacion=coordinador,
+        servicio_proyecciones=servicio_proyecciones,
     )
 
 

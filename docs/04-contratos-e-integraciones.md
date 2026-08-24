@@ -170,15 +170,38 @@ Configuración/padrón inválidos se tratan como indisponibilidad técnica del b
 
 ## 7. Proyecciones
 
+Los endpoints canónicos de snapshots completos son:
+
+```text
+GET /api/v1/estado/moderacion
+GET /api/v1/estado/recinto
+```
+
+Ambos responden `200 OK` en `SIN_PREPARAR`, `PREPARANDO` y
+`SESION_ABIERTA`. Cada DTO incluye `revision` volátil monotónica,
+`generado_en`, `estado_global` y submodelos completos del consumidor. Son
+copias construidas bajo la misma exclusión del `EjecutorMutaciones`; no se
+serializan directamente objetos mutables de dominio.
+
 ### ModerationState
 
 Incluye estado global, preparación/sesión, autoridades, concejales/bancas/presencia/test, quórum, votación, votos cuando corresponda, palabra, Orden del Día, eventos y capacidades de operación.
+
+La implementación denomina al DTO Pydantic `EstadoModeracion`. Sus capacidades
+usan `{ habilitada, motivos }` y cubren los comandos existentes. El estado
+técnico del writer deshabilita las mutaciones afectadas con
+`AUDITORIA_NO_DISPONIBLE` sin impedir las consultas.
 
 ### PublicState
 
 Es independiente. Durante `EN_CURSO` no contiene votos individuales, eventos que los revelen ni datos que permitan inferirlos.
 
 El secreto temporal se garantiza en servidor.
+
+La implementación denomina al DTO Pydantic `EstadoRecinto` y lo construye por
+allowlist. No incluye DNI, dispositivos, capacidades ni mensajes de auditoría.
+Al cerrar puede incluir votos asociados a bancas; el voto presidencial se
+mantiene separado y solo se publica cuando existe resultado final auditado.
 
 ## 8. Votaciones
 
@@ -299,6 +322,29 @@ Flujo:
 4. ante reconexión o duda de sincronización, recuperar snapshot antes de continuar.
 
 No se usa polling periódico como mecanismo normal ni WebSocket salvo decisión futura documentada.
+
+Los streams canónicos son:
+
+```text
+GET /api/v1/estado/moderacion/stream
+GET /api/v1/estado/recinto/stream
+```
+
+Responden `text/event-stream`. El primer evento `estado` es inmediato y cada
+`data:` posterior contiene el DTO completo vigente; `id:` usa la misma
+`revision`. No hay deltas, replay durable ni dependencia funcional de
+`Last-Event-ID`.
+
+Cada suscriptor mantiene un único aviso coalescente, no una cola de snapshots:
+un cliente lento puede saltar revisiones y reconstruirse con la última. La
+suscripción se registra antes del primer snapshot para cerrar la carrera entre
+snapshot REST y apertura del stream, y se elimina en el `finally` del generador
+al desconectarse.
+
+Las revisiones avanzan al concluir cada operación serializada, también si ésta
+termina con excepción después de una mutación parcial durable, y en fronteras
+temporales que cambian el payload. Son volátiles, independientes de `seq` y se
+reinician junto con el proceso.
 
 ## 13. Cliente compartido
 

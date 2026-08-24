@@ -1,14 +1,16 @@
 """Construcción y ciclo de vida de la aplicación FastAPI."""
 
+import asyncio
 import logging
 from collections.abc import AsyncGenerator
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from botonera2_backend.api.entradas import enrutador_entradas
 from botonera2_backend.api.errores import registrar_manejadores_errores
+from botonera2_backend.api.estado import enrutador_estado
 from botonera2_backend.api.orden_del_dia import enrutador_orden_del_dia
 from botonera2_backend.api.palabra import enrutador_palabra
 from botonera2_backend.api.preparacion import enrutador_preparacion
@@ -20,6 +22,7 @@ from botonera2_backend.recursos import (
     descartar_recursos_aplicacion,
     guardar_recursos_aplicacion,
 )
+from botonera2_backend.servicios.fronteras_temporales import ServicioFronterasTemporales
 
 REGISTRO = logging.getLogger(__name__)
 
@@ -34,9 +37,19 @@ async def ciclo_vida(aplicacion: FastAPI) -> AsyncGenerator[None]:
 
     recursos = crear_recursos_aplicacion()
     guardar_recursos_aplicacion(aplicacion, recursos)
+    fronteras = ServicioFronterasTemporales(
+        recursos.servicio_proyecciones,
+        recursos.ejecutor_mutaciones,
+        recursos.coordinador_publicacion,
+    )
+    tarea_fronteras = asyncio.create_task(fronteras.ejecutar())
     try:
         yield
     finally:
+        tarea_fronteras.cancel()
+        with suppress(asyncio.CancelledError):
+            await tarea_fronteras
+        recursos.coordinador_publicacion.cerrar()
         descartar_recursos_aplicacion(aplicacion)
 
 
@@ -82,4 +95,5 @@ def crear_aplicacion() -> FastAPI:
     aplicacion.include_router(enrutador_entradas, prefix="/api/v1")
     aplicacion.include_router(enrutador_orden_del_dia, prefix="/api/v1")
     aplicacion.include_router(enrutador_palabra, prefix="/api/v1")
+    aplicacion.include_router(enrutador_estado, prefix="/api/v1")
     return aplicacion

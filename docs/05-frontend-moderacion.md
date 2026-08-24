@@ -6,13 +6,17 @@ El estado autoritativo vive en FastAPI. La primera versión no usa Pinia: la pro
 
 ## 1. Sincronización
 
-- snapshot completo por REST al cargar/reconectar;
-- actualizaciones por SSE;
+- snapshot completo por `GET /api/v1/estado/moderacion` al cargar/reconectar;
+- actualizaciones completas por `GET /api/v1/estado/moderacion/stream` (SSE);
 - comandos por REST `/api/v1`;
 - cliente común en `packages/api-client/`;
 - ante reconexión SSE se recupera snapshot antes de asumir continuidad.
 
 La UI no reconstruye reglas de negocio localmente.
+
+Cada versión incluye `revision`. El primer evento del stream vuelve a enviar el
+estado vigente completo, por lo que una mutación ocurrida entre el snapshot y
+la conexión no se pierde. La UI conserva la versión de igual o mayor revisión.
 
 ## 2. Estados globales
 
@@ -143,6 +147,12 @@ Debe mostrar:
 
 No existe pausa. Los concejales pueden pedir/usarla palabra mientras continúan llegando votos.
 
+El retardo de votos individuales es una única ventana global que comienza en
+`fecha_hora_apertura + moderation_vote_reveal_seconds`. Antes del deadline el
+DTO informa `cantidad_votos_recibidos` pero no valores individuales. Al vencer,
+revela todos los recibidos y los posteriores aparecen sin demora propia. Una
+recarga o reconexión no reinicia la ventana.
+
 ## 10. Finalizar votación
 
 Existe una sola acción conceptual `Finalizar votación`.
@@ -195,6 +205,10 @@ Antes de enviar `Cerrar sesión`, si existe un orador actual o al menos un pedid
 
 Debe mostrar una proyección legible de eventos recientes, independiente de los CSV completos.
 
+`EstadoModeracion` entrega como máximo los últimos 200 eventos confirmados del
+contexto activo, en orden ascendente de `seq`. Una nueva preparación comienza
+otro buffer y `SIN_PREPARAR` no reconstruye archivos históricos.
+
 El crecimiento del listado usa scroll interno y **no aumenta la altura de las demás áreas**.
 
 ## 15. Remapeo rápido
@@ -230,6 +244,11 @@ No se aceptan soluciones que solo funcionen correctamente con coordenadas/tamañ
 Al recargar o recuperar conexión debe reconstruir toda la interfaz desde `ModerationState` del backend.
 
 No depende de variables locales para determinar sesión/votación activa.
+
+Los controles toman `capacidades.*.habilitada` y sus códigos `motivos` como
+explicación de la disponibilidad actual. El endpoint de comando vuelve a
+validar siempre; las capacidades no validan por anticipado un body aún no
+suministrado.
 
 ## 18. Errores
 

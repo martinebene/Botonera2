@@ -204,9 +204,19 @@ El evento de remapeo debe permitir reconstruir qué identificador lógico fue re
 
 Los CSV son el registro persistente; los frontends consumen una proyección reciente en memoria.
 
-No se exige conservar el buffer histórico de 20 eventos de la versión anterior.
+Moderación consume un buffer del contexto activo de máximo **200 eventos**,
+ordenados en forma ascendente por `seq`. Con menos de 200 conserva todos; el
+evento 201 desplaza al más antiguo. Cada nueva preparación crea un buffer nuevo
+y `SIN_PREPARAR` no lee CSV históricos para reconstruirlo.
 
-La proyección pública filtra cualquier evento que revele un voto individual mientras la votación está `EN_CURSO`.
+El buffer vive junto al escritor activo y un evento entra únicamente después
+de que su fila completó escritura, `flush` y `fsync` en todos los destinos. Un
+fallo de persistencia no confirma el evento en memoria. El buffer no cambia el
+orden institucional, no agrega persistencia y nunca sustituye a los CSV.
+
+`EstadoRecinto` no expone eventos de auditoría en este alcance. Esta omisión
+deliberada evita transportar `message` crudo o clasificar por exclusión códigos
+que podrían revelar votos durante `EN_CURSO`.
 
 ## 14. Edición posterior
 

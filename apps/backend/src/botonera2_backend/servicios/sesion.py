@@ -304,6 +304,7 @@ class ServicioSesion:
                 votacion=votacion,
                 causa=CausaFinalizacionInconclusa.CIERRE_SESION,
                 fecha_hora_cierre=self._reloj(),
+                reloj_resultado=self._reloj,
             )
         elif (
             votacion is not None
@@ -319,6 +320,7 @@ class ServicioSesion:
                 votacion=votacion,
                 causa=CausaFinalizacionInconclusa.CIERRE_SESION,
                 fecha_hora_cierre=fecha_existente,
+                reloj_resultado=self._reloj,
             )
         elif votacion is not None:
             # ``CERRADA + None`` solo puede representar el fallo cerrado entre

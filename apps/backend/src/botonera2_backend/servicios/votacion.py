@@ -234,6 +234,7 @@ class ServicioVotacion:
             votacion=votacion,
             causa=CausaFinalizacionInconclusa.MANUAL,
             fecha_hora_cierre=self._reloj(),
+            reloj_resultado=self._reloj,
             motivo_manual=motivo,
         )
 
@@ -324,7 +325,7 @@ class ServicioVotacion:
 
         # No se recalcula SIMPLE. El sentido ya auditado determina el resultado
         # directamente y la referencia se libera recién después de aplicarlo.
-        votacion.consolidar_resultado_desempate()
+        votacion.consolidar_resultado_desempate(self._reloj())
         self._estado.votacion_activa = None
 
     def _rechazar(

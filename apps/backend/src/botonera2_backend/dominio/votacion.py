@@ -214,6 +214,7 @@ class Votacion:
         "__datos_constitutivos",
         "__estado",
         "__fecha_hora_cierre",
+        "__fecha_hora_resultado",
         "__motivo_finalizacion_manual",
         "__resultado",
         "__voto_desempate",
@@ -246,6 +247,7 @@ class Votacion:
         )
         self.__estado = EstadoVotacion.EN_CURSO
         self.__fecha_hora_cierre: datetime | None = None
+        self.__fecha_hora_resultado: datetime | None = None
         self.__motivo_finalizacion_manual: str | None = None
         self.__resultado: ResultadoVotacion | None = None
         self.__voto_desempate: VotoDesempate | None = None
@@ -268,6 +270,17 @@ class Votacion:
         """Devuelve el único instante de cierre o ``None`` mientras está abierta."""
 
         return self.__fecha_hora_cierre
+
+    @property
+    def fecha_hora_resultado(self) -> datetime | None:
+        """Marca volátil cuándo el resultado vigente quedó disponible.
+
+        No es un nuevo hecho institucional ni se persiste. La proyección
+        pública la usa únicamente para calcular su ventana transitoria. En un
+        desempate tardío difiere deliberadamente de ``fecha_hora_cierre``.
+        """
+
+        return self.__fecha_hora_resultado
 
     @property
     def motivo_finalizacion_manual(self) -> str | None:
@@ -343,7 +356,10 @@ class Votacion:
         self._validar_desempate_pendiente()
         self.__voto_desempate = voto
 
-    def consolidar_resultado_desempate(self) -> None:
+    def consolidar_resultado_desempate(
+        self,
+        fecha_hora_resultado: datetime | None = None,
+    ) -> None:
         """Aplica determinísticamente el resultado del voto ya almacenado.
 
         El servicio invoca esta primitiva solo después de auditar el segundo
@@ -361,6 +377,7 @@ class Votacion:
         if self.tipo_mayoria is not TipoMayoria.SIMPLE:
             raise ValueError("Una mayoría especial no admite desempate")
         self.__resultado = voto.resultado_final
+        self.__fecha_hora_resultado = fecha_hora_resultado or self.__fecha_hora_cierre
 
     def _validar_desempate_pendiente(self) -> None:
         """Protege la precondición exacta y la unicidad del voto presidencial."""
@@ -437,6 +454,7 @@ class Votacion:
         self,
         fecha_hora_cierre: datetime,
         motivo: str,
+        fecha_hora_resultado: datetime | None = None,
     ) -> None:
         """Aplica ``CERRADA + INCONCLUSA`` y conserva el motivo humano.
 
@@ -445,7 +463,10 @@ class Votacion:
         """
 
         normalizado = self.validar_finalizacion_inconclusa_manual(motivo)
-        self._aplicar_finalizacion_inconclusa(fecha_hora_cierre)
+        self._aplicar_finalizacion_inconclusa(
+            fecha_hora_cierre,
+            fecha_hora_resultado or fecha_hora_cierre,
+        )
         self.__motivo_finalizacion_manual = normalizado
 
     def validar_finalizacion_inconclusa_derivada(self) -> None:
@@ -453,11 +474,18 @@ class Votacion:
 
         self._validar_recepcion_finalizable_inconclusa()
 
-    def finalizar_inconclusa_derivada(self, fecha_hora_cierre: datetime) -> None:
+    def finalizar_inconclusa_derivada(
+        self,
+        fecha_hora_cierre: datetime,
+        fecha_hora_resultado: datetime | None = None,
+    ) -> None:
         """Finaliza por quórum o sesión sin inventar un motivo manual."""
 
         self.validar_finalizacion_inconclusa_derivada()
-        self._aplicar_finalizacion_inconclusa(fecha_hora_cierre)
+        self._aplicar_finalizacion_inconclusa(
+            fecha_hora_cierre,
+            fecha_hora_resultado or fecha_hora_cierre,
+        )
 
     def validar_empate_inconcluso_por_cierre_sesion(self) -> None:
         """Valida la excepción ``EMPATADA -> INCONCLUSA`` de cierre de sesión.
@@ -475,7 +503,10 @@ class Votacion:
         if self.__motivo_finalizacion_manual is not None:
             raise ValueError("Un empate no puede tener motivo de finalización manual")
 
-    def finalizar_empate_inconcluso_por_cierre_sesion(self) -> None:
+    def finalizar_empate_inconcluso_por_cierre_sesion(
+        self,
+        fecha_hora_resultado: datetime | None = None,
+    ) -> None:
         """Cambia solo el resultado del empate al cerrar explícitamente sesión.
 
         La fecha de cierre y los votos no se tocan: ambos pertenecen al cierre
@@ -484,6 +515,7 @@ class Votacion:
 
         self.validar_empate_inconcluso_por_cierre_sesion()
         self.__resultado = ResultadoVotacion.INCONCLUSA
+        self.__fecha_hora_resultado = fecha_hora_resultado or self.__fecha_hora_cierre
 
     def _validar_recepcion_finalizable_inconclusa(self) -> None:
         """Exige exactamente la recepción abierta sin resultado de DEC-011."""
@@ -495,12 +527,17 @@ class Votacion:
         if self.__motivo_finalizacion_manual is not None:
             raise ValueError("Una recepción abierta no puede tener motivo manual")
 
-    def _aplicar_finalizacion_inconclusa(self, fecha_hora_cierre: datetime) -> None:
+    def _aplicar_finalizacion_inconclusa(
+        self,
+        fecha_hora_cierre: datetime,
+        fecha_hora_resultado: datetime,
+    ) -> None:
         """Realiza una vez la mutación común después de validación y auditoría."""
 
         self.__fecha_hora_cierre = fecha_hora_cierre
         self.__estado = EstadoVotacion.CERRADA
         self.__resultado = ResultadoVotacion.INCONCLUSA
+        self.__fecha_hora_resultado = fecha_hora_resultado
 
     def calcular_resultado_ordinario(
         self,
@@ -579,7 +616,11 @@ class Votacion:
             cociente=cociente,
         )
 
-    def aplicar_resultado_ordinario(self, resultado: ResultadoVotacion) -> None:
+    def aplicar_resultado_ordinario(
+        self,
+        resultado: ResultadoVotacion,
+        fecha_hora_resultado: datetime | None = None,
+    ) -> None:
         """Aplica una sola vez un resultado ordinario previamente auditado.
 
         Este método no vuelve a contar votos ni modifica cierre, datos
@@ -601,6 +642,7 @@ class Votacion:
         if self.tipo_mayoria is TipoMayoria.ESPECIAL and resultado is ResultadoVotacion.EMPATADA:
             raise ValueError("Una mayoría especial no puede quedar EMPATADA")
         self.__resultado = resultado
+        self.__fecha_hora_resultado = fecha_hora_resultado or self.__fecha_hora_cierre
 
     def _validar_resultado_ordinario_pendiente(self) -> None:
         """Exige la etapa intermedia exacta autorizada por DEC-010."""
