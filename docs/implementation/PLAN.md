@@ -112,10 +112,10 @@ WP-018 quedó integrado mediante squash merge de PR #24 sobre el candidato final
 
 | WP | Objetivo | Estado | Depende de | Agente |
 |---|---|---|---|---|
-| WP-019 | Implementar bridge físico base y compatibilidad de pulsaciones fingerprint → dispositivo lógico → backend | EN_CURSO | WP-006 | antigravity |
+| WP-019 | Implementar bridge físico base y compatibilidad de pulsaciones fingerprint → dispositivo lógico → backend | INTEGRADO | WP-006 | - |
 | WP-020 | Implementar remapeo rápido físico→lógico coordinado desde Moderación/backend | PENDIENTE | WP-019, WP-017 | - |
 
-WP-019 tiene documento individual `APROBADO` y contrato específico cerrado por DEC-015. Implementador acordado: Antigravity/AGY con Gemini 3.7 Flash High. Revisor independiente previsto: OpenCode con DeepSeek V4 Pro. El WP queda `EN_CURSO` y habilitado para lanzamiento Orca conforme DEC-007.
+WP-019 quedó integrado mediante squash merge de PR #25 sobre el candidato final `20ee564b132d46b2f9cdfe39ea4e7642ffaf54ee`, después de CI verde en el run `32734716124` y re-revisión independiente final con OpenCode + DeepSeek V4 Pro. La primera revisión había detectado tres hallazgos IMPORTANTES sobre replay tardío por HTTP síncrono, clasificación de respuestas HTTP y falta de cobertura directa del adaptador evdev real; el implementador los corrigió y la re-revisión concluyó `LISTA PARA INTEGRAR`, con cero hallazgos BLOQUEANTES e IMPORTANTES y seis hallazgos MENORES no bloqueantes. Se verificaron 813 tests pytest, 155 tests específicos del bridge y 28 tests Vitest, además de todos los gates aplicables. La única nueva dependencia runtime directa fue `evdev>=1.9.3,<2`, previamente aprobada por DEC-015/DT-038. El squash merge produjo el commit `edc04af6baabbeeba29ee6fcf0c6e33af9ef5bec` en `main`.
 
 ## Fase 6 - Frontend de Moderación
 
@@ -176,8 +176,8 @@ Los lanzadores no pueden aprobar WPs, cambiar su estado en PLAN ni modificar `ma
 
 ## Próximo punto de control
 
-WP-001, WP-002, WP-003, WP-004, WP-005, WP-006, WP-007, WP-008, WP-009, WP-010, WP-011, WP-013, WP-014, WP-015, WP-016, WP-017, WP-018, WP-030 y WP-031 están `INTEGRADO` y sin agente operativo asignado.
+WP-001, WP-002, WP-003, WP-004, WP-005, WP-006, WP-007, WP-008, WP-009, WP-010, WP-011, WP-013, WP-014, WP-015, WP-016, WP-017, WP-018, WP-019, WP-030 y WP-031 están `INTEGRADO` y sin agente operativo asignado.
 
 DEC-007, DEC-009, DEC-010, DEC-011, DEC-012, DEC-013, DEC-014 y DEC-015 están vigentes. Orca continúa como entorno operativo preferido mientras esté en uso.
 
-WP-019 está `EN_CURSO`, con Antigravity/AGY + Gemini 3.7 Flash High como implementador y OpenCode + DeepSeek V4 Pro como revisor independiente previsto. Su dependencia WP-006 está integrada. El siguiente paso permitido es sincronizar el checkout coordinador con `main`, ejecutar `scripts/iniciar_wp_orca.py 019 antigravity`, revisar la salida del launcher y pegar al agente el prompt exhaustivo del orquestador.
+WP-020 es el siguiente candidato funcional por secuencia y sus dependencias WP-019 y WP-017 ya están integradas. Permanece `PENDIENTE` hasta completar su planificación individual, cerrar cualquier decisión reservada por DT-038 y acordar explícitamente implementador y revisor conforme a DEC-007.
