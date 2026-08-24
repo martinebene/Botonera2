@@ -44,6 +44,16 @@ from botonera2_backend.dominio.errores import (
     ErrorVotacionNoEnCurso,
     ErrorVotacionPendiente,
 )
+from botonera2_backend.dominio.remapeo import (
+    ErrorAplicacionBridgeRechazada,
+    ErrorBridgeNoDisponible,
+    ErrorCandidatoRemapeoNoCoincide,
+    ErrorDispositivoRemapeoNoExistente,
+    ErrorParametrosRemapeoIncompatibles,
+    ErrorRemapeoNoCoincide,
+    ErrorRemapeoSinCandidato,
+    ErrorRemapeoYaActivo,
+)
 
 
 class ErrorRespuesta(BaseModel):
@@ -77,6 +87,17 @@ CODIGOS_CONFLICTO: dict[type[Exception], str] = {
     ErrorVotacionNoEmpatada: "VOTACION_NO_EMPATADA",
     ErrorVotacionNoEnCurso: "VOTACION_NO_EN_CURSO",
     ErrorDesempateYaEmitido: "DESEMPATE_YA_EMITIDO",
+    ErrorDispositivoRemapeoNoExistente: "DISPOSITIVO_REMAPEO_NO_EXISTENTE",
+    ErrorRemapeoYaActivo: "REMAPEO_YA_ACTIVO",
+    ErrorRemapeoNoCoincide: "REMAPEO_NO_COINCIDE",
+    ErrorRemapeoSinCandidato: "REMAPEO_SIN_CANDIDATO",
+    ErrorCandidatoRemapeoNoCoincide: "CANDIDATO_YA_REGISTRADO",
+    ErrorParametrosRemapeoIncompatibles: "PARAMETROS_REMAPEO_INCOMPATIBLES",
+}
+
+CODIGOS_SERVICIO_NO_DISPONIBLE: dict[type[Exception], str] = {
+    ErrorBridgeNoDisponible: "BRIDGE_NO_DISPONIBLE",
+    ErrorAplicacionBridgeRechazada: "APLICACION_BRIDGE_RECHAZADA",
 }
 
 CODIGOS_ENTIDAD_NO_PROCESABLE: dict[type[Exception], str] = {
@@ -142,6 +163,17 @@ async def manejar_error_auditoria(_solicitud: Request, error: Exception) -> JSON
     return _respuesta_error(503, "AUDITORIA_NO_DISPONIBLE", str(error))
 
 
+async def manejar_error_servicio_no_disponible(
+    _solicitud: Request, error: Exception
+) -> JSONResponse:
+    """Traduce indisponibilidad/rechazo explícito del bridge a HTTP 503."""
+
+    codigo = CODIGOS_SERVICIO_NO_DISPONIBLE.get(type(error))
+    if codigo is None:
+        raise RuntimeError("Tipo de indisponibilidad sin código estable") from error
+    return _respuesta_error(503, codigo, str(error))
+
+
 def registrar_manejadores_errores(aplicacion: FastAPI) -> None:
     """Asocia cada excepción conocida con su traducción HTTP estable.
 
@@ -159,3 +191,5 @@ def registrar_manejadores_errores(aplicacion: FastAPI) -> None:
     aplicacion.add_exception_handler(ErrorValidacionConfiguracion, manejar_error_configuracion)
     aplicacion.add_exception_handler(ErrorPadronInvalido, manejar_error_padron)
     aplicacion.add_exception_handler(ErrorAuditoria, manejar_error_auditoria)
+    for tipo_error in CODIGOS_SERVICIO_NO_DISPONIBLE:
+        aplicacion.add_exception_handler(tipo_error, manejar_error_servicio_no_disponible)

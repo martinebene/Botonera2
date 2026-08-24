@@ -136,6 +136,51 @@ describe('ClienteRest y capa HTTP', () => {
     expect(resultado.estado).toBe('EN_CURSO')
   })
 
+  it('coordina iniciar, confirmar y cancelar remapeo solo mediante FastAPI', async () => {
+    const estadoRemapeo = {
+      remapeo_id: '11111111-1111-4111-8111-111111111111',
+      dispositivo: 'dev05',
+      estado: 'CAPTURANDO',
+      fingerprint_anterior: 'fp-anterior',
+      candidato: null,
+      diagnostico: null,
+    }
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(estadoRemapeo), {
+          status: 201,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      )
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+    const cliente = new ClienteModeracion({ baseUrl: 'http://api.test', fetch: mockFetch })
+
+    const inicio = await cliente.iniciarRemapeo('dev05')
+    await cliente.confirmarRemapeo(inicio.remapeo_id, 'PERSISTENTE')
+    await cliente.cancelarRemapeo(inicio.remapeo_id)
+
+    expect(mockFetch).toHaveBeenNthCalledWith(
+      1,
+      'http://api.test/api/v1/remapeos',
+      expect.objectContaining({ method: 'POST', body: JSON.stringify({ dispositivo: 'dev05' }) }),
+    )
+    expect(mockFetch).toHaveBeenNthCalledWith(
+      2,
+      `http://api.test/api/v1/remapeos/${inicio.remapeo_id}/confirmacion`,
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ persistencia: 'PERSISTENTE' }),
+      }),
+    )
+    expect(mockFetch).toHaveBeenNthCalledWith(
+      3,
+      `http://api.test/api/v1/remapeos/${inicio.remapeo_id}`,
+      expect.objectContaining({ method: 'DELETE' }),
+    )
+  })
+
   it('carga Orden del Día mediante multipart/form-data sin fijar Content-Type manual', async () => {
     const respuestaMock = {
       puntos: [

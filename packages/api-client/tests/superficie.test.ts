@@ -21,10 +21,14 @@ describe('Separación de superficies públicas de Moderación y Recinto', () => 
     expect(typeof cliente.desempatar).toBe('function')
     expect(typeof cliente.otorgarPalabra).toBe('function')
     expect(typeof cliente.quitarPalabra).toBe('function')
+    expect(typeof cliente.iniciarRemapeo).toBe('function')
+    expect(typeof cliente.confirmarRemapeo).toBe('function')
+    expect(typeof cliente.cancelarRemapeo).toBe('function')
 
     // No debe exponer la ruta física de pulsaciones del bridge
     expect((cliente as unknown as Record<string, unknown>).procesarTecla).toBeUndefined()
     expect((cliente as unknown as Record<string, unknown>).enviarTecla).toBeUndefined()
+    expect((cliente as unknown as Record<string, unknown>).informarCandidatoRemapeo).toBeUndefined()
   })
 
   it('ClienteRecinto expone estrictamente solo lectura y oculta ClienteRest', () => {
@@ -50,6 +54,9 @@ describe('Separación de superficies públicas de Moderación y Recinto', () => 
     expect(registro.otorgarPalabra).toBeUndefined()
     expect(registro.quitarPalabra).toBeUndefined()
     expect(registro.procesarTecla).toBeUndefined()
+    expect(registro.iniciarRemapeo).toBeUndefined()
+    expect(registro.confirmarRemapeo).toBeUndefined()
+    expect(registro.cancelarRemapeo).toBeUndefined()
   })
 
   it('demuestra mediante tipos de TypeScript que ClienteRecinto tiene solo métodos de lectura y no expone rest', () => {
@@ -78,6 +85,9 @@ describe('Separación de superficies públicas de Moderación y Recinto', () => 
       | 'otorgarPalabra'
       | 'quitarPalabra'
       | 'procesarTecla'
+      | 'iniciarRemapeo'
+      | 'confirmarRemapeo'
+      | 'cancelarRemapeo'
 
     // Verificamos que la intersección entre las claves de ClienteRecinto y los métodos prohibidos sea never
     expectTypeOf<Extract<MetodosRecinto, MetodosProhibidos>>().toBeNever()

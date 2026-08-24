@@ -11,6 +11,7 @@ from enum import StrEnum
 from pathlib import Path
 
 from botonera2_backend.dominio.preparacion import Preparacion
+from botonera2_backend.dominio.remapeo import OperacionRemapeo
 from botonera2_backend.dominio.sesion import Sesion
 from botonera2_backend.dominio.votacion import Votacion
 
@@ -59,6 +60,10 @@ class EstadoOperativo:
     sesion_activa: Sesion | None = field(default=None, init=False)
     votacion_activa: Votacion | None = field(default=None, init=False)
     archivos_auditoria_activos: tuple[Path, ...] = field(default=(), init=False)
+    remapeo_activo: OperacionRemapeo | None = field(default=None, init=False)
+    remapeos_finalizados: dict[str, OperacionRemapeo] = field(
+        default_factory=lambda: {}, init=False
+    )
 
     def contexto_operativo_activo(self) -> Preparacion | None:
         """Devuelve el único contexto con presencia, test y auditoría activos.

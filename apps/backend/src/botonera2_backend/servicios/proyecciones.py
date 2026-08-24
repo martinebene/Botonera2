@@ -17,6 +17,7 @@ from botonera2_backend.auditoria import EventoAuditoriaReciente
 from botonera2_backend.configuracion.modelos import Concejal, ConfiguracionSistema
 from botonera2_backend.dominio.estado import EstadoGlobal, EstadoOperativo
 from botonera2_backend.dominio.preparacion import Preparacion
+from botonera2_backend.dominio.remapeo import OperacionRemapeo
 from botonera2_backend.dominio.sesion import Sesion
 from botonera2_backend.dominio.votacion import (
     EstadoVotacion,
@@ -244,6 +245,17 @@ class EstadoAuditoriaProyectado(ModeloProyeccion):
     motivo: str | None
 
 
+class EstadoRemapeoModeracion(ModeloProyeccion):
+    """Operación física activa visible exclusivamente para Moderación."""
+
+    remapeo_id: str
+    dispositivo: str
+    estado: str
+    fingerprint_anterior: str | None
+    candidato: str | None
+    diagnostico: str | None
+
+
 class Capacidad(ModeloProyeccion):
     """Indica disponibilidad actual y códigos estables que explican el bloqueo."""
 
@@ -285,6 +297,7 @@ class EstadoModeracion(ModeloProyeccion):
     orden_del_dia: tuple[PuntoOrdenDelDiaProyectado, ...]
     eventos_recientes: tuple[EventoRecienteProyectado, ...]
     auditoria: EstadoAuditoriaProyectado
+    remapeo: EstadoRemapeoModeracion | None
     capacidades: CapacidadesModeracion
 
 
@@ -405,6 +418,7 @@ class ServicioProyecciones:
             orden_del_dia=self._orden_del_dia(contexto),
             eventos_recientes=self._eventos(contexto),
             auditoria=self._auditoria(contexto),
+            remapeo=self._remapeo(self._estado.remapeo_activo),
             capacidades=self._capacidades(contexto),
         )
 
@@ -871,6 +885,21 @@ class ServicioProyecciones:
             fallado=escritor.fallado,
             cerrado=escritor.cerrado,
             motivo=motivo,
+        )
+
+    @staticmethod
+    def _remapeo(operacion: OperacionRemapeo | None) -> EstadoRemapeoModeracion | None:
+        """Copia el submodelo sin incorporarlo a la allowlist de Recinto."""
+
+        if operacion is None:
+            return None
+        return EstadoRemapeoModeracion(
+            remapeo_id=operacion.remapeo_id,
+            dispositivo=operacion.dispositivo,
+            estado=operacion.estado.value,
+            fingerprint_anterior=operacion.fingerprint_anterior,
+            candidato=operacion.candidato,
+            diagnostico=operacion.diagnostico,
         )
 
     def _capacidades(self, contexto: Preparacion | None) -> CapacidadesModeracion:

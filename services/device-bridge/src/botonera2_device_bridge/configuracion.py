@@ -44,12 +44,16 @@ class ConfiguracionBridge:
         timeout_http_segundos: Tiempo límite para cada intento HTTP (por defecto 3.0 s).
         ruta_devices_json: Ruta al archivo de mapeo físico devices.json.
         intervalo_escaneo_segundos: Intervalo para redescubrir dispositivos (default 2.0 s).
+        host_control: Interfaz de la API local; usa loopback de forma predeterminada.
+        puerto_control: Puerto configurable de la API local de control.
     """
 
     url_base_api: str = "http://127.0.0.1:8000"
     timeout_http_segundos: float = 3.0
     ruta_devices_json: Path = Path("services/device-bridge/config/devices.json")
     intervalo_escaneo_segundos: float = 2.0
+    host_control: str = "127.0.0.1"
+    puerto_control: int = 8765
 
 
 def _analizar_pares_json_sin_duplicados(pares: list[tuple[Any, Any]]) -> dict[str, Any]:
@@ -62,6 +66,46 @@ def _analizar_pares_json_sin_duplicados(pares: list[tuple[Any, Any]]) -> dict[st
             raise ErrorConfiguracionBridge(f"Clave JSON duplicada en devices.json: '{clave}'")
         resultado[clave] = valor
     return resultado
+
+
+def validar_mapeo_dispositivos(
+    datos: dict[str, Any], ruta: Path | str = "devices.json"
+) -> dict[str, str]:
+    """Valida un mapping completo ya parseado y devuelve una copia tipada.
+
+    La persistencia PERSISTENTE reutiliza exactamente estas invariantes antes
+    de escribir, evitando que el camino de remapeo acepte una configuración que
+    el arranque posterior rechazaría.
+    """
+
+    path_archivo = Path(ruta)
+    mapeo_resultado: dict[str, str] = {}
+    dispositivos_logicos_vistos: set[str] = set()
+
+    for fp_obj, dev_obj in datos.items():
+        if not fp_obj.strip():
+            raise ErrorConfiguracionBridge(f"Fingerprint vacío en {path_archivo}: {fp_obj!r}")
+        if not validar_fingerprint_linux(fp_obj):
+            raise ErrorConfiguracionBridge(
+                f"Fingerprint con formato Linux inválido en {path_archivo}: '{fp_obj}'"
+            )
+        if not isinstance(dev_obj, str):
+            raise ErrorConfiguracionBridge(
+                f"Valor para fingerprint '{fp_obj}' debe ser string, no {type(dev_obj).__name__}"
+            )
+        if not PATRON_DISPOSITIVO_LOGICO.fullmatch(dev_obj):
+            raise ErrorConfiguracionBridge(
+                f"Identificador lógico '{dev_obj}' inválido para fingerprint '{fp_obj}'. "
+                "Debe cumplir formato 'devXX' (ej: dev01)."
+            )
+        if dev_obj in dispositivos_logicos_vistos:
+            raise ErrorConfiguracionBridge(
+                f"Identificador lógico duplicado '{dev_obj}' en {path_archivo} "
+                f"para fingerprint '{fp_obj}'"
+            )
+        dispositivos_logicos_vistos.add(dev_obj)
+        mapeo_resultado[fp_obj] = dev_obj
+    return mapeo_resultado
 
 
 def cargar_dispositivos_json(ruta: Path | str) -> dict[str, str]:
@@ -110,43 +154,4 @@ def cargar_dispositivos_json(ruta: Path | str) -> dict[str, str]:
             f"no {type(datos).__name__}"
         )
 
-    datos_dict = cast(dict[str, Any], datos)
-    mapeo_resultado: dict[str, str] = {}
-    dispositivos_logicos_vistos: set[str] = set()
-
-    for fp_obj, dev_obj in datos_dict.items():
-        # Validar fingerprint
-        if not fp_obj.strip():
-            raise ErrorConfiguracionBridge(f"Fingerprint vacío en {path_archivo}: {fp_obj!r}")
-        if not validar_fingerprint_linux(fp_obj):
-            raise ErrorConfiguracionBridge(
-                f"Fingerprint con formato Linux inválido en {path_archivo}: '{fp_obj}'"
-            )
-
-        fingerprint = fp_obj
-
-        # Validar identificador lógico devXX
-        if not isinstance(dev_obj, str):
-            raise ErrorConfiguracionBridge(
-                f"Valor para fingerprint '{fingerprint}' debe ser string, "
-                f"no {type(dev_obj).__name__}"
-            )
-        if not PATRON_DISPOSITIVO_LOGICO.match(dev_obj):
-            raise ErrorConfiguracionBridge(
-                f"Identificador lógico '{dev_obj}' inválido para fingerprint '{fingerprint}'. "
-                "Debe cumplir formato 'devXX' (ej: dev01)."
-            )
-
-        dev_id = dev_obj
-
-        # Validar unicidad inversa (no asociar dos teclados físicos distintos al mismo devXX)
-        if dev_id in dispositivos_logicos_vistos:
-            raise ErrorConfiguracionBridge(
-                f"Identificador lógico duplicado '{dev_id}' en {path_archivo} "
-                f"para fingerprint '{fingerprint}'"
-            )
-
-        dispositivos_logicos_vistos.add(dev_id)
-        mapeo_resultado[fingerprint] = dev_id
-
-    return mapeo_resultado
+    return validar_mapeo_dispositivos(cast(dict[str, Any], datos), path_archivo)

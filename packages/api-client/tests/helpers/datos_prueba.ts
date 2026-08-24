@@ -61,6 +61,7 @@ export function crearMockEstadoModeracion(
       cerrado: false,
       motivo: null,
     },
+    remapeo: null,
     capacidades: {
       preparar_sala: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
       actualizar_preparacion: { habilitada: true, motivos: [] },

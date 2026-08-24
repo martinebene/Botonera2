@@ -10,6 +10,7 @@ Su única función es:
 3. Resolver el identificador físico hacia un identificador lógico (`dev01`, `dev02`, etc.) a través del archivo de mapeo `config/devices.json`.
 4. Normalizar la tecla presionada al catálogo de la API.
 5. Transmitir el evento como una pulsación lógica a FastAPI (`POST /api/v1/entradas/tecla`).
+6. Coordinar remapeos confirmados conservando estable el mismo `devXX`.
 
 ```text
 Teclado Físico (USB)
@@ -51,13 +52,15 @@ POST /api/v1/entradas/tecla (FastAPI)
 
 El paquete `botonera2_device_bridge` está estructurado en módulos enfocados y testeables:
 
-- [`fingerprint.py`](file:///home/dev/orca/workspaces/Botonera2/wp-019-bridge-fisico-linux-y-compatibilidad-fingerprint-a-dispo/services/device-bridge/src/botonera2_device_bridge/fingerprint.py): Construcción y validación del formato canónico Linux.
-- [`configuracion.py`](file:///home/dev/orca/workspaces/Botonera2/wp-019-bridge-fisico-linux-y-compatibilidad-fingerprint-a-dispo/services/device-bridge/src/botonera2_device_bridge/configuracion.py): Parámetros operacionales y lector estricto de `devices.json` con detección de duplicados.
-- [`normalizador.py`](file:///home/dev/orca/workspaces/Botonera2/wp-019-bridge-fisico-linux-y-compatibilidad-fingerprint-a-dispo/services/device-bridge/src/botonera2_device_bridge/normalizador.py): Normalización amplia de teclas físicas y numpad hacia valores de API (`0`..`9`, `ENTER`, etc.).
-- [`cliente_http.py`](file:///home/dev/orca/workspaces/Botonera2/wp-019-bridge-fisico-linux-y-compatibilidad-fingerprint-a-dispo/services/device-bridge/src/botonera2_device_bridge/cliente_http.py): Cliente HTTP liviano basado en `urllib.request` (biblioteca estándar) con política de cero reintentos.
-- [`adaptador_linux.py`](file:///home/dev/orca/workspaces/Botonera2/wp-019-bridge-fisico-linux-y-compatibilidad-fingerprint-a-dispo/services/device-bridge/src/botonera2_device_bridge/adaptador_linux.py): Abstracción del hardware. Contiene `AdaptadorEvdevLinux` para Linux real y `AdaptadorFalso` para pruebas en CI sin hardware.
-- [`servicio.py`](file:///home/dev/orca/workspaces/Botonera2/wp-019-bridge-fisico-linux-y-compatibilidad-fingerprint-a-dispo/services/device-bridge/src/botonera2_device_bridge/servicio.py): Orquestador del ciclo de vida y flujo de eventos.
-- [`cli.py`](file:///home/dev/orca/workspaces/Botonera2/wp-019-bridge-fisico-linux-y-compatibilidad-fingerprint-a-dispo/services/device-bridge/src/botonera2_device_bridge/cli.py): Punto de entrada ejecutable de consola (`botonera2-device-bridge`) con manejo de señales `SIGINT`/`SIGTERM`.
+- `fingerprint.py`: construcción y validación del formato canónico Linux.
+- `configuracion.py`: parámetros operacionales y lector estricto de `devices.json`.
+- `normalizador.py`: normalización amplia de teclas físicas.
+- `cliente_http.py`: pulsaciones y callback de candidato mediante `urllib.request`.
+- `adaptador_linux.py`: hardware `evdev` real y adaptador falso para CI.
+- `servicio.py`: descubrimiento y flujo no bloqueante de eventos.
+- `remapeo.py`: mapping base/efectivo, elegibilidad, idempotencia y persistencia.
+- `servidor_control.py`: API HTTP local stdlib para la coordinación backend↔bridge.
+- `cli.py`: ciclo de vida conjunto del loop físico y el servidor de control.
 
 ---
 
@@ -157,6 +160,8 @@ uv run botonera2-device-bridge \
   --url http://127.0.0.1:8000 \
   --timeout 3.0 \
   --intervalo-escaneo 2.0 \
+  --control-host 127.0.0.1 \
+  --control-port 8765 \
   --log-level INFO
 ```
 
@@ -166,6 +171,83 @@ uv run botonera2-device-bridge \
 - `BOTONERA2_HTTP_TIMEOUT`: Timeout HTTP en segundos (ej: `3.0`).
 - `BOTONERA2_SCAN_INTERVAL`: Intervalo de re-escaneo de dispositivos en segundos (ej: `2.0`).
 - `BOTONERA2_LOG_LEVEL`: Nivel de log (`DEBUG`, `INFO`, `WARNING`, `ERROR`).
+- `BOTONERA2_CONTROL_HOST`: bind de la API de control; default seguro `127.0.0.1`.
+- `BOTONERA2_CONTROL_PORT`: puerto de control; default `8765`.
+
+---
+
+## Remapeo coordinado y API local de control
+
+La separación permanece siempre:
+
+```text
+fingerprint físico -> device-bridge -> devXX -> FastAPI -> concejal
+```
+
+El remapeo cambia únicamente el primer tramo. El navegador habla con FastAPI;
+nunca conoce ni consume la API local del bridge.
+
+La API usa solo biblioteca estándar, escucha en loopback por defecto y expone:
+
+| Operación | Método y path | Body |
+| :--- | :--- | :--- |
+| Iniciar captura | `POST /control/v1/remapeos` | `{"remapeo_id":"UUID","dispositivo":"dev05"}` |
+| Consultar/reconciliar | `GET /control/v1/remapeos/{remapeo_id}` | sin body |
+| Confirmar/aplicar | `POST /control/v1/remapeos/{remapeo_id}/confirmacion` | `{"fingerprint":"lin|...","persistencia":"TEMPORAL"}` |
+| Cancelar | `DELETE /control/v1/remapeos/{remapeo_id}` | sin body |
+
+Los bodies son cerrados y los comandos son idempotentes por `remapeo_id`:
+repetir el mismo comando con los mismos parámetros no duplica aplicación ni
+escritura; reutilizar el ID con parámetros distintos se rechaza. `GET` permite
+resolver si una respuesta de confirmación se perdió después de que el cambio ya
+había sido aplicado.
+
+### Captura sin bloquear otros teclados
+
+El loop físico resuelve primero el mapping efectivo bajo un `RLock`. Si el
+fingerprint está mapeado, su keydown sigue inmediatamente por el flujo normal
+hacia `POST /api/v1/entradas/tecla`, incluso durante una votación. Solamente un
+fingerprint no mapeado puede evaluarse como candidato. El primer elegible queda
+congelado, no se envía como pulsación funcional y los posteriores no lo reemplazan.
+
+Además de no pertenecer al mapping efectivo, un fingerprint que todavía figure
+en `devices.json` solo es elegible para su mismo `devXX` base. Esto permite
+volver al teclado original después de un override temporal, pero impide “robar”
+el teclado base de otra banca.
+
+### TEMPORAL
+
+- reemplaza solo el fingerprint efectivo del `devXX` en memoria;
+- no modifica `devices.json`;
+- no se revierte al cerrar sesión o cancelar preparación en FastAPI;
+- desaparece al reiniciar el proceso del bridge, que vuelve a cargar el archivo base.
+
+### PERSISTENTE
+
+Después de la confirmación humana, el bridge construye y valida el mapping base
+completo, reemplazando solo el fingerprint del objetivo. Crea un temporal en el
+mismo directorio que `devices.json`, escribe el JSON completo, ejecuta
+`flush()`, `os.fsync()` y finalmente `os.replace()` atómico. Recién después de
+un reemplazo exitoso instala el mapping efectivo nuevo. Un fallo de escritura,
+`fsync` o `replace` conserva el mapping efectivo anterior y no degrada a TEMPORAL.
+
+El servidor HTTP y el loop físico comparten un único coordinador protegido por
+`threading.RLock`; por eso no existe doble candidato, mapping parcialmente
+visible ni doble persistencia concurrente.
+
+### Contrato público de FastAPI y errores estables
+
+La futura UI usa exclusivamente `POST /api/v1/remapeos`,
+`POST /api/v1/remapeos/{remapeo_id}/confirmacion` y
+`DELETE /api/v1/remapeos/{remapeo_id}`. El callback
+`POST /api/v1/interno/remapeos/{remapeo_id}/candidato` pertenece al bridge.
+
+Los conflictos funcionales se distinguen con `ESTADO_INCOMPATIBLE`,
+`DISPOSITIVO_REMAPEO_NO_EXISTENTE`, `REMAPEO_YA_ACTIVO`,
+`REMAPEO_NO_COINCIDE`, `REMAPEO_SIN_CANDIDATO`,
+`CANDIDATO_YA_REGISTRADO` y `PARAMETROS_REMAPEO_INCOMPATIBLES`. Los fallos
+técnicos usan `BRIDGE_NO_DISPONIBLE`, `APLICACION_BRIDGE_RECHAZADA` o
+`AUDITORIA_NO_DISPONIBLE`. Los bodies inválidos/campos extra responden `422`.
 
 ---
 
@@ -189,5 +271,5 @@ uv run pytest
 
 ## Alcance Futuro y Pendientes
 
-- **Remapeo rápido coordinado (WP-020)**: El flujo dinámico iniciado desde Moderación para reasignar un nuevo fingerprint a un `devXX` existente en caliente se construirá sobre las interfaces de este bridge.
+- **UI de Moderación**: los contratos de WP-020 quedan listos; la pantalla visual corresponde a un WP posterior.
 - **Unidad systemd e instalación (Fase de Despliegue)**: El empaquetado del servicio `botonera2-device-bridge.service` y reglas udev se implementará en la etapa de despliegue productivo (DT-028).

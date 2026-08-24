@@ -34,6 +34,7 @@ from typing import Any, cast
 from botonera2_device_bridge.modelos import RespuestaEnvioBackend, SolicitudEntradaLogica
 
 logger = logging.getLogger(__name__)
+REGISTRO = logger
 
 
 class ClienteHttpBackend:
@@ -53,6 +54,42 @@ class ClienteHttpBackend:
         self.url_base = url_base.rstrip("/")
         self.timeout_segundos = timeout_segundos
         self.url_endpoint = f"{self.url_base}/api/v1/entradas/tecla"
+
+    def informar_candidato(
+        self,
+        remapeo_id: str,
+        fingerprint: str,
+        diagnostico: str,
+    ) -> bool:
+        """Informa una vez el candidato al callback interno de FastAPI.
+
+        Este envío no es una pulsación funcional y tampoco aplica el mapping.
+        El candidato ya queda congelado localmente antes de llamar; si el
+        backend no está disponible, el estado continúa consultable por la API
+        de control con el mismo ``remapeo_id``.
+        """
+
+        url = f"{self.url_base}/api/v1/interno/remapeos/{remapeo_id}/candidato"
+        cuerpo = json.dumps({"fingerprint": fingerprint, "diagnostico": diagnostico}).encode(
+            "utf-8"
+        )
+        peticion = urllib.request.Request(
+            url=url,
+            data=cuerpo,
+            headers={"Content-Type": "application/json", "Accept": "application/json"},
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(peticion, timeout=self.timeout_segundos) as respuesta:
+                respuesta.read()
+                return 200 <= respuesta.getcode() < 300
+        except Exception as error:
+            REGISTRO.error(
+                "No se pudo informar candidato de remapeo_id=%s: %s",
+                remapeo_id,
+                error,
+            )
+            return False
 
     def enviar_pulsacion(self, solicitud: SolicitudEntradaLogica) -> RespuestaEnvioBackend:
         """Envía una única pulsación al backend mediante POST.
