@@ -14,14 +14,15 @@
     "check:types": "pnpm --filter @botonera2/api-client check:types",
     "dev:moderacion": "pnpm --filter @botonera2/moderacion dev",
     "dev:recinto": "pnpm --filter @botonera2/recinto dev",
-    "format": "prettier --write '.github/**/*.yml' 'apps/**/*.{ts,vue,css,json,mjs}' 'packages/**/*.{ts,json}' package.json pnpm-workspace.yaml README.md tools/device-simulator/README.md config/README.md",
-    "format:check": "prettier --check '.github/**/*.yml' 'apps/**/*.{ts,vue,css,json,mjs}' 'packages/**/*.{ts,json}' package.json pnpm-workspace.yaml README.md tools/device-simulator/README.md config/README.md",
+    "format": "prettier --write '.github/**/*.yml' 'apps/**/*.{ts,vue,css,json,mjs}' 'packages/**/*.{ts,json}' 'tests/**/*.{ts,json}' playwright.config.ts vitest.config.mjs package.json pnpm-workspace.yaml README.md tools/device-simulator/README.md config/README.md",
+    "format:check": "prettier --check '.github/**/*.yml' 'apps/**/*.{ts,vue,css,json,mjs}' 'packages/**/*.{ts,json}' 'tests/**/*.{ts,json}' playwright.config.ts vitest.config.mjs package.json pnpm-workspace.yaml README.md tools/device-simulator/README.md config/README.md",
     "generate:contrato": "pnpm generate:openapi && pnpm generate:types",
     "generate:openapi": "uv run python scripts/exportar_openapi.py",
     "generate:types": "pnpm --filter @botonera2/api-client generate:types",
     "lint": "pnpm --filter @botonera2/moderacion lint && pnpm --filter @botonera2/recinto lint",
     "postinstall": "pnpm --filter @botonera2/moderacion prepare && pnpm --filter @botonera2/recinto prepare",
     "test": "vitest run",
+    "test:e2e": "playwright test",
     "typecheck": "pnpm --filter @botonera2/api-client typecheck && pnpm --filter @botonera2/moderacion typecheck && pnpm --filter @botonera2/recinto typecheck"
   },
   "devDependencies": {

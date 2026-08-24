@@ -129,6 +129,7 @@ pnpm lint
 pnpm format:check
 pnpm typecheck
 pnpm test
+pnpm test:e2e
 pnpm build
 
 # Contrato OpenAPI y tipos TypeScript (detección de drift / regeneración)
