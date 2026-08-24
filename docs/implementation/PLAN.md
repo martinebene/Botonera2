@@ -97,14 +97,14 @@ DEC-010 separa el ciclo de vida de la votación (`EN_CURSO`/`CERRADA`) de su res
 |---|---|---|---|---|
 | WP-015 | Implementar cola y uso de la palabra, incluida pérdida por ausencia y transiciones sin avance implícito | INTEGRADO | WP-008, WP-006 | - |
 | WP-016 | Implementar parser backend de Orden del Día y contrato de carga | INTEGRADO | WP-002 | - |
-| WP-017 | Implementar snapshots `ModerationState`/`PublicState`, secreto temporal y streams SSE | PENDIENTE | WP-013, WP-014, WP-015, WP-016 | - |
+| WP-017 | Implementar snapshots `ModerationState`/`PublicState`, secreto temporal y streams SSE | EN_CURSO | WP-013, WP-014, WP-015, WP-016 | codex |
 | WP-018 | Implementar paquete TypeScript `api-client` derivado de OpenAPI con REST/SSE/reconexión | PENDIENTE | WP-017 | - |
 
 WP-015 quedó integrado mediante squash merge de PR #22 sobre el candidato final `a9f7a304fb332fb40c3574bbf1b825db182b88cd`, después de CI verde en el run `32648143986` y revisión independiente final con Antigravity/AGY + Gemini 3.7 Flash High. La revisión concluyó `LISTA PARA INTEGRAR`, con cero hallazgos BLOQUEANTES, IMPORTANTES y MENORES. El candidato había incorporado previamente por merge normal el `main` que contenía WP-016, preservando ambos contratos. El squash merge produjo el commit `922b4076d25da1f9055f84c3f2b637db08fa851b` en `main`.
 
 WP-016 quedó integrado mediante squash merge de PR #21 sobre el candidato final `a9f33169b2958428edcec8458351f90c73a90ee1`, después de CI verde en el run `32645383185` y re-revisión independiente final con OpenCode + DeepSeek V4 Pro. La revisión concluyó `LISTA PARA INTEGRAR`, con cero hallazgos BLOQUEANTES e IMPORTANTES. Se aceptó un único hallazgo MENOR no bloqueante sobre mantenibilidad del test determinista de concurrencia Caso C ante un futuro renombre interno de `_instalar_bajo_lock`. La dependencia directa `python-multipart>=0.0.18,<1` había sido aprobada explícitamente conforme DT-038. El squash merge produjo el commit `5ef8c293ffdaff2a3007cc926ece358a3a011ff7` en `main`.
 
-WP-017 tiene documento individual `APROBADO` y contrato transversal cerrado por DEC-013. El preflight documental agregó WP-016 como dependencia real porque `ModerationState` debe proyectar el Orden del Día temporal. Todas sus dependencias están integradas; permanece `PENDIENTE` únicamente hasta acordar implementador/revisor y pasar formalmente a `EN_CURSO`.
+WP-017 tiene documento individual `APROBADO` y contrato transversal cerrado por DEC-013. El preflight documental agregó WP-016 como dependencia real porque `ModerationState` debe proyectar el Orden del Día temporal. Todas sus dependencias están integradas. Implementador acordado: Codex/GPT-5; revisor independiente previsto: Antigravity/AGY + Gemini 3.7 Flash High. El WP queda `EN_CURSO` y habilitado para lanzamiento Orca conforme DEC-007.
 
 ## Fase 5 - Hardware y bridge
 
@@ -176,4 +176,4 @@ WP-001, WP-002, WP-003, WP-004, WP-005, WP-006, WP-007, WP-008, WP-009, WP-010, 
 
 DEC-007, DEC-009, DEC-010, DEC-011, DEC-012 y DEC-013 están vigentes. Orca continúa como entorno operativo preferido mientras esté en uso.
 
-WP-017 es el próximo candidato funcional. Su documento está `APROBADO`, su contrato está cerrado por DEC-013 y sus dependencias WP-013, WP-014, WP-015 y WP-016 están integradas. Permanece `PENDIENTE` hasta acordar implementador/revisor, repetir el preflight parseable y asignarlo formalmente antes del lanzamiento.
+WP-017 está `EN_CURSO`, con Codex como implementador y Antigravity/AGY + Gemini 3.7 Flash High como revisor independiente previsto. Sus dependencias WP-013, WP-014, WP-015 y WP-016 están integradas. El siguiente paso permitido es sincronizar el checkout coordinador con `main`, ejecutar `scripts/iniciar_wp_orca.py 017 codex`, revisar la salida del launcher y pegar al agente el prompt exhaustivo del orquestador.
