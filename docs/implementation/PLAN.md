@@ -123,7 +123,7 @@ WP-020 quedó integrado mediante squash merge de PR #26 sobre el candidato final
 
 | WP | Objetivo | Estado | Depende de | Agente |
 |---|---|---|---|---|
-| WP-021 | Crear shell de Moderación, layout responsive y sincronización mediante `api-client` | PENDIENTE | WP-018 | - |
+| WP-021 | Crear shell de Moderación, layout responsive y sincronización mediante `api-client` | EN_CURSO | WP-018 | antigravity |
 | WP-022 | Implementar UI de preparación, presencia, autoridades, sesión y advertencia de cierre con palabra pendiente | PENDIENTE | WP-021, WP-008 | - |
 | WP-023 | Implementar UI de votaciones, resultado, desempate, Orden del Día y advertencia de apertura con palabra pendiente | PENDIENTE | WP-021, WP-014, WP-016 | - |
 | WP-024 | Implementar UI de palabra con semántica Otorgar/Quitar definida, eventos y remapeo de dispositivos | PENDIENTE | WP-021, WP-015, WP-020 | - |
@@ -182,4 +182,4 @@ WP-001, WP-002, WP-003, WP-004, WP-005, WP-006, WP-007, WP-008, WP-009, WP-010, 
 
 DEC-007, DEC-009, DEC-010, DEC-011, DEC-012, DEC-013, DEC-014, DEC-015 y DEC-016 están vigentes. Orca continúa como entorno operativo preferido mientras esté en uso.
 
-WP-021 está documentalmente `APROBADO`, su dependencia WP-018 está integrada y permanece `PENDIENTE` hasta acordar explícitamente implementador y revisor conforme a DEC-007. No existen decisiones DT-038 pendientes identificadas para iniciar este WP. El siguiente paso permitido es seleccionar esa pareja de agentes/modelos y, con acuerdo humano, pasar WP-021 a `EN_CURSO` antes de ejecutar el launcher. La discrepancia preexistente `D-01..D-12` versus `dev01..dev12` debe resolverse antes de una prueba integrada que dependa de la configuración raíz, pero no bloquea WP-021.
+WP-021 está documentalmente `APROBADO`, su dependencia WP-018 está integrada y está `EN_CURSO` con Antigravity como implementador. El revisor independiente acordado es OpenCode con DeepSeek V4 Pro, que permanecerá inactivo hasta la entrega del candidato remoto y la habilitación explícita de la revisión. No existen decisiones DT-038 pendientes identificadas para iniciar este WP. La discrepancia preexistente `D-01..D-12` versus `dev01..dev12` debe resolverse antes de una prueba integrada que dependa de la configuración raíz, pero no bloquea WP-021.
