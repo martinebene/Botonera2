@@ -7,12 +7,18 @@
  *    - SIN_PREPARAR: Preparación de sala como acción principal.
  *    - PREPARANDO: Carga y edición de número de sesión, Presidencia y Secretaría Legislativa,
  *      apertura formal de sesión cuando se cumplan las capacidades, o cancelación de la preparación.
- *    - SESION_ABIERTA: Número inmutable, edición de autoridades durante la sesión y cierre formal
- *      con advertencia confirmatoria ante palabra pendiente.
- * 2. Gate de comandos mutantes: Solo permite emitir mutaciones cuando existe conexión plena (CONECTADO),
+ *    - SESION_ABIERTA: Número inmutable, edición de autoridades durante la sesión, resumen de quórum
+ *      y cierre formal con advertencia confirmatoria ante palabra pendiente.
+ * 2. Gestión robusta de borradores locales (H1): Los campos en edición activa (dirty) no son
+ *    sobrescritos por snapshots SSE no relacionados (ej. pulsaciones de presencia o test de teclado).
+ *    Al cambiar de estado global, los borradores se resincronizan con el nuevo estado institucional.
+ * 3. Validación estricta del número de sesión (M3): Solo se envían enteros positivos (> 0);
+ *    los valores inválidos no se transforman silenciosamente y muestran error claro conservando el input.
+ * 4. Resumen de quórum en Q1 durante sesión abierta (M1): Presentación compacta del quórum reglamentario.
+ * 5. Gate de comandos mutantes: Solo permite emitir mutaciones cuando existe conexión plena (CONECTADO),
  *    la capacidad correspondiente está habilitada por el backend y no hay solicitudes en vuelo.
- * 3. Feedback de errores legibles sin optimismo ficticio ni alteración del estado confirmado.
- * 4. Integrar DialogoConfirmacionCierre para salvaguarda de oradores y pedidos en cola.
+ * 6. Feedback de errores legibles sin optimismo ficticio ni alteración del estado confirmado.
+ * 7. Integrar DialogoConfirmacionCierre para salvaguarda de oradores y pedidos en cola.
  */
 
 import { ref, computed, watch } from 'vue'
@@ -34,10 +40,18 @@ const sincronizacion = useEstadoModeracion(props.clienteInyectado)
 const cliente = computed(() => props.clienteInyectado ?? sincronizacion.cliente)
 const conectado = computed(() => sincronizacion.conectado.value)
 
-// Variables locales para edición reactiva de campos institucionales
+// Variables locales para borradores de edición (drafts)
 const numeroSesionInput = ref<string>('')
 const presidenciaInput = ref<string>('')
 const secretariaInput = ref<string>('')
+
+// Banderas de edición local (dirty tracking) por campo (H1)
+const numeroSesionDirty = ref(false)
+const presidenciaDirty = ref(false)
+const secretariaDirty = ref(false)
+
+// Seguimiento del último estado global para detectar transiciones institucionales reales
+const ultimoEstadoGlobal = ref<string | null>(null)
 
 // Estado local de operaciones en vuelo y errores
 const enviando = ref(false)
@@ -47,7 +61,16 @@ const mensajeExito = ref<string | null>(null)
 // Control de apertura del diálogo de advertencia de cierre
 const mostrarDialogoCierre = ref(false)
 
-// Sincronizamos las variables locales con los datos confirmados del backend
+/**
+ * Sincroniza los borradores locales con el estado autoritativo del backend.
+ * Reglas de gestión de drafts (H1):
+ * - En transiciones institucionales (cambio de estado_global), se resincroniza todo y se limpian los dirty flags.
+ * - Dentro del mismo estado global:
+ *   - Si un campo no está dirty: se actualiza con el valor confirmado del backend.
+ *   - Si un campo está dirty y el snapshot confirma exactamente el valor local tipeado: se limpia el dirty flag.
+ *   - Si un campo está dirty y el snapshot trae un valor distinto (ej. por eventos de presencia/test ajenos):
+ *     SE CONSERVA el texto que el operador está editando sin pisarlo.
+ */
 watch(
   () => props.estado,
   (nuevoEstado) => {
@@ -55,28 +78,117 @@ watch(
       numeroSesionInput.value = ''
       presidenciaInput.value = ''
       secretariaInput.value = ''
+      numeroSesionDirty.value = false
+      presidenciaDirty.value = false
+      secretariaDirty.value = false
+      ultimoEstadoGlobal.value = null
       return
     }
 
-    if (nuevoEstado.estado_global === 'PREPARANDO' && nuevoEstado.preparacion) {
-      numeroSesionInput.value =
-        nuevoEstado.preparacion.numero_sesion !== null
-          ? String(nuevoEstado.preparacion.numero_sesion)
-          : ''
-      presidenciaInput.value = nuevoEstado.preparacion.presidencia ?? ''
-      secretariaInput.value = nuevoEstado.preparacion.secretaria_legislativa ?? ''
-    } else if (nuevoEstado.estado_global === 'SESION_ABIERTA' && nuevoEstado.sesion) {
-      numeroSesionInput.value = String(nuevoEstado.sesion.numero_sesion)
-      presidenciaInput.value = nuevoEstado.sesion.presidencia ?? ''
-      secretariaInput.value = nuevoEstado.sesion.secretaria_legislativa ?? ''
+    const estadoGlobalActual = nuevoEstado.estado_global
+    const esTransicionEstado = estadoGlobalActual !== ultimoEstadoGlobal.value
+
+    if (esTransicionEstado) {
+      // Transición institucional real: resincronizamos todo y reiniciamos el estado dirty
+      ultimoEstadoGlobal.value = estadoGlobalActual
+      numeroSesionDirty.value = false
+      presidenciaDirty.value = false
+      secretariaDirty.value = false
+
+      if (estadoGlobalActual === 'PREPARANDO' && nuevoEstado.preparacion) {
+        numeroSesionInput.value =
+          nuevoEstado.preparacion.numero_sesion !== null
+            ? String(nuevoEstado.preparacion.numero_sesion)
+            : ''
+        presidenciaInput.value = nuevoEstado.preparacion.presidencia ?? ''
+        secretariaInput.value = nuevoEstado.preparacion.secretaria_legislativa ?? ''
+      } else if (estadoGlobalActual === 'SESION_ABIERTA' && nuevoEstado.sesion) {
+        numeroSesionInput.value = String(nuevoEstado.sesion.numero_sesion)
+        presidenciaInput.value = nuevoEstado.sesion.presidencia ?? ''
+        secretariaInput.value = nuevoEstado.sesion.secretaria_legislativa ?? ''
+      } else {
+        numeroSesionInput.value = ''
+        presidenciaInput.value = ''
+        secretariaInput.value = ''
+      }
     } else {
-      numeroSesionInput.value = ''
-      presidenciaInput.value = ''
-      secretariaInput.value = ''
+      // Mismo estado global: aplicamos dirty tracking selectivo por campo
+      if (estadoGlobalActual === 'PREPARANDO' && nuevoEstado.preparacion) {
+        const prep = nuevoEstado.preparacion
+        const numConfirmado = prep.numero_sesion !== null ? String(prep.numero_sesion) : ''
+        const presConfirmada = prep.presidencia ?? ''
+        const secConfirmada = prep.secretaria_legislativa ?? ''
+
+        // Número de sesión
+        if (!numeroSesionDirty.value) {
+          numeroSesionInput.value = numConfirmado
+        } else if (numeroSesionInput.value.trim() === numConfirmado) {
+          numeroSesionDirty.value = false
+        }
+
+        // Presidencia
+        if (!presidenciaDirty.value) {
+          presidenciaInput.value = presConfirmada
+        } else if (presidenciaInput.value === presConfirmada) {
+          presidenciaDirty.value = false
+        }
+
+        // Secretaría Legislativa
+        if (!secretariaDirty.value) {
+          secretariaInput.value = secConfirmada
+        } else if (secretariaInput.value === secConfirmada) {
+          secretariaDirty.value = false
+        }
+      } else if (estadoGlobalActual === 'SESION_ABIERTA' && nuevoEstado.sesion) {
+        const ses = nuevoEstado.sesion
+        // En sesión abierta el número es inmutable
+        numeroSesionInput.value = String(ses.numero_sesion)
+        const presConfirmada = ses.presidencia ?? ''
+        const secConfirmada = ses.secretaria_legislativa ?? ''
+
+        if (!presidenciaDirty.value) {
+          presidenciaInput.value = presConfirmada
+        } else if (presidenciaInput.value === presConfirmada) {
+          presidenciaDirty.value = false
+        }
+
+        if (!secretariaDirty.value) {
+          secretariaInput.value = secConfirmada
+        } else if (secretariaInput.value === secConfirmada) {
+          secretariaDirty.value = false
+        }
+      }
     }
   },
   { immediate: true },
 )
+
+/**
+ * Valida el número de sesión según las reglas institucionales (M3).
+ * Debe ser vacío (opcional en preparación) o un entero positivo estricto (> 0).
+ * No trunca decimales ni convierte silenciosamente texto inválido.
+ */
+function validarNumeroSesion(valor: string): { valido: boolean; numero?: number; error?: string } {
+  const texto = valor.trim()
+  if (texto === '') {
+    return { valido: true }
+  }
+  // Expresión regular que exige dígitos exclusivamente (sin signos, puntos ni exponentes)
+  if (!/^\d+$/.test(texto)) {
+    return {
+      valido: false,
+      error: 'El número de sesión debe ser un número entero positivo mayor a cero.',
+    }
+  }
+  const num = Number(texto)
+  if (!Number.isInteger(num) || num <= 0) {
+    return {
+      valido: false,
+      error: 'El número de sesión debe ser un número entero positivo mayor a cero.',
+    }
+  }
+  return { valido: true, numero: num }
+}
 
 // Helper para extraer un mensaje de error legible sin recurrir a tipos inseguros
 function extraerMensajeError(error: unknown, mensajePorDefecto: string): string {
@@ -190,6 +302,14 @@ async function ejecutarPrepararSala(): Promise<void> {
 async function ejecutarActualizarPreparacion(): Promise<void> {
   if (!puedeActualizarPreparacion.value) return
   limpiarMensajes()
+
+  // Validación estricta del número de sesión (M3)
+  const validacionNum = validarNumeroSesion(numeroSesionInput.value)
+  if (!validacionNum.valido) {
+    mensajeError.value = validacionNum.error ?? 'Número de sesión inválido'
+    return
+  }
+
   enviando.value = true
 
   try {
@@ -202,11 +322,8 @@ async function ejecutarActualizarPreparacion(): Promise<void> {
       secretaria_legislativa: secretariaInput.value,
     }
 
-    if (numeroSesionInput.value.trim() !== '') {
-      const parsed = parseInt(numeroSesionInput.value.trim(), 10)
-      if (!isNaN(parsed) && parsed > 0) {
-        datosActualizacion.numero_sesion = parsed
-      }
+    if (validacionNum.numero !== undefined) {
+      datosActualizacion.numero_sesion = validacionNum.numero
     }
 
     await cliente.value.actualizarPreparacion(datosActualizacion)
@@ -472,6 +589,7 @@ const claseBadge = computed(() => {
               placeholder="Ej: 42"
               class="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs text-slate-100 placeholder-slate-500 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 disabled:opacity-50"
               :disabled="enviando || !conectado"
+              @input="numeroSesionDirty = true"
             />
           </div>
 
@@ -488,6 +606,7 @@ const claseBadge = computed(() => {
               placeholder="Nombre de autoridad"
               class="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs text-slate-100 placeholder-slate-500 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 disabled:opacity-50"
               :disabled="enviando || !conectado"
+              @input="presidenciaDirty = true"
             />
           </div>
 
@@ -504,6 +623,7 @@ const claseBadge = computed(() => {
               placeholder="Nombre de autoridad"
               class="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs text-slate-100 placeholder-slate-500 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 disabled:opacity-50"
               :disabled="enviando || !conectado"
+              @input="secretariaDirty = true"
             />
           </div>
         </div>
@@ -587,6 +707,31 @@ const claseBadge = computed(() => {
           </span>
         </div>
 
+        <!-- Resumen compacto de Quórum en Q1 durante sesión abierta (M1) -->
+        <div
+          v-if="estado.quorum"
+          data-testid="quorum-resumen-sesion"
+          class="flex items-center justify-between rounded-lg bg-slate-900/80 px-3 py-2 border border-slate-800 text-xs"
+        >
+          <div class="flex items-center gap-2">
+            <span class="text-slate-400 font-semibold">Quórum en sala:</span>
+            <span class="font-bold text-slate-100">
+              {{ estado.quorum.cantidad_presentes }} / {{ estado.quorum.requerido }} presentes
+            </span>
+          </div>
+          <span
+            data-testid="badge-quorum-resumen-sesion"
+            :class="[
+              'rounded px-2 py-0.5 text-[11px] font-bold',
+              estado.quorum.alcanzado
+                ? 'bg-emerald-950 text-emerald-300 border border-emerald-700'
+                : 'bg-amber-950 text-amber-300 border border-amber-700',
+            ]"
+          >
+            {{ estado.quorum.alcanzado ? 'Quórum legal' : 'Sin quórum' }}
+          </span>
+        </div>
+
         <!-- Edición de autoridades durante sesión abierta -->
         <div class="space-y-3">
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -605,6 +750,7 @@ const claseBadge = computed(() => {
                 placeholder="Nombre de autoridad"
                 class="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs text-slate-100 placeholder-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 disabled:opacity-50"
                 :disabled="enviando || !conectado"
+                @input="presidenciaDirty = true"
               />
             </div>
 
@@ -623,6 +769,7 @@ const claseBadge = computed(() => {
                 placeholder="Nombre de autoridad"
                 class="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs text-slate-100 placeholder-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 disabled:opacity-50"
                 :disabled="enviando || !conectado"
+                @input="secretariaDirty = true"
               />
             </div>
           </div>

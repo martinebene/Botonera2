@@ -11,7 +11,15 @@
  *    mediante un conteo de referencias (reference counting) síncrono por consumidor activo.
  */
 
-import { ref, computed, onScopeDispose, getCurrentScope, type Ref, type ComputedRef } from 'vue'
+import {
+  ref,
+  computed,
+  onMounted,
+  onScopeDispose,
+  getCurrentScope,
+  type Ref,
+  type ComputedRef,
+} from 'vue'
 import {
   crearClienteModeracion,
   type ClienteModeracion,
@@ -208,7 +216,7 @@ function obtenerOCrearInstanciaCompartida(
  */
 function registrarConsumidor(sincronizacion: SincronizacionModeracion): void {
   cantidadConsumidoresActivos++
-  if (cantidadConsumidoresActivos === 1) {
+  if (cantidadConsumidoresActivos >= 1) {
     sincronizacion.iniciar()
   }
 }
@@ -250,6 +258,9 @@ export function useEstadoModeracion(
 
   // Hook de destrucción del scope reactivo: desregistra el consumidor al destruirse el componente
   if (getCurrentScope()) {
+    onMounted(() => {
+      sincronizacion.iniciar()
+    })
     onScopeDispose(() => {
       if (!consumidorDesregistrado) {
         consumidorDesregistrado = true

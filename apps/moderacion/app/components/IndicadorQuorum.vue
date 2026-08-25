@@ -6,6 +6,8 @@
  * 1. Mostrar la cantidad de concejales presentes respecto al total del cuerpo y al mínimo requerido.
  * 2. Indicar con alto contraste si el quórum fue alcanzado o si se encuentra pendiente.
  * 3. Calcular e informar de manera puramente asistencial cuántos concejales faltan para el quórum.
+ * 4. M2: Si no existe contexto de quórum operativo (quorum === null), el componente no se renderiza
+ *    para evitar falsos indicadores de "Falta quórum 0/0" durante SIN_PREPARAR.
  *
  * Invariantes respetados:
  * - El cálculo local de concejales faltantes es exclusivamente informativo.
@@ -38,6 +40,7 @@ const faltantes = computed(() => Math.max(0, quorunRequerido.value - cantidadPre
 
 <template>
   <div
+    v-if="quorum"
     data-testid="indicador-quorum"
     class="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3"
     :class="

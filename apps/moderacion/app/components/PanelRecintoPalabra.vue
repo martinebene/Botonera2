@@ -4,6 +4,7 @@
  *
  * Responsabilidades:
  * 1. Mostrar el estado y condición del quórum reglamentario (presentes, requerido, faltantes).
+ *    M2: En SIN_PREPARAR (donde quorum es null), no renderiza un falso indicador 0/0.
  * 2. Disponer las bancas del recinto según la configuración de filas (filas_bancas) y padrón activo.
  * 3. Reflejar presencia física y test temporal de teclado en modo solo lectura.
  * 4. Presentar el estado actual del uso de la palabra (orador en curso y solicitudes en cola)
@@ -71,8 +72,12 @@ const cantidadEnCola = computed(() => props.estado?.palabra?.cola?.length ?? 0)
     :clase-badge="claseBadge"
   >
     <div class="space-y-4 text-sm text-slate-300">
-      <!-- Indicador principal de quórum reglamentario -->
-      <IndicadorQuorum v-if="estado" :quorum="estado.quorum" :total-concejales="totalConcejales" />
+      <!-- Indicador principal de quórum reglamentario (solo cuando existe contexto de quórum) (M2) -->
+      <IndicadorQuorum
+        v-if="estado && estado.quorum"
+        :quorum="estado.quorum"
+        :total-concejales="totalConcejales"
+      />
 
       <!-- Mapa y disposición de bancas del recinto -->
       <div

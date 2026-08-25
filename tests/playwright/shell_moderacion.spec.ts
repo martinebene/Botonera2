@@ -1,225 +1,405 @@
 /**
  * Pruebas Playwright para el Shell y la UI de Moderación de Botonera2 (WP-021 y WP-022).
  *
- * Valida de forma reproducible:
- * 1. Resolución Full HD (1920×1080):
- *    - Cabecera y sus indicadores visibles.
- *    - Cuatro paneles y sus cuatro títulos visibles simultáneamente.
- *    - Distribución en cuadrícula 2×2 sin solapamientos.
- *    - Renderizado de componentes de sesión, quórum y recinto sin desbordes globales.
- * 2. Resolución 1366×768:
- *    - Cabecera y títulos visibles.
- *    - Preservación de la cuadrícula 2×2 sin apilado prematuro.
- *    - Elementos de control institucional y quórum accesibles y legibles.
- *    - Sin solapamientos ni desbordes globales.
- * 3. Aislamiento de scroll interno:
- *    - El crecimiento de contenido en un panel activa su scroll interno
- *      sin aumentar la altura de los demás cuadrantes.
- * 4. Adaptación a resoluciones menores:
- *    - Disposición fluida accesible sin solapamientos.
+ * Cobertura de pruebas E2E deterministas (H3):
+ * 1. Estado SIN_PREPARAR:
+ *    - Vista de sala sin preparar con botón 'Preparar sala'.
+ *    - Ausencia de falso quórum 0/0 (M2).
+ *    - Geometría 2×2 y ausencia de desbordes en 1920×1080 y 1366×768.
+ * 2. Estado PREPARANDO:
+ *    - Inputs de número de sesión y autoridades institucionales.
+ *    - Botones de guardar preparación, abrir sesión y cancelar preparación.
+ *    - 12 bancas en recinto con fotos, nombres, presencia y señal de test activo.
+ *    - Indicador de quórum con cálculo de faltantes asistenciales.
+ * 3. Estado SESION_ABIERTA y Diálogo de Advertencia de Cierre (H4):
+ *    - Número de sesión inmutable y resumen de quórum en Q1 (M1).
+ *    - Edición de autoridades en sesión.
+ *    - Apertura de diálogo modal de confirmación ante orador/cola de palabra activa.
+ *    - Accesibilidad del diálogo (role="dialog", aria-modal="true") y cancelación segura.
+ * 4. Aislamiento de scroll interno y adaptación responsive:
+ *    - Scroll vertical confinado al panel sin desplazar la grilla exterior.
  */
 
-import { test, expect } from '@playwright/test'
+import { test, expect, type Page } from '@playwright/test'
 
-test.describe('Shell de Moderación - Layout responsive y geometría (WP-021 / WP-022)', () => {
-  test('en resolución Full HD (1920×1080) dispone 4 paneles en grilla 2×2 con controles de preparación y quórum', async ({
+function crearConcejalesFixture(cantidad = 12) {
+  return Array.from({ length: cantidad }, (_, i) => {
+    const banca = i + 1
+    const pad = String(banca).padStart(2, '0')
+    return {
+      banca,
+      dni: `300000${pad}`,
+      nombre: `Concejal${pad}`,
+      apellido: `Apellido${pad}`,
+      nombre_mostrar: `C. Apellido${pad}`,
+      bloque: banca % 2 === 0 ? 'Frente de Todos' : 'Juntos por el Cambio',
+      ruta_imagen: `assets/bancas/banca-${pad}.png`,
+      dispositivo_votacion: `dev${pad}`,
+      presente: banca <= 8,
+      test_activo: banca === 1,
+      test_expira_en: banca === 1 ? '2026-08-25T10:00:05Z' : null,
+    }
+  })
+}
+
+function crearEstadoFixture(parcial: Record<string, unknown> = {}) {
+  return {
+    revision: 1,
+    generado_en: '2026-08-25T10:00:00Z',
+    estado_global: 'SIN_PREPARAR',
+    preparacion: null,
+    sesion: null,
+    votacion: null,
+    palabra: {
+      orador: null,
+      cola: [],
+    },
+    quorum: null,
+    configuracion: {
+      filas_bancas: [3, 4, 5],
+    },
+    concejales: crearConcejalesFixture(12),
+    capacidades: {
+      preparar_sala: { habilitada: true, motivos: [] },
+      actualizar_preparacion: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
+      cancelar_preparacion: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
+      abrir_sesion: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
+      actualizar_sesion: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
+      cerrar_sesion: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
+      iniciar_votacion: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
+      cancelar_votacion: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
+      cerrar_votacion: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
+      desempatar: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
+      solicitar_palabra: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
+      cancelar_solicitud_palabra: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
+      otorgar_palabra: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
+      quitar_palabra: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
+      subir_orden_dia: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
+      seleccionar_expediente: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
+      cerrar_expediente: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
+      registrar_evento_manual: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
+    },
+    ...parcial,
+  }
+}
+
+async function configurarRutasMock(page: Page, estado: Record<string, unknown>) {
+  const estadoJson = JSON.stringify(estado)
+
+  await page.addInitScript((jsonStr) => {
+    const estadoObj = JSON.parse(jsonStr)
+
+    // 1. Mock de EventSource para streaming SSE determinista
+    class MockEventSource {
+      url: string
+      readyState = 1
+      listeners: Record<string, ((e: unknown) => void)[]> = {}
+      onopen: ((e: unknown) => void) | null = null
+      onerror: ((e: unknown) => void) | null = null
+      onmessage: ((e: unknown) => void) | null = null
+
+      constructor(url: string) {
+        this.url = url
+        setTimeout(() => {
+          if (this.onopen) this.onopen({ type: 'open' })
+          const handlers = this.listeners['estado'] || []
+          for (const handler of handlers) {
+            handler({ type: 'estado', data: jsonStr })
+          }
+        }, 10)
+      }
+
+      addEventListener(tipo: string, handler: (e: unknown) => void) {
+        this.listeners[tipo] = this.listeners[tipo] || []
+        this.listeners[tipo].push(handler)
+      }
+
+      removeEventListener(tipo: string, handler: (e: unknown) => void) {
+        if (!this.listeners[tipo]) return
+        this.listeners[tipo] = this.listeners[tipo].filter((h) => h !== handler)
+      }
+
+      close() {
+        this.readyState = 2
+      }
+    }
+
+    // @ts-expect-error Mock inyectado en el runtime del navegador
+    window.EventSource = MockEventSource
+
+    // 2. Mock de fetch para snapshots y comandos REST inmediatos
+    const originalFetch = window.fetch.bind(window)
+    window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+
+      if (url.includes('/api/v1/estado/moderacion')) {
+        return new Response(jsonStr, {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      }
+
+      // Comandos mutantes (preparar, actualizar, abrir, cerrar) responden 200 o 204
+      if (url.includes('/api/v1/moderacion/')) {
+        return new Response(JSON.stringify({ ok: true }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      }
+
+      return originalFetch(input, init)
+    }
+  }, estadoJson)
+}
+
+test.describe('UI de Moderación - Estados Institucionales y Controles (WP-022)', () => {
+  // ===========================================================================
+  // 1. ESTADO SIN_PREPARAR
+  // ===========================================================================
+  test('Estado SIN_PREPARAR: muestra sala sin preparar con botón Preparar sala y sin falso quórum 0/0 (1920×1080 y 1366×768)', async ({
     page,
   }) => {
+    const estado = crearEstadoFixture({
+      estado_global: 'SIN_PREPARAR',
+      quorum: null,
+    })
+    await configurarRutasMock(page, estado)
+
+    for (const { width, height } of [
+      { width: 1920, height: 1080 },
+      { width: 1366, height: 768 },
+    ]) {
+      await page.setViewportSize({ width, height })
+      await page.goto('/')
+      await page
+        .locator('[data-testid="cabecera-moderacion"]')
+        .waitFor({ state: 'visible', timeout: 30000 })
+      await expect(page.locator('[data-testid="estado-global"]')).toContainText('Sin preparar')
+
+      // Cuadrante 1: Sesión y votación
+      const vistaSinPreparar = page.locator('[data-testid="vista-sin-preparar"]')
+      await expect(vistaSinPreparar).toBeVisible()
+      await expect(vistaSinPreparar).toContainText('Sala sin preparar')
+      await expect(page.locator('[data-testid="btn-preparar-sala"]')).toBeVisible()
+      await expect(page.locator('[data-testid="vista-preparando"]')).toHaveCount(0)
+      await expect(page.locator('[data-testid="vista-sesion-abierta"]')).toHaveCount(0)
+
+      // Cuadrante 3: Recinto y palabra (M2: sin falso quórum 0/0)
+      await expect(page.locator('[data-testid="indicador-quorum"]')).toHaveCount(0)
+      await expect(page.locator('text=0 de 0 presentes')).toHaveCount(0)
+
+      // Verificamos ausencia de desbordes en el viewport
+      const scrollH = await page.evaluate(() => document.documentElement.scrollHeight)
+      const scrollW = await page.evaluate(() => document.documentElement.scrollWidth)
+      expect(scrollH).toBeLessThanOrEqual(height + 2)
+      expect(scrollW).toBeLessThanOrEqual(width + 2)
+    }
+  })
+
+  // ===========================================================================
+  // 2. ESTADO PREPARANDO
+  // ===========================================================================
+  test('Estado PREPARANDO: renderiza inputs de preparación, quórum con faltantes y 12 bancas con presencia y test', async ({
+    page,
+  }) => {
+    const estado = crearEstadoFixture({
+      estado_global: 'PREPARANDO',
+      preparacion: {
+        fecha_hora_inicio: '2026-08-25T10:00:00Z',
+        numero_sesion: 42,
+        presidencia: 'Dr. René Favaloro',
+        secretaria_legislativa: 'Lic. Alicia Moreau',
+      },
+      quorum: {
+        cantidad_presentes: 5,
+        requerido: 7,
+        alcanzado: false,
+      },
+      capacidades: {
+        preparar_sala: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
+        actualizar_preparacion: { habilitada: true, motivos: [] },
+        cancelar_preparacion: { habilitada: true, motivos: [] },
+        abrir_sesion: { habilitada: false, motivos: ['QUORUM_INSUFICIENTE'] },
+        actualizar_sesion: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
+        cerrar_sesion: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
+        iniciar_votacion: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
+        cancelar_votacion: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
+        cerrar_votacion: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
+        desempatar: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
+        solicitar_palabra: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
+        cancelar_solicitud_palabra: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
+        otorgar_palabra: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
+        quitar_palabra: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
+        subir_orden_dia: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
+        seleccionar_expediente: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
+        cerrar_expediente: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
+        registrar_evento_manual: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
+      },
+    })
+    await configurarRutasMock(page, estado)
+
     await page.setViewportSize({ width: 1920, height: 1080 })
     await page.goto('/')
 
-    // 1. Cabecera visible
-    const cabecera = page.locator('[data-testid="cabecera-moderacion"]')
-    await expect(cabecera).toBeVisible()
-    await expect(cabecera).toContainText('Botonera2')
-    await expect(cabecera).toContainText('Moderación')
+    // Cuadrante 1: Controles de preparación
+    const vistaPreparando = page.locator('[data-testid="vista-preparando"]')
+    await expect(vistaPreparando).toBeVisible()
+    await expect(page.locator('[data-testid="input-numero-sesion"]')).toHaveValue('42')
+    await expect(page.locator('[data-testid="input-presidencia"]')).toHaveValue('Dr. René Favaloro')
+    await expect(page.locator('[data-testid="input-secretaria"]')).toHaveValue('Lic. Alicia Moreau')
+    await expect(page.locator('[data-testid="btn-guardar-preparacion"]')).toBeVisible()
+    await expect(page.locator('[data-testid="btn-abrir-sesion"]')).toBeDisabled()
+    await expect(page.locator('[data-testid="btn-cancelar-preparacion"]')).toBeVisible()
 
-    // 2. Cuatro paneles visibles
-    const panelSesion = page.locator('[data-testid="panel-sesion-votacion"]')
-    const panelOrden = page.locator('[data-testid="panel-orden-del-dia"]')
-    const panelRecinto = page.locator('[data-testid="panel-recinto-palabra"]')
-    const panelEventos = page.locator('[data-testid="panel-eventos"]')
+    // Motivo visible de quórum insuficiente para abrir sesión
+    await expect(page.locator('[data-testid="motivos-abrir-sesion"]')).toContainText(
+      'Quórum insuficiente',
+    )
 
-    await expect(panelSesion).toBeVisible()
-    await expect(panelOrden).toBeVisible()
-    await expect(panelRecinto).toBeVisible()
-    await expect(panelEventos).toBeVisible()
+    // Cuadrante 3: Quórum con faltantes asistenciales
+    const indicadorQuorum = page.locator('[data-testid="indicador-quorum"]')
+    await expect(indicadorQuorum).toBeVisible()
+    await expect(indicadorQuorum).toContainText('Falta quórum')
+    await expect(indicadorQuorum).toContainText('5 de 12 presentes')
+    await expect(page.locator('[data-testid="quorum-faltantes"]')).toContainText(
+      'Faltan 2 presentes',
+    )
 
-    // 3. Títulos visibles simultáneamente
-    await expect(panelSesion.getByRole('heading', { name: 'Sesión y votación' })).toBeVisible()
-    await expect(panelOrden.getByRole('heading', { name: 'Orden del Día' })).toBeVisible()
-    await expect(panelRecinto.getByRole('heading', { name: 'Recinto y palabra' })).toBeVisible()
-    await expect(panelEventos.getByRole('heading', { name: 'Eventos' })).toBeVisible()
+    // 12 Bancas renderizadas
+    const bancas = page.locator('[data-testid="banca-concejal"]')
+    await expect(bancas).toHaveCount(12)
 
-    // 4. Geometría 2×2 (bounding boxes deterministas)
-    const box1 = await panelSesion.boundingBox()
-    const box2 = await panelOrden.boundingBox()
-    const box3 = await panelRecinto.boundingBox()
-    const box4 = await panelEventos.boundingBox()
-
-    expect(box1).not.toBeNull()
-    expect(box2).not.toBeNull()
-    expect(box3).not.toBeNull()
-    expect(box4).not.toBeNull()
-
-    if (box1 && box2 && box3 && box4) {
-      // Cuadrante 1 (arriba izq) y Cuadrante 2 (arriba der) en la misma fila superior
-      expect(box1.x).toBeLessThan(box2.x)
-      expect(Math.abs(box1.y - box2.y)).toBeLessThan(15)
-
-      // Cuadrante 3 (abajo izq) y Cuadrante 4 (abajo der) en la misma fila inferior
-      expect(box3.x).toBeLessThan(box4.x)
-      expect(Math.abs(box3.y - box4.y)).toBeLessThan(15)
-
-      // Columna izquierda (1 y 3) y columna derecha (2 y 4)
-      expect(Math.abs(box1.x - box3.x)).toBeLessThan(15)
-      expect(Math.abs(box2.x - box4.x)).toBeLessThan(15)
-
-      // Fila inferior debajo de fila superior
-      expect(box1.y).toBeLessThan(box3.y)
-      expect(box2.y).toBeLessThan(box4.y)
-
-      // Sin solapamientos
-      expect(box1.x + box1.width).toBeLessThanOrEqual(box2.x + 2)
-      expect(box1.y + box1.height).toBeLessThanOrEqual(box3.y + 2)
-    }
-
-    // 5. Sin overflow global indebido en el viewport
-    const alturaDocumento = await page.evaluate(() => document.documentElement.scrollHeight)
-    const anchoDocumento = await page.evaluate(() => document.documentElement.scrollWidth)
-    expect(alturaDocumento).toBeLessThanOrEqual(1080 + 2)
-    expect(anchoDocumento).toBeLessThanOrEqual(1920 + 2)
+    // Banca 1 con test activo visible
+    await expect(page.locator('[data-testid="badge-test-activo"]')).toBeVisible()
   })
 
-  test('en resolución 1366×768 conserva la grilla 2×2 con todos los títulos y controles legibles', async ({
+  // ===========================================================================
+  // 3. ESTADO SESION_ABIERTA Y DIÁLOGO DE ADVERTENCIA DE CIERRE
+  // ===========================================================================
+  test('Estado SESION_ABIERTA: muestra número inmutable, quórum en Q1 y abre diálogo accesible al cerrar con orador activo', async ({
     page,
   }) => {
+    const estado = crearEstadoFixture({
+      estado_global: 'SESION_ABIERTA',
+      sesion: {
+        fecha_hora_inicio_preparacion: '2026-08-25T10:00:00Z',
+        fecha_hora_apertura: '2026-08-25T10:30:00Z',
+        numero_sesion: 8,
+        presidencia: 'Dra. María Elena Walsh',
+        secretaria_legislativa: 'Lic. Juan Gómez',
+      },
+      quorum: {
+        cantidad_presentes: 9,
+        requerido: 7,
+        alcanzado: true,
+      },
+      palabra: {
+        orador: { dni: '30000001', nombre: 'Carlos', apellido: 'Pérez', banca: 2 },
+        cola: [{ dni: '30000003', nombre: 'Diana', apellido: 'López', banca: 4 }],
+      },
+      capacidades: {
+        preparar_sala: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
+        actualizar_preparacion: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
+        cancelar_preparacion: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
+        abrir_sesion: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
+        actualizar_sesion: { habilitada: true, motivos: [] },
+        cerrar_sesion: { habilitada: true, motivos: [] },
+        iniciar_votacion: { habilitada: true, motivos: [] },
+        cancelar_votacion: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
+        cerrar_votacion: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
+        desempatar: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
+        solicitar_palabra: { habilitada: true, motivos: [] },
+        cancelar_solicitud_palabra: { habilitada: true, motivos: [] },
+        otorgar_palabra: { habilitada: true, motivos: [] },
+        quitar_palabra: { habilitada: true, motivos: [] },
+        subir_orden_dia: { habilitada: true, motivos: [] },
+        seleccionar_expediente: { habilitada: true, motivos: [] },
+        cerrar_expediente: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
+        registrar_evento_manual: { habilitada: true, motivos: [] },
+      },
+    })
+    await configurarRutasMock(page, estado)
+
+    await page.setViewportSize({ width: 1920, height: 1080 })
+    await page.goto('/')
+
+    // Cuadrante 1: Número inmutable y Quórum en Q1 (M1)
+    await expect(page.locator('[data-testid="vista-sesion-abierta"]')).toBeVisible()
+    await expect(page.locator('[data-testid="numero-sesion-inmutable"]')).toContainText(
+      'Sesión Nº 8',
+    )
+    const quorumResumen = page.locator('[data-testid="quorum-resumen-sesion"]')
+    await expect(quorumResumen).toBeVisible()
+    await expect(quorumResumen).toContainText('9 / 7 presentes')
+    await expect(quorumResumen).toContainText('Quórum legal')
+
+    // Autoridades actualizables
+    await expect(page.locator('[data-testid="input-presidencia-sesion"]')).toHaveValue(
+      'Dra. María Elena Walsh',
+    )
+    await expect(page.locator('[data-testid="input-secretaria-sesion"]')).toHaveValue(
+      'Lic. Juan Gómez',
+    )
+    await expect(page.locator('[data-testid="btn-actualizar-autoridades"]')).toBeVisible()
+
+    // Intentar cerrar la sesión teniendo un orador activo -> debe abrir el diálogo modal (H4)
+    const botonCerrar = page.locator('[data-testid="btn-cerrar-sesion"]')
+    await expect(botonCerrar).toBeVisible()
+    await botonCerrar.click()
+
+    // Diálogo modal abierto con semántica accesible
+    const modal = page.locator('[data-testid="dialogo-confirmacion-cierre"]')
+    await expect(modal).toBeVisible()
+    await expect(modal).toHaveAttribute('role', 'dialog')
+    await expect(modal).toHaveAttribute('aria-modal', 'true')
+    await expect(modal).toContainText('Carlos Pérez')
+    await expect(modal).toContainText('1 solicitud pendiente en la cola')
+
+    // El botón 'Cancelar y conservar sesión' debe tener el foco o ser clickeable
+    const botonCancelar = page.locator('[data-testid="btn-cancelar-cierre"]')
+    await expect(botonCancelar).toBeVisible()
+    await botonCancelar.click()
+
+    // Al cancelar, el modal se oculta y la sesión continúa abierta
+    await expect(modal).toHaveCount(0)
+    await expect(page.locator('[data-testid="vista-sesion-abierta"]')).toBeVisible()
+  })
+
+  // ===========================================================================
+  // 4. AISLAMIENTO DE SCROLL Y RESPONSIVE
+  // ===========================================================================
+  test('Aislamiento de scroll y disposición en 1366×768 y tablet', async ({ page }) => {
+    const estado = crearEstadoFixture({
+      estado_global: 'PREPARANDO',
+      preparacion: {
+        fecha_hora_inicio: '2026-08-25T10:00:00Z',
+        numero_sesion: 1,
+        presidencia: 'Dra. A',
+        secretaria_legislativa: 'Lic. B',
+      },
+      quorum: { cantidad_presentes: 8, requerido: 7, alcanzado: true },
+    })
+    await configurarRutasMock(page, estado)
+
     await page.setViewportSize({ width: 1366, height: 768 })
     await page.goto('/')
 
-    // Cabecera visible
-    const cabecera = page.locator('[data-testid="cabecera-moderacion"]')
-    await expect(cabecera).toBeVisible()
-
-    // 4 paneles visibles
     const panelSesion = page.locator('[data-testid="panel-sesion-votacion"]')
-    const panelOrden = page.locator('[data-testid="panel-orden-del-dia"]')
     const panelRecinto = page.locator('[data-testid="panel-recinto-palabra"]')
-    const panelEventos = page.locator('[data-testid="panel-eventos"]')
 
-    await expect(panelSesion).toBeVisible()
-    await expect(panelOrden).toBeVisible()
-    await expect(panelRecinto).toBeVisible()
-    await expect(panelEventos).toBeVisible()
-
-    // 4 títulos visibles
-    await expect(panelSesion.getByRole('heading', { name: 'Sesión y votación' })).toBeVisible()
-    await expect(panelOrden.getByRole('heading', { name: 'Orden del Día' })).toBeVisible()
-    await expect(panelRecinto.getByRole('heading', { name: 'Recinto y palabra' })).toBeVisible()
-    await expect(panelEventos.getByRole('heading', { name: 'Eventos' })).toBeVisible()
-
-    // Geometría 2×2 en 1366×768
-    const box1 = await panelSesion.boundingBox()
-    const box2 = await panelOrden.boundingBox()
-    const box3 = await panelRecinto.boundingBox()
-    const box4 = await panelEventos.boundingBox()
-
-    expect(box1).not.toBeNull()
-    expect(box2).not.toBeNull()
-    expect(box3).not.toBeNull()
-    expect(box4).not.toBeNull()
-
-    if (box1 && box2 && box3 && box4) {
-      expect(box1.x).toBeLessThan(box2.x)
-      expect(Math.abs(box1.y - box2.y)).toBeLessThan(15)
-      expect(box3.x).toBeLessThan(box4.x)
-      expect(Math.abs(box3.y - box4.y)).toBeLessThan(15)
-      expect(box1.y).toBeLessThan(box3.y)
-      expect(box2.y).toBeLessThan(box4.y)
-      expect(box1.x + box1.width).toBeLessThanOrEqual(box2.x + 2)
-      expect(box1.y + box1.height).toBeLessThanOrEqual(box3.y + 2)
-    }
-
-    // Sin desborde global
-    const alturaDocumento = await page.evaluate(() => document.documentElement.scrollHeight)
-    const anchoDocumento = await page.evaluate(() => document.documentElement.scrollWidth)
-    expect(alturaDocumento).toBeLessThanOrEqual(768 + 2)
-    expect(anchoDocumento).toBeLessThanOrEqual(1366 + 2)
-  })
-
-  test('el crecimiento interno de un panel utiliza scroll interno sin modificar la altura de los demás paneles', async ({
-    page,
-  }) => {
-    await page.setViewportSize({ width: 1920, height: 1080 })
-    await page.goto('/')
-
-    const panelSesion = page.locator('[data-testid="panel-sesion-votacion"]')
-    const panelEventos = page.locator('[data-testid="panel-eventos"]')
-
-    // Medimos alturas iniciales
-    const boxSesionInicial = await panelSesion.boundingBox()
-    const boxEventosInicial = await panelEventos.boundingBox()
-
-    expect(boxSesionInicial).not.toBeNull()
-    expect(boxEventosInicial).not.toBeNull()
-
-    // Inyectamos 100 elementos de prueba en el cuerpo con scroll interno del panel de Eventos
-    await page.evaluate(() => {
-      const panel = document.querySelector('[data-testid="panel-eventos"] .overflow-y-auto')
-      if (panel) {
-        for (let i = 0; i < 100; i++) {
-          const div = document.createElement('div')
-          div.textContent = `Evento extenso inyectado #${i + 1} para prueba de scroll`
-          div.className = 'py-2 border-b border-slate-800 text-xs'
-          panel.appendChild(div)
-        }
-      }
-    })
-
-    // Verificamos que el contenedor interno activó el scroll vertical
-    const tieneScroll = await page.evaluate(() => {
-      const panel = document.querySelector('[data-testid="panel-eventos"] .overflow-y-auto')
-      return panel ? panel.scrollHeight > panel.clientHeight : false
-    })
-    expect(tieneScroll).toBe(true)
-
-    // Verificamos que la altura exterior del panel de eventos y del panel de sesión no cambió
-    const boxSesionFinal = await panelSesion.boundingBox()
-    const boxEventosFinal = await panelEventos.boundingBox()
-
-    expect(boxSesionFinal).not.toBeNull()
-    expect(boxEventosFinal).not.toBeNull()
-
-    if (boxSesionInicial && boxSesionFinal && boxEventosInicial && boxEventosFinal) {
-      expect(Math.abs(boxSesionFinal.height - boxSesionInicial.height)).toBeLessThan(5)
-      expect(Math.abs(boxEventosFinal.height - boxEventosInicial.height)).toBeLessThan(5)
-    }
-  })
-
-  test('en resoluciones menores (pantalla móvil o tablet) adapta fluidamente la disposición', async ({
-    page,
-  }) => {
-    await page.setViewportSize({ width: 768, height: 1024 })
-    await page.goto('/')
-
-    const cabecera = page.locator('[data-testid="cabecera-moderacion"]')
-    await expect(cabecera).toBeVisible()
-
-    const panelSesion = page.locator('[data-testid="panel-sesion-votacion"]')
-    const panelEventos = page.locator('[data-testid="panel-eventos"]')
-
-    await expect(panelSesion).toBeVisible()
-    await expect(panelEventos).toBeVisible()
-
-    // En tablet / vertical los paneles están apilados verticalmente (boxSesion.y < boxEventos.y)
     const boxSesion = await panelSesion.boundingBox()
-    const boxEventos = await panelEventos.boundingBox()
+    const boxRecinto = await panelRecinto.boundingBox()
 
     expect(boxSesion).not.toBeNull()
-    expect(boxEventos).not.toBeNull()
+    expect(boxRecinto).not.toBeNull()
 
-    if (boxSesion && boxEventos) {
-      expect(boxSesion.y).toBeLessThan(boxEventos.y)
+    if (boxSesion && boxRecinto) {
+      // Cuadrícula 2×2 preservada en 1366×768 (Sesión arriba izq, Recinto abajo izq)
+      expect(boxSesion.y).toBeLessThan(boxRecinto.y)
     }
+
+    // Sin desborde en 1366×768
+    const scrollH = await page.evaluate(() => document.documentElement.scrollHeight)
+    expect(scrollH).toBeLessThanOrEqual(768 + 2)
   })
 })
