@@ -132,11 +132,13 @@ WP-020 quedó integrado mediante squash merge de PR #26 sobre el candidato final
 | WP | Objetivo | Estado | Depende de | Agente |
 |---|---|---|---|---|
 | WP-021 | Crear shell de Moderación, layout responsive y sincronización mediante `api-client` | INTEGRADO | WP-018 | - |
-| WP-022 | Implementar UI de preparación, presencia, autoridades, sesión y advertencia de cierre con palabra pendiente | PENDIENTE | WP-021, WP-008 | - |
+| WP-022 | Implementar UI de preparación, presencia, autoridades, sesión y advertencia de cierre con palabra pendiente | EN_CURSO | WP-021, WP-008 | antigravity |
 | WP-023 | Implementar UI de votaciones, resultado, desempate, Orden del Día y advertencia de apertura con palabra pendiente | PENDIENTE | WP-021, WP-014, WP-016 | - |
 | WP-024 | Implementar UI de palabra con semántica Otorgar/Quitar definida, eventos y remapeo de dispositivos | PENDIENTE | WP-021, WP-015, WP-020 | - |
 
 WP-021 quedó integrado mediante squash merge de PR #27 sobre el candidato final `660cacfe9e87ffb4e9fa7d189763d49bfb45ca01`, después de una tercera re-revisión independiente con OpenCode + DeepSeek V4 Pro que concluyó `LISTA PARA INTEGRAR` con cero hallazgos BLOQUEANTES e IMPORTANTES y un hallazgo MENOR no bloqueante. El squash produjo `2c037261e5a234bb95ce3463de5b4923884630c4` en `main`. Su primer gate post-merge quedó cancelado por una flake backend preexistente del teardown de fronteras temporales, posteriormente aislada y corregida por WP-032; la CI post-merge #193 / run `32861046565` sobre el main que incluye ambos cambios terminó verde 6/6, por lo que el cierre canónico de WP-021 queda completado.
+
+WP-022 está `EN_CURSO` con Antigravity/AGY + Gemini 3.7 Flash High como implementador y OpenCode + DeepSeek V4 Pro seleccionado como revisor independiente secuencial. La asignación fue aprobada explícitamente por el humano antes del inicio.
 
 WP-022, WP-023 y WP-024 pueden ejecutarse en paralelo cuando sus dependencias estén integradas, usando worktrees diferentes y sin superposición no coordinada.
 
@@ -190,8 +192,10 @@ Los lanzadores no pueden aprobar WPs, cambiar su estado en PLAN ni modificar `ma
 
 WP-001, WP-002, WP-003, WP-004, WP-005, WP-006, WP-007, WP-008, WP-009, WP-010, WP-011, WP-013, WP-014, WP-015, WP-016, WP-017, WP-018, WP-019, WP-020, WP-021, WP-030, WP-031 y WP-032 están `INTEGRADO` y sin agente operativo asignado.
 
+WP-022 está `EN_CURSO` con `antigravity` como agente implementador. El modelo operativo acordado es Gemini 3.7 Flash High y el revisor independiente reservado para el relevo secuencial es OpenCode + DeepSeek V4 Pro.
+
 DEC-007, DEC-009, DEC-010, DEC-011, DEC-012, DEC-013, DEC-014, DEC-015 y DEC-016 están vigentes. Orca continúa como entorno operativo preferido mientras esté en uso.
 
-Con WP-021 cerrado, quedan habilitados documentalmente WP-022, WP-023 y WP-024 conforme a sus dependencias ya integradas. WP-025 también continúa disponible para ejecución en paralelo porque depende de WP-018 y WP-015, ambos integrados. Antes de lanzar cualquiera de ellos deben cumplirse nuevamente el preflight de formato, la selección de implementador/revisor y la transición a `EN_CURSO` conforme DEC-007.
+WP-023, WP-024 y WP-025 continúan documentalmente disponibles para ejecución paralela conforme a sus dependencias, pero no deben iniciarse sin su propia planificación/aprobación operativa y selección de agentes conforme DEC-007.
 
 La discrepancia preexistente `D-01..D-12` versus `dev01..dev12` debe resolverse antes de una prueba integrada que dependa de la configuración raíz.
