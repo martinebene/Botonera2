@@ -112,9 +112,9 @@ WP-018 quedó integrado mediante squash merge de PR #24 sobre el candidato final
 
 | WP | Objetivo | Estado | Depende de | Agente |
 |---|---|---|---|---|
-| WP-032 | Corregir pérdida de cancelación en fronteras temporales y estabilizar teardown/CI del backend | EN_CURSO | WP-017 | codex |
+| WP-032 | Corregir pérdida de cancelación en fronteras temporales y estabilizar teardown/CI del backend | INTEGRADO | WP-017 | - |
 
-WP-032 fue creado después de detectar durante el gate post-merge de WP-021 una flake backend reproducible en el teardown del lifespan. La evidencia diagnóstica ubica la anomalía en el lifecycle de `ServicioFronterasTemporales`, incorporado por WP-017. El hotfix está documentalmente `APROBADO`, no modifica el alcance funcional de WP-021 y debe integrarse antes de dar por cerrado su gate post-merge. Codex es el implementador operativo acordado; OpenCode con DeepSeek V4 Pro queda previsto como revisor independiente y permanecerá inactivo durante la implementación.
+WP-032 quedó integrado mediante squash merge de PR #28 sobre el candidato `ae0b5fa8e2c36b5a00f1711650e72e575d5e597d`, después de CI candidata #192 / run `32857548560` verde 6/6 y revisión independiente con OpenCode + DeepSeek V4 Pro, que concluyó `LISTA PARA INTEGRAR` con cero hallazgos BLOQUEANTES, IMPORTANTES y MENORES. El squash produjo `8e2cf38c0ddd4fd9a003df0754497253fcf710ff` en `main`. La CI post-merge #193 / run `32861046565` terminó `success` 6/6 y `Backend · pruebas` completó `uv run pytest` normalmente, confirmando que la condición de carrera de cancelación que había bloqueado el gate post-merge de WP-021 quedó corregida.
 
 ## Fase 5 - Hardware y bridge
 
@@ -131,10 +131,12 @@ WP-020 quedó integrado mediante squash merge de PR #26 sobre el candidato final
 
 | WP | Objetivo | Estado | Depende de | Agente |
 |---|---|---|---|---|
-| WP-021 | Crear shell de Moderación, layout responsive y sincronización mediante `api-client` | EN_CURSO | WP-018 | antigravity |
+| WP-021 | Crear shell de Moderación, layout responsive y sincronización mediante `api-client` | INTEGRADO | WP-018 | - |
 | WP-022 | Implementar UI de preparación, presencia, autoridades, sesión y advertencia de cierre con palabra pendiente | PENDIENTE | WP-021, WP-008 | - |
 | WP-023 | Implementar UI de votaciones, resultado, desempate, Orden del Día y advertencia de apertura con palabra pendiente | PENDIENTE | WP-021, WP-014, WP-016 | - |
 | WP-024 | Implementar UI de palabra con semántica Otorgar/Quitar definida, eventos y remapeo de dispositivos | PENDIENTE | WP-021, WP-015, WP-020 | - |
+
+WP-021 quedó integrado mediante squash merge de PR #27 sobre el candidato final `660cacfe9e87ffb4e9fa7d189763d49bfb45ca01`, después de una tercera re-revisión independiente con OpenCode + DeepSeek V4 Pro que concluyó `LISTA PARA INTEGRAR` con cero hallazgos BLOQUEANTES e IMPORTANTES y un hallazgo MENOR no bloqueante. El squash produjo `2c037261e5a234bb95ce3463de5b4923884630c4` en `main`. Su primer gate post-merge quedó cancelado por una flake backend preexistente del teardown de fronteras temporales, posteriormente aislada y corregida por WP-032; la CI post-merge #193 / run `32861046565` sobre el main que incluye ambos cambios terminó verde 6/6, por lo que el cierre canónico de WP-021 queda completado.
 
 WP-022, WP-023 y WP-024 pueden ejecutarse en paralelo cuando sus dependencias estén integradas, usando worktrees diferentes y sin superposición no coordinada.
 
@@ -186,12 +188,10 @@ Los lanzadores no pueden aprobar WPs, cambiar su estado en PLAN ni modificar `ma
 
 ## Próximo punto de control
 
-WP-001, WP-002, WP-003, WP-004, WP-005, WP-006, WP-007, WP-008, WP-009, WP-010, WP-011, WP-013, WP-014, WP-015, WP-016, WP-017, WP-018, WP-019, WP-020, WP-030 y WP-031 están `INTEGRADO` y sin agente operativo asignado.
+WP-001, WP-002, WP-003, WP-004, WP-005, WP-006, WP-007, WP-008, WP-009, WP-010, WP-011, WP-013, WP-014, WP-015, WP-016, WP-017, WP-018, WP-019, WP-020, WP-021, WP-030, WP-031 y WP-032 están `INTEGRADO` y sin agente operativo asignado.
 
 DEC-007, DEC-009, DEC-010, DEC-011, DEC-012, DEC-013, DEC-014, DEC-015 y DEC-016 están vigentes. Orca continúa como entorno operativo preferido mientras esté en uso.
 
-WP-021 ya fue revisado con veredicto final `LISTA PARA INTEGRAR` e incorporado por squash en `main` mediante `2c037261e5a234bb95ce3463de5b4923884630c4`, pero permanece administrativamente `EN_CURSO` hasta completar un gate post-merge verde. Ese gate descubrió una flake backend preexistente en el teardown de fronteras temporales; por ello no se habilitan todavía sus WPs dependientes ni se limpia su worktree.
+Con WP-021 cerrado, quedan habilitados documentalmente WP-022, WP-023 y WP-024 conforme a sus dependencias ya integradas. WP-025 también continúa disponible para ejecución en paralelo porque depende de WP-018 y WP-015, ambos integrados. Antes de lanzar cualquiera de ellos deben cumplirse nuevamente el preflight de formato, la selección de implementador/revisor y la transición a `EN_CURSO` conforme DEC-007.
 
-WP-032 está documentalmente `APROBADO`, figura `EN_CURSO`, depende únicamente de WP-017 ya integrado y tiene a Codex como implementador operativo acordado. OpenCode con DeepSeek V4 Pro es el revisor independiente previsto y permanece inactivo hasta la entrega de un candidato remoto y la habilitación explícita de revisión. El run de CI documental que puede quedar detenido en el mismo defecto objetivo no se usa como puerta circular para impedir el hotfix; el candidato de WP-032 sí deberá tener CI completa verde antes de revisión/integración.
-
-La discrepancia preexistente `D-01..D-12` versus `dev01..dev12` debe resolverse antes de una prueba integrada que dependa de la configuración raíz, pero no pertenece al alcance de WP-032.
+La discrepancia preexistente `D-01..D-12` versus `dev01..dev12` debe resolverse antes de una prueba integrada que dependa de la configuración raíz.
