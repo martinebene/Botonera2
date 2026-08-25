@@ -94,11 +94,53 @@ if (typeof globalThis.document === 'undefined' || !globalThis.document.querySele
     }
   }
 
+  class MockStyle {
+    [key: string]: unknown
+
+    setProperty(name: string, val: string) {
+      this[name] = val
+    }
+
+    removeProperty(name: string) {
+      Reflect.deleteProperty(this, name)
+    }
+
+    getPropertyValue(name: string): string {
+      return (this[name] as string) ?? ''
+    }
+  }
+
   class MockNode {
     nodeType = 1
     childNodes: MockNode[] = []
     parentNode: MockNode | null = null
     ownerDocument: unknown = null
+    private _nodeValue = ''
+
+    get nodeValue(): string {
+      return this._nodeValue
+    }
+    set nodeValue(val: string) {
+      this._nodeValue = String(val)
+    }
+
+    get textContent(): string {
+      if (this.nodeType === 3) return this._nodeValue
+      return this.childNodes.map((c) => c.textContent).join('')
+    }
+    set textContent(val: string) {
+      if (this.nodeType === 3) {
+        this._nodeValue = String(val)
+      } else {
+        this.childNodes = []
+        if (val) {
+          const textNode = new MockNode()
+          textNode.nodeType = 3
+          textNode.nodeValue = String(val)
+          this.appendChild(textNode)
+        }
+      }
+    }
 
     get children(): MockElement[] {
       return this.childNodes.filter((n): n is MockElement => n.nodeType === 1)
@@ -112,6 +154,15 @@ if (typeof globalThis.document === 'undefined' || !globalThis.document.querySele
       return this.childNodes[this.childNodes.length - 1] ?? null
     }
 
+    get firstElementChild(): MockElement | null {
+      return this.children[0] ?? null
+    }
+
+    get lastElementChild(): MockElement | null {
+      const ch = this.children
+      return ch[ch.length - 1] ?? null
+    }
+
     get nextSibling(): MockNode | null {
       if (!this.parentNode) return null
       const idx = this.parentNode.childNodes.indexOf(this)
@@ -119,21 +170,117 @@ if (typeof globalThis.document === 'undefined' || !globalThis.document.querySele
         ? this.parentNode.childNodes[idx + 1]
         : null
     }
+
+    get previousSibling(): MockNode | null {
+      if (!this.parentNode) return null
+      const idx = this.parentNode.childNodes.indexOf(this)
+      return idx > 0 ? this.parentNode.childNodes[idx - 1] : null
+    }
+
+    get nextElementSibling(): MockElement | null {
+      if (!this.parentNode) return null
+      const siblings = (this.parentNode as MockElement).children ?? []
+      const idx = siblings.indexOf(this as unknown as MockElement)
+      return idx >= 0 && idx < siblings.length - 1 ? siblings[idx + 1] : null
+    }
+
+    get previousElementSibling(): MockElement | null {
+      if (!this.parentNode) return null
+      const siblings = (this.parentNode as MockElement).children ?? []
+      const idx = siblings.indexOf(this as unknown as MockElement)
+      return idx > 0 ? siblings[idx - 1] : null
+    }
+
+    appendChild(child: MockNode): MockNode {
+      if (child.nodeType === 11) {
+        // DocumentFragment: transferir todos los hijos síncronamente
+        const children = [...child.childNodes]
+        child.childNodes = []
+        for (const c of children) {
+          this.appendChild(c)
+        }
+        return child
+      }
+      child.parentNode = this
+      this.childNodes.push(child)
+      return child
+    }
+
+    removeChild(child: MockNode): MockNode {
+      const idx = this.childNodes.indexOf(child)
+      if (idx !== -1) {
+        child.parentNode = null
+        this.childNodes.splice(idx, 1)
+      }
+      return child
+    }
+
+    insertBefore(newNode: MockNode, referenceNode: MockNode | null): MockNode {
+      if (newNode.nodeType === 11) {
+        // DocumentFragment: transferir todos los hijos síncronamente
+        const children = [...newNode.childNodes]
+        newNode.childNodes = []
+        for (const c of children) {
+          this.insertBefore(c, referenceNode)
+        }
+        return newNode
+      }
+      newNode.parentNode = this
+      if (!referenceNode) {
+        this.childNodes.push(newNode)
+        return newNode
+      }
+      const idx = this.childNodes.indexOf(referenceNode)
+      if (idx !== -1) {
+        this.childNodes.splice(idx, 0, newNode)
+      } else {
+        this.childNodes.push(newNode)
+      }
+      return newNode
+    }
+
+    contains(other: MockNode | null): boolean {
+      if (!other) return false
+      if (other === this) return true
+      let current = other.parentNode
+      while (current) {
+        if (current === this) return true
+        current = current.parentNode
+      }
+      return false
+    }
+
+    cloneNode(deep = false): MockNode {
+      const clone = new MockElement((this as unknown as MockElement).tagName ?? 'DIV')
+      clone.nodeType = this.nodeType
+      clone.nodeValue = this.nodeValue
+      if (this instanceof MockElement) {
+        clone.attributes = { ...this.attributes }
+        clone.classList = new MockClassList(this.classList.value)
+        clone.value = this.value
+      }
+      if (deep) {
+        for (const child of this.childNodes) {
+          clone.appendChild(child.cloneNode(true))
+        }
+      }
+      return clone
+    }
   }
 
   class MockElement extends MockNode {
     tagName = 'DIV'
-    style: Record<string, string> = {}
+    style: MockStyle
     attributes: Record<string, string> = {}
     listeners: Record<string, Listener[]> = {}
     classList: MockClassList
     private _value = ''
-    private _textContent = ''
 
     constructor(tagName = 'DIV') {
       super()
       this.tagName = tagName.toUpperCase()
       this.classList = new MockClassList()
+      this.style = new MockStyle()
     }
 
     get id(): string {
@@ -168,55 +315,28 @@ if (typeof globalThis.document === 'undefined' || !globalThis.document.querySele
       }
     }
 
-    get textContent(): string {
-      if (this.childNodes.length === 0) return this._textContent
+    get innerHTML(): string {
       return this.childNodes
-        .map((n) =>
-          n instanceof MockElement
-            ? n.textContent
-            : ((n as { textContent?: string }).textContent ?? ''),
-        )
+        .map((n) => {
+          if (n.nodeType === 3) {
+            return n.nodeValue
+          }
+          if (n.nodeType === 8) {
+            return `<!--${n.nodeValue}-->`
+          }
+          if (n instanceof MockElement) {
+            const tag = n.tagName.toLowerCase()
+            const attrs = Object.entries(n.attributes)
+              .map(([k, v]) => (v === '' ? k : `${k}="${v}"`))
+              .join(' ')
+            const attrStr = attrs ? ` ${attrs}` : ''
+            return `<${tag}${attrStr}>${n.innerHTML}</${tag}>`
+          }
+          return ''
+        })
         .join('')
     }
-    set textContent(val: string) {
-      this._textContent = String(val)
-      this.childNodes = []
-    }
-
-    get innerHTML(): string {
-      return this.textContent
-    }
     set innerHTML(_val: string) {}
-
-    appendChild(child: MockNode): MockNode {
-      child.parentNode = this
-      this.childNodes.push(child)
-      return child
-    }
-
-    removeChild(child: MockNode): MockNode {
-      const idx = this.childNodes.indexOf(child)
-      if (idx !== -1) {
-        child.parentNode = null
-        this.childNodes.splice(idx, 1)
-      }
-      return child
-    }
-
-    insertBefore(newNode: MockNode, referenceNode: MockNode | null): MockNode {
-      newNode.parentNode = this
-      if (!referenceNode) {
-        this.childNodes.push(newNode)
-        return newNode
-      }
-      const idx = this.childNodes.indexOf(referenceNode)
-      if (idx !== -1) {
-        this.childNodes.splice(idx, 0, newNode)
-      } else {
-        this.childNodes.push(newNode)
-      }
-      return newNode
-    }
 
     setAttribute(name: string, val: string) {
       this.attributes[name] = String(val)
@@ -304,10 +424,30 @@ if (typeof globalThis.document === 'undefined' || !globalThis.document.querySele
       if (selector === 'button:not([disabled])') {
         return this.tagName === 'BUTTON' && !this.disabled
       }
+      if (selector === '[tabindex]:not([tabindex="-1"])') {
+        return (
+          this.hasAttribute('tabindex') && this.getAttribute('tabindex') !== '-1' && !this.disabled
+        )
+      }
       return this.tagName.toLowerCase() === selector.toLowerCase()
     }
 
     querySelector(selector: string): MockElement | null {
+      // Soporte para selectores compuestos separados por coma
+      if (selector.includes(',')) {
+        const parts = selector.split(',').map((s) => s.trim())
+        for (const part of parts) {
+          const found = this.querySelector(part)
+          if (found) return found
+        }
+        return null
+      }
+      // Soporte para selectores descendientes
+      const descendantParts = selector.trim().split(/\s+/)
+      if (descendantParts.length > 1) {
+        const first = this.querySelector(descendantParts[0])
+        return first ? first.querySelector(descendantParts.slice(1).join(' ')) : null
+      }
       for (const child of this.children) {
         if (child.matches(selector)) return child
         const found = child.querySelector(selector)
@@ -317,6 +457,25 @@ if (typeof globalThis.document === 'undefined' || !globalThis.document.querySele
     }
 
     querySelectorAll(selector: string): MockElement[] {
+      // Soporte para selectores compuestos separados por coma
+      if (selector.includes(',')) {
+        const parts = selector.split(',').map((s) => s.trim())
+        const set = new Set<MockElement>()
+        for (const part of parts) {
+          this.querySelectorAll(part).forEach((el) => set.add(el))
+        }
+        return Array.from(set)
+      }
+      // Soporte para selectores descendientes
+      const descendantParts = selector.trim().split(/\s+/)
+      if (descendantParts.length > 1) {
+        const firsts = this.querySelectorAll(descendantParts[0])
+        const results: MockElement[] = []
+        for (const f of firsts) {
+          results.push(...f.querySelectorAll(descendantParts.slice(1).join(' ')))
+        }
+        return results
+      }
       const results: MockElement[] = []
       for (const child of this.children) {
         if (child.matches(selector)) results.push(child)
@@ -343,18 +502,21 @@ if (typeof globalThis.document === 'undefined' || !globalThis.document.querySele
   const mockDoc = {
     createElement: (tag: string) => new MockHTMLElement(tag),
     createElementNS: (_ns: string, tag: string) => new MockSVGElement(tag),
+    createDocumentFragment: () => {
+      const fragment = new MockNode()
+      fragment.nodeType = 11
+      return fragment
+    },
     createTextNode: (text: string) => {
       const n = new MockNode()
       n.nodeType = 3
-      // @ts-expect-error Asignación de textContent en nodo mock
-      n.textContent = String(text)
+      n.nodeValue = String(text)
       return n
     },
     createComment: (text: string) => {
       const n = new MockNode()
       n.nodeType = 8
-      // @ts-expect-error Asignación de textContent en nodo mock
-      n.textContent = String(text)
+      n.nodeValue = String(text)
       return n
     },
     activeElement: null as MockElement | null,

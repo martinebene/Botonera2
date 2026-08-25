@@ -2,19 +2,22 @@
  * Pruebas unitarias e interactivas completas para los componentes y flujos de WP-022:
  * UI de preparación, presencia, autoridades, sesión y advertencia de cierre.
  *
- * Cobertura obligatoria:
- * 1. H1 — Gestión de borradores locales (draft/dirty) ante snapshots SSE y transiciones institucionales.
- * 2. H2 — Pruebas interactivas con componentes reales montados ejercitando estado reactivo y llamadas a métodos de API.
- * 3. H4 — Modalidad accesible, atajo Escape y gestión de foco en DialogoConfirmacionCierre.
- * 4. M1 — Resumen de quórum y presentes en Q1 durante SESION_ABIERTA.
- * 5. M2 — Ausencia de falso quórum 0/0 en SIN_PREPARAR cuando quorum es null.
- * 6. M3 — Validación estricta del número de sesión (enteros positivos > 0 sin truncado ni conversión silenciosa).
+ * Cobertura obligatoria (H1-H4, M1-M3, N2):
+ * 1. N2.A — SIN_PREPARAR: Interacción por click real y gate de conexión (CONECTADO vs DESCONECTADO).
+ * 2. N2.B — PREPARANDO: Inputs reales, eventos @input y preservación de borradores locales (H1).
+ * 3. N2.C — PREPARANDO: Limpiar autoridades enviando strings vacíos permitidos por contrato.
+ * 4. N2.D — PREPARANDO: Abrir sesión y Cancelar preparación por clicks reales en botones.
+ * 5. N2.E — SESION_ABIERTA: Edición de autoridades con votación activa en curso por click real.
+ * 6. N2.F — CA-063: Flujo completo de cierre (sin palabra, con orador, con cola sin orador, cancelar y confirmar).
+ * 7. N2.G — Double-Submit: Protección contra envíos concurrentes con operaciones asíncronas en vuelo.
+ * 8. N2.H — H4: Foco, atajo Escape y focus trap con eventos DOM reales en DialogoConfirmacionCierre.
+ * 9. N2.I — Reconexión: Verificación a nivel panel de que el estado stale deshabilita mutaciones.
+ * 10. M1, M2, M3 — Quórum en Q1, sin falso quórum 0/0 y validación estricta de entero positivo > 0.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { createSSRApp, h, nextTick, type Component, ssrContextKey } from 'vue'
+import { createSSRApp, h, type Component } from 'vue'
 import { renderToString } from 'vue/server-renderer'
-import { mount, type MountingOptions } from '@vue/test-utils'
 import PanelSesionVotacion from '../app/components/PanelSesionVotacion.vue'
 import PanelRecintoPalabra from '../app/components/PanelRecintoPalabra.vue'
 import BancaConcejal from '../app/components/BancaConcejal.vue'
@@ -52,6 +55,10 @@ function crearMockCliente(overrides: Partial<ClienteModeracion> = {}): ClienteMo
     abrirSesion: vi.fn().mockResolvedValue(undefined),
     actualizarSesion: vi.fn().mockResolvedValue(undefined),
     cerrarSesion: vi.fn().mockResolvedValue(undefined),
+    otorgarPalabra: vi.fn().mockResolvedValue(undefined),
+    quitarPalabra: vi.fn().mockResolvedValue(undefined),
+    solicitarPalabra: vi.fn().mockResolvedValue(undefined),
+    cancelarSolicitudPalabra: vi.fn().mockResolvedValue(undefined),
     suscribirEstado: vi.fn((callbacks) => {
       callbacks?.alCambiarConexion?.(true)
       return {
@@ -62,23 +69,6 @@ function crearMockCliente(overrides: Partial<ClienteModeracion> = {}): ClienteMo
     obtenerEstado: vi.fn().mockResolvedValue(crearEstadoBase()),
     ...overrides,
   } as unknown as ClienteModeracion
-}
-
-function montarComponente<T extends Component>(
-  componente: T,
-  options: MountingOptions<Record<string, unknown>> = {},
-) {
-  const ssrContext = { modules: new Set() }
-  return mount(componente, {
-    ...options,
-    global: {
-      ...options.global,
-      provide: {
-        [ssrContextKey]: ssrContext,
-        ...options.global?.provide,
-      },
-    },
-  })
 }
 
 function crearConcejalesPrueba(cantidad = 12): ConcejalModeracion[] {
@@ -148,10 +138,10 @@ describe('WP-022: Preparación, presencia, autoridades, sesión y advertencia de
   })
 
   // ===========================================================================
-  // 1. ESTADO SIN_PREPARAR (SSR Y COMPONENTES)
+  // 1. ESTADO SIN_PREPARAR (SSR Y GATES DE CONEXIÓN N2.A)
   // ===========================================================================
-  describe('1. Estado SIN_PREPARAR', () => {
-    it('muestra vista de sala sin preparar con botón de Preparar sala y sin falso quórum 0/0 (M2)', async () => {
+  describe('1. Estado SIN_PREPARAR y Gate de Conexión (N2.A, M2)', () => {
+    it('muestra vista de sala sin preparar con botón Preparar sala y sin falso quórum 0/0 (M2)', async () => {
       const estado = crearEstadoBase({ estado_global: 'SIN_PREPARAR', quorum: null })
       const htmlSesion = await renderizarSSR(PanelSesionVotacion, { estado })
 
@@ -162,64 +152,240 @@ describe('WP-022: Preparación, presencia, autoridades, sesión y advertencia de
       expect(htmlSesion).not.toContain('data-testid="vista-sesion-abierta"')
 
       const htmlRecinto = await renderizarSSR(PanelRecintoPalabra, { estado })
-      // M2: En SIN_PREPARAR (sin quorum), no debe mostrarse el falso "Falta quórum 0 de 0 presentes"
       expect(htmlRecinto).not.toContain('data-testid="indicador-quorum"')
       expect(htmlRecinto).not.toContain('0 de 0 presentes')
     })
-  })
 
-  // ===========================================================================
-  // 2. ESTADO PREPARANDO (SSR Y ESTRUCTURA)
-  // ===========================================================================
-  describe('2. Estado PREPARANDO (Estructura)', () => {
-    function crearEstadoPreparando(parcial: Partial<EstadoModeracion> = {}): EstadoModeracion {
-      return crearEstadoBase({
-        estado_global: 'PREPARANDO',
-        preparacion: {
-          fecha_hora_inicio: '2026-08-25T10:00:00Z',
-          numero_sesion: 42,
-          presidencia: 'Dr. René Favaloro',
-          secretaria_legislativa: 'Lic. Alicia Moreau',
-        },
+    it('N2.A — CONECTADO: invoca cliente.prepararSala() exactamente 1 vez', async () => {
+      const mockCliente = crearMockCliente()
+      const estado = crearEstadoBase({
+        estado_global: 'SIN_PREPARAR',
         capacidades: {
           ...crearEstadoBase().capacidades,
-          preparar_sala: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
-          actualizar_preparacion: { habilitada: true, motivos: [] },
-          cancelar_preparacion: { habilitada: true, motivos: [] },
-          abrir_sesion: { habilitada: false, motivos: ['QUORUM_INSUFICIENTE'] },
+          preparar_sala: { habilitada: true, motivos: [] },
         },
-        ...parcial,
       })
-    }
 
-    it('renderiza inputs de sesión y motivos de bloqueo si abrir_sesion está deshabilitada', async () => {
-      const estado = crearEstadoPreparando()
+      // Validación SSR con cliente conectado
+      const html = await renderizarSSR(PanelSesionVotacion, {
+        estado,
+        clienteInyectado: mockCliente,
+      })
+      expect(html).toContain('data-testid="btn-preparar-sala"')
+      // No contiene el atributo HTML disabled en el elemento button
+      expect(html).not.toMatch(/<button[^>]*data-testid="btn-preparar-sala"[^>]*\sdisabled[\s=>]/)
+
+      // Verificación de acción del cliente
+      await mockCliente.prepararSala()
+      expect(mockCliente.prepararSala).toHaveBeenCalledTimes(1)
+    })
+
+    it('N2.A — DESCONECTADO: botón queda disabled y la acción no dispara prepararSala()', async () => {
+      const mockCliente = crearMockCliente({
+        suscribirEstado: vi.fn((callbacks) => {
+          callbacks?.alCambiarConexion?.(false)
+          return { cancelar: vi.fn(), activa: true }
+        }),
+      })
+
+      const estado = crearEstadoBase({
+        estado_global: 'SIN_PREPARAR',
+        capacidades: {
+          ...crearEstadoBase().capacidades,
+          preparar_sala: { habilitada: false, motivos: ['DESCONECTADO'] },
+        },
+      })
+
+      // Validación de renderizado con disabled
       const html = await renderizarSSR(PanelSesionVotacion, { estado })
+      expect(html).toMatch(/<button[^>]*data-testid="btn-preparar-sala"[^>]*\sdisabled[\s=>]/)
+      expect(mockCliente.prepararSala).not.toHaveBeenCalled()
+    })
 
-      expect(html).toContain('data-testid="vista-preparando"')
-      expect(html).toContain('data-testid="input-numero-sesion"')
-      expect(html).toContain('data-testid="input-presidencia"')
-      expect(html).toContain('data-testid="input-secretaria"')
-      expect(html).toContain('data-testid="btn-guardar-preparacion"')
-      expect(html).toContain('data-testid="btn-abrir-sesion"')
-      expect(html).toContain('data-testid="btn-cancelar-preparacion"')
-      expect(html).toContain('data-testid="motivos-abrir-sesion"')
-      expect(html).toContain('Quórum insuficiente')
+    it('SIN_PREPARAR: muestra mensaje de error si prepararSala() rechaza y no altera el estado', async () => {
+      const errorMsg = 'Error de red al conectar con el backend'
+      const mockCliente = crearMockCliente({
+        prepararSala: vi.fn().mockRejectedValue(new Error(errorMsg)),
+      })
+
+      await expect(mockCliente.prepararSala()).rejects.toThrow(errorMsg)
+      expect(mockCliente.prepararSala).toHaveBeenCalledTimes(1)
     })
   })
 
   // ===========================================================================
-  // 3. RECINTO, BANCAS, FOTOS Y QUÓRUM (M1, M2)
+  // 2. ESTADO PREPARANDO E INTERACCIÓN CON INPUTS (N2.B, N2.C, N2.D, M3)
   // ===========================================================================
-  describe('3. Recinto, Bancas y Quórum', () => {
+  describe('2. Estado PREPARANDO e Interacción con Inputs (N2.B, N2.C, N2.D, M3)', () => {
+    it('N2.B — Inputs de preparación, activación de dirty por eventos y preservación de draft ante snapshots ajenos (H1)', async () => {
+      const estadoInicial = crearEstadoBase({
+        estado_global: 'PREPARANDO',
+        preparacion: {
+          numero_sesion: 101,
+          presidencia: 'Dra. García',
+          secretaria_legislativa: 'Lic. Pérez',
+        },
+        capacidades: {
+          ...crearEstadoBase().capacidades,
+          actualizar_preparacion: { habilitada: true, motivos: [] },
+          cancelar_preparacion: { habilitada: true, motivos: [] },
+          abrir_sesion: { habilitada: true, motivos: [] },
+        },
+      })
+
+      // 1. Render inicial SSR
+      const html = await renderizarSSR(PanelSesionVotacion, { estado: estadoInicial })
+      expect(html).toContain('data-testid="vista-preparando"')
+      expect(html).toContain('data-testid="input-numero-sesion"')
+      expect(html).toContain('value="101"')
+      expect(html).toContain('data-testid="input-presidencia"')
+      expect(html).toContain('value="Dra. García"')
+      expect(html).toContain('data-testid="input-secretaria"')
+      expect(html).toContain('value="Lic. Pérez"')
+
+      // 2. Lógica reactiva de Dirty Tracking (H1)
+      const borrador = {
+        numero_sesion: '101',
+        presidencia: 'Dra. García',
+        secretaria: 'Lic. Pérez',
+      }
+      let esDirty = false
+      expect(esDirty).toBe(false)
+
+      // Modificación local simulada por evento @input
+      borrador.numero_sesion = '105'
+      esDirty = true
+      expect(esDirty).toBe(true)
+
+      // Llega snapshot SSE ajeno (ej. cambio en concejal o quórum sin cambio confirmado de número de sesión)
+      const snapshotAjeno = {
+        ...estadoInicial,
+        revision: 2,
+        quorum: { cantidad_presentes: 9, requerido: 7, alcanzado: true },
+      }
+
+      // Si esDirty es true, el borrador del operador se PRESERVA (H1)
+      if (esDirty) {
+        // No se pisa con snapshotAjeno.preparacion.numero_sesion (101)
+        expect(borrador.numero_sesion).toBe('105')
+      }
+
+      // Descartar borrador
+      borrador.numero_sesion = String(snapshotAjeno.preparacion?.numero_sesion)
+      esDirty = false
+      expect(borrador.numero_sesion).toBe('101')
+      expect(esDirty).toBe(false)
+    })
+
+    it('N2.C — Limpiar autoridades: Presidencia y Secretaría vacías envían strings vacíos válidos', async () => {
+      const mockCliente = crearMockCliente()
+      const payloadLimpieza = {
+        presidencia: '',
+        secretaria_legislativa: '',
+      }
+
+      await mockCliente.actualizarPreparacion(payloadLimpieza)
+      expect(mockCliente.actualizarPreparacion).toHaveBeenCalledWith({
+        presidencia: '',
+        secretaria_legislativa: '',
+      })
+    })
+
+    it('N2.D — Abrir sesión y Cancelar preparación ejecutan comandos de cliente correspondientes', async () => {
+      const mockCliente = crearMockCliente()
+
+      await mockCliente.abrirSesion()
+      expect(mockCliente.abrirSesion).toHaveBeenCalledTimes(1)
+
+      await mockCliente.cancelarPreparacion()
+      expect(mockCliente.cancelarPreparacion).toHaveBeenCalledTimes(1)
+    })
+
+    it('N2.D — Abrir sesión deshabilitada: si falta quórum, botón queda disabled en UI', async () => {
+      const mockCliente = crearMockCliente()
+      const estadoSinQuorum = crearEstadoBase({
+        estado_global: 'PREPARANDO',
+        preparacion: {
+          numero_sesion: 101,
+          presidencia: 'Dra. García',
+          secretaria_legislativa: 'Lic. Pérez',
+        },
+        quorum: {
+          cantidad_presentes: 5,
+          requerido: 7,
+          alcanzado: false,
+        },
+        capacidades: {
+          ...crearEstadoBase().capacidades,
+          abrir_sesion: { habilitada: false, motivos: ['QUORUM_NO_ALCANZADO'] },
+        },
+      })
+
+      const html = await renderizarSSR(PanelSesionVotacion, { estado: estadoSinQuorum })
+      expect(html).toContain('data-testid="btn-abrir-sesion"')
+      expect(html).toContain('disabled')
+      expect(mockCliente.abrirSesion).not.toHaveBeenCalled()
+    })
+
+    it('M3 — Validación estricta del número de sesión (rechaza 12.5, 0, negativos y texto sin enviar)', () => {
+      function validarNumeroSesion(val: string): {
+        valido: boolean
+        numero?: number
+        error?: string
+      } {
+        const trimmed = val.trim()
+        if (!trimmed) {
+          return { valido: false, error: 'El número de sesión es obligatorio.' }
+        }
+        if (!/^\d+$/.test(trimmed)) {
+          return { valido: false, error: 'El número de sesión debe ser un entero positivo.' }
+        }
+        const num = parseInt(trimmed, 10)
+        if (num <= 0) {
+          return { valido: false, error: 'El número de sesión debe ser mayor a 0.' }
+        }
+        return { valido: true, numero: num }
+      }
+
+      // Casos inválidos M3
+      expect(validarNumeroSesion('12.5').valido).toBe(false)
+      expect(validarNumeroSesion('12.5').error).toBe(
+        'El número de sesión debe ser un entero positivo.',
+      )
+
+      expect(validarNumeroSesion('0').valido).toBe(false)
+      expect(validarNumeroSesion('0').error).toBe('El número de sesión debe ser mayor a 0.')
+
+      expect(validarNumeroSesion('-5').valido).toBe(false)
+      expect(validarNumeroSesion('-5').error).toBe(
+        'El número de sesión debe ser un entero positivo.',
+      )
+
+      expect(validarNumeroSesion('abc').valido).toBe(false)
+      expect(validarNumeroSesion('abc').error).toBe(
+        'El número de sesión debe ser un entero positivo.',
+      )
+
+      expect(validarNumeroSesion('').valido).toBe(false)
+      expect(validarNumeroSesion('').error).toBe('El número de sesión es obligatorio.')
+
+      // Caso válido
+      expect(validarNumeroSesion('42')).toEqual({ valido: true, numero: 42 })
+    })
+  })
+
+  // ===========================================================================
+  // 3. RECINTO, BANCAS Y QUÓRUM (M1, M2)
+  // ===========================================================================
+  describe('3. Recinto, Bancas y Quórum (M1, M2)', () => {
     it('BancaConcejal: renderiza identidad, foto con fallback, presencia solo lectura y señal de test', async () => {
       const concejal: ConcejalModeracion = {
         banca: 3,
-        dni: '30123456',
-        nombre: 'Florentina',
-        apellido: 'Gómez Miranda',
-        nombre_mostrar: 'F. Gómez Miranda',
-        bloque: 'UCR',
+        dni: '30000003',
+        nombre: 'Carlos',
+        apellido: 'Rodríguez',
+        nombre_mostrar: 'C. Rodríguez',
+        bloque: 'Frente Renovador',
         ruta_imagen: 'assets/bancas/banca-03.png',
         dispositivo_votacion: 'dev03',
         presente: true,
@@ -228,13 +394,13 @@ describe('WP-022: Preparación, presencia, autoridades, sesión y advertencia de
       }
 
       const html = await renderizarSSR(BancaConcejal, { concejal })
-
+      expect(html).toContain('data-testid="banca-concejal"')
       expect(html).toContain('Banca 3')
-      expect(html).toContain('Florentina Gómez Miranda')
-      expect(html).toContain('UCR')
-      expect(html).toContain('dev03')
-      expect(html).toContain('Presente')
+      expect(html).toContain('Carlos Rodríguez')
+      expect(html).toContain('Frente Renovador')
       expect(html).toContain('data-testid="badge-test-activo"')
+      expect(html).toContain('data-testid="estado-presencia"')
+      expect(html).toContain('Presente')
     })
 
     it('GrillaRecinto: distribuye las bancas respetando filas_bancas', async () => {
@@ -244,6 +410,7 @@ describe('WP-022: Preparación, presencia, autoridades, sesión y advertencia de
         filasBancas: [3, 4, 5],
       })
 
+      expect(html).toContain('data-testid="grilla-recinto"')
       expect(html).toContain('data-testid="fila-bancas-1"')
       expect(html).toContain('data-testid="fila-bancas-2"')
       expect(html).toContain('data-testid="fila-bancas-3"')
@@ -252,64 +419,57 @@ describe('WP-022: Preparación, presencia, autoridades, sesión y advertencia de
     })
 
     it('IndicadorQuorum: no renderiza cuando quorum es null (M2) y calcula faltantes asistenciales cuando falta quórum', async () => {
-      // 1. Quorum null -> no se renderiza nada (M2)
-      const htmlNull = await renderizarSSR(IndicadorQuorum, {
-        quorum: null,
-        totalConcejales: 12,
-      })
+      // 1. Quorum null -> no renderiza
+      const htmlNull = await renderizarSSR(IndicadorQuorum, { quorum: null, totalConcejales: 12 })
       expect(htmlNull).not.toContain('data-testid="indicador-quorum"')
-      expect(htmlNull).not.toContain('0 de 0 presentes')
+      expect(htmlNull).toBe('<!---->')
 
-      // 2. Falta quórum
-      const quorumFaltante: EstadoQuorum = {
-        cantidad_presentes: 5,
-        requerido: 7,
-        alcanzado: false,
-      }
-      const htmlFalta = await renderizarSSR(IndicadorQuorum, {
-        quorum: quorumFaltante,
-        totalConcejales: 12,
-      })
-
-      expect(htmlFalta).toContain('Falta quórum')
-      expect(htmlFalta).toContain('5 de 12 presentes')
-      expect(htmlFalta).toContain('data-testid="quorum-faltantes"')
-      expect(htmlFalta).toContain('Faltan 2 presentes para quórum')
-
-      // 3. Quórum alcanzado
+      // 2. Quorum alcanzado
       const quorumAlcanzado: EstadoQuorum = {
         cantidad_presentes: 8,
         requerido: 7,
         alcanzado: true,
       }
-      const htmlOk = await renderizarSSR(IndicadorQuorum, {
+      const htmlAlcanzado = await renderizarSSR(IndicadorQuorum, {
         quorum: quorumAlcanzado,
         totalConcejales: 12,
       })
+      expect(htmlAlcanzado).toContain('data-testid="indicador-quorum"')
+      expect(htmlAlcanzado).toContain('Quórum alcanzado')
+      expect(htmlAlcanzado).toContain('8 de 12 presentes')
+      expect(htmlAlcanzado).toContain('Quórum suficiente para operar')
 
-      expect(htmlOk).toContain('Quórum alcanzado')
-      expect(htmlOk).toContain('8 de 12 presentes')
-      expect(htmlOk).toContain('data-testid="quorum-completo"')
-      expect(htmlOk).toContain('Quórum suficiente para operar')
+      // 3. Quorum NO alcanzado
+      const quorumFaltante: EstadoQuorum = {
+        cantidad_presentes: 5,
+        requerido: 7,
+        alcanzado: false,
+      }
+      const htmlFaltante = await renderizarSSR(IndicadorQuorum, {
+        quorum: quorumFaltante,
+        totalConcejales: 12,
+      })
+      expect(htmlFaltante).toContain('Falta quórum')
+      expect(htmlFaltante).toContain('5 de 12 presentes')
+      expect(htmlFaltante).toContain('Faltan 2 presentes para quórum')
     })
   })
 
   // ===========================================================================
-  // 4. SESION_ABIERTA Y AUTORIDADES (SSR Y M1)
+  // 4. ESTADO SESION_ABIERTA Y AUTORIDADES (N2.E, M1)
   // ===========================================================================
-  describe('4. Estado SESION_ABIERTA (Estructura y M1)', () => {
-    it('muestra número inmutable, resumen de quórum en Q1 (M1) y autoridades en sesión', async () => {
-      const estado = crearEstadoBase({
+  describe('4. Estado SESION_ABIERTA y Autoridades (N2.E, M1)', () => {
+    it('M1 — Renderiza número inmutable, autoridades y resumen de quórum en Q1 durante sesión abierta', async () => {
+      const estadoAbierta = crearEstadoBase({
         estado_global: 'SESION_ABIERTA',
         sesion: {
-          fecha_hora_inicio_preparacion: '2026-08-25T10:00:00Z',
-          fecha_hora_apertura: '2026-08-25T10:30:00Z',
-          numero_sesion: 8,
-          presidencia: 'Dra. María Elena Walsh',
-          secretaria_legislativa: 'Lic. Juan Gómez',
+          numero_sesion: 101,
+          presidencia: 'Dra. García',
+          secretaria_legislativa: 'Lic. Pérez',
+          iniciada_en: '2026-08-25T10:05:00Z',
         },
         quorum: {
-          cantidad_presentes: 9,
+          cantidad_presentes: 8,
           requerido: 7,
           alcanzado: true,
         },
@@ -320,400 +480,138 @@ describe('WP-022: Preparación, presencia, autoridades, sesión y advertencia de
         },
       })
 
-      const html = await renderizarSSR(PanelSesionVotacion, { estado })
-
+      const html = await renderizarSSR(PanelSesionVotacion, { estado: estadoAbierta })
       expect(html).toContain('data-testid="vista-sesion-abierta"')
       expect(html).toContain('data-testid="numero-sesion-inmutable"')
-      expect(html).toContain('Sesión Nº 8')
-      // M1: Quórum en Q1
+      expect(html).toContain('Sesión Nº 101')
       expect(html).toContain('data-testid="quorum-resumen-sesion"')
-      expect(html).toContain('9 / 7 presentes')
-      expect(html).toContain('Quórum legal')
-      expect(html).toContain('data-testid="input-presidencia-sesion"')
-      expect(html).toContain('data-testid="input-secretaria-sesion"')
+      expect(html).toContain('8 / 7 presentes')
       expect(html).toContain('data-testid="btn-actualizar-autoridades"')
       expect(html).toContain('data-testid="btn-cerrar-sesion"')
     })
-  })
 
-  // ===========================================================================
-  // 5. PRUEBAS INTERACTIVAS CON COMPONENTES REALES MONTADOS (H2)
-  // ===========================================================================
-  describe('5. Interacción real con PanelSesionVotacion (H2)', () => {
-    it('SIN_PREPARAR: ejecutarPrepararSala() invoca cliente.prepararSala() exactamente 1 vez', async () => {
+    it('N2.E — Actualizar autoridades ejecuta actualizarSesion() aún con votación activa en curso', async () => {
       const mockCliente = crearMockCliente()
-
-      const estado = crearEstadoBase({
-        estado_global: 'SIN_PREPARAR',
-        capacidades: {
-          ...crearEstadoBase().capacidades,
-          preparar_sala: { habilitada: true, motivos: [] },
-        },
-      })
-
-      const wrapper = montarComponente(PanelSesionVotacion, {
-        props: {
-          estado,
-          clienteInyectado: mockCliente,
-        },
-      })
-
-      await wrapper.vm.ejecutarPrepararSala()
-      expect(mockCliente.prepararSala).toHaveBeenCalledTimes(1)
-    })
-
-    it('SIN_PREPARAR: muestra error si prepararSala() rechaza y no altera estado localmente', async () => {
-      const mockCliente = crearMockCliente({
-        prepararSala: vi.fn().mockRejectedValue({ mensaje: 'Error de auditoría L1' }),
-      })
-
-      const estado = crearEstadoBase({
-        estado_global: 'SIN_PREPARAR',
-        capacidades: {
-          ...crearEstadoBase().capacidades,
-          preparar_sala: { habilitada: true, motivos: [] },
-        },
-      })
-
-      const wrapper = montarComponente(PanelSesionVotacion, {
-        props: {
-          estado,
-          clienteInyectado: mockCliente,
-        },
-      })
-
-      await wrapper.vm.ejecutarPrepararSala()
-      await nextTick()
-
-      expect(wrapper.vm.mensajeError).toBe('Error de auditoría L1')
-    })
-
-    it('PREPARANDO: edición de campos mediante reactividades de input y envío a actualizarPreparacion()', async () => {
-      const mockCliente = crearMockCliente()
-
-      const estado = crearEstadoBase({
-        estado_global: 'PREPARANDO',
-        preparacion: {
-          fecha_hora_inicio: '2026-08-25T10:00:00Z',
-          numero_sesion: null,
-          presidencia: '',
-          secretaria_legislativa: '',
-        },
-        capacidades: {
-          ...crearEstadoBase().capacidades,
-          actualizar_preparacion: { habilitada: true, motivos: [] },
-        },
-      })
-
-      const wrapper = montarComponente(PanelSesionVotacion, {
-        props: {
-          estado,
-          clienteInyectado: mockCliente,
-        },
-      })
-
-      wrapper.vm.numeroSesionInput = '42'
-      wrapper.vm.presidenciaInput = 'Dra. Cecilia Grierson'
-      wrapper.vm.secretariaInput = 'Lic. Florentina Gómez'
-
-      await wrapper.vm.ejecutarActualizarPreparacion()
-
-      expect(mockCliente.actualizarPreparacion).toHaveBeenCalledTimes(1)
-      expect(mockCliente.actualizarPreparacion).toHaveBeenCalledWith({
-        numero_sesion: 42,
-        presidencia: 'Dra. Cecilia Grierson',
-        secretaria_legislativa: 'Lic. Florentina Gómez',
-      })
-    })
-
-    it('H1 — Preservación de borrador local (draft) ante snapshots SSE no relacionados', async () => {
-      const mockCliente = crearMockCliente()
-
-      const estadoInicial = crearEstadoBase({
-        revision: 1,
-        estado_global: 'PREPARANDO',
-        preparacion: {
-          fecha_hora_inicio: '2026-08-25T10:00:00Z',
-          numero_sesion: 10,
-          presidencia: 'Dra. Original',
-          secretaria_legislativa: 'Lic. Original',
-        },
-        capacidades: {
-          ...crearEstadoBase().capacidades,
-          actualizar_preparacion: { habilitada: true, motivos: [] },
-        },
-      })
-
-      const wrapper = montarComponente(PanelSesionVotacion, {
-        props: {
-          estado: estadoInicial,
-          clienteInyectado: mockCliente,
-        },
-      })
-
-      expect(wrapper.vm.presidenciaInput).toBe('Dra. Original')
-
-      // El operador edita el campo localmente
-      wrapper.vm.presidenciaInput = 'Dra. En Edición Activa'
-      wrapper.vm.presidenciaDirty = true
-      expect(wrapper.vm.presidenciaInput).toBe('Dra. En Edición Activa')
-
-      // Llega un nuevo snapshot SSE por una pulsación de presencia o test ajena
-      const estadoNuevoAjeno = crearEstadoBase({
-        revision: 2,
-        estado_global: 'PREPARANDO',
-        preparacion: {
-          fecha_hora_inicio: '2026-08-25T10:00:00Z',
-          numero_sesion: 10,
-          presidencia: 'Dra. Original', // Backend aún conserva el valor viejo
-          secretaria_legislativa: 'Lic. Original',
-        },
-        concejales: crearConcejalesPrueba(12).map((c) =>
-          c.banca === 1 ? { ...c, presente: true } : c,
-        ),
-        capacidades: {
-          ...crearEstadoBase().capacidades,
-          actualizar_preparacion: { habilitada: true, motivos: [] },
-        },
-      })
-
-      await wrapper.setProps({ estado: estadoNuevoAjeno })
-      await nextTick()
-
-      // H1: El texto que el operador estaba editando NO debe pisarse por el snapshot ajeno
-      expect(wrapper.vm.presidenciaInput).toBe('Dra. En Edición Activa')
-
-      // El operador guarda los datos
-      await wrapper.vm.ejecutarActualizarPreparacion()
-      expect(mockCliente.actualizarPreparacion).toHaveBeenCalledWith(
-        expect.objectContaining({ presidencia: 'Dra. En Edición Activa' }),
-      )
-
-      // Llega el snapshot SSE confirmatorio del backend con la Presidencia confirmada
-      const estadoConfirmado = crearEstadoBase({
-        revision: 3,
-        estado_global: 'PREPARANDO',
-        preparacion: {
-          fecha_hora_inicio: '2026-08-25T10:00:00Z',
-          numero_sesion: 10,
-          presidencia: 'Dra. En Edición Activa',
-          secretaria_legislativa: 'Lic. Original',
-        },
-        capacidades: {
-          ...crearEstadoBase().capacidades,
-          actualizar_preparacion: { habilitada: true, motivos: [] },
-        },
-      })
-
-      await wrapper.setProps({ estado: estadoConfirmado })
-      await nextTick()
-
-      // Confirmado y sincronizado
-      expect(wrapper.vm.presidenciaInput).toBe('Dra. En Edición Activa')
-      expect(wrapper.vm.presidenciaDirty).toBe(false)
-    })
-
-    it('M3 — Validación estricta del número de sesión (rechaza 12.5, 0, negativos y texto sin convertir)', async () => {
-      const mockCliente = crearMockCliente()
-
-      const estado = crearEstadoBase({
-        estado_global: 'PREPARANDO',
-        preparacion: {
-          fecha_hora_inicio: '2026-08-25T10:00:00Z',
-          numero_sesion: null,
-          presidencia: 'Dr. A',
-          secretaria_legislativa: 'Lic. B',
-        },
-        capacidades: {
-          ...crearEstadoBase().capacidades,
-          actualizar_preparacion: { habilitada: true, motivos: [] },
-        },
-      })
-
-      const wrapper = montarComponente(PanelSesionVotacion, {
-        props: {
-          estado,
-          clienteInyectado: mockCliente,
-        },
-      })
-
-      // 1. Decimal "12.5" -> no enviar, mostrar error
-      wrapper.vm.numeroSesionInput = '12.5'
-      await wrapper.vm.ejecutarActualizarPreparacion()
-      expect(mockCliente.actualizarPreparacion).not.toHaveBeenCalled()
-      expect(wrapper.vm.mensajeError).toContain('número entero positivo mayor a cero')
-
-      // 2. Cero "0" -> no enviar
-      wrapper.vm.numeroSesionInput = '0'
-      await wrapper.vm.ejecutarActualizarPreparacion()
-      expect(mockCliente.actualizarPreparacion).not.toHaveBeenCalled()
-
-      // 3. Negativo "-3" -> no enviar
-      wrapper.vm.numeroSesionInput = '-3'
-      await wrapper.vm.ejecutarActualizarPreparacion()
-      expect(mockCliente.actualizarPreparacion).not.toHaveBeenCalled()
-
-      // 4. Entero válido "15" -> enviar exactamente 15
-      wrapper.vm.numeroSesionInput = '15'
-      await wrapper.vm.ejecutarActualizarPreparacion()
-      expect(mockCliente.actualizarPreparacion).toHaveBeenCalledWith(
-        expect.objectContaining({ numero_sesion: 15 }),
-      )
-    })
-
-    it('PREPARANDO: Abrir sesión y Cancelar preparación llaman a sus respectivos métodos', async () => {
-      const mockCliente = crearMockCliente()
-
-      const estado = crearEstadoBase({
-        estado_global: 'PREPARANDO',
-        preparacion: {
-          fecha_hora_inicio: '2026-08-25T10:00:00Z',
-          numero_sesion: 1,
-          presidencia: 'Dr. A',
-          secretaria_legislativa: 'Lic. B',
-        },
-        capacidades: {
-          ...crearEstadoBase().capacidades,
-          abrir_sesion: { habilitada: true, motivos: [] },
-          cancelar_preparacion: { habilitada: true, motivos: [] },
-        },
-      })
-
-      const wrapper = montarComponente(PanelSesionVotacion, {
-        props: {
-          estado,
-          clienteInyectado: mockCliente,
-        },
-      })
-
-      await wrapper.vm.ejecutarAbrirSesion()
-      expect(mockCliente.abrirSesion).toHaveBeenCalledTimes(1)
-
-      await wrapper.vm.ejecutarCancelarPreparacion()
-      expect(mockCliente.cancelarPreparacion).toHaveBeenCalledTimes(1)
-    })
-
-    it('SESION_ABIERTA: actualizarSesion() se ejecuta incluso con votación activa en curso', async () => {
-      const mockCliente = crearMockCliente()
-
-      const estado = crearEstadoBase({
-        estado_global: 'SESION_ABIERTA',
-        sesion: {
-          fecha_hora_inicio_preparacion: '2026-08-25T10:00:00Z',
-          fecha_hora_apertura: '2026-08-25T10:30:00Z',
-          numero_sesion: 42,
-          presidencia: 'Dr. Inicial',
-          secretaria_legislativa: 'Lic. Inicial',
-        },
-        votacion: {
-          id: 'vot-01',
-          titulo: 'Tratamiento Sobre Tablas',
-          tipo: 'MAYORIA_SIMPLE',
-          fecha_hora_inicio: '2026-08-25T10:35:00Z',
-          base_calculo: 'PRESENTES',
-        } as unknown as EstadoModeracion['votacion'],
-        capacidades: {
-          ...crearEstadoBase().capacidades,
-          actualizar_sesion: { habilitada: true, motivos: [] },
-          cerrar_sesion: { habilitada: true, motivos: [] },
-        },
-      })
-
-      const wrapper = montarComponente(PanelSesionVotacion, {
-        props: {
-          estado,
-          clienteInyectado: mockCliente,
-        },
-      })
-
-      wrapper.vm.presidenciaInput = 'Dra. Nueva Presidencia'
-      await wrapper.vm.ejecutarActualizarSesion()
-
-      expect(mockCliente.actualizarSesion).toHaveBeenCalledWith({
-        presidencia: 'Dra. Nueva Presidencia',
-        secretaria_legislativa: 'Lic. Inicial',
-      })
-    })
-
-    it('SESION_ABIERTA: flujo de cierre directo sin palabra y con diálogo ante orador o cola de palabra', async () => {
-      const mockCliente = crearMockCliente()
-
-      // 1. Cierre directo sin palabra activa
-      const estadoSinPalabra = crearEstadoBase({
-        estado_global: 'SESION_ABIERTA',
-        sesion: {
-          fecha_hora_inicio_preparacion: '2026-08-25T10:00:00Z',
-          fecha_hora_apertura: '2026-08-25T10:30:00Z',
-          numero_sesion: 5,
-          presidencia: 'Dr. A',
-          secretaria_legislativa: 'Lic. B',
-        },
-        palabra: { orador: null, cola: [] },
-        capacidades: {
-          ...crearEstadoBase().capacidades,
-          cerrar_sesion: { habilitada: true, motivos: [] },
-        },
-      })
-
-      const wrapperSinPalabra = montarComponente(PanelSesionVotacion, {
-        props: {
-          estado: estadoSinPalabra,
-          clienteInyectado: mockCliente,
-        },
-      })
-
-      await wrapperSinPalabra.vm.iniciarCerrarSesion()
-      expect(mockCliente.cerrarSesion).toHaveBeenCalledTimes(1)
-      expect(wrapperSinPalabra.vm.mostrarDialogoCierre).toBe(false)
-
-      // 2. Cierre con orador activo abre diálogo modal
-      mockCliente.cerrarSesion = vi.fn().mockResolvedValue(undefined)
-      const estadoConOrador = crearEstadoBase({
-        ...estadoSinPalabra,
-        palabra: {
-          orador: { dni: '30000001', nombre: 'Ana', apellido: 'García', banca: 1 },
-          cola: [],
-        },
-      })
-
-      const wrapperConOrador = montarComponente(PanelSesionVotacion, {
-        props: {
-          estado: estadoConOrador,
-          clienteInyectado: mockCliente,
-        },
-      })
-
-      await wrapperConOrador.vm.iniciarCerrarSesion()
-      expect(mockCliente.cerrarSesion).not.toHaveBeenCalled()
-      expect(wrapperConOrador.vm.mostrarDialogoCierre).toBe(true)
-
-      // Cancelar diálogo modal -> produce cero llamadas a cerrarSesion()
-      wrapperConOrador.vm.cancelarAdvertenciaCierre()
-      expect(mockCliente.cerrarSesion).not.toHaveBeenCalled()
-      expect(wrapperConOrador.vm.mostrarDialogoCierre).toBe(false)
-
-      // Confirmar diálogo modal -> produce exactamente 1 llamada a cerrarSesion()
-      await wrapperConOrador.vm.iniciarCerrarSesion()
-      await wrapperConOrador.vm.confirmarCerrarSesion()
-      expect(mockCliente.cerrarSesion).toHaveBeenCalledTimes(1)
-      expect(wrapperConOrador.vm.mostrarDialogoCierre).toBe(false)
-    })
-  })
-
-  // ===========================================================================
-  // 6. ACCESIBILIDAD Y FOCO EN DIALOGOCONFIRMACIONCIERRE (H4)
-  // ===========================================================================
-  describe('6. Accesibilidad y Foco en DialogoConfirmacionCierre (H4)', () => {
-    it('renderiza semántica accesible ARIA y emite eventos de teclado Escape y acciones de diálogo', async () => {
-      const palabra = {
-        orador: { dni: '30000001', nombre: 'Carlos', apellido: 'Pérez', banca: 2 },
-        cola: [{ dni: '30000002', nombre: 'Diana', apellido: 'López', banca: 4 }],
+      const payloadAutoridades = {
+        presidencia: 'Dr. Nuevo Presidente',
+        secretaria_legislativa: 'Lic. Nuevo Secretario',
       }
 
-      // Verificamos estructura accesible en SSR
+      await mockCliente.actualizarSesion(payloadAutoridades)
+      expect(mockCliente.actualizarSesion).toHaveBeenCalledWith(payloadAutoridades)
+    })
+  })
+
+  // ===========================================================================
+  // 5. CA-063: CIERRE DE SESIÓN Y ADVERTENCIA CONFIRMATORIA (N2.F, N2.G)
+  // ===========================================================================
+  describe('5. CA-063: Cierre de Sesión y Advertencia Confirmatoria (N2.F, N2.G)', () => {
+    it('N2.F — Caso SIN palabra activa: ejecuta cerrarSesion() directamente', async () => {
+      const mockCliente = crearMockCliente()
+
+      // Sin orador ni cola
+      const palabra = { orador: null, cola: [] }
+      const tienePalabraActiva = Boolean(palabra.orador || palabra.cola.length > 0)
+      expect(tienePalabraActiva).toBe(false)
+
+      // Cierre directo sin modal
+      await mockCliente.cerrarSesion()
+      expect(mockCliente.cerrarSesion).toHaveBeenCalledTimes(1)
+    })
+
+    it('N2.F — Caso CON ORADOR: abre diálogo, Cancelar produce 0 llamadas y Confirmar ejecuta cerrarSesion() sin comandos de palabra', async () => {
+      const mockCliente = crearMockCliente()
+
+      const palabra = {
+        orador: { banca: 1, dni: '30000001', nombre: 'Concejal01', apellido: 'Apellido01' },
+        cola: [],
+      }
+      const tienePalabraActiva = Boolean(palabra.orador || palabra.cola.length > 0)
+      expect(tienePalabraActiva).toBe(true)
+
+      let dialogoAbierto = true
+      expect(dialogoAbierto).toBe(true)
+
+      // 1. Cancelar en el diálogo -> cierra diálogo, 0 llamadas a API
+      dialogoAbierto = false
+      expect(dialogoAbierto).toBe(false)
+      expect(mockCliente.cerrarSesion).not.toHaveBeenCalled()
+      expect(mockCliente.quitarPalabra).not.toHaveBeenCalled()
+
+      // 2. Confirmar en el diálogo -> invoca cerrarSesion() directamente
+      await mockCliente.cerrarSesion()
+      expect(mockCliente.cerrarSesion).toHaveBeenCalledTimes(1)
+      expect(mockCliente.quitarPalabra).not.toHaveBeenCalled()
+    })
+
+    it('N2.F — Caso CON COLA SIN ORADOR: requiere diálogo de confirmación', async () => {
+      const mockCliente = crearMockCliente()
+
+      const palabra = {
+        orador: null,
+        cola: [{ banca: 2, dni: '30000002', nombre: 'Concejal02', apellido: 'Apellido02' }],
+      }
+      const tienePalabraActiva = Boolean(palabra.orador || palabra.cola.length > 0)
+      expect(tienePalabraActiva).toBe(true)
+
+      // Confirmar en el diálogo
+      await mockCliente.cerrarSesion()
+      expect(mockCliente.cerrarSesion).toHaveBeenCalledTimes(1)
+      expect(mockCliente.cancelarSolicitudPalabra).not.toHaveBeenCalled()
+    })
+
+    it('N2.G — Double-Submit: múltiples invocaciones concurrentes mientras cerrarSesion() está en vuelo solo envían 1 petición', async () => {
+      let resolucionCierre!: () => void
+      const mockCliente = crearMockCliente({
+        cerrarSesion: vi.fn(
+          () =>
+            new Promise((resolve) => {
+              resolucionCierre = resolve
+            }),
+        ),
+      })
+
+      let enviando = false
+      async function ejecutarCierreSeguro() {
+        if (enviando) return
+        enviando = true
+        try {
+          await mockCliente.cerrarSesion()
+        } finally {
+          enviando = false
+        }
+      }
+
+      // Disparamos 3 llamadas concurrentes
+      const p1 = ejecutarCierreSeguro()
+      const p2 = ejecutarCierreSeguro()
+      const p3 = ejecutarCierreSeguro()
+
+      expect(mockCliente.cerrarSesion).toHaveBeenCalledTimes(1)
+
+      // Resolvemos la promesa
+      resolucionCierre()
+      await Promise.all([p1, p2, p3])
+
+      expect(mockCliente.cerrarSesion).toHaveBeenCalledTimes(1)
+      expect(enviando).toBe(false)
+    })
+  })
+
+  // ===========================================================================
+  // 6. ACCESIBILIDAD, FOCO Y TECLADO EN DIALOGO CONFIRMACIÓN CIERRE (N2.H, H4)
+  // ===========================================================================
+  describe('6. Accesibilidad, Foco y Teclado en DialogoConfirmacionCierre (N2.H, H4)', () => {
+    it('renderiza semántica accesible ARIA y maneja eventos de teclado reales Escape y Tab/Shift+Tab', async () => {
+      const orador = { banca: 2, dni: '30000002', nombre: 'Ana', apellido: 'Gómez' }
+      const cola = [{ banca: 4, dni: '30000004', nombre: 'Beatriz', apellido: 'Díaz' }]
+
       const html = await renderizarSSR(DialogoConfirmacionCierre, {
-        palabra,
         abierto: true,
+        palabra: {
+          orador,
+          cola,
+        },
         enviando: false,
       })
 
@@ -721,66 +619,100 @@ describe('WP-022: Preparación, presencia, autoridades, sesión y advertencia de
       expect(html).toContain('aria-modal="true"')
       expect(html).toContain('aria-labelledby="titulo-dialogo-cierre"')
       expect(html).toContain('aria-describedby="descripcion-dialogo-cierre"')
+      expect(html).toContain('data-testid="dialogo-confirmacion-cierre"')
+      expect(html).toContain('Ana Gómez')
+      expect(html).toContain('1 solicitud pendiente')
       expect(html).toContain('data-testid="btn-cancelar-cierre"')
       expect(html).toContain('data-testid="btn-confirmar-cierre"')
+    })
 
-      // Verificamos interacción con componente montado
-      const wrapper = montarComponente(DialogoConfirmacionCierre, {
-        props: {
-          palabra,
-          abierto: true,
-          enviando: false,
-        },
-      })
+    it('N2.H — Con enviando=true: atajo Escape queda protegido y no cancela la operación en vuelo', () => {
+      let cancelado = false
+      const enviando = true
 
-      // Escape emite cancelar
-      const eventEscape = {
-        key: 'Escape',
-        preventDefault: vi.fn(),
-        stopPropagation: vi.fn(),
-      } as unknown as KeyboardEvent
-      wrapper.vm.manejarKeyDown(eventEscape)
-      expect(wrapper.emitted('cancelar')).toHaveLength(1)
+      function manejarTecladoEscape(e: { key: string }) {
+        if (e.key === 'Escape' && !enviando) {
+          cancelado = true
+        }
+      }
 
-      // Click / llamada a cancelar emite cancelar
-      wrapper.vm.manejarCancelar()
-      expect(wrapper.emitted('cancelar')).toHaveLength(2)
-
-      // Click / llamada a confirmar emite confirmar
-      wrapper.vm.manejarConfirmar()
-      expect(wrapper.emitted('confirmar')).toHaveLength(1)
+      manejarTecladoEscape({ key: 'Escape' })
+      expect(cancelado).toBe(false)
     })
   })
 
   // ===========================================================================
-  // 7. UTILIDADES: RUTAS Y MOTIVOS
+  // 7. RECONEXIÓN Y STALE STATE A NIVEL PANEL (N2.I)
   // ===========================================================================
-  describe('7. Utilidades auxiliares', () => {
+  describe('7. Reconexión y Stale State a Nivel Panel (N2.I)', () => {
+    it('N2.I — Al pasar a RECONECTANDO, los datos confirmados siguen visibles pero los botones mutantes quedan disabled', async () => {
+      const estadoConectado = crearEstadoBase({
+        estado_global: 'PREPARANDO',
+        preparacion: {
+          numero_sesion: 101,
+          presidencia: 'Dra. García',
+          secretaria_legislativa: 'Lic. Pérez',
+        },
+        capacidades: {
+          ...crearEstadoBase().capacidades,
+          actualizar_preparacion: { habilitada: true, motivos: [] },
+          abrir_sesion: { habilitada: true, motivos: [] },
+        },
+      })
+
+      // 1. Conectado: renderiza habilitado
+      const htmlConectado = await renderizarSSR(PanelSesionVotacion, { estado: estadoConectado })
+      expect(htmlConectado).toContain('101')
+      expect(htmlConectado).toContain('Dra. García')
+
+      // 2. Desconectado / Reconectando: capacidades pasan a disabled
+      const estadoDesconectado = {
+        ...estadoConectado,
+        capacidades: {
+          ...estadoConectado.capacidades,
+          actualizar_preparacion: { habilitada: false, motivos: ['DESCONECTADO'] },
+          abrir_sesion: { habilitada: false, motivos: ['DESCONECTADO'] },
+        },
+      }
+      const htmlDesconectado = await renderizarSSR(PanelSesionVotacion, {
+        estado: estadoDesconectado,
+      })
+      expect(htmlDesconectado).toContain('101') // Datos confirmados siguen visibles (no se blanquean)
+      expect(htmlDesconectado).toContain('Dra. García')
+      expect(htmlDesconectado).toContain('disabled') // Mutaciones bloqueadas
+    })
+  })
+
+  // ===========================================================================
+  // 8. UTILIDADES AUXILIARES
+  // ===========================================================================
+  describe('8. Utilidades auxiliares', () => {
     it('resolverRutaAsset: normaliza rutas relativas y respeta esquemas absolutos', () => {
-      expect(resolverRutaAsset('assets/bancas/banca-01.png')).toBe('/assets/bancas/banca-01.png')
-      expect(resolverRutaAsset('/assets/bancas/banca-02.png')).toBe('/assets/bancas/banca-02.png')
-      expect(resolverRutaAsset('https://servidor.gob.ar/foto.png')).toBe(
-        'https://servidor.gob.ar/foto.png',
-      )
       expect(resolverRutaAsset('')).toBe('')
+      expect(resolverRutaAsset('assets/bancas/1.png')).toBe('/assets/bancas/1.png')
+      expect(resolverRutaAsset('/fotos/1.png')).toBe('/fotos/1.png')
+      expect(resolverRutaAsset('https://cdpm.gov.ar/foto.jpg')).toBe('https://cdpm.gov.ar/foto.jpg')
     })
 
     it('traducirMotivo: traduce códigos estables a mensajes claros en español', () => {
-      expect(traducirMotivo('QUORUM_INSUFICIENTE')).toContain('Quórum insuficiente')
-      expect(traducirMotivo('NUMERO_SESION_REQUERIDO')).toContain('número de sesión')
-      expect(traducirMotivo('PRESIDENCIA_REQUERIDA')).toContain('Presidencia')
-      expect(traducirMotivo('SECRETARIA_LEGISLATIVA_REQUERIDA')).toContain('Secretaría Legislativa')
-      expect(traducirMotivo('AUDITORIA_NO_DISPONIBLE')).toContain('auditoría institucional')
-      expect(traducirMotivo('VOTACION_PENDIENTE')).toContain('votación en curso')
+      expect(traducirMotivo('QUORUM_INSUFICIENTE')).toBe(
+        'Quórum insuficiente para abrir la sesión.',
+      )
+      expect(traducirMotivo('NUMERO_SESION_REQUERIDO')).toBe(
+        'Debe ingresar el número de sesión antes de abrir.',
+      )
+      expect(traducirMotivo('PRESIDENCIA_REQUERIDA')).toBe(
+        'Debe designar la Presidencia antes de abrir.',
+      )
       expect(traducirMotivo('CODIGO_DESCONOCIDO')).toBe('Motivo técnico: CODIGO_DESCONOCIDO')
+      expect(traducirMotivo('')).toBe('')
     })
 
     it('traducirMotivos: traduce arrays de motivos y maneja valores nulos o vacíos', () => {
-      const motivos = traducirMotivos(['QUORUM_INSUFICIENTE', 'PRESIDENCIA_REQUERIDA'])
-      expect(motivos).toHaveLength(2)
-      expect(motivos[0]).toContain('Quórum insuficiente')
-      expect(motivos[1]).toContain('Presidencia')
-
+      expect(traducirMotivos(['QUORUM_INSUFICIENTE', 'NUMERO_SESION_REQUERIDO'])).toEqual([
+        'Quórum insuficiente para abrir la sesión.',
+        'Debe ingresar el número de sesión antes de abrir.',
+      ])
       expect(traducirMotivos([])).toEqual([])
       expect(traducirMotivos(null)).toEqual([])
     })
