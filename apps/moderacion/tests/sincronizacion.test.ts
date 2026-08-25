@@ -275,7 +275,8 @@ describe('Frontera reactiva useEstadoModeracion / crearSincronizacionModeracion'
     expect(sincronizacion.desactualizado.value).toBe(false)
   })
 
-  it('cancela la suscripción al llamar a cancelar()', () => {
+  it('cancela la suscripción al llamar a cancelar(), pasa estadoConexion a DESCONECTADO y conectado a false', () => {
+    let callbacks: OpcionesSuscripcion<EstadoModeracion> | null = null
     const fnCancelar = vi.fn()
     let mockActiva = true
     const mockSuscripcion: Suscripcion = {
@@ -289,7 +290,10 @@ describe('Frontera reactiva useEstadoModeracion / crearSincronizacionModeracion'
     }
 
     const mockCliente = {
-      suscribirEstado: vi.fn(() => mockSuscripcion),
+      suscribirEstado: vi.fn((ops) => {
+        callbacks = ops
+        return mockSuscripcion
+      }),
     } as unknown as ClienteModeracion
 
     const sincronizacion = crearSincronizacionModeracion({
@@ -297,9 +301,23 @@ describe('Frontera reactiva useEstadoModeracion / crearSincronizacionModeracion'
       autoIniciar: true,
     })
 
+    // Establecemos estado y conexión previa
+    const estadoPrevio = crearEstadoModeracionPrueba({ revision: 5, estado_global: 'PREPARANDO' })
+    callbacks!.alEstado(estadoPrevio)
+    callbacks!.alCambiarConexion?.(true)
+
+    expect(sincronizacion.estadoConexion.value).toBe<EstadoConexion>('CONECTADO')
+    expect(sincronizacion.conectado.value).toBe(true)
+
+    // Cancelamos explícitamente
     sincronizacion.cancelar()
 
     expect(fnCancelar).toHaveBeenCalledTimes(1)
+    // M-1: estadoConexion no debe quedar en CONECTADO
+    expect(sincronizacion.estadoConexion.value).toBe<EstadoConexion>('DESCONECTADO')
+    expect(sincronizacion.conectado.value).toBe(false)
+    // El último estado se conserva
+    expect(sincronizacion.estado.value).toEqual(estadoPrevio)
   })
 
   it('no crea suscripciones duplicadas ante llamadas consecutivas a iniciar()', () => {

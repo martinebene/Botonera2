@@ -7,7 +7,8 @@
  * 3. Preservar el último estado confirmado durante una desconexión o proceso de reconexión.
  * 4. Reflejar si el estado visual puede estar desactualizado durante una pérdida de conexión.
  * 5. Consumir exclusivamente @botonera2/api-client y su método ClienteModeracion.suscribirEstado.
- * 6. Evitar suscripciones duplicadas y garantizar la cancelación determinista al desmontar componentes.
+ * 6. Evitar suscripciones duplicadas y garantizar la cancelación determinista al desmontar componentes
+ *    mediante un conteo de referencias (reference counting) de consumidores activos.
  */
 
 import { ref, computed, onMounted, onScopeDispose, type Ref, type ComputedRef } from 'vue'
@@ -26,7 +27,7 @@ import {
  * - 'CONECTADO': El stream SSE se encuentra abierto y recibiendo actualizaciones en tiempo real.
  * - 'RECONECTANDO': Se perdió la conexión SSE habiendo obtenido previamente un estado confirmado;
  *                   el último estado se conserva pero se advierte que puede estar desactualizado.
- * - 'DESCONECTADO': No hay conexión y nunca se obtuvo un snapshot válido previo (o error inicial).
+ * - 'DESCONECTADO': No hay conexión y nunca se obtuvo un snapshot válido previo (o cancelación explícita).
  */
 export type EstadoConexion = 'INICIAL' | 'CONECTADO' | 'RECONECTANDO' | 'DESCONECTADO'
 
@@ -140,12 +141,15 @@ export function crearSincronizacionModeracion(
 
   /**
    * Cancela la suscripción activa y libera recursos del stream SSE.
+   * M-1: Tras una cancelación explícita, estadoConexion pasa a DESCONECTADO
+   * y conectado pasa a false sin borrar el último estado confirmado.
    */
   function cancelar(): void {
     if (suscripcionActiva) {
       suscripcionActiva.cancelar()
       suscripcionActiva = null
     }
+    estadoConexion.value = 'DESCONECTADO'
   }
 
   if (opciones.autoIniciar) {
@@ -168,52 +172,112 @@ export function crearSincronizacionModeracion(
 
 // Instancia compartida por la aplicación (singleton por runtime del frontend)
 let instanciaCompartida: SincronizacionModeracion | null = null
+let cantidadConsumidoresActivos = 0
 
 /**
- * Composable principal de Nuxt para acceder a la sincronización del estado de Moderación.
- * Garantiza una única suscripción activa compartida por todos los componentes del shell.
+ * Obtiene la instancia compartida de sincronización o crea una nueva si no existe.
  */
-export function useEstadoModeracion(): SincronizacionModeracion {
+function obtenerOCrearInstanciaCompartida(
+  clienteInyectado?: ClienteModeracion,
+): SincronizacionModeracion {
   if (!instanciaCompartida) {
     let baseUrl = ''
 
-    // Obtenemos la URL base configurada en Nuxt si estamos en su entorno de ejecución
-    try {
-      if (typeof useRuntimeConfig === 'function') {
-        const config = useRuntimeConfig()
-        baseUrl = (config.public?.apiBaseUrl as string) ?? ''
+    if (!clienteInyectado) {
+      try {
+        if (typeof useRuntimeConfig === 'function') {
+          const config = useRuntimeConfig()
+          baseUrl = (config.public?.apiBaseUrl as string) ?? ''
+        }
+      } catch {
+        baseUrl = ''
       }
-    } catch {
-      // Fuera de Nuxt o en entorno de test simple, usamos cadena vacía (mismo origen)
-      baseUrl = ''
     }
 
     instanciaCompartida = crearSincronizacionModeracion({
+      cliente: clienteInyectado,
       configuracionCliente: { baseUrl },
     })
   }
-
-  // Si estamos dentro del ciclo de vida de un componente Vue en cliente, aseguramos inicio y limpieza
-  if (typeof window !== 'undefined') {
-    onMounted(() => {
-      instanciaCompartida?.iniciar()
-    })
-
-    // onScopeDispose asegura que si se destruye el scope se cancele la suscripción si corresponde
-    onScopeDispose(() => {
-      // No destruimos la instancia compartida a menos que sea necesario, pero cancelamos si no quedan scopes
-    })
-  }
-
   return instanciaCompartida
 }
 
 /**
- * Helper para reiniciar la instancia compartida (exclusivamente para pruebas unitarias).
+ * Registra el montaje de un consumidor activo.
+ * Si es el primer consumidor registrado, inicia la suscripción compartida.
+ */
+function registrarConsumidor(sincronizacion: SincronizacionModeracion): void {
+  cantidadConsumidoresActivos++
+  if (cantidadConsumidoresActivos === 1) {
+    sincronizacion.iniciar()
+  }
+}
+
+/**
+ * Desregistra el desmontaje de un consumidor activo.
+ * Cuando se desmonta el último consumidor activo (conteo llega a cero),
+ * cancela la suscripción activa y libera la referencia compartida.
+ */
+function desregistrarConsumidor(): void {
+  if (cantidadConsumidoresActivos > 0) {
+    cantidadConsumidoresActivos--
+  }
+
+  if (cantidadConsumidoresActivos === 0 && instanciaCompartida) {
+    instanciaCompartida.cancelar()
+    instanciaCompartida = null
+  }
+}
+
+/**
+ * Composable principal de Nuxt/Vue para acceder a la sincronización del estado de Moderación.
+ * Implementa gestión del ciclo de vida con reference counting:
+ * - El primer consumidor que se monta inicia la suscripción.
+ * - Los consumidores concurrentes reutilizan la misma suscripción activa.
+ * - Cuando se desmonta el último consumidor, se cancela la suscripción y se libera el singleton.
+ */
+export function useEstadoModeracion(
+  clienteInyectado?: ClienteModeracion,
+): SincronizacionModeracion {
+  const sincronizacion = obtenerOCrearInstanciaCompartida(clienteInyectado)
+
+  let consumidorRegistrado = false
+
+  // Hook de montaje: registra el consumidor e inicia la sincronización si es el primero
+  onMounted(() => {
+    if (!consumidorRegistrado) {
+      consumidorRegistrado = true
+      registrarConsumidor(sincronizacion)
+    }
+  })
+
+  // Hook de desmontaje: desregistra el consumidor y cancela al quedar cero consumidores
+  onScopeDispose(() => {
+    if (consumidorRegistrado) {
+      consumidorRegistrado = false
+      desregistrarConsumidor()
+    }
+  })
+
+  return sincronizacion
+}
+
+/**
+ * Helper para reiniciar la instancia compartida y el conteo de referencias
+ * (exclusivamente para aislamiento en pruebas unitarias).
  */
 export function reiniciarInstanciaCompartidaParaPruebas(): void {
+  cantidadConsumidoresActivos = 0
   if (instanciaCompartida) {
     instanciaCompartida.cancelar()
     instanciaCompartida = null
   }
+}
+
+/**
+ * Obtiene la cantidad actual de consumidores activos registrados
+ * (exclusivamente para verificación determinista en pruebas unitarias).
+ */
+export function obtenerCantidadConsumidoresParaPruebas(): number {
+  return cantidadConsumidoresActivos
 }

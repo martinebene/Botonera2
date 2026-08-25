@@ -14,6 +14,7 @@ export default defineConfig({
   plugins: [vue()],
   test: {
     environment: 'node',
+    setupFiles: ['./apps/moderacion/tests/setup_dom.ts'],
     include: ['packages/**/*.test.ts', 'apps/**/*.test.ts'],
     exclude: ['**/node_modules/**', 'tests/playwright/**'],
   },

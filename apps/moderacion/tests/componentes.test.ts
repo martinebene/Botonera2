@@ -216,6 +216,34 @@ describe('Componentes del Shell de Moderación', () => {
       expect(html).toContain('Presupuesto Anual')
       expect(html).toContain('1 puntos')
     })
+
+    it('tolera y renderiza puntos con números de votación duplicados o no correlativos (M-2)', async () => {
+      const estado = crearEstadoFixture({
+        orden_del_dia: [
+          {
+            nro_votacion: 1,
+            tipo: 'Proyecto',
+            tema: 'Primer tema con nro 1',
+            tipo_mayoria: 'SIMPLE',
+            factor: 0,
+            base: 'VOTOS_COMPUTABLES',
+          },
+          {
+            nro_votacion: 1,
+            tipo: 'Resolución',
+            tema: 'Segundo tema con nro 1 repetido',
+            tipo_mayoria: 'ESPECIAL',
+            factor: 0.66,
+            base: 'PRESENTES',
+          },
+        ],
+      })
+      const html = await renderizarComponente(PanelOrdenDelDia, { estado })
+
+      expect(html).toContain('Primer tema con nro 1')
+      expect(html).toContain('Segundo tema con nro 1 repetido')
+      expect(html).toContain('2 puntos')
+    })
   })
 
   describe('PanelRecintoPalabra', () => {

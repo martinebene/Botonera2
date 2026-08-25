@@ -24,10 +24,11 @@ defineProps<{
   >
     <div class="space-y-4 text-sm text-slate-300">
       <!-- Si existen puntos en el estado proyectado, mostrarlos con scroll interno -->
+      <!-- Usamos clave combinada índice + número para tolerar números de votación no únicos o repetidos -->
       <div v-if="estado?.orden_del_dia?.length" class="space-y-2">
         <div
-          v-for="punto in estado.orden_del_dia"
-          :key="punto.nro_votacion"
+          v-for="(punto, indice) in estado.orden_del_dia"
+          :key="`${punto.nro_votacion}-${indice}`"
           class="rounded border border-slate-800 bg-slate-950/60 p-2.5 text-xs"
         >
           <div class="flex items-center justify-between">
