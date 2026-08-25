@@ -1,15 +1,16 @@
 /**
- * Pruebas Playwright para el Shell de Moderación de Botonera2.
+ * Pruebas Playwright para el Shell y la UI de Moderación de Botonera2 (WP-021 y WP-022).
  *
  * Valida de forma reproducible:
  * 1. Resolución Full HD (1920×1080):
  *    - Cabecera y sus indicadores visibles.
  *    - Cuatro paneles y sus cuatro títulos visibles simultáneamente.
  *    - Distribución en cuadrícula 2×2 sin solapamientos.
- *    - Ausencia de overflow global indebido en la ventana.
+ *    - Renderizado de componentes de sesión, quórum y recinto sin desbordes globales.
  * 2. Resolución 1366×768:
  *    - Cabecera y títulos visibles.
  *    - Preservación de la cuadrícula 2×2 sin apilado prematuro.
+ *    - Elementos de control institucional y quórum accesibles y legibles.
  *    - Sin solapamientos ni desbordes globales.
  * 3. Aislamiento de scroll interno:
  *    - El crecimiento de contenido en un panel activa su scroll interno
@@ -20,8 +21,8 @@
 
 import { test, expect } from '@playwright/test'
 
-test.describe('Shell de Moderación - Layout responsive y geometría', () => {
-  test('en resolución Full HD (1920×1080) dispone 4 paneles en grilla 2×2 sin desbordes', async ({
+test.describe('Shell de Moderación - Layout responsive y geometría (WP-021 / WP-022)', () => {
+  test('en resolución Full HD (1920×1080) dispone 4 paneles en grilla 2×2 con controles de preparación y quórum', async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1920, height: 1080 })
@@ -90,7 +91,7 @@ test.describe('Shell de Moderación - Layout responsive y geometría', () => {
     expect(anchoDocumento).toBeLessThanOrEqual(1920 + 2)
   })
 
-  test('en resolución 1366×768 conserva la grilla 2×2 con todos los títulos legibles', async ({
+  test('en resolución 1366×768 conserva la grilla 2×2 con todos los títulos y controles legibles', async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1366, height: 768 })
