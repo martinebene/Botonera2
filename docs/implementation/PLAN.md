@@ -108,6 +108,14 @@ WP-017 quedó integrado mediante squash merge de PR #23 sobre el candidato final
 
 WP-018 quedó integrado mediante squash merge de PR #24 sobre el candidato final `01f0af26c42b81e444750400eb588239fe9dc6d2`, después de CI verde en el run `32681901272` y revisión independiente final con OpenCode + DeepSeek V4 Pro. La revisión concluyó `LISTA PARA INTEGRAR`, con cero hallazgos BLOQUEANTES e IMPORTANTES y cinco hallazgos MENORES no bloqueantes sobre cobertura nominal de un test de cancelación, política de reset de backoff, respuesta 2xx vacía no-204, un comentario de CI y mantenibilidad futura del alias `SolicitudAperturaVotacion`. Verificó 28 tests Vitest y 658 tests pytest. La única nueva dependencia directa externa fue `openapi-typescript@7.13.0` como `devDependency`, previamente aprobada por DEC-014/DT-038. El squash merge produjo el commit `5375a246e0040c54e6750ab9f76520c21a305925` en `main`.
 
+## Hotfixes transversales
+
+| WP | Objetivo | Estado | Depende de | Agente |
+|---|---|---|---|---|
+| WP-032 | Corregir pérdida de cancelación en fronteras temporales y estabilizar teardown/CI del backend | PENDIENTE | WP-017 | - |
+
+WP-032 fue creado después de detectar durante el gate post-merge de WP-021 una flake backend reproducible en el teardown del lifespan. La evidencia diagnóstica ubica la anomalía en el lifecycle de `ServicioFronterasTemporales`, incorporado por WP-017. El hotfix está documentalmente `APROBADO`, no modifica el alcance funcional de WP-021 y debe integrarse antes de dar por cerrado su gate post-merge.
+
 ## Fase 5 - Hardware y bridge
 
 | WP | Objetivo | Estado | Depende de | Agente |
@@ -182,4 +190,8 @@ WP-001, WP-002, WP-003, WP-004, WP-005, WP-006, WP-007, WP-008, WP-009, WP-010, 
 
 DEC-007, DEC-009, DEC-010, DEC-011, DEC-012, DEC-013, DEC-014, DEC-015 y DEC-016 están vigentes. Orca continúa como entorno operativo preferido mientras esté en uso.
 
-WP-021 está documentalmente `APROBADO`, su dependencia WP-018 está integrada y está `EN_CURSO` con Antigravity como implementador. El revisor independiente acordado es OpenCode con DeepSeek V4 Pro, que permanecerá inactivo hasta la entrega del candidato remoto y la habilitación explícita de la revisión. No existen decisiones DT-038 pendientes identificadas para iniciar este WP. La discrepancia preexistente `D-01..D-12` versus `dev01..dev12` debe resolverse antes de una prueba integrada que dependa de la configuración raíz, pero no bloquea WP-021.
+WP-021 ya fue revisado con veredicto final `LISTA PARA INTEGRAR` e incorporado por squash en `main` mediante `2c037261e5a234bb95ce3463de5b4923884630c4`, pero permanece administrativamente `EN_CURSO` hasta completar un gate post-merge verde. Ese gate descubrió una flake backend preexistente en el teardown de fronteras temporales; por ello no se habilitan todavía sus WPs dependientes ni se limpia su worktree.
+
+WP-032 está documentalmente `APROBADO`, figura `PENDIENTE`, depende únicamente de WP-017 ya integrado y debe corregir la pérdida de cancelación en `ServicioFronterasTemporales` antes de cerrar WP-021. Todavía no tiene agente operativo asignado: antes de pasarlo a `EN_CURSO` deben repetirse el preflight parseable de `FORMATO_WP_LANZADORES.md` y la selección de implementador/revisor conforme DEC-007.
+
+La discrepancia preexistente `D-01..D-12` versus `dev01..dev12` debe resolverse antes de una prueba integrada que dependa de la configuración raíz, pero no pertenece al alcance de WP-032.
