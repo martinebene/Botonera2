@@ -10,6 +10,13 @@ export default defineNuxtConfig({
     strict: true,
     typeCheck: true,
   },
+  runtimeConfig: {
+    public: {
+      // URL base del backend. Por defecto cadena vacía para conservar el contrato de mismo origen
+      // en producción (ej. /api/v1). En desarrollo puede sobreescribirse mediante NUXT_PUBLIC_API_BASE_URL.
+      apiBaseUrl: '',
+    },
+  },
   vite: {
     plugins: [tailwindcss()],
   },

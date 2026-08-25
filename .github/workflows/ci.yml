@@ -65,7 +65,7 @@ jobs:
       - run: pnpm typecheck
 
   frontend-tests:
-    name: Frontend · pruebas
+    name: Frontend · pruebas unitarias
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -77,9 +77,24 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      # El scaffold aún no tiene lógica Vue que probar. Vitest queda ejecutable
-      # y este job empezará a descubrir tests sin cambiar la estrategia de CI.
+      # Ejecuta las pruebas unitarias y de sincronización/componentes con Vitest
       - run: pnpm test
+
+  frontend-e2e:
+    name: Frontend · Playwright E2E
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.18.0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm test:e2e
 
   build:
     name: Frontend · build estático
