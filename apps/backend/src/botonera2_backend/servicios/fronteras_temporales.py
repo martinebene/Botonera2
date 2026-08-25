@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Awaitable, Callable
-from contextlib import suppress
 
 from botonera2_backend.servicios.proyecciones import ServicioProyecciones
 from botonera2_backend.servicios.publicacion import CoordinadorPublicacion
@@ -52,16 +51,10 @@ class ServicioFronterasTemporales:
                 cambio = asyncio.create_task(suscripcion.esperar_revision_superior(revision))
                 tiempo = asyncio.create_task(self._esperar_demora(demora))
                 try:
-                    completadas, pendientes = await asyncio.wait(
+                    completadas, _ = await asyncio.wait(
                         (cambio, tiempo),
                         return_when=asyncio.FIRST_COMPLETED,
                     )
-                    for tarea in pendientes:
-                        tarea.cancel()
-                    for tarea in pendientes:
-                        with suppress(asyncio.CancelledError):
-                            await tarea
-
                     # Si simultáneamente llegó una mutación, esa publicación ya
                     # reconstruirá el payload con el reloj vigente. Solo se crea
                     # una revisión temporal adicional cuando el timer fue la
@@ -72,8 +65,27 @@ class ServicioFronterasTemporales:
                     for tarea in (cambio, tiempo):
                         if not tarea.done():
                             tarea.cancel()
-                        with suppress(asyncio.CancelledError):
-                            await tarea
+
+                    # ``return_exceptions`` convierte la cancelación interna de
+                    # una hija en un resultado que podemos reconocer. En cambio,
+                    # si el lifespan cancela esta tarea padre mientras espera el
+                    # ``gather``, asyncio cancela el propio gather y propaga su
+                    # ``CancelledError``. Así el cleanup de las hijas nunca puede
+                    # consumir por accidente la cancelación externa del servicio.
+                    resultados = await asyncio.gather(
+                        cambio,
+                        tiempo,
+                        return_exceptions=True,
+                    )
+                    for resultado in resultados:
+                        if isinstance(resultado, BaseException) and not isinstance(
+                            resultado,
+                            asyncio.CancelledError,
+                        ):
+                            # Las cancelaciones esperadas son parte del cleanup;
+                            # cualquier otro fallo de una hija sigue siendo un
+                            # error real y conserva la propagación previa.
+                            raise resultado
         finally:
             suscripcion.cancelar()
 
