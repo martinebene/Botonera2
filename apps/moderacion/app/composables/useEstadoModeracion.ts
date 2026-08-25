@@ -8,10 +8,10 @@
  * 4. Reflejar si el estado visual puede estar desactualizado durante una pérdida de conexión.
  * 5. Consumir exclusivamente @botonera2/api-client y su método ClienteModeracion.suscribirEstado.
  * 6. Evitar suscripciones duplicadas y garantizar la cancelación determinista al desmontar componentes
- *    mediante un conteo de referencias (reference counting) de consumidores activos.
+ *    mediante un conteo de referencias (reference counting) síncrono por consumidor activo.
  */
 
-import { ref, computed, onMounted, onScopeDispose, type Ref, type ComputedRef } from 'vue'
+import { ref, computed, onScopeDispose, getCurrentScope, type Ref, type ComputedRef } from 'vue'
 import {
   crearClienteModeracion,
   type ClienteModeracion,
@@ -203,8 +203,8 @@ function obtenerOCrearInstanciaCompartida(
 }
 
 /**
- * Registra el montaje de un consumidor activo.
- * Si es el primer consumidor registrado, inicia la suscripción compartida.
+ * Registra síncronamente la presencia de un consumidor activo durante setup().
+ * Si es el primer consumidor activo, inicia inmediatamente la suscripción compartida.
  */
 function registrarConsumidor(sincronizacion: SincronizacionModeracion): void {
   cantidadConsumidoresActivos++
@@ -214,9 +214,9 @@ function registrarConsumidor(sincronizacion: SincronizacionModeracion): void {
 }
 
 /**
- * Desregistra el desmontaje de un consumidor activo.
+ * Desregistra el desmontaje de un consumidor activo al destruirse su scope/componente.
  * Cuando se desmonta el último consumidor activo (conteo llega a cero),
- * cancela la suscripción activa y libera la referencia compartida.
+ * cancela deterministamente la suscripción activa y libera la referencia compartida.
  */
 function desregistrarConsumidor(): void {
   if (cantidadConsumidoresActivos > 0) {
@@ -231,33 +231,32 @@ function desregistrarConsumidor(): void {
 
 /**
  * Composable principal de Nuxt/Vue para acceder a la sincronización del estado de Moderación.
- * Implementa gestión del ciclo de vida con reference counting:
- * - El primer consumidor que se monta inicia la suscripción.
- * - Los consumidores concurrentes reutilizan la misma suscripción activa.
- * - Cuando se desmonta el último consumidor, se cancela la suscripción y se libera el singleton.
+ *
+ * Implementa gestión del ciclo de vida con reference counting síncrono (R-1):
+ * - El registro se realiza de forma síncrona e inmediata durante setup/creación del scope.
+ * - Si es el primer consumidor, inicia la suscripción de inmediato.
+ * - Consumidores concurrentes reutilizan la misma suscripción activa sin duplicar conexiones.
+ * - onScopeDispose desregistra el consumidor y, al quedar cero consumidores, cancela y libera el singleton.
  */
 export function useEstadoModeracion(
   clienteInyectado?: ClienteModeracion,
 ): SincronizacionModeracion {
   const sincronizacion = obtenerOCrearInstanciaCompartida(clienteInyectado)
 
-  let consumidorRegistrado = false
+  let consumidorDesregistrado = false
 
-  // Hook de montaje: registra el consumidor e inicia la sincronización si es el primero
-  onMounted(() => {
-    if (!consumidorRegistrado) {
-      consumidorRegistrado = true
-      registrarConsumidor(sincronizacion)
-    }
-  })
+  // Registro síncrono inmediato en setup() para eliminar la ventana de carrera setup -> onMounted
+  registrarConsumidor(sincronizacion)
 
-  // Hook de desmontaje: desregistra el consumidor y cancela al quedar cero consumidores
-  onScopeDispose(() => {
-    if (consumidorRegistrado) {
-      consumidorRegistrado = false
-      desregistrarConsumidor()
-    }
-  })
+  // Hook de destrucción del scope reactivo: desregistra el consumidor al destruirse el componente
+  if (getCurrentScope()) {
+    onScopeDispose(() => {
+      if (!consumidorDesregistrado) {
+        consumidorDesregistrado = true
+        desregistrarConsumidor()
+      }
+    })
+  }
 
   return sincronizacion
 }
