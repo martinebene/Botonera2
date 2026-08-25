@@ -112,9 +112,9 @@ WP-018 quedó integrado mediante squash merge de PR #24 sobre el candidato final
 
 | WP | Objetivo | Estado | Depende de | Agente |
 |---|---|---|---|---|
-| WP-032 | Corregir pérdida de cancelación en fronteras temporales y estabilizar teardown/CI del backend | PENDIENTE | WP-017 | - |
+| WP-032 | Corregir pérdida de cancelación en fronteras temporales y estabilizar teardown/CI del backend | EN_CURSO | WP-017 | codex |
 
-WP-032 fue creado después de detectar durante el gate post-merge de WP-021 una flake backend reproducible en el teardown del lifespan. La evidencia diagnóstica ubica la anomalía en el lifecycle de `ServicioFronterasTemporales`, incorporado por WP-017. El hotfix está documentalmente `APROBADO`, no modifica el alcance funcional de WP-021 y debe integrarse antes de dar por cerrado su gate post-merge.
+WP-032 fue creado después de detectar durante el gate post-merge de WP-021 una flake backend reproducible en el teardown del lifespan. La evidencia diagnóstica ubica la anomalía en el lifecycle de `ServicioFronterasTemporales`, incorporado por WP-017. El hotfix está documentalmente `APROBADO`, no modifica el alcance funcional de WP-021 y debe integrarse antes de dar por cerrado su gate post-merge. Codex es el implementador operativo acordado; OpenCode con DeepSeek V4 Pro queda previsto como revisor independiente y permanecerá inactivo durante la implementación.
 
 ## Fase 5 - Hardware y bridge
 
@@ -192,6 +192,6 @@ DEC-007, DEC-009, DEC-010, DEC-011, DEC-012, DEC-013, DEC-014, DEC-015 y DEC-016
 
 WP-021 ya fue revisado con veredicto final `LISTA PARA INTEGRAR` e incorporado por squash en `main` mediante `2c037261e5a234bb95ce3463de5b4923884630c4`, pero permanece administrativamente `EN_CURSO` hasta completar un gate post-merge verde. Ese gate descubrió una flake backend preexistente en el teardown de fronteras temporales; por ello no se habilitan todavía sus WPs dependientes ni se limpia su worktree.
 
-WP-032 está documentalmente `APROBADO`, figura `PENDIENTE`, depende únicamente de WP-017 ya integrado y debe corregir la pérdida de cancelación en `ServicioFronterasTemporales` antes de cerrar WP-021. Todavía no tiene agente operativo asignado: antes de pasarlo a `EN_CURSO` deben repetirse el preflight parseable de `FORMATO_WP_LANZADORES.md` y la selección de implementador/revisor conforme DEC-007.
+WP-032 está documentalmente `APROBADO`, figura `EN_CURSO`, depende únicamente de WP-017 ya integrado y tiene a Codex como implementador operativo acordado. OpenCode con DeepSeek V4 Pro es el revisor independiente previsto y permanece inactivo hasta la entrega de un candidato remoto y la habilitación explícita de revisión. El run de CI documental que puede quedar detenido en el mismo defecto objetivo no se usa como puerta circular para impedir el hotfix; el candidato de WP-032 sí deberá tener CI completa verde antes de revisión/integración.
 
 La discrepancia preexistente `D-01..D-12` versus `dev01..dev12` debe resolverse antes de una prueba integrada que dependa de la configuración raíz, pero no pertenece al alcance de WP-032.
