@@ -117,6 +117,15 @@ if (typeof globalThis.document === 'undefined' || !globalThis.document.querySele
     ownerDocument: unknown = null
     private _nodeValue = ''
 
+    /**
+     * Identifica estas instancias como nodos DOM ante Object.prototype.toString().
+     * Vue excluye del proxy reactivo a los objetos host del navegador; conservar esa
+     * propiedad evita que focus() reciba una identidad distinta de la montada.
+     */
+    get [Symbol.toStringTag](): string {
+      return 'Node'
+    }
+
     get nodeValue(): string {
       return this._nodeValue
     }
@@ -250,6 +259,15 @@ if (typeof globalThis.document === 'undefined' || !globalThis.document.querySele
       return false
     }
 
+    /**
+     * Devuelve la raíz del árbol como lo hace Node.getRootNode() en el DOM.
+     * Vue lo consulta al actualizar v-model para distinguir un documento normal
+     * de un ShadowRoot; este DOM liviano no implementa Shadow DOM.
+     */
+    getRootNode(): MockNode {
+      return this.parentNode ? this.parentNode.getRootNode() : this
+    }
+
     cloneNode(deep = false): MockNode {
       const clone = new MockElement((this as unknown as MockElement).tagName ?? 'DIV')
       clone.nodeType = this.nodeType
@@ -347,6 +365,14 @@ if (typeof globalThis.document === 'undefined' || !globalThis.document.querySele
 
     getAttribute(name: string): string | null {
       return this.attributes[name] ?? null
+    }
+
+    /**
+     * Enumera los atributos presentes como Element.getAttributeNames().
+     * Vue Test Utils lo usa al montar sobre un elemento ya conectado al documento.
+     */
+    getAttributeNames(): string[] {
+      return Object.keys(this.attributes)
     }
 
     hasAttribute(name: string): boolean {
@@ -487,6 +513,12 @@ if (typeof globalThis.document === 'undefined' || !globalThis.document.querySele
 
   class MockHTMLElement extends MockElement {}
   class MockSVGElement extends MockElement {}
+  class MockDocument {
+    readonly nodeType = 9
+  }
+  class MockShadowRoot {
+    readonly mode = 'open'
+  }
 
   // @ts-expect-error Mock global de Node para entorno Node
   globalThis.Node = MockNode
@@ -496,6 +528,10 @@ if (typeof globalThis.document === 'undefined' || !globalThis.document.querySele
   globalThis.HTMLElement = MockHTMLElement
   // @ts-expect-error Mock global de SVGElement para entorno Node
   globalThis.SVGElement = MockSVGElement
+  // @ts-expect-error Mock global de Document para comprobaciones instanceof de Vue
+  globalThis.Document = MockDocument
+  // @ts-expect-error Mock global de ShadowRoot; este DOM no implementa árboles de sombra
+  globalThis.ShadowRoot = MockShadowRoot
 
   const bodyElement = new MockHTMLElement('BODY')
 

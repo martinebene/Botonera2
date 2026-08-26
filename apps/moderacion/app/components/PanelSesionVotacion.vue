@@ -62,6 +62,20 @@ const mensajeExito = ref<string | null>(null)
 const mostrarDialogoCierre = ref(false)
 
 /**
+ * Conserva el número de sesión como borrador textual aunque el control sea type="number".
+ * Vue convierte automáticamente a number cuando se usa v-model sobre ese tipo de input;
+ * leer value de HTMLInputElement mantiene la invariancia textual que necesitan la validación
+ * estricta y el seguimiento dirty, sin truncar decimales ni transformar valores inválidos.
+ */
+function manejarInputNumeroSesion(evento: Event): void {
+  const entrada = evento.target as HTMLInputElement | null
+  if (!entrada) return
+
+  numeroSesionInput.value = entrada.value
+  numeroSesionDirty.value = true
+}
+
+/**
  * Sincroniza los borradores locales con el estado autoritativo del backend.
  * Reglas de gestión de drafts (H1):
  * - En transiciones institucionales (cambio de estado_global), se resincroniza todo y se limpian los dirty flags.
@@ -581,7 +595,7 @@ const claseBadge = computed(() => {
             </label>
             <input
               id="prep-numero-sesion"
-              v-model="numeroSesionInput"
+              :value="numeroSesionInput"
               type="number"
               min="1"
               step="1"
@@ -589,7 +603,7 @@ const claseBadge = computed(() => {
               placeholder="Ej: 42"
               class="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs text-slate-100 placeholder-slate-500 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 disabled:opacity-50"
               :disabled="enviando || !conectado"
-              @input="numeroSesionDirty = true"
+              @input="manejarInputNumeroSesion"
             />
           </div>
 
