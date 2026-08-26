@@ -28,9 +28,10 @@ No reemplaza las reglas de negocio, decisiones técnicas ni documentos propietar
 - Todo WP de implementación requiere CI aplicable verde y revisión independiente antes de integrarse.
 - La aprobación de este PLAN aprueba la secuencia y dependencias generales; cada `WP-XXX.md` debe estar individualmente `APROBADO` antes de pasar a `EN_CURSO`.
 - Los `WP-NNN.md` son también entrada estructurada para los lanzadores. Antes de aprobarlos y nuevamente antes de pasarlos a `EN_CURSO`, el orquestador debe verificar `docs/implementation/FORMATO_WP_LANZADORES.md`; en particular, dentro de `## Dependencias` solo pueden aparecer identificadores `WP-NNN` que sean dependencias reales.
-- Antes de delegar cualquier implementación, corrección o revisión, el orquestador debe verificar `docs/implementation/PROMPTS_AGENTES.md` y construir un prompt explícito que no dependa de inferencias tácitas del agente.
+- Antes de delegar cualquier implementación, corrección, revisión o re-revisión, el orquestador debe verificar `docs/implementation/PROMPTS_AGENTES.md` como estándar de contenido y publicar una asignación explícita en `martinebene/Botonera2-Control` conforme DEC-017. El operador no transporta manualmente el prompt completo; el agente descubre la asignación autorizada desde `CURRENT.json`.
 - Una implementación no se considera lista para revisión solo porque el código y tests locales terminen: debe existir candidato remoto identificable con commits, sincronización final, validaciones repetidas, push, PR y SHA exacto, salvo que la tarea haya sido expresamente parcial.
 - Antes de iniciar un WP, el orquestador debe conocer el entorno operativo actual. Con Orca se utiliza el lanzador Orca integrado por WP-030/WP-031; en otros entornos se conserva `scripts/iniciar_wp.py`.
+- Todo IMPLEMENTER o REVIEWER debe verificar primero su elegibilidad y asignación en `martinebene/Botonera2-Control`; una frase humana breve como `Seguí` o `Revisá` no autoriza por sí sola ningún alcance.
 
 ## Soporte operativo transversal
 
@@ -41,7 +42,7 @@ No reemplaza las reglas de negocio, decisiones técnicas ni documentos propietar
 
 WP-030 fue incorporado después de definir la numeración funcional WP-001..WP-029; su número no representa una nueva fase de producto. Fue el bootstrap operativo transversal aprobado por DEC-007 y quedó integrado mediante PR #12.
 
-WP-031 quedó integrado mediante PR #14 después de CI verde, revisión independiente con OpenCode + DeepSeek V4 Pro y validación manual exitosa del espejo de última respuesta en una terminal común de Orca. Desde ese punto, el lanzador Orca abre el agente sin inyectar `--prompt`: ChatGPT Web entrega el prompt exhaustivo visible al operador, que lo revisa y pega manualmente.
+WP-031 quedó integrado mediante PR #14 después de CI verde, revisión independiente con OpenCode + DeepSeek V4 Pro y validación manual exitosa del espejo de última respuesta en una terminal común de Orca. El lanzador Orca continúa abriendo el agente sin inyectar `--prompt`. Desde DEC-017, el trabajo no se transporta normalmente mediante copiado/pegado manual: el agente sincroniza `Botonera2-Control` y consume la asignación vigente indicada por `CURRENT.json`.
 
 ## Fase 1 - Fundaciones reproducibles
 
@@ -132,13 +133,15 @@ WP-020 quedó integrado mediante squash merge de PR #26 sobre el candidato final
 | WP | Objetivo | Estado | Depende de | Agente |
 |---|---|---|---|---|
 | WP-021 | Crear shell de Moderación, layout responsive y sincronización mediante `api-client` | INTEGRADO | WP-018 | - |
-| WP-022 | Implementar UI de preparación, presencia, autoridades, sesión y advertencia de cierre con palabra pendiente | EN_CURSO | WP-021, WP-008 | antigravity |
+| WP-022 | Implementar UI de preparación, presencia, autoridades, sesión y advertencia de cierre con palabra pendiente | INTEGRADO | WP-021, WP-008 | - |
 | WP-023 | Implementar UI de votaciones, resultado, desempate, Orden del Día y advertencia de apertura con palabra pendiente | PENDIENTE | WP-021, WP-014, WP-016 | - |
 | WP-024 | Implementar UI de palabra con semántica Otorgar/Quitar definida, eventos y remapeo de dispositivos | PENDIENTE | WP-021, WP-015, WP-020 | - |
 
 WP-021 quedó integrado mediante squash merge de PR #27 sobre el candidato final `660cacfe9e87ffb4e9fa7d189763d49bfb45ca01`, después de una tercera re-revisión independiente con OpenCode + DeepSeek V4 Pro que concluyó `LISTA PARA INTEGRAR` con cero hallazgos BLOQUEANTES e IMPORTANTES y un hallazgo MENOR no bloqueante. El squash produjo `2c037261e5a234bb95ce3463de5b4923884630c4` en `main`. Su primer gate post-merge quedó cancelado por una flake backend preexistente del teardown de fronteras temporales, posteriormente aislada y corregida por WP-032; la CI post-merge #193 / run `32861046565` sobre el main que incluye ambos cambios terminó verde 6/6, por lo que el cierre canónico de WP-021 queda completado.
 
-WP-022 está `EN_CURSO` con Antigravity/AGY + Gemini 3.7 Flash High como implementador y OpenCode + DeepSeek V4 Pro seleccionado como revisor independiente secuencial. La asignación fue aprobada explícitamente por el humano antes del inicio.
+WP-022 quedó integrado mediante squash merge de PR #29 sobre el candidato final `7000fccbc9896f1b2e39bdb3829bde0f4b0de422`, después de CI candidata #201 / run `32977081279` verde 6/6 y cuarta revisión independiente con OpenCode + DeepSeek V4 Pro. La revisión concluyó `LISTA PARA INTEGRAR`, con cero hallazgos BLOQUEANTES, cero IMPORTANTES y dos MENORES aceptados. El squash produjo `6f9b6f1d5e277e0b07fe737cefb231ea37119b38` en `main`.
+
+La CI post-merge #202 / run `32984587789` quedó huérfana durante una incidencia de GitHub Actions: UI/API mostraron `queued` con cero jobs y sin actualizaciones, mientras `cancel`, `rerun` y `force-cancel` devolvieron estados incompatibles. Se documenta la excepción de plataforma prevista por DEC-017 porque el candidato validado y el squash de `main` apuntan exactamente al mismo tree SHA `e66721570b5d441b8783a7b8143a8180a6d05d6e`; por tanto, el contenido integrado es idéntico al contenido que pasó #201. La excepción fue autorizada explícitamente por el operador y no existe trabajo productivo pendiente de WP-022.
 
 WP-022, WP-023 y WP-024 pueden ejecutarse en paralelo cuando sus dependencias estén integradas, usando worktrees diferentes y sin superposición no coordinada.
 
@@ -174,28 +177,27 @@ La trazabilidad se mantiene en cada WP y PR, no mediante una matriz duplicada pe
 
 ## Inicio local de WPs
 
-DEC-002 y DEC-007 establecen un flujo común de autorización con lanzamiento específico según entorno:
+DEC-002, DEC-007 y DEC-017 establecen un flujo común de autorización con lanzamiento específico según entorno y handoff persistente:
 
 1. el planificador/humano aprueba el WP después de que el orquestador verifique el formato parseable de `FORMATO_WP_LANZADORES.md`;
 2. se cambia su estado a `EN_CURSO` y se asigna el agente en este PLAN, repitiendo el preflight parseable antes de habilitar el lanzamiento;
-3. el orquestador construye/verifica el prompt exhaustivo según `PROMPTS_AGENTES.md`;
-4. el operador actualiza su checkout coordinador de `main`;
-5. el orquestador determina el entorno actual;
-6. si el entorno es Orca, se utiliza `scripts/iniciar_wp_orca.py NNN agente`; el launcher abre el agente sin prompt automático;
-7. si el entorno es genérico/terminal/SSH/Warp u otro sin integración Orca, se utiliza `scripts/iniciar_wp.py NNN agente`;
-8. el operador revisa y pega manualmente en el agente el prompt exhaustivo entregado por ChatGPT Web;
-9. el agente trabaja dentro de su worktree aislado.
+3. el orquestador verifica `PROMPTS_AGENTES.md` como estándar de contenido y publica la asignación vigente en `Botonera2-Control`;
+4. el orquestador actualiza `Botonera2-Control/CURRENT.json` con rol, WP, iteración, assignment y resultado esperado;
+5. el operador actualiza su checkout coordinador de `main`;
+6. el orquestador determina el entorno actual;
+7. si el entorno es Orca, se utiliza `scripts/iniciar_wp_orca.py NNN agente`; el launcher abre el agente sin prompt automático;
+8. si el entorno es genérico/terminal/SSH/Warp u otro sin integración Orca, se utiliza `scripts/iniciar_wp.py NNN agente`;
+9. el HUMAN_GATE inicia el turno con una instrucción breve; el agente sincroniza `Botonera2-Control`, verifica elegibilidad y consume la asignación indicada por `CURRENT.json`;
+10. el agente trabaja dentro de su worktree aislado y publica únicamente el resultado dirigido al ORCHESTRATOR en la ruta esperada.
 
-Los lanzadores no pueden aprobar WPs, cambiar su estado en PLAN ni modificar `main` para conseguir autorización.
+Los lanzadores no pueden aprobar WPs, cambiar su estado en PLAN ni modificar `main` para conseguir autorización. Tampoco `Botonera2-Control` sustituye la autoridad canónica de este PLAN o del WP.
 
 ## Próximo punto de control
 
-WP-001, WP-002, WP-003, WP-004, WP-005, WP-006, WP-007, WP-008, WP-009, WP-010, WP-011, WP-013, WP-014, WP-015, WP-016, WP-017, WP-018, WP-019, WP-020, WP-021, WP-030, WP-031 y WP-032 están `INTEGRADO` y sin agente operativo asignado.
+WP-001, WP-002, WP-003, WP-004, WP-005, WP-006, WP-007, WP-008, WP-009, WP-010, WP-011, WP-013, WP-014, WP-015, WP-016, WP-017, WP-018, WP-019, WP-020, WP-021, WP-022, WP-030, WP-031 y WP-032 están `INTEGRADO` y sin agente operativo asignado.
 
-WP-022 está `EN_CURSO` con `antigravity` como agente implementador. El modelo operativo acordado es Gemini 3.7 Flash High y el revisor independiente reservado para el relevo secuencial es OpenCode + DeepSeek V4 Pro.
+DEC-007, DEC-009, DEC-010, DEC-011, DEC-012, DEC-013, DEC-014, DEC-015, DEC-016 y DEC-017 están vigentes. Orca continúa como entorno operativo preferido mientras esté en uso y `martinebene/Botonera2-Control` es el bus operativo obligatorio de turnos/handoffs conforme DEC-017.
 
-DEC-007, DEC-009, DEC-010, DEC-011, DEC-012, DEC-013, DEC-014, DEC-015 y DEC-016 están vigentes. Orca continúa como entorno operativo preferido mientras esté en uso.
-
-WP-023, WP-024 y WP-025 continúan documentalmente disponibles para ejecución paralela conforme a sus dependencias, pero no deben iniciarse sin su propia planificación/aprobación operativa y selección de agentes conforme DEC-007.
+WP-023, WP-024 y WP-025 continúan documentalmente disponibles para ejecución paralela conforme a sus dependencias, pero no deben iniciarse sin su propia planificación/aprobación operativa, selección de agentes conforme DEC-007 y asignación vigente publicada en `Botonera2-Control`.
 
 La discrepancia preexistente `D-01..D-12` versus `dev01..dev12` debe resolverse antes de una prueba integrada que dependa de la configuración raíz.
