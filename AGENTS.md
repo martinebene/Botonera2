@@ -6,9 +6,30 @@ Este repositorio contiene la especificación canónica y, posteriormente, la imp
 
 Los agentes deben implementar lo documentado aquí; no reconstruir el producto a partir del repositorio histórico.
 
+## Coordinación operativa obligatoria - DEC-017
+
+Desde la activación de `docs/decisions/DEC-017-coordinacion-mediante-botonera2-control.md`, todo agente local que participe como IMPLEMENTER o REVIEWER en un WP orquestado debe usar `martinebene/Botonera2-Control` como fuente de turno y handoff antes de realizar trabajo sustantivo.
+
+Una instrucción humana breve como `Seguí` o `Revisá` **no contiene por sí misma la tarea**. Antes de actuar, el agente debe:
+
+1. sincronizar una copia local de `martinebene/Botonera2-Control` con su `main` remoto;
+2. leer `AGENTS.md` de ese repositorio;
+3. leer `CURRENT.json`;
+4. leer el archivo de rol que corresponda;
+5. verificar que `next_actor`, `assignment_id`, WP, iteración y destinatario coincidan con su rol;
+6. comprobar que el `expected_response_path` todavía no exista;
+7. leer únicamente la asignación vigente indicada por `assignment_path`;
+8. recién entonces leer el WP y las fuentes canónicas de Botonera2 necesarias para ejecutar esa asignación.
+
+Si el rol no coincide, la asignación no existe, los metadatos no coinciden, el resultado esperado ya existe o el estado es ambiguo, el agente debe detenerse sin modificar nada e indicar al operador qué actor corresponde.
+
+El repositorio `Botonera2-Control` es únicamente transporte, estado de turno e historial operativo. **Este repositorio Botonera2 continúa siendo la fuente normativa del producto, WPs, decisiones, código, CI e integración.** Una asignación del repositorio de control no puede ampliar ni contradecir el alcance canónico.
+
+IMPLEMENTER y REVIEWER no se comunican lateralmente. El implementador no consume informes `reviewer-to-orchestrator`; el revisor no consume informes `implementer-to-orchestrator`. Todo hallazgo que deba cruzar de un rol al otro pasa primero por el ORCHESTRATOR.
+
 ## Flujo de lectura obligatorio para implementación
 
-Para un Work Package normal, antes de proponer o modificar código:
+Para un Work Package normal, después de completar la elegibilidad operativa anterior y antes de proponer o modificar código:
 
 1. leer `AGENTS.md`;
 2. leer el `docs/work-packages/WP-XXX.md` asignado;
@@ -48,12 +69,12 @@ Cuando una tarea requiera reconstrucción global, las fuentes principales son:
 - La documentación de Botonera2 es la fuente normativa para la nueva implementación.
 - El WP asignado define el alcance operativo, pero no puede contradecir reglas o decisiones canónicas.
 - Las decisiones `DEC-XXX` aprobadas posteriores son vinculantes para todos los WPs afectados.
-- `DEC-001`, `DEC-003` y `DEC-007` son decisiones transversales obligatorias para todos los WPs de implementación, aunque un WP antiguo no las enumere explícitamente.
+- `DEC-001`, `DEC-003`, `DEC-007` y `DEC-017` son decisiones transversales obligatorias para todos los WPs de implementación, aunque un WP antiguo no las enumere explícitamente.
 - El repositorio histórico `martinebene/Botonera`, rama `main`, puede consultarse como referencia funcional únicamente según la regla de fallback definida más abajo y en `docs/decisions/DEC-001-estilo-codigo-y-referencia-produccion.md`.
 - No copiar arquitectura, clases, endpoints internos, polling, serialización ni estructura histórica por defecto.
 - La rama histórica `v2` no es normativa.
 - Si una implementación antigua contradice Botonera2, manda Botonera2.
-- El prompt de ejecución no reemplaza la especificación versionada del WP ni puede ampliar silenciosamente su alcance.
+- La asignación operativa o prompt no reemplaza la especificación versionada del WP ni puede ampliar silenciosamente su alcance.
 
 ## Regla de fallback funcional a producción
 
@@ -133,7 +154,7 @@ Principios principales:
 
 ## Gobernanza cerrada DT-033 a DT-038, precisada por DEC posteriores
 
-Ver `docs/14-gobernanza-agentes.md` y las DEC posteriores vigentes, especialmente DEC-004, DEC-005 y DEC-007.
+Ver `docs/14-gobernanza-agentes.md` y las DEC posteriores vigentes, especialmente DEC-004, DEC-005, DEC-007 y DEC-017.
 
 - `main` es la única rama estable de integración.
 - Cada WP usa una rama corta inequívoca y una PR; la forma literal depende del entorno conforme a DEC-007 (`wp/NNN-descripcion-corta` en el flujo genérico o rama nativa trazable administrada por Orca).
@@ -154,6 +175,7 @@ Ver `docs/14-gobernanza-agentes.md` y las DEC posteriores vigentes, especialment
 - Se prefiere otra familia de modelo para revisar; no puede integrarse una PR con hallazgos BLOQUEANTES o IMPORTANTES pendientes.
 - El implementador tiene autonomía sobre detalles internos locales que no cambien comportamiento observable, contratos, dependencias ni decisiones globales.
 - Las decisiones reservadas por DT-038 requieren aprobación humana/documentada antes de continuar el alcance afectado.
+- La coordinación de turnos, handoffs e aislamiento entre roles se rige por DEC-017 y `martinebene/Botonera2-Control`.
 
 ## Decisiones transversales posteriores
 
@@ -214,6 +236,20 @@ Obliga a:
 - asignar implementador por complejidad/riesgo/capacidad/disponibilidad-cuota en lugar de un agente universal predeterminado;
 - mantener revisión independiente por sesión/agente/modelo efectivo;
 - limpiar worktree/rama usando el mecanismo correspondiente al entorno después del merge verificado.
+
+### DEC-017 - Coordinación mediante Botonera2-Control
+
+Ver `docs/decisions/DEC-017-coordinacion-mediante-botonera2-control.md`.
+
+Obliga a:
+
+- descubrir el turno y la asignación desde `martinebene/Botonera2-Control` antes de actuar;
+- mantener al humano como compuerta entre turnos;
+- usar `CURRENT.json` y la existencia del resultado esperado como regla de elegibilidad;
+- impedir comunicación lateral IMPLEMENTER/REVIEWER;
+- publicar handoffs append-only dirigidos al ORCHESTRATOR;
+- usar `PROMPTS_AGENTES.md` como estándar de contenido de las asignaciones, no como transporte manual;
+- detenerse de forma segura ante rol incorrecto, asignación consumida o estado ambiguo.
 
 ## Estilo obligatorio del código
 
@@ -362,6 +398,8 @@ Solo debe detenerse la parte dependiente de esa decisión; el trabajo independie
 - No ocultar la ausencia de un MCP requerido: aplicar el aviso y fallback de DEC-003.
 - No usar memoria del modelo como sustituto de documentación externa cuando DEC-003 exige verificar una API/configuración vigente.
 - No ignorar DEC-007 al seleccionar entorno, rama/worktree, implementador o revisor.
+- No ignorar DEC-017 ni ejecutar trabajo si `Botonera2-Control` no autoriza inequívocamente el rol/turno.
+- No consumir informes privados del otro rol para eludir la mediación del ORCHESTRATOR.
 - No versionar credenciales o secretos de MCP ni configuración personal de agentes/Orca.
 
 Si aparece trabajo fuera de alcance, registrarlo en el WP/PR como hallazgo. Si aparece una decisión transversal nueva, detener solo el alcance afectado y elevarla para posible `DEC-XXX`.
@@ -382,6 +420,7 @@ Cada cambio debe:
 - permitir que la PR explique la implementación a nivel principiante;
 - utilizar documentación técnica externa actualizada cuando corresponda según DEC-003;
 - hacer explícito cualquier fallback por MCP no disponible;
-- respetar el entorno y la independencia de agentes definidos por DEC-007.
+- respetar el entorno y la independencia de agentes definidos por DEC-007;
+- respetar el turno, aislamiento y handoffs definidos por DEC-017 y `Botonera2-Control`.
 
 Si aparece una contradicción real entre documentos, no adivinar: detener únicamente el alcance afectado y documentar la inconsistencia.
