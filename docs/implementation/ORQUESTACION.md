@@ -1,125 +1,218 @@
 # Orquestación operativa de la implementación
 
-Este documento describe el procedimiento práctico de coordinación de Botonera2. Deriva de `DEC-004`, `DEC-005` y `DEC-007` y no reemplaza `AGENTS.md`, los Work Packages ni las decisiones canónicas.
+Este documento describe el procedimiento práctico de coordinación de Botonera2. Deriva de `DEC-004`, `DEC-005`, `DEC-007` y `DEC-017` y no reemplaza `AGENTS.md`, los Work Packages ni las decisiones canónicas.
 
-## Rol del orquestador
+## Principio general
 
 La coordinación y planificación documental se realizan preferentemente desde una conversación de ChatGPT Web con acceso independiente a GitHub.
 
-El orquestador consulta directamente `martinebene/Botonera2`, verifica `main`, ramas, PR, SHA, CI y merges, reconstruye el estado vigente, identifica el próximo WP habilitado, carga únicamente las fuentes canónicas necesarias y planifica su definición junto con el operador humano antes de delegar implementación.
+Existen dos repositorios con responsabilidades distintas:
 
-Cuando durante la planificación aparece una decisión reservada por DT-038, el orquestador la presenta al operador con alternativas, impacto y recomendación, y solo la incorpora a la documentación canónica después de una decisión humana explícita.
+- `martinebene/Botonera2`: producto, documentación canónica, WPs, decisiones, código, PR, CI e integración;
+- `martinebene/Botonera2-Control`: asignaciones, resultados, iteraciones y estado operativo de turnos.
 
-Antes de entregar comandos para iniciar un WP, el orquestador debe conocer el **entorno operativo actual**. Si el operador está trabajando mediante Orca, utiliza el flujo Orca definido por DEC-007; si está usando terminal/SSH/Warp u otro entorno genérico, utiliza el lanzador genérico. Si el entorno no puede determinarse con seguridad, debe preguntarlo en lugar de asumir una herramienta histórica.
+GitHub se utiliza como transporte y persistencia. **No existe encadenamiento autónomo entre agentes.** El operador humano continúa siendo la compuerta que inicia cada turno y vuelve al ORCHESTRATOR cuando ese turno termina.
 
-El orquestador entrega al operador los comandos y prompts correspondientes al entorno vigente, recibe las salidas locales y las contrasta con GitHub antes de habilitar transiciones. Una conversación nueva reconstruye el estado desde el repositorio y no depende de memoria de conversaciones anteriores.
+## Actores
 
-## Calidad obligatoria de los prompts de delegación
+### ORCHESTRATOR
 
-La redacción del prompt de cada agente es una responsabilidad central del orquestador y no una formalidad secundaria.
+El ORCHESTRATOR:
 
-En el flujo vigente ChatGPT Web utiliza GPT-5.6 Sol como referencia operativa de orquestación de alta capacidad. El procedimiento no queda congelado a ese nombre de modelo: si en el futuro cambia la oferta, debe utilizarse para orquestación el modelo de mayor capacidad/razonamiento disponible que resulte adecuado.
+- reconstruye el estado real desde GitHub;
+- planifica los WPs con el operador;
+- escala decisiones DT-038;
+- mantiene documentación canónica dentro de la autoridad de DEC-005;
+- selecciona/proponer implementador y revisor conforme DEC-007;
+- crea las asignaciones en `Botonera2-Control`;
+- es el único actor que modifica `CURRENT.json`;
+- procesa los resultados de IMPLEMENTER y REVIEWER;
+- decide correcciones, re-revisiones, integración, bloqueo y cierre.
 
-Esa capacidad debe aprovecharse para **reducir deliberadamente la cantidad de inferencias que se delegan** a implementadores y revisores. Los agentes locales pueden usar modelos más pequeños, rápidos o económicos y no debe suponerse que reconstruirán por sí solos pasos operativos que el orquestador puede especificar con precisión.
+### IMPLEMENTER
 
-Por lo tanto:
+El IMPLEMENTER ejecuta únicamente la asignación vigente dirigida a su rol. Trabaja sobre la rama/worktree del WP y publica su resultado exclusivamente para el ORCHESTRATOR.
 
-- los prompts deben ser explícitos, detallados y específicos para el estado real del WP;
-- no alcanza con `Implementá WP-NNN`, `Revisá la PR` o instrucciones equivalentes;
-- el prompt debe repetir los pasos operativos críticos aunque también estén documentados en el repositorio;
-- la redundancia entre documentación y prompt se considera una salvaguarda intencional;
-- nunca se delegan decisiones DT-038 mediante una formulación ambigua esperando que el agente “elija lo mejor”;
-- el agente debe recibir criterios claros de finalización y un formato concreto de evidencia a devolver.
+### REVIEWER
 
-La política completa y los mínimos obligatorios para prompts de implementación, corrección, revisión y re-revisión están en `docs/implementation/PROMPTS_AGENTES.md` y deben verificarse antes de cada delegación.
+El REVIEWER ejecuta únicamente la asignación vigente dirigida a su rol, revisa el SHA exacto indicado en modo solo lectura y publica su informe exclusivamente para el ORCHESTRATOR.
 
-El prompt operativo no reemplaza el WP ni las decisiones canónicas. Si existe contradicción, prevalece la documentación normativa y el orquestador debe corregir el prompt antes de continuar.
+### HUMAN_GATE
 
-## Fuentes mínimas de una conversación nueva
+El operador humano inicia manualmente cada turno. No necesita transportar WP, iteración, PR, SHA ni prompt completo entre actores.
 
-Leer en este orden:
+Las frases breves normales son:
+
+- IMPLEMENTER: `Seguí`;
+- REVIEWER: `Revisá`;
+- ORCHESTRATOR: `Terminó el implementador`, `Terminó el revisor` o una consulta equivalente de estado.
+
+Estas frases **no contienen el trabajo**. El actor descubre la tarea desde `Botonera2-Control`.
+
+## Fuente de autoridad y precedencia
+
+Para producto, alcance, contratos, criterios, Git, CI e integración manda Botonera2.
+
+Para turno y transporte operativo manda el protocolo vigente de `Botonera2-Control`, subordinado a la documentación canónica.
+
+En caso de contradicción:
+
+1. reglas canónicas de Botonera2;
+2. decisiones `DEC-XXX` posteriores aplicables;
+3. protocolo de `Botonera2-Control`;
+4. decisión del ORCHESTRATOR dentro de su autoridad;
+5. asignación particular.
+
+## Fuentes mínimas de una conversación nueva de orquestación
+
+Leer o verificar:
 
 1. `AGENTS.md`;
 2. `docs/decisions/DEC-004-orquestacion-revision-secuencial-y-sincronizacion.md`;
 3. `docs/decisions/DEC-005-planificacion-y-autoridad-documental-del-orquestador.md`;
 4. `docs/decisions/DEC-007-entorno-orca-asignacion-agentes-y-lanzadores.md`;
-5. `docs/implementation/ORQUESTACION.md`;
-6. `docs/implementation/PROMPTS_AGENTES.md`;
-7. `docs/implementation/PLAN.md`;
-8. PR abiertas o recientemente integradas relevantes;
-9. el `WP-XXX.md` concreto cuando corresponda.
+5. `docs/decisions/DEC-017-coordinacion-mediante-botonera2-control.md`;
+6. `docs/implementation/ORQUESTACION.md`;
+7. `docs/implementation/PROMPTS_AGENTES.md` como estándar de contenido de delegación;
+8. `docs/implementation/PLAN.md`;
+9. `Botonera2-Control/PROTOCOL.md` y `Botonera2-Control/CURRENT.json`;
+10. PR abiertas o recientemente integradas relevantes;
+11. el `WP-XXX.md` concreto cuando corresponda.
 
-No es necesario reconstruir toda la historia si el repositorio ya contiene el estado canónico vigente.
+No depender de memoria de conversaciones anteriores cuando GitHub puede reconstruir el estado.
 
 ## Planificación documental de un WP
 
-Antes de iniciar implementación, el orquestador:
+Antes de iniciar implementación, el ORCHESTRATOR:
 
 1. identifica el próximo WP permitido por `PLAN.md` y sus dependencias;
-2. verifica que las dependencias requeridas estén `INTEGRADO`;
+2. verifica dependencias `INTEGRADO`;
 3. carga las fuentes canónicas propietarias del alcance;
-4. inspecciona únicamente el código integrado previo necesario para que el contrato sea implementable y no duplique responsabilidades;
-5. detecta ambigüedades, contradicciones y decisiones reservadas por DT-038;
-6. consulta al operador únicamente las definiciones humanas necesarias;
-7. redacta o actualiza `docs/work-packages/WP-XXX.md` siguiendo `TEMPLATE.md`;
-8. mantiene el WP como `BORRADOR` mientras existan decisiones pendientes;
-9. cuando el operador aprueba explícitamente la definición completa, registra el WP como `APROBADO`;
-10. actualiza la documentación canónica directamente en `main` conforme a DEC-005;
-11. registra el SHA, verifica CI de `main` aplicable y exige sincronización local antes de trabajo dependiente;
-12. consulta al operador qué agentes/modelos están disponibles en ese momento y cómo se encuentran sus cuotas/capacidad operativa;
-13. evalúa complejidad, riesgo, capacidades, rendimiento observado, cuota e independencia entre familias y propone una pareja implementador + revisor para ese WP;
-14. acuerda explícitamente con el operador el implementador y el revisor previsto antes del lanzamiento; el implementador se registra en PLAN y el revisor permanece como asignación operativa de revisión;
-15. construye el prompt exhaustivo del implementador conforme a `PROMPTS_AGENTES.md`, incluyendo explícitamente entrega Git/PR, checks, límites, escalamiento y evidencia final.
+4. inspecciona solo el código integrado necesario;
+5. detecta ambigüedades y decisiones reservadas por DT-038;
+6. consulta al operador únicamente las decisiones humanas necesarias;
+7. redacta o actualiza `docs/work-packages/WP-XXX.md` siguiendo el formato vigente;
+8. mantiene `BORRADOR` mientras haya decisiones pendientes;
+9. registra `APROBADO` tras aprobación humana explícita;
+10. actualiza documentación canónica en `main` conforme DEC-005;
+11. verifica el SHA y la CI aplicable;
+12. consulta disponibilidad/cuota de agentes/modelos cuando sea necesario;
+13. propone y acuerda implementador + revisor independiente conforme DEC-007;
+14. cambia PLAN a `EN_CURSO` con el implementador autorizado;
+15. prepara la primera asignación en `Botonera2-Control`.
 
-Los agentes locales de implementación reciben el WP ya cerrado. No redefinen alcance, reglas, contratos ni decisiones reservadas.
+Los agentes locales reciben un WP ya cerrado. No redefinen alcance ni decisiones reservadas.
+
+## Calidad de las asignaciones
+
+`docs/implementation/PROMPTS_AGENTES.md` continúa vigente como estándar de calidad y contenido, aunque deja de ser el mecanismo normal de transporte manual.
+
+Toda asignación debe ser explícita respecto de:
+
+- rol y objetivo;
+- WP y fuentes canónicas;
+- alcance y exclusiones;
+- decisiones/prohibiciones relevantes;
+- branch/worktree/PR/SHA cuando correspondan;
+- sincronización Git;
+- tests y gates requeridos;
+- escalamiento;
+- evidencia final;
+- ruta exacta del resultado a publicar.
+
+La asignación no reemplaza al WP. La redundancia deliberada sigue siendo una salvaguarda para agentes con capacidades distintas.
+
+## Preparación de un turno en Botonera2-Control
+
+El ORCHESTRATOR crea un mensaje append-only bajo:
+
+```text
+work-packages/WP-NNN/iteration-XXX/
+```
+
+Archivos normales:
+
+```text
+01-orchestrator-to-implementer.md
+02-implementer-to-orchestrator.md
+03-orchestrator-to-reviewer.md
+04-reviewer-to-orchestrator.md
+```
+
+Luego actualiza `CURRENT.json` con:
+
+- WP;
+- iteración;
+- estado;
+- `next_actor`;
+- `assignment_id`;
+- `assignment_path`;
+- `expected_response_path`;
+- PR/SHA cuando corresponda.
+
+Los mensajes publicados no se reescriben. Una corrección o re-revisión genera una nueva iteración/mensaje.
+
+## Elegibilidad obligatoria del agente local
+
+Antes de actuar, IMPLEMENTER o REVIEWER debe:
+
+1. sincronizar `martinebene/Botonera2-Control` con `main` remoto;
+2. leer su `AGENTS.md`;
+3. leer `CURRENT.json`;
+4. confirmar que `next_actor` coincide con su rol;
+5. confirmar que la asignación indicada existe;
+6. verificar `assignment_id`, WP, iteración y destinatario;
+7. comprobar que `expected_response_path` todavía no exista;
+8. leer únicamente la asignación dirigida a su rol;
+9. recién entonces cargar el contexto canónico de Botonera2.
+
+Si falla cualquier condición, el agente se detiene sin modificar nada.
+
+La existencia del resultado esperado significa que ese turno terminó, incluso si `CURRENT.json` todavía conserva el estado anterior hasta que el humano vuelva al ORCHESTRATOR.
+
+## Aislamiento entre roles
+
+No existe canal lateral IMPLEMENTER -> REVIEWER ni REVIEWER -> IMPLEMENTER.
+
+El IMPLEMENTER no debe leer informes `reviewer-to-orchestrator`.
+
+El REVIEWER no debe leer informes `implementer-to-orchestrator`.
+
+Los hallazgos del REVIEWER llegan al ORCHESTRATOR, quien decide cuáles acepta, reformula, descarta o escala. Solo una nueva asignación del ORCHESTRATOR puede convertirlos en trabajo autorizado para el IMPLEMENTER.
 
 ## Cambios documentales directos desde ChatGPT Web
 
-Con aprobación humana explícita, el orquestador puede crear o modificar directamente en `main`:
+Con aprobación humana explícita, DEC-005 permite al ORCHESTRATOR modificar directamente en `main` documentación autorizada como:
 
 - `AGENTS.md`;
-- `README.md` cuando el cambio sea exclusivamente documental;
-- `docs/**/*.md`, incluidos PLAN, ORQUESTACION, WPs, DECs y demás especificación canónica.
+- README exclusivamente documental;
+- `docs/**/*.md`, incluidos PLAN, ORQUESTACION, WPs y DECs.
 
-Antes de cada escritura directa debe:
+Antes de escribir debe:
 
-1. verificar el HEAD actual de `main` en GitHub;
+1. verificar HEAD actual de `main`;
 2. confirmar que el cambio es exclusivamente documental y está autorizado;
 3. no introducir decisiones DT-038 no aprobadas;
-4. realizar el commit y registrar su SHA;
-5. volver a verificar el HEAD remoto;
-6. verificar CI aplicable de `main`;
+4. realizar la escritura y registrar SHA;
+5. volver a verificar HEAD remoto;
+6. verificar la CI aplicable;
 7. no habilitar trabajo dependiente si la CI falla;
-8. hacer sincronizar el checkout coordinador local mediante fast-forward.
+8. exigir sincronización local antes de continuar.
 
-Si el cambio documental afecta o resuelve una escalación de un WP que ya está `EN_CURSO`, sincronizar únicamente el checkout coordinador no es suficiente. Antes de que el implementador reanude ese WP, su worktree debe incorporar el nuevo `origin/main` mediante merge normal.
+Esta excepción no alcanza a código, tests ejecutables, scripts, workflows/CI, configuración funcional, dependencias, lockfiles, tooling ejecutable, assets ni despliegue.
 
-En un worktree genérico:
+## Inicio local de un WP
 
-```bash
-cd <ruta-del-worktree>
-git status --short
-git fetch origin
-git merge origin/main
-```
+Antes del lanzamiento:
 
-En Orca, la ruta real debe obtenerse de `orca worktree show/list --json` o del resultado del lanzamiento; no debe suponerse `/workspace/Botonera2-wpNNN`.
+- WP `APROBADO`;
+- dependencias `INTEGRADO`;
+- PLAN `EN_CURSO` con un implementador;
+- implementador/revisor acordados;
+- asignación IMPLEMENTER publicada en `Botonera2-Control`;
+- `CURRENT.json` apuntando a esa asignación.
 
-El árbol debe estar limpio antes del merge. No usar rebase ni force-push. Después del merge se repiten las validaciones aplicables antes de continuar el trabajo productivo. De este modo el implementador nunca sigue trabajando contra un WP, DEC u otra definición canónica que ya fue reemplazada en `main`.
-
-Esta excepción no alcanza a código, tests ejecutables, scripts, workflows/CI, configuración TOML/CSV/JSON, dependencias, lockfiles, tooling ejecutable, assets ni despliegue. Los agentes locales tampoco adquieren esta autoridad.
-
-La documentación que un implementador modifica dentro de un WP permanece en la rama y PR de ese WP normalmente.
-
-## Inicio de un WP
-
-Antes de iniciar, el WP debe estar `APROBADO`, sus dependencias `INTEGRADO` y `PLAN.md` debe marcarlo `EN_CURSO` con un único agente asignado. La transición documental a `EN_CURSO` y la asignación pueden registrarse directamente en `main` por el orquestador conforme a DEC-005, siempre con autorización humana explícita.
-
-La selección previa del implementador y del revisor previsto debe haberse acordado conforme a DEC-007 usando información vigente de agentes/modelos disponibles y cuotas. No existe una pareja permanente obligatoria. Si cambian materialmente disponibilidad o cuota antes de iniciar la revisión, la elección del revisor puede reconsiderarse con acuerdo explícito del operador.
-
-Además, antes de lanzar al agente, el orquestador debe completar el preflight de `PROMPTS_AGENTES.md`. Un launcher que valide correctamente Git/documentación pero entregue un prompt operativo insuficiente no satisface por sí solo esta obligación.
-
-El checkout coordinador se sincroniza siempre:
+El checkout coordinador se sincroniza:
 
 ```bash
 cd /workspace/Botonera2
@@ -131,23 +224,21 @@ git pull --ff-only origin main
 
 `git status --short` debe estar vacío y `HEAD` debe coincidir con `origin/main`.
 
-### Si el entorno actual es Orca
+### Orca
 
-El inicio normal se realiza mediante el lanzador específico de Orca:
+Cuando Orca es el entorno vigente:
 
 ```bash
 uv run python scripts/iniciar_wp_orca.py NNN agente
 ```
 
-Ese lanzador conserva las validaciones documentales/Git y delega en `orca worktree create` la creación del worktree, la rama nativa Orca y el lanzamiento del agente dentro de una terminal administrada por Orca, **sin pasar ningún prompt de trabajo**.
+El lanzador crea el worktree/rama nativa y abre el agente **sin inyectar el trabajo**.
 
-La identidad visible del workspace debe conservar el WP (`wp/NNN-descripcion`). La rama Git puede usar la forma nativa aceptada por DEC-007, por ejemplo `<git-username>/wp-NNN-descripcion`; no se renombra por detrás solo para imitar la convención genérica.
+Una vez abierto, el operador puede decir `Seguí`. El agente debe entonces sincronizar `Botonera2-Control`, descubrir la asignación y verificar su elegibilidad antes de modificar el WP.
 
-Una vez que el lanzador informa que el agente fue abierto, el operador copia y pega manualmente en la terminal el prompt exhaustivo redactado por ChatGPT Web. Si el agente es OpenCode y el entorno es Orca, el prompt incluye el bloque condicional de salida copiable conforme a `PROMPTS_AGENTES.md`.
+No se copia/pega normalmente un prompt exhaustivo desde ChatGPT Web.
 
-WP-030 y WP-031 contaron con excepciones de bootstrap documentadas en sus respectivas especificaciones para construir y corregir el launcher; a partir de su integración, `scripts/iniciar_wp_orca.py` es el camino operativo normal bajo Orca.
-
-### Si el entorno es genérico/terminal/SSH/Warp
+### Entorno genérico
 
 Se conserva:
 
@@ -155,35 +246,31 @@ Se conserva:
 uv run python scripts/iniciar_wp.py NNN agente
 ```
 
-El lanzador genérico prepara mediante Git la rama/worktree y abre directamente la CLI correspondiente.
+El agente sigue la misma regla de descubrimiento desde `Botonera2-Control`.
 
-En ambos casos el agente implementador trabaja únicamente dentro del worktree del WP y respeta `AGENTS.md`, el WP y las decisiones transversales.
+## Turno de implementación
 
-## Asignación de implementador y revisor
+IMPLEMENTER:
 
-No existe un implementador universal predeterminado ni una pareja fija implementador/revisor.
+1. verifica elegibilidad;
+2. trabaja únicamente en el worktree/rama del WP;
+3. respeta AGENTS, WP, DECs y asignación;
+4. sincroniza con `origin/main` según corresponda;
+5. ejecuta validaciones aplicables;
+6. crea commits;
+7. push de rama;
+8. crea/actualiza PR;
+9. deja candidato remoto con SHA exacto;
+10. publica únicamente `expected_response_path` en `Botonera2-Control`;
+11. se detiene.
 
-Para cada WP, el orquestador debe preguntar al operador por el estado actual de agentes, modelos y cuotas y luego recomendar una pareja concreta teniendo en cuenta:
+El operador informa al ORCHESTRATOR que terminó el implementador.
 
-- complejidad y sensibilidad del WP;
-- riesgo y necesidad de razonamiento transversal;
-- capacidades relativas de los modelos disponibles en ese momento;
-- desempeño observado en WPs anteriores;
-- cuota/coste y conveniencia de reservar capacidad escasa;
-- integración con el entorno operativo;
-- independencia entre implementador y revisor, prefiriendo familias distintas.
-
-La selección se acuerda con el operador. Una combinación usada previamente es solo antecedente para la recomendación, no una regla para el siguiente WP.
-
-La disponibilidad/cuota es un factor operativo legítimo, pero nunca habilita a reducir criterios de aceptación, pruebas o revisión.
-
-El modelo concreto no se congela en la arquitectura; cuando sea relevante se registra en la PR/informe para demostrar trazabilidad e independencia.
-
-La diferencia de capacidad entre el orquestador y el agente elegido debe compensarse con mejor especificación y prompts, **no** reduciendo controles ni esperando que el agente complete por intuición instrucciones omitidas.
+El ORCHESTRATOR verifica GitHub real y no toma el autorreporte como autoridad suficiente.
 
 ## Sincronización final antes de revisión
 
-Antes de revisar el candidato, desde la ruta real del worktree:
+Desde el worktree real:
 
 ```bash
 git status --short
@@ -191,86 +278,96 @@ git fetch origin
 git merge origin/main
 ```
 
-No usar rebase ni force-push. Si `origin/main` avanzó, se incorpora mediante merge normal. Después se repiten las validaciones aplicables, se pushea la rama y se registra el nuevo HEAD.
+No usar rebase ni force-push. Si `origin/main` avanzó, se incorpora mediante merge normal y se repiten las validaciones antes de publicar el candidato final.
 
-El orquestador verifica en GitHub que la PR apunta a `main`, el HEAD remoto coincide y la CI corresponde al candidato vigente.
+El candidato debe tener PR, SHA exacto, árbol limpio y CI aplicable identificable.
 
-El resumen funcional del implementador no basta para iniciar revisión. Debe existir un **candidato entregado para revisión**: commits publicados, PR abierta, SHA exacto, árbol limpio y validaciones finales identificadas conforme a `PROMPTS_AGENTES.md`.
+## Turno de revisión independiente
 
-## Revisión independiente secuencial
+El ORCHESTRATOR crea una asignación REVIEWER normalizada que incluye únicamente el contexto necesario para una revisión independiente: WP, PR, base, SHA exacto, criterios, fuentes, pruebas, CI y prohibiciones.
 
-Por defecto no se crea un segundo worktree de revisión. El revisor usa el mismo worktree del WP después de que el implementador terminó.
+El operador inicia manualmente el turno con `Revisá`.
 
-Antes de iniciar la revisión, desde el worktree real:
+REVIEWER:
 
-```bash
-git status --short
-git rev-parse HEAD
-```
+- verifica elegibilidad desde `Botonera2-Control`;
+- utiliza una sesión distinta;
+- preferentemente usa otra familia de modelo;
+- revisa el SHA exacto;
+- inspecciona directamente código/diff/tests/CI;
+- trabaja en solo lectura;
+- no lee el informe privado del IMPLEMENTER;
+- no modifica/pushea/mergea código;
+- publica únicamente su resultado para el ORCHESTRATOR;
+- finaliza con el worktree limpio.
 
-El árbol debe estar limpio, el SHA debe coincidir con el HEAD remoto y el implementador no debe estar actuando sobre ese worktree.
+Cambiar solo de arnés manteniendo el mismo modelo efectivo no satisface por sí mismo la independencia.
 
-Antes de lanzar la revisión, el orquestador reconfirma que el revisor previamente acordado sigue siendo adecuado según disponibilidad/cuota actuales. Si cambió materialmente el contexto, propone una alternativa y la acuerda con el operador antes de continuar.
+## Correcciones y re-revisiones
 
-El revisor usa una sesión distinta, preferentemente otra familia de modelo, trabaja en modo solo lectura y finaliza con `git status` limpio. Nunca hay dos agentes actuando simultáneamente sobre el mismo WP/worktree.
+Si existen hallazgos que el ORCHESTRATOR considera accionables:
 
-El prompt del revisor debe identificar explícitamente PR, SHA, base, modo solo lectura, checks, criterios de hallazgo, prohibición de modificar/pushear/mergear y formato de veredicto según `PROMPTS_AGENTES.md`.
+1. ORCHESTRATOR procesa el informe del REVIEWER;
+2. crea una nueva iteración/asignación IMPLEMENTER con los hallazgos autorizados;
+3. HUMAN_GATE vuelve al implementador;
+4. IMPLEMENTER corrige en la misma rama/PR salvo decisión canónica contraria;
+5. publica nuevo candidato y resultado;
+6. ORCHESTRATOR verifica;
+7. crea nueva asignación REVIEWER sobre el nuevo SHA;
+8. HUMAN_GATE inicia re-revisión.
 
-Cambiar solamente de arnés manteniendo el mismo modelo efectivo no satisface por sí mismo la independencia.
-
-Si hay correcciones, vuelve el implementador original, corrige y pushea; luego se repiten sincronización, validaciones y revisión sobre el nuevo SHA. El prompt de corrección debe enumerar los hallazgos exactos y la re-revisión debe congelar el nuevo SHA.
-
-Un worktree de revisión separado queda reservado para casos donde aporte aislamiento real.
+El ciclo puede repetirse sin límite artificial.
 
 ## Puerta de integración
 
-Antes de indicar que una PR puede integrarse, el orquestador verifica directamente en GitHub:
+Antes de indicar que una PR puede integrarse, el ORCHESTRATOR verifica directamente en GitHub:
 
 - PR abierta y base `main`;
 - mergeable;
 - SHA revisado igual al HEAD actual;
 - CI aplicable verde;
-- revisión independiente registrada;
+- revisión independiente procesada;
 - cero hallazgos BLOQUEANTES pendientes;
 - cero hallazgos IMPORTANTES pendientes.
 
 La integración productiva se realiza mediante squash merge.
 
+El REVIEWER no mergea ni autoriza por sí mismo la integración.
+
 ## Después del merge
 
-El operador informa el merge y el orquestador lo verifica directamente en GitHub, incluyendo el SHA de integración.
+El ORCHESTRATOR verifica:
 
-Después se sincroniza el coordinador local:
+- PR efectivamente mergeada;
+- SHA de integración;
+- estado de `main`;
+- CI post-merge cuando corresponda;
+- ausencia de trabajo productivo pendiente;
+- cierre documental;
+- limpieza de worktree/rama.
 
-```bash
-cd /workspace/Botonera2
-git switch main
-git fetch --prune origin
-git pull --ff-only origin main
-```
+### Excepción demostrada de plataforma en CI post-merge
 
-La limpieza del WP integrado es obligatoria y comprende **worktree, rama local y rama remota**. No se conserva una rama de WP, administrativa o documental una vez que su PR fue integrada y se verificó que no contiene trabajo posterior no integrado.
+DEC-017 permite documentar una excepción únicamente cuando:
 
-Antes de borrar nada debe verificarse:
+1. la CI del candidato exacto fue verde;
+2. la revisión independiente aprobó ese candidato;
+3. el squash merge fue normal;
+4. candidato y squash tienen el mismo tree SHA;
+5. existe evidencia de que la corrida post-merge quedó huérfana/inconsistente por infraestructura GitHub;
+6. el operador autoriza explícitamente la excepción.
 
-1. que la PR esté efectivamente `merged` y que el SHA de integración esté identificado;
-2. que el HEAD de la rama remota corresponda al candidato integrado o, si el merge fue squash, que no existan commits posteriores al candidato revisado;
-3. que el worktree del WP tenga `git status --short` vacío;
-4. que ninguna sesión de implementador o revisor siga actuando sobre ese worktree.
+No se crea un commit vacío ni se modifica código solo para fabricar una nueva corrida.
 
-### Limpieza en Orca
+## Limpieza en Orca
 
-Cuando el worktree fue creado y administrado por Orca, **la eliminación normal debe realizarse mediante `orca worktree rm`**, no mediante `git worktree remove` como primer paso. Orca debe retirar su metadata, el worktree Git y la rama local asociada de forma coordinada.
-
-Antes de eliminarlo, obtener el selector real desde Orca:
+Cuando Orca administró el worktree, usar primero Orca:
 
 ```bash
 orca worktree list --repo path:/workspace/Botonera2 --json
 ```
 
-La salida incluye para cada worktree, entre otros campos, `id`, `path` y `displayName`. El argumento `--worktree` de `orca worktree rm` requiere un **selector explícito**; no se debe pasar el `displayName` desnudo suponiendo que Orca lo interpretará.
-
-La forma preferida por ser inequívoca es usar el `id` exacto devuelto por Orca:
+Obtener un selector inequívoco, preferentemente `id:<id>`, y ejecutar:
 
 ```bash
 orca worktree rm \
@@ -278,131 +375,70 @@ orca worktree rm \
   --json
 ```
 
-También pueden utilizarse otros selectores explícitos soportados por la versión vigente de Orca, por ejemplo `path:<ruta-absoluta>` o `name:<nombre>`, siempre que hayan sido obtenidos/verificados previamente y sean inequívocos.
-
-**No usar** una forma como:
-
-```text
-orca worktree rm --worktree "wp/007-descripcion"
-```
-
-sin prefijo de selector. Ese texto es solo el nombre visible del workspace y puede producir `selector_not_found` sin retirar el worktree.
-
-Después del `rm`, verificar antes de tocar ramas manualmente:
+Luego verificar:
 
 ```bash
 orca worktree list --repo path:/workspace/Botonera2 --json
 git worktree list
-```
-
-El worktree eliminado ya no debe aparecer en ninguno de los dos listados. En el flujo normal Orca también retira la rama local asociada; se comprueba explícitamente con:
-
-```bash
 git branch --list '*wp-NNN*'
 ```
 
-Solo después de confirmar que Orca retiró correctamente el worktree se elimina la rama remota publicada para la PR:
+Solo después se elimina la rama remota:
 
 ```bash
 git push origin --delete <rama-remota>
 git fetch --prune origin
 ```
 
-La comprobación final debe incluir:
+No usar `--force` en `orca worktree rm` para descartar trabajo no investigado.
 
-```bash
-git worktree list
-git branch --list '*wp-NNN*'
-git branch -r --list '*wp-NNN*'
-```
-
-Si Orca retiró el worktree pero dejó una rama local, no se borra a ciegas mientras pueda estar asociada a trabajo no investigado. Con PR ya verificada como integrada, árbol limpio y ausencia de commits posteriores, puede retirarse manualmente; si el squash merge hace que `git branch -d` no la considere fusionada, `git branch -D` es admisible únicamente después de esas verificaciones.
-
-No usar `--force` en `orca worktree rm` salvo que exista una razón investigada y autorizada; nunca para descartar trabajo no integrado. Ante `selector_not_found`, no asumir que la eliminación ocurrió: volver a listar Orca, obtener `id`/`path` válido y repetir con un selector explícito.
-
-### Limpieza en entorno genérico
-
-El cierre normal es:
+## Limpieza en entorno genérico
 
 ```bash
 cd /workspace/Botonera2
-
 git worktree remove <ruta-del-worktree>
-
 git branch -d <rama> || git branch -D <rama>
-
 git push origin --delete <rama>
-
 git fetch --prune origin
 git worktree list
 git branch -r
 ```
 
-El uso de `git branch -D` solo está permitido cuando la eliminación normal falla por haber integrado mediante squash y el merge remoto ya fue verificado. Nunca se usa para descartar trabajo no integrado.
+`git branch -D` solo es admisible después de verificar que la PR fue integrada por squash, el árbol está limpio y no existen commits posteriores no integrados.
 
-Si la rama remota avanzó después del SHA revisado/integrado, si contiene commits no explicados o si el worktree no está limpio, **se detiene la limpieza y se investiga**; no se fuerza ni se elimina la rama.
-
-Como estado normal del repositorio remoto, cuando no hay ningún WP activo debe quedar únicamente `main`. Las ramas temporales existen solo mientras haya trabajo o una PR todavía no integrada que las necesite.
-
-El orquestador puede registrar directamente en `main` los cierres documentales posteriores al merge, por ejemplo `EN_CURSO -> INTEGRADO`, retiro de agente y actualización del próximo punto de control, conforme a DEC-005.
+Como estado remoto normal, si no hay ningún WP activo debe quedar únicamente `main`.
 
 ## Flujo resumido
 
 ```text
-ChatGPT Web orquestador
-  -> reconstruye estado desde GitHub
-  -> determina/pregunta entorno operativo actual
-  -> planifica próximo WP con el operador
-  -> resuelve con el humano decisiones DT-038
-  -> actualiza documentación canónica directamente en main
-  -> verifica SHA/CI y sincroniza clon local
-  -> consulta agentes/modelos disponibles y cuotas actuales
-  -> evalúa complejidad/riesgo y propone implementador + revisor independiente
-  -> acuerda ambos con el operador
-  -> autoriza WP y registra implementador según DEC-007
-  -> construye prompt exhaustivo según PROMPTS_AGENTES.md (con salida copiable si Orca+OpenCode)
-  -> si Orca: operador ejecuta lanzador Orca (iniciar_wp_orca.py); crea worktree y abre agente SIN prompt
-  -> si otro entorno: operador ejecuta lanzador genérico (iniciar_wp.py); crea worktree y abre agente
-  -> operador revisa y pega manualmente el prompt en la sesión del agente
-  -> implementador trabaja en rama/worktree aislado
-  -> implementación local completa
-  -> commits + sincronización con origin/main + validaciones finales + push + PR
-  -> candidato entregado para revisión con SHA exacto
-  -> orquestador verifica candidato en GitHub
-  -> reconfirma revisor previsto según disponibilidad/cuota vigente
-  -> revisor recibe prompt exhaustivo y usa secuencialmente el mismo worktree en solo lectura
-  -> correcciones vuelven al implementador con hallazgos explícitos si existen
-  -> re-revisión sobre nuevo SHA
-  -> orquestador verifica SHA + CI + revisión en GitHub
-  -> squash merge productivo
-  -> actualización documental/administrativa directa por el orquestador
-  -> limpieza específica del entorno; en Orca se obtiene el selector y se usa `orca worktree rm` antes de eliminar la rama remota
-  -> siguiente WP
+ORCHESTRATOR
+  -> reconstruye Botonera2 + Botonera2-Control
+  -> planifica WP con HUMAN_GATE
+  -> resuelve decisiones DT-038
+  -> documenta/aprueba WP
+  -> selecciona implementador + revisor
+  -> PLAN EN_CURSO
+  -> publica asignación IMPLEMENTER + CURRENT
+  -> HUMAN_GATE: "Seguí"
+  -> IMPLEMENTER descubre asignación, implementa, PR/SHA/CI, publica resultado
+  -> HUMAN_GATE vuelve al ORCHESTRATOR
+  -> ORCHESTRATOR verifica GitHub
+  -> publica asignación REVIEWER + CURRENT
+  -> HUMAN_GATE: "Revisá"
+  -> REVIEWER revisa solo lectura y publica resultado
+  -> HUMAN_GATE vuelve al ORCHESTRATOR
+  -> correcciones/re-revisiones si hacen falta
+  -> ORCHESTRATOR verifica puerta de integración
+  -> squash merge
+  -> cierre documental + Control FINAL_DECISION
+  -> limpieza
+  -> CURRENT vuelve a PLANNING
 ```
 
-## Prompt mínimo para una nueva conversación
+## Regla para una conversación nueva
 
-La nueva conversación debe recibir un mensaje que indique, como mínimo:
+Una conversación nueva de ORCHESTRATOR debe reconstruir el estado desde ambos repositorios y no desde memoria.
 
-- que actúa como orquestador y planificador documental de `martinebene/Botonera2`;
-- que no debe reconstruir el estado desde memoria de conversaciones previas;
-- que debe leer primero `AGENTS.md`, DEC-004, DEC-005, DEC-007, este procedimiento, `PROMPTS_AGENTES.md` y `PLAN.md`;
-- que debe usar GitHub como fuente remota independiente;
-- que debe determinar o preguntar qué entorno operativo está utilizando el operador antes de iniciar un WP;
-- que si el entorno es Orca debe preferir el lanzador Orca y las ramas/worktrees nativos admitidos por DEC-007; si es otro entorno debe usar el lanzador genérico correspondiente;
-- que los lanzadores crean el worktree y abren el agente **sin prompt de trabajo**, y que el operador traslada manualmente el prompt exhaustivo preparado por el orquestador;
-- que cuando el entorno es Orca y el agente es OpenCode, el prompt debe incluir el bloque de salida copiable definido en `PROMPTS_AGENTES.md`;
-- que debe planificar los WPs junto con el operador antes de delegar implementación;
-- que debe escalar decisiones DT-038 al operador y no inventarlas;
-- que puede mantener directamente en `main` la documentación autorizada por DEC-005;
-- que antes de cada WP debe consultar qué agentes/modelos están disponibles y cómo están sus cuotas, y acordar con el operador implementador + revisor independiente según complejidad, capacidad, coste y familia de modelo;
-- que no debe fijar una pareja permanente ni asumir que modelos/cuotas de un WP siguen iguales en el siguiente;
-- que puede reconfirmar/cambiar de común acuerdo el revisor antes de la revisión si cambió materialmente la disponibilidad;
-- que debe aprovechar la mayor capacidad de razonamiento del orquestador para redactar **prompts de agentes exhaustivos y explícitos**, sin confiar en que implementadores/revisores infieran pasos omitidos;
-- que todo prompt debe cumplir `docs/implementation/PROMPTS_AGENTES.md`, incluyendo rol, alcance, prohibiciones, Git/PR, validaciones, escalamiento y evidencia final;
-- que debe respetar sincronización GitHub/local, un worktree por WP, revisión independiente secuencial, CI, squash merge, verificación remota y limpieza local/remota específica del entorno;
-- que si usa Orca para limpiar un WP debe obtener primero un selector válido desde `orca worktree list --json` y ejecutar `orca worktree rm` con selector explícito, preferentemente `id:<id>`, antes de borrar ramas remotas o recurrir a Git manual;
-- que cambios ejecutables/productivos siguen mediante rama + PR;
-- que debe comenzar reconstruyendo el estado actual y no iniciar implementación hasta que el WP correspondiente esté definido y aprobado.
+`Botonera2-Control/CURRENT.json` indica el turno operativo; `Botonera2/docs/implementation/PLAN.md` y los WPs indican qué trabajo de producto existe y bajo qué reglas.
 
-El contexto durable debe provenir del repositorio, no del historial de ChatGPT.
+El contexto durable reside en GitHub.
