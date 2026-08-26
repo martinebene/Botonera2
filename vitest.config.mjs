@@ -11,7 +11,7 @@ try {
 const vue = pluginVue.default || pluginVue
 
 export default defineConfig({
-  plugins: [vue()],
+  plugins: [vue({ isProduction: false })],
   test: {
     environment: 'node',
     setupFiles: ['./apps/moderacion/tests/setup_dom.ts'],
