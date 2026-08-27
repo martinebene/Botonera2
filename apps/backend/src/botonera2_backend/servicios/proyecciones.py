@@ -17,7 +17,7 @@ from botonera2_backend.auditoria import EventoAuditoriaReciente
 from botonera2_backend.configuracion.modelos import Concejal, ConfiguracionSistema
 from botonera2_backend.dominio.estado import EstadoGlobal, EstadoOperativo
 from botonera2_backend.dominio.preparacion import Preparacion
-from botonera2_backend.dominio.remapeo import OperacionRemapeo
+from botonera2_backend.dominio.remapeo import EstadoRemapeo, OperacionRemapeo
 from botonera2_backend.dominio.sesion import Sesion
 from botonera2_backend.dominio.votacion import (
     EstadoVotacion,
@@ -279,6 +279,9 @@ class CapacidadesModeracion(ModeloProyeccion):
     desempatar: Capacidad
     otorgar_palabra: Capacidad
     quitar_palabra: Capacidad
+    iniciar_remapeo: Capacidad
+    confirmar_remapeo: Capacidad
+    cancelar_remapeo: Capacidad
 
 
 class EstadoModeracion(ModeloProyeccion):
@@ -908,6 +911,7 @@ class ServicioProyecciones:
         estado = self._estado.estado_global
         sesion = self._estado.sesion_activa
         votacion = self._estado.votacion_activa
+        remapeo = self._estado.remapeo_activo
         auditoria_no_disponible = contexto is not None and (
             contexto.escritor_auditoria.fallado or contexto.escritor_auditoria.cerrado
         )
@@ -915,10 +919,49 @@ class ServicioProyecciones:
         def motivos_estado(*estados_permitidos: EstadoGlobal) -> list[str]:
             return [] if estado in estados_permitidos else ["ESTADO_INCOMPATIBLE"]
 
-        def mutante(motivos: list[str]) -> Capacidad:
-            if auditoria_no_disponible and "AUDITORIA_NO_DISPONIBLE" not in motivos:
+        def capacidad(
+            motivos: list[str],
+            *,
+            requiere_auditoria: bool = True,
+        ) -> Capacidad:
+            """Construye una capacidad sin reemplazar la validación del endpoint.
+
+            La confirmación de remapeo sí requiere auditoría institucional antes
+            de ordenar el cambio físico. Iniciar y cancelar son coordinación
+            técnica y sus endpoints no escriben un hecho institucional, por lo
+            que permanecen disponibles para poder cancelar incluso ante un
+            writer cerrado.
+            """
+
+            if (
+                requiere_auditoria
+                and auditoria_no_disponible
+                and "AUDITORIA_NO_DISPONIBLE" not in motivos
+            ):
                 motivos.append("AUDITORIA_NO_DISPONIBLE")
             return Capacidad(habilitada=not motivos, motivos=tuple(motivos))
+
+        motivos_iniciar_remapeo = motivos_estado(
+            EstadoGlobal.PREPARANDO,
+            EstadoGlobal.SESION_ABIERTA,
+        )
+        if remapeo is not None:
+            motivos_iniciar_remapeo.append("REMAPEO_YA_ACTIVO")
+
+        motivos_confirmar_remapeo = motivos_estado(
+            EstadoGlobal.PREPARANDO,
+            EstadoGlobal.SESION_ABIERTA,
+        )
+        if remapeo is None:
+            motivos_confirmar_remapeo.append("REMAPEO_NO_COINCIDE")
+        elif remapeo.candidato is None:
+            motivos_confirmar_remapeo.append("REMAPEO_SIN_CANDIDATO")
+        elif remapeo.estado is not EstadoRemapeo.CANDIDATO:
+            motivos_confirmar_remapeo.append("REMAPEO_NO_COINCIDE")
+
+        motivos_cancelar_remapeo: list[str] = []
+        if remapeo is None:
+            motivos_cancelar_remapeo.append("REMAPEO_NO_COINCIDE")
 
         motivos_abrir_sesion = motivos_estado(EstadoGlobal.PREPARANDO)
         if estado is EstadoGlobal.PREPARANDO and contexto is not None:
@@ -968,21 +1011,30 @@ class ServicioProyecciones:
                 motivos_desempatar.append("DESEMPATE_YA_EMITIDO")
 
         return CapacidadesModeracion(
-            preparar_sala=mutante(motivos_estado(EstadoGlobal.SIN_PREPARAR)),
-            actualizar_preparacion=mutante(motivos_estado(EstadoGlobal.PREPARANDO)),
-            cancelar_preparacion=mutante(motivos_estado(EstadoGlobal.PREPARANDO)),
-            abrir_sesion=mutante(motivos_abrir_sesion),
-            actualizar_sesion=mutante(motivos_estado(EstadoGlobal.SESION_ABIERTA)),
-            cerrar_sesion=mutante(motivos_cerrar),
-            cargar_orden_del_dia=mutante(
+            preparar_sala=capacidad(motivos_estado(EstadoGlobal.SIN_PREPARAR)),
+            actualizar_preparacion=capacidad(motivos_estado(EstadoGlobal.PREPARANDO)),
+            cancelar_preparacion=capacidad(motivos_estado(EstadoGlobal.PREPARANDO)),
+            abrir_sesion=capacidad(motivos_abrir_sesion),
+            actualizar_sesion=capacidad(motivos_estado(EstadoGlobal.SESION_ABIERTA)),
+            cerrar_sesion=capacidad(motivos_cerrar),
+            cargar_orden_del_dia=capacidad(
                 motivos_estado(EstadoGlobal.PREPARANDO, EstadoGlobal.SESION_ABIERTA)
             ),
-            descartar_orden_del_dia=mutante(
+            descartar_orden_del_dia=capacidad(
                 motivos_estado(EstadoGlobal.PREPARANDO, EstadoGlobal.SESION_ABIERTA)
             ),
-            abrir_votacion=mutante(motivos_abrir_votacion),
-            finalizar_votacion=mutante(motivos_finalizar),
-            desempatar=mutante(motivos_desempatar),
-            otorgar_palabra=mutante(motivos_estado(EstadoGlobal.SESION_ABIERTA)),
-            quitar_palabra=mutante(motivos_estado(EstadoGlobal.SESION_ABIERTA)),
+            abrir_votacion=capacidad(motivos_abrir_votacion),
+            finalizar_votacion=capacidad(motivos_finalizar),
+            desempatar=capacidad(motivos_desempatar),
+            otorgar_palabra=capacidad(motivos_estado(EstadoGlobal.SESION_ABIERTA)),
+            quitar_palabra=capacidad(motivos_estado(EstadoGlobal.SESION_ABIERTA)),
+            iniciar_remapeo=capacidad(
+                motivos_iniciar_remapeo,
+                requiere_auditoria=False,
+            ),
+            confirmar_remapeo=capacidad(motivos_confirmar_remapeo),
+            cancelar_remapeo=capacidad(
+                motivos_cancelar_remapeo,
+                requiere_auditoria=False,
+            ),
         )

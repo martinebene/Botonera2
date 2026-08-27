@@ -41,6 +41,11 @@ def test_openapi_documenta_endpoints_publicos_e_interno() -> None:
     assert esquemas["SolicitudIniciarRemapeo"]["additionalProperties"] is False
     assert esquemas["SolicitudConfirmarRemapeo"]["additionalProperties"] is False
     assert esquemas["SolicitudCandidatoRemapeo"]["additionalProperties"] is False
+    capacidades = esquemas["CapacidadesModeracion"]
+    propiedades_capacidades = capacidades["properties"]
+    for nombre in ("iniciar_remapeo", "confirmar_remapeo", "cancelar_remapeo"):
+        assert nombre in propiedades_capacidades
+        assert nombre in capacidades["required"]
     propiedades_recinto = esquemas["EstadoRecinto"]["properties"]
     assert "remapeo" not in propiedades_recinto
     assert "fingerprint" not in str(esquemas["EstadoRecinto"]).lower()

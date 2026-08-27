@@ -26,6 +26,9 @@ const DICCIONARIO_MOTIVOS: Record<string, string> = {
   DESEMPATE_NO_REQUERIDO: 'La votación no se encuentra en condición de empate.',
   ORADOR_NO_PRESENTE: 'El concejal seleccionado no se encuentra presente.',
   COLA_VACIA: 'No hay pedidos de palabra registrados en la cola.',
+  REMAPEO_YA_ACTIVO: 'Ya existe un remapeo en curso.',
+  REMAPEO_NO_COINCIDE: 'No existe una operación de remapeo aplicable.',
+  REMAPEO_SIN_CANDIDATO: 'Todavía no hay un teclado candidato para confirmar.',
 }
 
 /**

@@ -1283,6 +1283,15 @@
           },
           "quitar_palabra": {
             "$ref": "#/components/schemas/Capacidad"
+          },
+          "iniciar_remapeo": {
+            "$ref": "#/components/schemas/Capacidad"
+          },
+          "confirmar_remapeo": {
+            "$ref": "#/components/schemas/Capacidad"
+          },
+          "cancelar_remapeo": {
+            "$ref": "#/components/schemas/Capacidad"
           }
         },
         "type": "object",
@@ -1299,7 +1308,10 @@
           "finalizar_votacion",
           "desempatar",
           "otorgar_palabra",
-          "quitar_palabra"
+          "quitar_palabra",
+          "iniciar_remapeo",
+          "confirmar_remapeo",
+          "cancelar_remapeo"
         ],
         "title": "CapacidadesModeracion",
         "description": "Precondiciones derivables sin intentar validar bodies futuros."
