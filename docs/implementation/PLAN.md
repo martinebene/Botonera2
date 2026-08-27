@@ -153,7 +153,7 @@ WP-022, WP-023 y WP-024 pueden ejecutarse en paralelo cuando sus dependencias es
 
 | WP | Objetivo | Estado | Depende de | Agente |
 |---|---|---|---|---|
-| WP-025 | Crear shell público, bancas, presencia, quórum y uso de palabra | PENDIENTE | WP-018, WP-015 | - |
+| WP-025 | Crear shell público, bancas, presencia, quórum y uso de palabra | EN_CURSO | WP-018, WP-015 | codex |
 | WP-026 | Implementar experiencia pública de votación, secreto, revelado, resultados y temporizadores | PENDIENTE | WP-025, WP-014, WP-017 | - |
 
 WP-025 puede desarrollarse en paralelo con los WPs de Moderación una vez disponible WP-018.
@@ -202,6 +202,6 @@ WP-001, WP-002, WP-003, WP-004, WP-005, WP-006, WP-007, WP-008, WP-009, WP-010, 
 
 DEC-007, DEC-009, DEC-010, DEC-011, DEC-012, DEC-013, DEC-014, DEC-015, DEC-016 y DEC-017 están vigentes. Orca continúa como entorno operativo preferido mientras esté en uso y `martinebene/Botonera2-Control` es el bus operativo obligatorio de turnos/handoffs conforme DEC-017.
 
-WP-023 y WP-024 están `INTEGRADO` y sin agente operativo asignado. WP-025 continúa documentalmente disponible conforme a sus dependencias, pero no debe iniciarse sin su propia planificación/aprobación operativa y selección de agentes conforme DEC-007.
+WP-023 y WP-024 están `INTEGRADO` y sin agente operativo asignado. WP-025 está `EN_CURSO` con `codex` como implementador autorizado y OpenCode + DeepSeek V4 Pro como revisor independiente previsto; su ejecución debe consumir exclusivamente la asignación vigente publicada en `Botonera2-Control`.
 
 La discrepancia preexistente `D-01..D-12` versus `dev01..dev12` debe resolverse antes de una prueba integrada que dependa de la configuración raíz.
