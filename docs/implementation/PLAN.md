@@ -135,7 +135,7 @@ WP-020 quedó integrado mediante squash merge de PR #26 sobre el candidato final
 | WP-021 | Crear shell de Moderación, layout responsive y sincronización mediante `api-client` | INTEGRADO | WP-018 | - |
 | WP-022 | Implementar UI de preparación, presencia, autoridades, sesión y advertencia de cierre con palabra pendiente | INTEGRADO | WP-021, WP-008 | - |
 | WP-023 | Implementar UI de votaciones, resultado, desempate, Orden del Día y advertencia de apertura con palabra pendiente | INTEGRADO | WP-021, WP-014, WP-016 | - |
-| WP-024 | Implementar UI de palabra con semántica Otorgar/Quitar definida, eventos y remapeo de dispositivos | EN_CURSO | WP-021, WP-015, WP-020 | codex |
+| WP-024 | Implementar UI de palabra con semántica Otorgar/Quitar definida, eventos y remapeo de dispositivos | INTEGRADO | WP-021, WP-015, WP-020 | - |
 
 WP-021 quedó integrado mediante squash merge de PR #27 sobre el candidato final `660cacfe9e87ffb4e9fa7d189763d49bfb45ca01`, después de una tercera re-revisión independiente con OpenCode + DeepSeek V4 Pro que concluyó `LISTA PARA INTEGRAR` con cero hallazgos BLOQUEANTES e IMPORTANTES y un hallazgo MENOR no bloqueante. El squash produjo `2c037261e5a234bb95ce3463de5b4923884630c4` en `main`. Su primer gate post-merge quedó cancelado por una flake backend preexistente del teardown de fronteras temporales, posteriormente aislada y corregida por WP-032; la CI post-merge #193 / run `32861046565` sobre el main que incluye ambos cambios terminó verde 6/6, por lo que el cierre canónico de WP-021 queda completado.
 
@@ -144,6 +144,8 @@ WP-022 quedó integrado mediante squash merge de PR #29 sobre el candidato final
 La CI post-merge #202 / run `32984587789` quedó huérfana durante una incidencia de GitHub Actions: UI/API mostraron `queued` con cero jobs y sin actualizaciones, mientras `cancel`, `rerun` y `force-cancel` devolvieron estados incompatibles. Se documenta la excepción de plataforma prevista por DEC-017 porque el candidato validado y el squash de `main` apuntan exactamente al mismo tree SHA `e66721570b5d441b8783a7b8143a8180a6d05d6e`; por tanto, el contenido integrado es idéntico al contenido que pasó #201. La excepción fue autorizada explícitamente por el operador y no existe trabajo productivo pendiente de WP-022.
 
 WP-023 quedó integrado mediante squash merge de PR #30 sobre el candidato final `ea41bf71799f7750ac5e0e202ced6224d7b8e69c`, después de CI candidata #207 / run `33025759035` verde 6/6 y revisión independiente con Antigravity/AGY + Gemini 3.7 Flash. La revisión concluyó `LISTA PARA INTEGRAR`, con cero hallazgos BLOQUEANTES, IMPORTANTES y MENORES. El squash produjo `463cd94029d1737caed459cf5c4e821f750a443a` en `main`; la CI post-merge #208 / run `33027189987` terminó `success` 6/6. No se agregaron dependencias directas ni cambios a backend/OpenAPI/CI fuera del alcance autorizado.
+
+WP-024 quedó integrado mediante squash merge de PR #31 sobre el candidato final `e98ca2e76f4335364490806773684d7b009b42a9`, después de CI candidata #215 / run `33031755370` verde 6/6 y revisión independiente con Antigravity/AGY + Gemini 3.7 Flash. La revisión concluyó `LISTA PARA INTEGRAR`, con cero hallazgos BLOQUEANTES, IMPORTANTES y MENORES. El squash produjo `08c3d023c88b7493064d3e9a1697382c4ab35ca6` en `main`; el árbol del squash coincide exactamente con el candidato revisado (`eda1124f26342e719b3388172d83f4f7d137ced3`) y la CI post-merge #216 / run `33072475386` terminó `success` 6/6. DP-024-01 quedó implementada con las capacidades `iniciar_remapeo`, `confirmar_remapeo` y `cancelar_remapeo`, OpenAPI/api-client sin drift y sin nuevas dependencias directas.
 
 WP-022, WP-023 y WP-024 pueden ejecutarse en paralelo cuando sus dependencias estén integradas, usando worktrees diferentes y sin superposición no coordinada.
 
@@ -200,6 +202,6 @@ WP-001, WP-002, WP-003, WP-004, WP-005, WP-006, WP-007, WP-008, WP-009, WP-010, 
 
 DEC-007, DEC-009, DEC-010, DEC-011, DEC-012, DEC-013, DEC-014, DEC-015, DEC-016 y DEC-017 están vigentes. Orca continúa como entorno operativo preferido mientras esté en uso y `martinebene/Botonera2-Control` es el bus operativo obligatorio de turnos/handoffs conforme DEC-017.
 
-WP-023 está `INTEGRADO` y sin agente operativo asignado. WP-024 está `EN_CURSO` con `codex` como implementador autorizado y Antigravity/AGY + Gemini 3.7 Flash como revisor independiente previsto; su ejecución debe consumir exclusivamente la asignación vigente publicada en `Botonera2-Control`. WP-025 continúa documentalmente disponible conforme a sus dependencias, pero no debe iniciarse sin su propia planificación/aprobación operativa y selección de agentes conforme DEC-007.
+WP-023 y WP-024 están `INTEGRADO` y sin agente operativo asignado. WP-025 continúa documentalmente disponible conforme a sus dependencias, pero no debe iniciarse sin su propia planificación/aprobación operativa y selección de agentes conforme DEC-007.
 
 La discrepancia preexistente `D-01..D-12` versus `dev01..dev12` debe resolverse antes de una prueba integrada que dependa de la configuración raíz.
