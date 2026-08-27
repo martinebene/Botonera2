@@ -147,16 +147,18 @@ WP-023 quedó integrado mediante squash merge de PR #30 sobre el candidato final
 
 WP-024 quedó integrado mediante squash merge de PR #31 sobre el candidato final `e98ca2e76f4335364490806773684d7b009b42a9`, después de CI candidata #215 / run `33031755370` verde 6/6 y revisión independiente con Antigravity/AGY + Gemini 3.7 Flash. La revisión concluyó `LISTA PARA INTEGRAR`, con cero hallazgos BLOQUEANTES, IMPORTANTES y MENORES. El squash produjo `08c3d023c88b7493064d3e9a1697382c4ab35ca6` en `main`; el árbol del squash coincide exactamente con el candidato revisado (`eda1124f26342e719b3388172d83f4f7d137ced3`) y la CI post-merge #216 / run `33072475386` terminó `success` 6/6. DP-024-01 quedó implementada con las capacidades `iniciar_remapeo`, `confirmar_remapeo` y `cancelar_remapeo`, OpenAPI/api-client sin drift y sin nuevas dependencias directas.
 
+WP-025 quedó integrado mediante squash merge de PR #32 sobre el candidato final `d5340f6bfac38b2eca5738f831e5d25dc2f5ee59`, después de CI candidata #222 / run `33079206174` verde 6/6 y revisión independiente con OpenCode + DeepSeek V4 Pro. La revisión concluyó `LISTA PARA INTEGRAR`, con cero hallazgos BLOQUEANTES, cero IMPORTANTES y tres MENORES aceptados como deuda no bloqueante: desacoplar el setup DOM compartido entre Recinto y Moderación, centralizar/definir responsabilidad de los PNG institucionales duplicados y resetear el estado visual de una misma instancia de sincronización si en el futuro se reutiliza después de `cancelar()`. El squash produjo `fc46ff08942ebd93f65a9da8dc7207f828c7b229` en `main`; el árbol del squash coincide exactamente con el candidato revisado (`79ec6b6a4b86a084eecde09966d35e863cfe73cd`) y la CI post-merge #223 / run `33092732976` terminó `success` 6/6. DP-025-01 quedó implementada exponiendo `filas_bancas` en `EstadoRecinto` como secuencia ordenada de capacidades por fila, preservando filas de distinta longitud, OpenAPI/api-client sin drift y sin dependencias externas nuevas.
+
 WP-022, WP-023 y WP-024 pueden ejecutarse en paralelo cuando sus dependencias estén integradas, usando worktrees diferentes y sin superposición no coordinada.
 
 ## Fase 7 - Pantalla del Recinto
 
 | WP | Objetivo | Estado | Depende de | Agente |
 |---|---|---|---|---|
-| WP-025 | Crear shell público, bancas, presencia, quórum y uso de palabra | EN_CURSO | WP-018, WP-015 | codex |
+| WP-025 | Crear shell público, bancas, presencia, quórum y uso de palabra | INTEGRADO | WP-018, WP-015 | - |
 | WP-026 | Implementar experiencia pública de votación, secreto, revelado, resultados y temporizadores | PENDIENTE | WP-025, WP-014, WP-017 | - |
 
-WP-025 puede desarrollarse en paralelo con los WPs de Moderación una vez disponible WP-018.
+WP-025 está integrado. WP-026 queda documentalmente habilitado por dependencias, pero requiere su propia planificación/aprobación operativa y selección de agentes antes de iniciar.
 
 ## Fase 8 - Integración y producción
 
@@ -202,6 +204,6 @@ WP-001, WP-002, WP-003, WP-004, WP-005, WP-006, WP-007, WP-008, WP-009, WP-010, 
 
 DEC-007, DEC-009, DEC-010, DEC-011, DEC-012, DEC-013, DEC-014, DEC-015, DEC-016 y DEC-017 están vigentes. Orca continúa como entorno operativo preferido mientras esté en uso y `martinebene/Botonera2-Control` es el bus operativo obligatorio de turnos/handoffs conforme DEC-017.
 
-WP-023 y WP-024 están `INTEGRADO` y sin agente operativo asignado. WP-025 está `EN_CURSO` con `codex` como implementador autorizado y OpenCode + DeepSeek V4 Pro como revisor independiente previsto; su ejecución debe consumir exclusivamente la asignación vigente publicada en `Botonera2-Control`.
+WP-023, WP-024 y WP-025 están `INTEGRADO` y sin agente operativo asignado. WP-026 es el siguiente WP de la Fase 7 y no debe iniciarse sin su propia planificación/aprobación operativa y selección de agentes conforme DEC-007.
 
 La discrepancia preexistente `D-01..D-12` versus `dev01..dev12` debe resolverse antes de una prueba integrada que dependa de la configuración raíz.
