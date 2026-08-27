@@ -164,9 +164,9 @@ WP-025 está integrado. WP-026 queda documentalmente habilitado por dependencias
 
 | WP | Objetivo | Estado | Depende de | Agente |
 |---|---|---|---|---|
-| WP-033 | Crear entorno integrado de desarrollo y prueba manual bajo mismo origen | EN_CURSO | WP-007, WP-024, WP-025 | codex |
+| WP-033 | Crear entorno integrado de desarrollo y prueba manual bajo mismo origen | INTEGRADO | WP-007, WP-024, WP-025 | - |
 
-WP-033 se prioriza antes de continuar WP-026 para disponer de un harness manual real durante el resto del desarrollo. Está `EN_CURSO` con `codex` como implementador autorizado y Antigravity/AGY + Gemini 3.7 Flash como revisor independiente previsto. Debe ejecutarse íntegramente dentro de `agent-dev`, sin cambios administrativos en el host VPS; cualquier necesidad de modificar Docker, Tailscale, Caddy, firewall, Supervisor o publicación de puertos se escala fuera de este WP.
+WP-033 quedó integrado antes de continuar WP-026 y deja disponible el harness manual real para el resto del desarrollo. PR #33 se integró mediante squash sobre el candidato `42244891b5a66ecd9579ff33f4e59188d75dfc7c`, revisado independientemente por Antigravity/AGY + Gemini 3.7 Flash con 0 BLOQUEANTES, 0 IMPORTANTES y 0 MENORES. El squash `8704d9d53416d978ef767950c6497e1196eda404` conserva exactamente el mismo tree SHA `ab6a020e41e0b68d63ecf79b02548e0bd6d4eada`; CI candidata #229 y CI post-merge #230 terminaron success 6/6. El resultado agrega `pnpm dev:stack`, mismo origen `/moderacion/`, `/recinto/` y `/api/v1/`, binding loopback, Uvicorn sólo como dependencia de desarrollo, corrección del fixture `dev01..dev12` y smoke integrado real en `agent-dev`, sin cambios administrativos en el host VPS.
 
 ## Fase 8 - Integración y producción
 
@@ -212,6 +212,6 @@ WP-001, WP-002, WP-003, WP-004, WP-005, WP-006, WP-007, WP-008, WP-009, WP-010, 
 
 DEC-007, DEC-009, DEC-010, DEC-011, DEC-012, DEC-013, DEC-014, DEC-015, DEC-016 y DEC-017 están vigentes. Orca continúa como entorno operativo preferido mientras esté en uso y `martinebene/Botonera2-Control` es el bus operativo obligatorio de turnos/handoffs conforme DEC-017.
 
-WP-023, WP-024 y WP-025 están `INTEGRADO` y sin agente operativo asignado. Por decisión explícita del operador, WP-033 se ejecuta antes de continuar WP-026. WP-033 está `EN_CURSO` con `codex` como implementador y Antigravity/AGY + Gemini 3.7 Flash como revisor independiente previsto; WP-026 no se inicia mientras tanto.
+WP-023, WP-024, WP-025 y WP-033 están `INTEGRADO` y sin agente operativo asignado. WP-033 deja operativo el harness integrado de prueba manual dentro de `agent-dev`. WP-026 vuelve a ser el siguiente WP funcional de la Fase 7 y no debe iniciarse sin su propia planificación/aprobación operativa y selección de agentes conforme DEC-007.
 
-La discrepancia preexistente `D-01..D-12` versus `dev01..dev12` queda incorporada explícitamente al alcance de WP-033: el fixture de padrón de desarrollo debe alinearse con el identificador lógico canónico `devNN` antes del smoke integrado.
+La discrepancia preexistente `D-01..D-12` versus `dev01..dev12` quedó resuelta en WP-033: el fixture de padrón de desarrollo usa `dev01..dev12`, coherente con DEC-006, el simulador y el device-bridge.
