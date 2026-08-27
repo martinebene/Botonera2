@@ -25,13 +25,13 @@ export default defineConfig({
   webServer: [
     {
       command: 'pnpm --filter @botonera2/moderacion dev --port 3000',
-      url: 'http://localhost:3000',
+      url: 'http://localhost:3000/moderacion/',
       reuseExistingServer: !process.env.CI,
       timeout: 120 * 1000,
     },
     {
       command: 'pnpm --filter @botonera2/recinto dev --port 3001',
-      url: 'http://localhost:3001',
+      url: 'http://localhost:3001/recinto/',
       reuseExistingServer: !process.env.CI,
       timeout: 120 * 1000,
     },

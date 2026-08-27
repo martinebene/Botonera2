@@ -141,7 +141,75 @@ pnpm generate:contrato
 estáticos quedan en `apps/moderacion/.output/public` y
 `apps/recinto/.output/public`; no requieren un servidor Node en producción.
 Para desarrollo interactivo existen `pnpm dev:moderacion` y
-`pnpm dev:recinto`.
+`pnpm dev:recinto`; cada servidor conserva su subruta canónica
+(`/moderacion/` y `/recinto/`, respectivamente).
+
+## Entorno integrado de desarrollo
+
+El harness no productivo permite recorrer el sistema real completo bajo un
+único origen. Desde un checkout limpio y actualizado de `main` dentro de
+`agent-dev`:
+
+```bash
+git pull --ff-only origin main
+pnpm install --frozen-lockfile
+uv sync --frozen --all-packages
+pnpm dev:stack
+```
+
+El comando construye ambas SPA y después mantiene en primer plano un único
+servidor Uvicorn con la aplicación FastAPI real. Escucha por defecto solamente
+en `127.0.0.1:8000` y expone:
+
+- `http://127.0.0.1:8000/moderacion/`;
+- `http://127.0.0.1:8000/recinto/`;
+- `http://127.0.0.1:8000/api/v1/health`;
+- `http://127.0.0.1:8000/docs`.
+
+No hay mocks, CORS, servidor Node persistente ni recuperación de estado: REST
+y SSE usan FastAPI, y cada arranque nuevo comienza en `SIN_PREPARAR`. El
+harness tampoco reemplaza el despliegue productivo con Nginx y systemd ni
+ofrece hot reload integrado.
+
+### Acceso desde Windows
+
+Conservá `pnpm dev:stack` ejecutándose en `agent-dev` y abrí otra terminal de
+Windows con el túnel SSH existente:
+
+```powershell
+ssh -N -L 18080:127.0.0.1:8000 agent-dev
+```
+
+Luego abrí en dos pestañas
+`http://127.0.0.1:18080/moderacion/` y
+`http://127.0.0.1:18080/recinto/`. Swagger queda disponible en
+`http://127.0.0.1:18080/docs`. El túnel no publica un puerto nuevo en el VPS:
+transporta el loopback del contenedor por la conexión SSH existente.
+
+### Recorrido manual recomendado
+
+1. En Moderación, elegí `Preparar sala` e informá número de sesión,
+   Presidencia y Secretaría Legislativa.
+2. En otra terminal de `agent-dev`, iniciá el simulador real:
+
+   ```bash
+   uv run python tools/device-simulator/simulador.py --url http://127.0.0.1:8000
+   ```
+
+3. En el simulador, enviá `1-9` para alternar la presencia de `dev01` y `1-8`
+   para activar su test visual. Repetí presencia con otros dispositivos hasta
+   alcanzar quórum y comprobá los cambios en Moderación y Recinto.
+4. Abrí la sesión desde Moderación. Usá `1-7` para pedir palabra, otorgala desde
+   Moderación y volvé a usar `1-7` para finalizarla desde el dispositivo.
+5. Confirmá que ambas pestañas adoptan los cambios por SSE. Las votaciones ya
+   disponibles pueden recorrerse desde Moderación, aunque su experiencia
+   pública completa pertenece a un WP posterior.
+6. Presioná `Ctrl+C` en la terminal del stack. El proceso debe terminar y
+   liberar el puerto. Al ejecutar nuevamente `pnpm dev:stack`, Moderación y
+   Recinto deben volver a mostrar `SIN_PREPARAR`.
+
+Los CSV de esta prueba se escriben en `logs/`, permanecen locales e ignorados
+por Git. El harness no borra registros anteriores automáticamente.
 
 ## Inicio aislado de un Work Package
 

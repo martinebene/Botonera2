@@ -642,7 +642,7 @@ test.describe('UI de Moderación - Estados Institucionales y Contrato de Shell (
       { width: 1366, height: 768 },
     ]) {
       await page.setViewportSize(viewport)
-      await page.goto('/')
+      await page.goto('/moderacion/')
       await page
         .locator('[data-testid="cabecera-moderacion"]')
         .waitFor({ state: 'visible', timeout: 30000 })
@@ -714,7 +714,7 @@ test.describe('UI de Moderación - Estados Institucionales y Contrato de Shell (
       { width: 1366, height: 768 },
     ]) {
       await page.setViewportSize(viewport)
-      await page.goto('/')
+      await page.goto('/moderacion/')
       await page
         .locator('[data-testid="cabecera-moderacion"]')
         .waitFor({ state: 'visible', timeout: 30000 })
@@ -811,7 +811,7 @@ test.describe('UI de Moderación - Estados Institucionales y Contrato de Shell (
       { width: 1366, height: 768 },
     ]) {
       await page.setViewportSize(viewport)
-      await page.goto('/')
+      await page.goto('/moderacion/')
       await page
         .locator('[data-testid="cabecera-moderacion"]')
         .waitFor({ state: 'visible', timeout: 30000 })
@@ -886,7 +886,7 @@ test.describe('UI de Moderación - Estados Institucionales y Contrato de Shell (
       { width: 1366, height: 768 },
     ]) {
       await page.setViewportSize(viewport)
-      await page.goto('/')
+      await page.goto('/moderacion/')
       await page
         .locator('[data-testid="cabecera-moderacion"]')
         .waitFor({ state: 'visible', timeout: 30000 })
@@ -1034,7 +1034,7 @@ test.describe('WP-023 - Recorrido de votación y Orden del Día', () => {
     })
     await configurarCicloVotacionMock(page, estado)
     await page.setViewportSize({ width: 1366, height: 768 })
-    await page.goto('/')
+    await page.goto('/moderacion/')
     await expect(page.locator('[data-testid="formulario-votacion"]')).toBeVisible()
 
     // Q2 copia el punto como borrador editable en Q1, sin consumirlo.
@@ -1182,7 +1182,7 @@ test.describe('WP-024 - Palabra, eventos y remapeo autoritativos', () => {
       { width: 1366, height: 768 },
     ]) {
       await page.setViewportSize(viewport)
-      await page.goto('/')
+      await page.goto('/moderacion/')
       await expect(page.locator('[data-testid="gestion-palabra"]')).toBeVisible()
       await verificarGeometriaShellCompleto(page, viewport)
 

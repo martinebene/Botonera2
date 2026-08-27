@@ -11,6 +11,27 @@ import { ClienteRest } from '../src/rest'
 import { crearMockEstadoModeracion, crearMockEstadoRecinto } from './helpers/datos_prueba'
 
 describe('ClienteRest y capa HTTP', () => {
+  it('conserva el contexto global requerido por el fetch nativo', async () => {
+    const fetchOriginal = globalThis.fetch
+    let contextoRecibido: unknown
+
+    globalThis.fetch = function (this: unknown): Promise<Response> {
+      contextoRecibido = this
+      return Promise.resolve(new Response(JSON.stringify({ estado: 'ok' }), { status: 200 }))
+    }
+
+    try {
+      const rest = new ClienteRest()
+
+      await expect(rest.solicitarJson('GET', '/api/v1/health')).resolves.toEqual({ estado: 'ok' })
+      expect(contextoRecibido).toBe(globalThis)
+    } finally {
+      // La restauración explícita evita que este reemplazo afecte las demás
+      // pruebas, incluso si alguna aserción anterior llegara a fallar.
+      globalThis.fetch = fetchOriginal
+    }
+  })
+
   it('ejecuta GET exitoso devolviendo JSON tipado', async () => {
     const estadoMock = crearMockEstadoModeracion(10)
     const mockFetch = vi.fn().mockResolvedValue(

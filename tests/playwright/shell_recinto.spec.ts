@@ -151,7 +151,7 @@ for (const viewport of [
   }) => {
     await page.setViewportSize(viewport)
     await instalarBackendPublico(page, crearEstado())
-    await page.goto('http://localhost:3001')
+    await page.goto('http://localhost:3001/recinto/')
 
     await expect(page.getByTestId('estado-sin-preparar')).toContainText('Sala sin preparar')
     await expect(page.getByTestId('estado-conexion')).toContainText('En línea')
