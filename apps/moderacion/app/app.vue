@@ -11,6 +11,8 @@
  *    sin deformar ni empujar la altura de los demás paneles.
  */
 
+import { shallowRef } from 'vue'
+import type { PuntoOrdenDelDiaProyectado } from '@botonera2/api-client'
 import { useEstadoModeracion } from './composables/useEstadoModeracion'
 import CabeceraModeracion from './components/CabeceraModeracion.vue'
 import PanelSesionVotacion from './components/PanelSesionVotacion.vue'
@@ -20,6 +22,18 @@ import PanelEventos from './components/PanelEventos.vue'
 
 // Conectamos con el composable reactivo de moderación
 const { estado, estadoConexion, estadoGlobal, revision, desactualizado } = useEstadoModeracion()
+
+/**
+ * Conserva únicamente el punto elegido como borrador visual entre los cuadrantes.
+ * Se crea una copia nueva en cada selección para que volver a elegir el mismo punto
+ * también vuelva a precargar el formulario. La colección autoritativa continúa en
+ * `estado.orden_del_dia`; esta referencia nunca marca ni consume el punto original.
+ */
+const puntoSeleccionado = shallowRef<PuntoOrdenDelDiaProyectado | null>(null)
+
+function seleccionarPuntoOrdenDelDia(punto: PuntoOrdenDelDiaProyectado): void {
+  puntoSeleccionado.value = { ...punto }
+}
 </script>
 
 <template>
@@ -42,12 +56,12 @@ const { estado, estadoConexion, estadoGlobal, revision, desactualizado } = useEs
       >
         <!-- Cuadrante 1 (arriba izquierda): Sesión y votación -->
         <div class="h-[360px] lg:h-auto min-h-0 min-w-0">
-          <PanelSesionVotacion :estado="estado" />
+          <PanelSesionVotacion :estado="estado" :punto-preseleccionado="puntoSeleccionado" />
         </div>
 
         <!-- Cuadrante 2 (arriba derecha): Orden del Día -->
         <div class="h-[360px] lg:h-auto min-h-0 min-w-0">
-          <PanelOrdenDelDia :estado="estado" />
+          <PanelOrdenDelDia :estado="estado" @seleccionar="seleccionarPuntoOrdenDelDia" />
         </div>
 
         <!-- Cuadrante 3 (abajo izquierda): Recinto y palabra -->

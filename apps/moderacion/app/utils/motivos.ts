@@ -18,6 +18,9 @@ const DICCIONARIO_MOTIVOS: Record<string, string> = {
   VOTACION_PENDIENTE:
     'No se puede cerrar la sesión con una votación en curso o pendiente de desempate.',
   VOTACION_EN_CURSO: 'Existe una votación en curso.',
+  VOTACION_NO_EN_CURSO: 'No existe una votación en curso que pueda finalizarse.',
+  VOTACION_NO_EMPATADA: 'No existe una mayoría simple empatada pendiente de desempate.',
+  DESEMPATE_YA_EMITIDO: 'El voto presidencial ya fue emitido y no puede repetirse.',
   PADRON_NO_DISPONIBLE: 'El padrón de concejales no se encuentra disponible.',
   SESION_YA_INICIADA: 'La sesión ya se encuentra abierta.',
   DESEMPATE_NO_REQUERIDO: 'La votación no se encuentra en condición de empate.',

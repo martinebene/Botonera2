@@ -293,6 +293,9 @@ if (typeof globalThis.document === 'undefined' || !globalThis.document.querySele
     listeners: Record<string, Listener[]> = {}
     classList: MockClassList
     private _value = ''
+    selectedIndex = -1
+    selected = false
+    checked = false
 
     constructor(tagName = 'DIV') {
       super()
@@ -316,10 +319,35 @@ if (typeof globalThis.document === 'undefined' || !globalThis.document.querySele
     }
 
     get value(): string {
+      if (this.tagName === 'SELECT' && this.selectedIndex >= 0) {
+        return this.options[this.selectedIndex]?.value ?? ''
+      }
       return this._value
     }
     set value(val: string) {
       this._value = String(val)
+      if (this.tagName === 'SELECT') {
+        const indice = this.options.findIndex((opcion) => opcion.value === this._value)
+        this.selectedIndex = indice
+        this.options.forEach((opcion, posicion) => {
+          opcion.selected = posicion === indice
+        })
+      }
+    }
+
+    /**
+     * Vue recorre `select.options` al sincronizar un v-model. El DOM liviano no
+     * implementa colecciones HTML especializadas, pero los hijos OPTION ordenados
+     * ofrecen exactamente la superficie que necesita esa directiva.
+     */
+    get options(): MockElement[] {
+      return this.tagName === 'SELECT'
+        ? this.children.filter((elemento) => elemento.tagName === 'OPTION')
+        : []
+    }
+
+    get multiple(): boolean {
+      return this.hasAttribute('multiple')
     }
 
     get disabled(): boolean {

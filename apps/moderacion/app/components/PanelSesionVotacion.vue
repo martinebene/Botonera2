@@ -22,10 +22,15 @@
  */
 
 import { ref, computed, watch } from 'vue'
-import type { EstadoModeracion, ClienteModeracion } from '@botonera2/api-client'
+import type {
+  EstadoModeracion,
+  ClienteModeracion,
+  PuntoOrdenDelDiaProyectado,
+} from '@botonera2/api-client'
 import { useEstadoModeracion } from '../composables/useEstadoModeracion'
 import PanelContenedor from './PanelContenedor.vue'
 import DialogoConfirmacionCierre from './DialogoConfirmacionCierre.vue'
+import GestionVotacion from './GestionVotacion.vue'
 import { traducirMotivos } from '../utils/motivos'
 
 const props = defineProps<{
@@ -33,6 +38,8 @@ const props = defineProps<{
   estado: EstadoModeracion | null
   /** Cliente de API inyectable para pruebas unitarias */
   clienteInyectado?: ClienteModeracion
+  /** Copia asistencial elegida en Q2 para precargar el borrador de votación */
+  puntoPreseleccionado?: PuntoOrdenDelDiaProyectado | null
 }>()
 
 // Consumimos la sincronización compartida de Moderación
@@ -800,6 +807,19 @@ const claseBadge = computed(() => {
             </button>
           </div>
         </div>
+
+        <!--
+          El ciclo de votación vive en un componente enfocado para que la gestión de
+          borradores, CA-062, finalización y desempate no se mezcle con autoridades.
+          Recibe la conexión ya resuelta por este panel y adopta siempre la votación
+          proyectada en `estado`, sin mantener una copia institucional paralela.
+        -->
+        <GestionVotacion
+          :estado="estado"
+          :cliente="cliente"
+          :conectado="conectado"
+          :punto-preseleccionado="puntoPreseleccionado ?? null"
+        />
 
         <!-- Acción de Cerrar Sesión -->
         <div class="flex flex-col gap-2 pt-3 border-t border-slate-800">

@@ -1,5 +1,5 @@
 /**
- * Pruebas Playwright para el Shell y la UI de Moderación de Botonera2 (WP-021 y WP-022).
+ * Pruebas Playwright para el Shell y la UI de Moderación de Botonera2 (WP-021 a WP-023).
  *
  * Cobertura de pruebas E2E deterministas (H3, N1):
  * 1. Contrato de Shell 2×2 completo en 1920×1080 y 1366×768:
@@ -146,6 +146,189 @@ async function configurarRutasMock(page: Page, estado: Record<string, unknown>) 
       return originalFetch(input, init)
     }
   }, estadoJson)
+}
+
+/**
+ * Instala un backend controlado que publica snapshots completos después de cada comando.
+ * La prueba de WP-023 puede así recorrer transiciones autoritativas sin calcular resultados
+ * en el frontend ni depender de un backend real dentro del test de interfaz.
+ */
+async function configurarCicloVotacionMock(page: Page, estadoInicial: Record<string, unknown>) {
+  await page.addInitScript((inicial) => {
+    type EstadoPrueba = Record<string, unknown> & {
+      revision: number
+      votacion: Record<string, unknown> | null
+      capacidades: Record<string, { habilitada: boolean; motivos: string[] }>
+    }
+
+    let estadoActual = inicial as EstadoPrueba
+    const fuentes: MockEventSourceVotacion[] = []
+
+    function publicar(nuevoEstado: EstadoPrueba): void {
+      estadoActual = nuevoEstado
+      const data = JSON.stringify(estadoActual)
+      for (const fuente of fuentes) {
+        for (const handler of fuente.listeners.estado ?? []) {
+          handler({ type: 'estado', data })
+        }
+      }
+    }
+
+    class MockEventSourceVotacion {
+      readyState = 1
+      listeners: Record<string, ((evento: { type: string; data: string }) => void)[]> = {}
+      onopen: ((evento: { type: string }) => void) | null = null
+      onerror: ((evento: { type: string }) => void) | null = null
+      onmessage: ((evento: { type: string; data: string }) => void) | null = null
+
+      constructor(readonly url: string) {
+        fuentes.push(this)
+        setTimeout(() => {
+          this.onopen?.({ type: 'open' })
+          const data = JSON.stringify(estadoActual)
+          for (const handler of this.listeners.estado ?? []) handler({ type: 'estado', data })
+        }, 5)
+      }
+
+      addEventListener(
+        tipo: string,
+        handler: (evento: { type: string; data: string }) => void,
+      ): void {
+        this.listeners[tipo] = this.listeners[tipo] ?? []
+        this.listeners[tipo]?.push(handler)
+      }
+
+      removeEventListener(
+        tipo: string,
+        handler: (evento: { type: string; data: string }) => void,
+      ): void {
+        this.listeners[tipo] = (this.listeners[tipo] ?? []).filter(
+          (registrado) => registrado !== handler,
+        )
+      }
+
+      close(): void {
+        this.readyState = 2
+      }
+    }
+
+    // @ts-expect-error EventSource controlado para este recorrido de navegador.
+    window.EventSource = MockEventSourceVotacion
+
+    const ventanaPrueba = window as Window & { cerrarComoEmpatada?: () => void }
+    ventanaPrueba.cerrarComoEmpatada = () => {
+      if (!estadoActual.votacion) return
+      publicar({
+        ...estadoActual,
+        revision: estadoActual.revision + 1,
+        votacion: {
+          ...estadoActual.votacion,
+          estado_recepcion: 'CERRADA',
+          resultado: 'EMPATADA',
+          fecha_hora_cierre: '2026-08-26T10:00:10Z',
+          fecha_hora_resultado: '2026-08-26T10:00:10Z',
+          cantidad_votos_recibidos: 8,
+          votos_individuales_revelados: true,
+          votos_individuales: [
+            {
+              dni: '30000001',
+              nombre: 'Concejal01',
+              apellido: 'Apellido01',
+              banca: 1,
+              valor: 'POSITIVO',
+            },
+          ],
+          conteos: { positivos: 4, negativos: 4, abstenciones: 0, total: 8 },
+        },
+        capacidades: {
+          ...estadoActual.capacidades,
+          abrir_votacion: { habilitada: false, motivos: ['VOTACION_PENDIENTE'] },
+          finalizar_votacion: { habilitada: false, motivos: ['VOTACION_NO_EN_CURSO'] },
+          desempatar: { habilitada: true, motivos: [] },
+        },
+      })
+    }
+
+    const fetchOriginal = window.fetch.bind(window)
+    window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+      const metodo = init?.method?.toUpperCase() ?? 'GET'
+
+      if (url.includes('/api/v1/estado/moderacion')) {
+        return new Response(JSON.stringify(estadoActual), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      }
+
+      if (url.endsWith('/api/v1/votaciones') && metodo === 'POST') {
+        const solicitud = JSON.parse(String(init?.body)) as {
+          numero_votacion: number
+          tipo: string
+          tema: string
+          tipo_mayoria: string
+          factor?: number
+          base: string
+        }
+        const votacion = {
+          id: 'votacion-e2e',
+          numero_votacion: solicitud.numero_votacion,
+          tipo: solicitud.tipo,
+          tema: solicitud.tema,
+          tipo_mayoria: solicitud.tipo_mayoria,
+          factor: solicitud.factor ?? 0,
+          base: solicitud.base,
+          estado_recepcion: 'EN_CURSO',
+          resultado: null,
+          fecha_hora_apertura: '2026-08-26T10:00:00Z',
+          fecha_hora_cierre: null,
+          fecha_hora_resultado: null,
+          motivo_finalizacion_manual: null,
+          cantidad_votos_recibidos: 0,
+          revelado_individual_desde: '2026-08-26T10:00:04Z',
+          votos_individuales_revelados: false,
+          votos_individuales: null,
+          conteos: null,
+          voto_presidencial: null,
+        }
+        publicar({
+          ...estadoActual,
+          revision: estadoActual.revision + 1,
+          votacion,
+          capacidades: {
+            ...estadoActual.capacidades,
+            abrir_votacion: { habilitada: false, motivos: ['VOTACION_PENDIENTE'] },
+            finalizar_votacion: { habilitada: true, motivos: [] },
+          },
+        })
+        return new Response(JSON.stringify(votacion), {
+          status: 201,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      }
+
+      if (url.endsWith('/desempate') && metodo === 'POST' && estadoActual.votacion) {
+        publicar({
+          ...estadoActual,
+          revision: estadoActual.revision + 1,
+          votacion: {
+            ...estadoActual.votacion,
+            resultado: 'APROBADA',
+            fecha_hora_resultado: '2026-08-26T10:00:15Z',
+            voto_presidencial: { presidencia: 'Dra. Presidencia', sentido: 'POSITIVO' },
+          },
+          capacidades: {
+            ...estadoActual.capacidades,
+            abrir_votacion: { habilitada: true, motivos: [] },
+            desempatar: { habilitada: false, motivos: ['VOTACION_NO_EMPATADA'] },
+          },
+        })
+        return new Response(null, { status: 204 })
+      }
+
+      return fetchOriginal(input, init)
+    }
+  }, estadoInicial)
 }
 
 function obtenerPaneles(page: Page) {
@@ -572,5 +755,120 @@ test.describe('UI de Moderación - Estados Institucionales y Contrato de Shell (
       expect(scrollH).toBeLessThanOrEqual(viewport.height + 2)
       expect(scrollW).toBeLessThanOrEqual(viewport.width + 2)
     }
+  })
+})
+
+test.describe('WP-023 - Recorrido de votación y Orden del Día', () => {
+  test('selecciona un punto, confirma CA-062 y adopta EN_CURSO, EMPATADA y desempate desde SSE', async ({
+    page,
+  }) => {
+    const capacidades = {
+      preparar_sala: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
+      actualizar_preparacion: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
+      cancelar_preparacion: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
+      abrir_sesion: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
+      actualizar_sesion: { habilitada: true, motivos: [] },
+      cerrar_sesion: { habilitada: true, motivos: [] },
+      cargar_orden_del_dia: { habilitada: true, motivos: [] },
+      descartar_orden_del_dia: { habilitada: true, motivos: [] },
+      abrir_votacion: { habilitada: true, motivos: [] },
+      finalizar_votacion: { habilitada: false, motivos: ['VOTACION_NO_EN_CURSO'] },
+      desempatar: { habilitada: false, motivos: ['VOTACION_NO_EMPATADA'] },
+      otorgar_palabra: { habilitada: true, motivos: [] },
+      quitar_palabra: { habilitada: true, motivos: [] },
+    }
+    const estado = crearEstadoFixture({
+      estado_global: 'SESION_ABIERTA',
+      sesion: {
+        fecha_hora_inicio_preparacion: '2026-08-26T09:30:00Z',
+        fecha_hora_apertura: '2026-08-26T09:45:00Z',
+        numero_sesion: 42,
+        presidencia: 'Dra. Presidencia',
+        secretaria_legislativa: 'Sr. Secretaría',
+      },
+      configuracion: {
+        quorum: 7,
+        filas_bancas: [3, 4, 5],
+        tipos_votacion: ['Proyecto', 'Moción'],
+        duracion_test_segundos: 3,
+        revelado_votos_moderacion_segundos: 4,
+        cuenta_regresiva_recinto_segundos: 3,
+        resultado_publico_recinto_segundos: 6,
+      },
+      quorum: { cantidad_presentes: 8, requerido: 7, alcanzado: true },
+      palabra: {
+        orador: { dni: '30000001', nombre: 'Ada', apellido: 'Lovelace', banca: 1 },
+        cola: [{ dni: '30000002', nombre: 'Grace', apellido: 'Hopper', banca: 2 }],
+      },
+      orden_del_dia: [
+        {
+          nro_votacion: 12,
+          tipo: 'Proyecto',
+          tema: 'Presupuesto anual',
+          tipo_mayoria: 'SIMPLE',
+          factor: 0,
+          base: 'VOTOS_COMPUTABLES',
+        },
+      ],
+      eventos_recientes: [],
+      auditoria: {
+        activa: true,
+        disponible: true,
+        fallado: false,
+        cerrado: false,
+        motivo: null,
+      },
+      capacidades,
+    })
+    await configurarCicloVotacionMock(page, estado)
+    await page.setViewportSize({ width: 1366, height: 768 })
+    await page.goto('/')
+    await expect(page.locator('[data-testid="formulario-votacion"]')).toBeVisible()
+
+    // Q2 copia el punto como borrador editable en Q1, sin consumirlo.
+    await page.locator('[data-testid="punto-orden-dia"]').click()
+    await expect(page.locator('[data-testid="input-numero-votacion"]')).toHaveValue('12')
+    await expect(page.locator('[data-testid="select-tipo-votacion"]')).toHaveValue('Proyecto')
+    await expect(page.locator('[data-testid="input-tema-votacion"]')).toHaveValue(
+      'Presupuesto anual',
+    )
+    await page.locator('[data-testid="input-tema-votacion"]').fill('Presupuesto editado')
+    await expect(page.locator('[data-testid="punto-orden-dia"]')).toHaveCount(1)
+
+    // CA-062: cancelar no envía; confirmar conserva orador y cola.
+    await page.locator('[data-testid="btn-abrir-votacion"]').click()
+    const dialogo = page.locator('[data-testid="dialogo-confirmacion-apertura"]')
+    await expect(dialogo).toBeVisible()
+    await expect(dialogo).toContainText('Ada Lovelace')
+    await page.locator('[data-testid="btn-cancelar-apertura"]').click()
+    await expect(dialogo).toHaveCount(0)
+    await expect(page.locator('[data-testid="vista-votacion-proyectada"]')).toHaveCount(0)
+
+    await page.locator('[data-testid="btn-abrir-votacion"]').click()
+    await page.locator('[data-testid="btn-confirmar-apertura"]').click()
+    const vista = page.locator('[data-testid="vista-votacion-proyectada"]')
+    await expect(vista).toBeVisible()
+    await expect(vista).toContainText('Presupuesto editado')
+    await expect(page.locator('[data-testid="estado-votacion"]')).toContainText('EN_CURSO')
+    await expect(page.locator('[data-testid="votos-ocultos"]')).toBeVisible()
+    await expect(page.locator('[data-testid="palabra-durante-votacion"]')).toContainText(
+      'Ada Lovelace',
+    )
+    await expect(page.locator('[data-testid="orador-actual-texto"]')).toContainText('Ada Lovelace')
+
+    // El backend controlado simula el cierre normal empatado y lo publica como snapshot completo.
+    await page.evaluate(() => {
+      ;(window as Window & { cerrarComoEmpatada?: () => void }).cerrarComoEmpatada?.()
+    })
+    await expect(page.locator('[data-testid="estado-votacion"]')).toContainText('EMPATADA')
+    await expect(page.locator('[data-testid="votos-individuales"]')).toContainText('Concejal01')
+    const controles = page.locator('[data-testid="controles-desempate"]')
+    await expect(controles).toContainText('Dra. Presidencia')
+    await expect(controles).not.toContainText('ABSTENCION')
+
+    await page.locator('[data-testid="btn-desempate-positivo"]').click()
+    await expect(page.locator('[data-testid="estado-votacion"]')).toContainText('APROBADA')
+    await expect(controles).toHaveCount(0)
+    await expect(page.locator('[data-testid="formulario-votacion"]')).toBeVisible()
   })
 })
