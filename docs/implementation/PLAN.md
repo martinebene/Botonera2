@@ -160,6 +160,14 @@ WP-022, WP-023 y WP-024 pueden ejecutarse en paralelo cuando sus dependencias es
 
 WP-025 está integrado. WP-026 queda documentalmente habilitado por dependencias, pero requiere su propia planificación/aprobación operativa y selección de agentes antes de iniciar.
 
+## WP técnico transversal - Entorno integrado de desarrollo
+
+| WP | Objetivo | Estado | Depende de | Agente |
+|---|---|---|---|---|
+| WP-033 | Crear entorno integrado de desarrollo y prueba manual bajo mismo origen | PENDIENTE | WP-007, WP-024, WP-025 | - |
+
+WP-033 se prioriza antes de continuar WP-026 para disponer de un harness manual real durante el resto del desarrollo. Debe ejecutarse íntegramente dentro de `agent-dev`, sin cambios administrativos en el host VPS; cualquier necesidad de modificar Docker, Tailscale, Caddy, firewall, Supervisor o publicación de puertos se escala fuera de este WP.
+
 ## Fase 8 - Integración y producción
 
 | WP | Objetivo | Estado | Depende de | Agente |
@@ -204,6 +212,6 @@ WP-001, WP-002, WP-003, WP-004, WP-005, WP-006, WP-007, WP-008, WP-009, WP-010, 
 
 DEC-007, DEC-009, DEC-010, DEC-011, DEC-012, DEC-013, DEC-014, DEC-015, DEC-016 y DEC-017 están vigentes. Orca continúa como entorno operativo preferido mientras esté en uso y `martinebene/Botonera2-Control` es el bus operativo obligatorio de turnos/handoffs conforme DEC-017.
 
-WP-023, WP-024 y WP-025 están `INTEGRADO` y sin agente operativo asignado. WP-026 es el siguiente WP de la Fase 7 y no debe iniciarse sin su propia planificación/aprobación operativa y selección de agentes conforme DEC-007.
+WP-023, WP-024 y WP-025 están `INTEGRADO` y sin agente operativo asignado. Por decisión explícita del operador, WP-033 se planifica antes de continuar WP-026 para incorporar el harness integrado de prueba manual. WP-033 permanece `PENDIENTE` hasta completar y aprobar su contrato; WP-026 no se inicia mientras tanto.
 
-La discrepancia preexistente `D-01..D-12` versus `dev01..dev12` debe resolverse antes de una prueba integrada que dependa de la configuración raíz.
+La discrepancia preexistente `D-01..D-12` versus `dev01..dev12` queda incorporada explícitamente al alcance de WP-033: el fixture de padrón de desarrollo debe alinearse con el identificador lógico canónico `devNN` antes del smoke integrado.
