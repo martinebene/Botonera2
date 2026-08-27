@@ -31,7 +31,12 @@ export class ClienteRest {
   constructor(configuracion: ConfiguracionCliente = {}) {
     // Normalizamos la URL base quitando la barra final si estuviera presente
     this.baseUrl = configuracion.baseUrl ? configuracion.baseUrl.replace(/\/+$/, '') : ''
-    this.funcionFetch = configuracion.fetch ?? globalThis.fetch
+    // Algunos navegadores exigen que la función nativa conserve `globalThis`
+    // como contexto. Si guardáramos `fetch` sin enlazarla, la llamada posterior
+    // `this.funcionFetch(...)` podría fallar con "Illegal invocation" antes de
+    // emitir la petición. Las implementaciones inyectadas se conservan intactas
+    // para que mocks y adaptadores mantengan el contexto que hayan definido.
+    this.funcionFetch = configuracion.fetch ?? globalThis.fetch.bind(globalThis)
   }
 
   /**

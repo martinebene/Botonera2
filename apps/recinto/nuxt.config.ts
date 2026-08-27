@@ -4,6 +4,11 @@ export default defineNuxtConfig({
   // Recinto comparte la estrategia de despliegue estático de Moderación, pero
   // conserva una aplicación separada para no mezclar responsabilidades.
   ssr: false,
+  app: {
+    // El build queda listo para que Nginx o el harness lo sirvan en la
+    // subruta pública acordada, sin fijar un host absoluto.
+    baseURL: '/recinto/',
+  },
   modules: ['@nuxt/eslint'],
   css: ['~/assets/css/principal.css'],
   typescript: {

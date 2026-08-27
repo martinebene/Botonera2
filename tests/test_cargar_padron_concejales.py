@@ -257,3 +257,6 @@ def test_los_archivos_canonicos_del_repositorio_cargan_juntos() -> None:
     assert configuracion.capacidad_total == 12
     assert len(padron.concejales) == 12
     assert {concejal.banca for concejal in padron.concejales} == set(range(1, 13))
+    assert [concejal.dispositivo_votacion for concejal in padron.concejales] == [
+        f"dev{numero:02d}" for numero in range(1, 13)
+    ]
