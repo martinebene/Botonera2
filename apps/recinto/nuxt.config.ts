@@ -10,6 +10,13 @@ export default defineNuxtConfig({
     strict: true,
     typeCheck: true,
   },
+  runtimeConfig: {
+    public: {
+      // En producción Recinto y FastAPI comparten origen. Esta variable solo
+      // permite apuntar a otro backend durante desarrollo o pruebas manuales.
+      apiBaseUrl: '',
+    },
+  },
   vite: {
     plugins: [tailwindcss()],
   },

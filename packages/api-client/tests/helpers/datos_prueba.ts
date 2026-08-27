@@ -98,6 +98,7 @@ export function crearMockEstadoRecinto(
       fecha_hora_inicio: new Date().toISOString(),
     },
     sesion: null,
+    filas_bancas: [1],
     concejales: [
       {
         nombre: 'Concejal',

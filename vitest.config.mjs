@@ -16,6 +16,11 @@ export default defineConfig({
     environment: 'node',
     setupFiles: ['./apps/moderacion/tests/setup_dom.ts'],
     include: ['packages/**/*.test.ts', 'apps/**/*.test.ts'],
-    exclude: ['**/node_modules/**', 'tests/playwright/**'],
+    // El shell público usa el entorno Nuxt real en su configuración dedicada.
+    exclude: [
+      '**/node_modules/**',
+      'tests/playwright/**',
+      'apps/recinto/tests/shell_publico.test.ts',
+    ],
   },
 })

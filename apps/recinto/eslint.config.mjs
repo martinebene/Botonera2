@@ -1,5 +1,20 @@
 import withNuxt from './.nuxt/eslint.config.mjs'
 
-// La configuración generada por Nuxt conoce los auto-imports y las reglas de
-// Vue; mantener esta entrada mínima evita duplicar esa lógica del framework.
-export default withNuxt()
+// Nuxt genera la base consciente del proyecto; configuramos la compatibilidad
+// de vue/html-self-closing con el formateo de Prettier para elementos void.
+export default withNuxt({
+  rules: {
+    'vue/html-self-closing': [
+      'error',
+      {
+        html: {
+          void: 'always',
+          normal: 'always',
+          component: 'always',
+        },
+        svg: 'always',
+        math: 'always',
+      },
+    ],
+  },
+})

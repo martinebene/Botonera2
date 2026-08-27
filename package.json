@@ -21,7 +21,7 @@
     "generate:types": "pnpm --filter @botonera2/api-client generate:types",
     "lint": "pnpm --filter @botonera2/moderacion lint && pnpm --filter @botonera2/recinto lint",
     "postinstall": "pnpm --filter @botonera2/moderacion prepare && pnpm --filter @botonera2/recinto prepare",
-    "test": "vitest run",
+    "test": "vitest run && vitest run --config apps/recinto/vitest.config.ts",
     "test:e2e": "playwright test",
     "typecheck": "pnpm --filter @botonera2/api-client typecheck && pnpm --filter @botonera2/moderacion typecheck && pnpm --filter @botonera2/recinto typecheck"
   },

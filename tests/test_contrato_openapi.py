@@ -18,6 +18,8 @@ def test_generacion_esquema_openapi_valida() -> None:
     assert "/api/v1/estado/moderacion" in esquema["paths"]
     assert "/api/v1/estado/recinto" in esquema["paths"]
     assert "/api/v1/votaciones" in esquema["paths"]
+    propiedades_recinto = esquema["components"]["schemas"]["EstadoRecinto"]["properties"]
+    assert "filas_bancas" in propiedades_recinto
 
 
 def test_snapshot_versionado_coincide_con_backend() -> None:
