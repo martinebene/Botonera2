@@ -80,6 +80,9 @@ function crearEstadoFixture(parcial: Record<string, unknown> = {}) {
       cancelar_solicitud_palabra: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
       otorgar_palabra: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
       quitar_palabra: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
+      iniciar_remapeo: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
+      confirmar_remapeo: { habilitada: false, motivos: ['REMAPEO_NO_COINCIDE'] },
+      cancelar_remapeo: { habilitada: false, motivos: ['REMAPEO_NO_COINCIDE'] },
       subir_orden_dia: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
       seleccionar_expediente: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
       cerrar_expediente: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
@@ -321,6 +324,215 @@ async function configurarCicloVotacionMock(page: Page, estadoInicial: Record<str
             ...estadoActual.capacidades,
             abrir_votacion: { habilitada: true, motivos: [] },
             desempatar: { habilitada: false, motivos: ['VOTACION_NO_EMPATADA'] },
+          },
+        })
+        return new Response(null, { status: 204 })
+      }
+
+      return fetchOriginal(input, init)
+    }
+  }, estadoInicial)
+}
+
+/**
+ * Simula el ciclo coordinado de WP-024 conservando una única fuente de estado.
+ * Cada comando publica luego un snapshot completo: la página no conoce ni
+ * calcula por su cuenta el avance de palabra, los eventos o el remapeo físico.
+ */
+async function configurarCicloPalabraRemapeoMock(
+  page: Page,
+  estadoInicial: Record<string, unknown>,
+) {
+  await page.addInitScript((inicial) => {
+    type CapacidadPrueba = { habilitada: boolean; motivos: string[] }
+    type PersonaPalabra = {
+      dni: string
+      nombre: string
+      apellido: string
+      banca: number
+    }
+    type RemapeoPrueba = {
+      remapeo_id: string
+      dispositivo: string
+      estado: string
+      fingerprint_anterior: string | null
+      candidato: string | null
+      diagnostico: string | null
+    }
+    type EstadoPrueba = Record<string, unknown> & {
+      revision: number
+      palabra: { orador: PersonaPalabra | null; cola: PersonaPalabra[] }
+      eventos_recientes: Record<string, unknown>[]
+      remapeo: RemapeoPrueba | null
+      capacidades: Record<string, CapacidadPrueba>
+    }
+
+    let estadoActual = inicial as EstadoPrueba
+    const fuentes: MockEventSourceWp024[] = []
+    const conteos = { quitar: 0, otorgar: 0, iniciar: 0, confirmar: 0 }
+    let ultimaConfirmacion: { remapeoId: string; persistencia: string } | null = null
+
+    function publicar(cambios: Partial<EstadoPrueba>): void {
+      estadoActual = {
+        ...estadoActual,
+        ...cambios,
+        revision: estadoActual.revision + 1,
+      }
+      const data = JSON.stringify(estadoActual)
+      for (const fuente of fuentes) {
+        for (const handler of fuente.listeners.estado ?? []) {
+          handler({ type: 'estado', data })
+        }
+      }
+    }
+
+    class MockEventSourceWp024 {
+      readyState = 1
+      listeners: Record<string, ((evento: { type: string; data: string }) => void)[]> = {}
+      onopen: ((evento: { type: string }) => void) | null = null
+      onerror: ((evento: { type: string }) => void) | null = null
+      onmessage: ((evento: { type: string; data: string }) => void) | null = null
+
+      constructor(readonly url: string) {
+        fuentes.push(this)
+        setTimeout(() => {
+          this.onopen?.({ type: 'open' })
+          const data = JSON.stringify(estadoActual)
+          for (const handler of this.listeners.estado ?? []) handler({ type: 'estado', data })
+        }, 5)
+      }
+
+      addEventListener(
+        tipo: string,
+        handler: (evento: { type: string; data: string }) => void,
+      ): void {
+        this.listeners[tipo] = this.listeners[tipo] ?? []
+        this.listeners[tipo]?.push(handler)
+      }
+
+      removeEventListener(
+        tipo: string,
+        handler: (evento: { type: string; data: string }) => void,
+      ): void {
+        this.listeners[tipo] = (this.listeners[tipo] ?? []).filter(
+          (registrado) => registrado !== handler,
+        )
+      }
+
+      close(): void {
+        this.readyState = 2
+      }
+    }
+
+    // @ts-expect-error EventSource determinista para el recorrido de WP-024.
+    window.EventSource = MockEventSourceWp024
+
+    const ventanaPrueba = window as Window & {
+      capturarCandidatoRemapeo?: () => void
+      obtenerControlWp024?: () => {
+        conteos: typeof conteos
+        ultimaConfirmacion: typeof ultimaConfirmacion
+      }
+    }
+    ventanaPrueba.capturarCandidatoRemapeo = () => {
+      if (!estadoActual.remapeo) return
+      publicar({
+        remapeo: {
+          ...estadoActual.remapeo,
+          estado: 'CANDIDATO',
+          candidato: 'lin|vendor=9001|product=9001|phys=usb-9|name=Reemplazo',
+          diagnostico: 'Teclado USB de reemplazo',
+        },
+        capacidades: {
+          ...estadoActual.capacidades,
+          confirmar_remapeo: { habilitada: true, motivos: [] },
+        },
+      })
+    }
+    ventanaPrueba.obtenerControlWp024 = () => ({ conteos, ultimaConfirmacion })
+
+    const fetchOriginal = window.fetch.bind(window)
+    window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+      const metodo = init?.method?.toUpperCase() ?? 'GET'
+
+      if (url.includes('/api/v1/estado/moderacion')) {
+        return new Response(JSON.stringify(estadoActual), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      }
+
+      if (url.endsWith('/api/v1/palabra') && metodo === 'DELETE') {
+        conteos.quitar += 1
+        await new Promise((resolver) => setTimeout(resolver, 30))
+        publicar({ palabra: { ...estadoActual.palabra, orador: null } })
+        return new Response(null, { status: 204 })
+      }
+
+      if (url.endsWith('/api/v1/palabra') && metodo === 'POST') {
+        conteos.otorgar += 1
+        await new Promise((resolver) => setTimeout(resolver, 30))
+        const [siguiente, ...restantes] = estadoActual.palabra.cola
+        publicar({
+          palabra: {
+            orador: siguiente ?? null,
+            cola: restantes,
+          },
+        })
+        return new Response(null, { status: 204 })
+      }
+
+      if (url.endsWith('/api/v1/remapeos') && metodo === 'POST') {
+        conteos.iniciar += 1
+        const solicitud = JSON.parse(String(init?.body)) as { dispositivo: string }
+        await new Promise((resolver) => setTimeout(resolver, 30))
+        const remapeo: RemapeoPrueba = {
+          remapeo_id: 'remapeo-e2e-wp024',
+          dispositivo: solicitud.dispositivo,
+          estado: 'CAPTURANDO',
+          fingerprint_anterior: 'lin|vendor=1001|product=1001|phys=usb-1|name=Anterior',
+          candidato: null,
+          diagnostico: null,
+        }
+        publicar({
+          remapeo,
+          capacidades: {
+            ...estadoActual.capacidades,
+            iniciar_remapeo: { habilitada: false, motivos: ['REMAPEO_YA_ACTIVO'] },
+            confirmar_remapeo: { habilitada: false, motivos: ['REMAPEO_SIN_CANDIDATO'] },
+            cancelar_remapeo: { habilitada: true, motivos: [] },
+          },
+        })
+        return new Response(JSON.stringify(remapeo), {
+          status: 201,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      }
+
+      if (url.endsWith('/confirmacion') && metodo === 'POST' && estadoActual.remapeo) {
+        conteos.confirmar += 1
+        const solicitud = JSON.parse(String(init?.body)) as { persistencia: string }
+        ultimaConfirmacion = {
+          remapeoId: estadoActual.remapeo.remapeo_id,
+          persistencia: solicitud.persistencia,
+        }
+        publicar({
+          remapeo: { ...estadoActual.remapeo, estado: 'CONFIRMANDO' },
+          capacidades: {
+            ...estadoActual.capacidades,
+            confirmar_remapeo: { habilitada: false, motivos: ['REMAPEO_NO_COINCIDE'] },
+            cancelar_remapeo: { habilitada: false, motivos: ['REMAPEO_NO_COINCIDE'] },
+          },
+        })
+        await new Promise((resolver) => setTimeout(resolver, 30))
+        publicar({
+          remapeo: null,
+          capacidades: {
+            ...estadoActual.capacidades,
+            iniciar_remapeo: { habilitada: true, motivos: [] },
+            confirmar_remapeo: { habilitada: false, motivos: ['REMAPEO_NO_COINCIDE'] },
+            cancelar_remapeo: { habilitada: false, motivos: ['REMAPEO_NO_COINCIDE'] },
           },
         })
         return new Response(null, { status: 204 })
@@ -870,5 +1082,194 @@ test.describe('WP-023 - Recorrido de votación y Orden del Día', () => {
     await expect(page.locator('[data-testid="estado-votacion"]')).toContainText('APROBADA')
     await expect(controles).toHaveCount(0)
     await expect(page.locator('[data-testid="formulario-votacion"]')).toBeVisible()
+  })
+})
+
+test.describe('WP-024 - Palabra, eventos y remapeo autoritativos', () => {
+  test('recorre CA-061, filtros de eventos y confirmación física en ambas resoluciones', async ({
+    page,
+  }) => {
+    const capacidades = {
+      preparar_sala: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
+      actualizar_preparacion: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
+      cancelar_preparacion: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
+      abrir_sesion: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
+      actualizar_sesion: { habilitada: true, motivos: [] },
+      cerrar_sesion: { habilitada: true, motivos: [] },
+      cargar_orden_del_dia: { habilitada: true, motivos: [] },
+      descartar_orden_del_dia: { habilitada: true, motivos: [] },
+      abrir_votacion: { habilitada: true, motivos: [] },
+      finalizar_votacion: { habilitada: false, motivos: ['VOTACION_NO_EN_CURSO'] },
+      desempatar: { habilitada: false, motivos: ['VOTACION_NO_EMPATADA'] },
+      otorgar_palabra: { habilitada: true, motivos: [] },
+      quitar_palabra: { habilitada: true, motivos: [] },
+      iniciar_remapeo: { habilitada: true, motivos: [] },
+      confirmar_remapeo: { habilitada: false, motivos: ['REMAPEO_NO_COINCIDE'] },
+      cancelar_remapeo: { habilitada: false, motivos: ['REMAPEO_NO_COINCIDE'] },
+    }
+    const estado = crearEstadoFixture({
+      estado_global: 'SESION_ABIERTA',
+      sesion: {
+        fecha_hora_inicio_preparacion: '2026-08-27T09:00:00Z',
+        fecha_hora_apertura: '2026-08-27T09:30:00Z',
+        numero_sesion: 24,
+        presidencia: 'Dra. Presidencia',
+        secretaria_legislativa: 'Sr. Secretaría',
+      },
+      quorum: { cantidad_presentes: 8, requerido: 7, alcanzado: true },
+      palabra: {
+        orador: {
+          dni: '30000001',
+          nombre: 'Concejal01',
+          apellido: 'Apellido01',
+          banca: 1,
+        },
+        cola: [
+          {
+            dni: '30000002',
+            nombre: 'Concejal02',
+            apellido: 'Apellido02',
+            banca: 2,
+          },
+          {
+            dni: '30000003',
+            nombre: 'Concejal03',
+            apellido: 'Apellido03',
+            banca: 3,
+          },
+        ],
+      },
+      eventos_recientes: [
+        {
+          seq: 201,
+          timestamp: '2026-08-27T10:00:01',
+          nivel: 'L1',
+          etiqueta: 'SISTEMA',
+          codigo_evento: 'EVENTO_TECNICO',
+          mensaje: 'Detalle técnico persistido',
+        },
+        {
+          seq: 202,
+          timestamp: '2026-08-27T10:00:02',
+          nivel: 'L2',
+          etiqueta: 'OPERACION',
+          codigo_evento: 'EVENTO_INTERMEDIO',
+          mensaje: 'Detalle operativo persistido',
+        },
+        {
+          seq: 203,
+          timestamp: '2026-08-27T10:00:03',
+          nivel: 'L3',
+          etiqueta: 'PALABRA',
+          codigo_evento: 'EVENTO_PRINCIPAL',
+          mensaje: 'Hecho institucional persistido',
+        },
+      ],
+      auditoria: {
+        activa: true,
+        disponible: true,
+        fallado: false,
+        cerrado: false,
+        motivo: null,
+      },
+      remapeo: null,
+      capacidades,
+    })
+    await configurarCicloPalabraRemapeoMock(page, estado)
+
+    for (const viewport of [
+      { width: 1920, height: 1080 },
+      { width: 1366, height: 768 },
+    ]) {
+      await page.setViewportSize(viewport)
+      await page.goto('/')
+      await expect(page.locator('[data-testid="gestion-palabra"]')).toBeVisible()
+      await verificarGeometriaShellCompleto(page, viewport)
+
+      // La cola completa conserva FIFO y quitar no promueve implícitamente.
+      await expect(page.locator('[data-testid="orador-actual-texto"]')).toContainText(
+        'Concejal01 Apellido01',
+      )
+      await expect(page.locator('[data-testid="pedido-palabra-1"]')).toContainText(
+        'Concejal02 Apellido02',
+      )
+      await expect(page.locator('[data-testid="pedido-palabra-2"]')).toContainText(
+        'Concejal03 Apellido03',
+      )
+      await page.locator('[data-testid="btn-quitar-palabra"]').evaluate((boton) => {
+        ;(boton as HTMLButtonElement).click()
+        ;(boton as HTMLButtonElement).click()
+      })
+      await expect(page.locator('[data-testid="orador-actual-texto"]')).toContainText(
+        'Sin orador activo',
+      )
+      await expect(page.locator('[data-testid="badge-cola-palabra"]')).toContainText('2 en cola')
+
+      await page.locator('[data-testid="btn-otorgar-palabra"]').evaluate((boton) => {
+        ;(boton as HTMLButtonElement).click()
+        ;(boton as HTMLButtonElement).click()
+      })
+      await expect(page.locator('[data-testid="orador-actual-texto"]')).toContainText(
+        'Concejal02 Apellido02',
+      )
+      await expect(page.locator('[data-testid="badge-cola-palabra"]')).toContainText('1 en cola')
+
+      // L3 es inicial; L2 y L1 incluyen acumulativamente los niveles inferiores.
+      await expect(page.locator('[data-testid="evento-reciente"]')).toHaveCount(1)
+      await expect(page.locator('[data-testid="panel-eventos"]')).toContainText('EVENTO_PRINCIPAL')
+      await page.locator('[data-testid="filtro-eventos"]').selectOption('L2')
+      await expect(page.locator('[data-testid="evento-reciente"]')).toHaveCount(2)
+      await page.locator('[data-testid="filtro-eventos"]').selectOption('L1')
+      await expect(page.locator('[data-testid="evento-reciente"]')).toHaveCount(3)
+      await expect(page.locator('[data-testid="nivel-evento"]')).toHaveText(['L1', 'L2', 'L3'])
+
+      // El objetivo se elige desde banca/persona/devXX; luego manda el snapshot.
+      await page.locator('[data-testid="selector-banca-remapeo"]').selectOption('dev03')
+      await expect(page.locator('[data-testid="resumen-inicio-remapeo"]')).toContainText('Banca 3')
+      await page.locator('[data-testid="btn-iniciar-remapeo"]').evaluate((boton) => {
+        ;(boton as HTMLButtonElement).click()
+        ;(boton as HTMLButtonElement).click()
+      })
+      await expect(page.locator('[data-testid="estado-remapeo"]')).toHaveText('CAPTURANDO')
+      await expect(page.locator('[data-testid="dispositivo-remapeo"]')).toHaveText('dev03')
+
+      await page.evaluate(() => {
+        ;(window as Window & { capturarCandidatoRemapeo?: () => void }).capturarCandidatoRemapeo?.()
+      })
+      await expect(page.locator('[data-testid="estado-remapeo"]')).toHaveText('CANDIDATO')
+      await expect(page.locator('[data-testid="fingerprint-candidato"]')).toContainText(
+        'vendor=9001',
+      )
+      await expect(page.locator('[data-testid="diagnostico-remapeo"]')).toContainText(
+        'Teclado USB de reemplazo',
+      )
+      await expect(page.locator('[data-testid="btn-confirmar-remapeo"]')).toBeDisabled()
+      await page.locator('[data-testid="persistencia-temporal"]').check()
+      await expect(page.locator('[data-testid="resumen-confirmacion-remapeo"]')).toContainText(
+        'TEMPORAL',
+      )
+      await page.locator('[data-testid="btn-confirmar-remapeo"]').evaluate((boton) => {
+        ;(boton as HTMLButtonElement).click()
+        ;(boton as HTMLButtonElement).click()
+      })
+      await expect(page.locator('[data-testid="remapeo-activo"]')).toHaveCount(0)
+
+      const control = await page.evaluate(() =>
+        (
+          window as Window & {
+            obtenerControlWp024?: () => {
+              conteos: { quitar: number; otorgar: number; iniciar: number; confirmar: number }
+              ultimaConfirmacion: { remapeoId: string; persistencia: string } | null
+            }
+          }
+        ).obtenerControlWp024?.(),
+      )
+      expect(control?.conteos).toEqual({ quitar: 1, otorgar: 1, iniciar: 1, confirmar: 1 })
+      expect(control?.ultimaConfirmacion).toEqual({
+        remapeoId: 'remapeo-e2e-wp024',
+        persistencia: 'TEMPORAL',
+      })
+      await verificarGeometriaShellCompleto(page, viewport)
+    }
   })
 })

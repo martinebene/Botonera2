@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 from botonera2_backend.auditoria import NivelAuditoria
 from botonera2_backend.dominio.estado import EstadoGlobal
+from botonera2_backend.dominio.remapeo import EstadoRemapeo, OperacionRemapeo
 from botonera2_backend.dominio.votacion import (
     EstadoVotacion,
     ResultadoVotacion,
@@ -329,6 +330,50 @@ async def test_auditoria_cerrada_desactiva_capacidades_pero_no_lectura(tmp_path:
     assert not estado.capacidades.abrir_votacion.habilitada
     assert "AUDITORIA_NO_DISPONIBLE" in estado.capacidades.abrir_votacion.motivos
     assert estado.sesion is not None
+
+
+async def test_capacidades_remapeo_siguen_estado_y_auditoria_autoritativos(
+    tmp_path: Path,
+) -> None:
+    """DP-024-01 proyecta inicio, confirmación y cancelación sin validar bodies futuros."""
+
+    entorno = crear_entorno_proyecciones(tmp_path)
+
+    sin_operacion = await entorno.servicio.obtener_estado_moderacion()
+    assert sin_operacion.capacidades.iniciar_remapeo.habilitada
+    assert not sin_operacion.capacidades.confirmar_remapeo.habilitada
+    assert sin_operacion.capacidades.confirmar_remapeo.motivos == ("REMAPEO_NO_COINCIDE",)
+    assert not sin_operacion.capacidades.cancelar_remapeo.habilitada
+
+    operacion = OperacionRemapeo(remapeo_id="remapeo-prueba", dispositivo="P-01")
+    entorno.estado.remapeo_activo = operacion
+    capturando = await entorno.servicio.obtener_estado_moderacion()
+    assert not capturando.capacidades.iniciar_remapeo.habilitada
+    assert capturando.capacidades.iniciar_remapeo.motivos == ("REMAPEO_YA_ACTIVO",)
+    assert not capturando.capacidades.confirmar_remapeo.habilitada
+    assert capturando.capacidades.confirmar_remapeo.motivos == ("REMAPEO_SIN_CANDIDATO",)
+    assert capturando.capacidades.cancelar_remapeo.habilitada
+
+    operacion.candidato = "fingerprint-candidato"
+    operacion.estado = EstadoRemapeo.CANDIDATO
+    candidato = await entorno.servicio.obtener_estado_moderacion()
+    assert candidato.capacidades.confirmar_remapeo.habilitada
+    assert candidato.capacidades.cancelar_remapeo.habilitada
+
+    operacion.estado = EstadoRemapeo.CONFIRMANDO
+    confirmando = await entorno.servicio.obtener_estado_moderacion()
+    assert not confirmando.capacidades.confirmar_remapeo.habilitada
+    assert confirmando.capacidades.confirmar_remapeo.motivos == ("REMAPEO_NO_COINCIDE",)
+
+    operacion.estado = EstadoRemapeo.CANDIDATO
+
+    entorno.contexto.escritor_auditoria.cerrar()
+    sin_auditoria = await entorno.servicio.obtener_estado_moderacion()
+    assert not sin_auditoria.capacidades.confirmar_remapeo.habilitada
+    assert sin_auditoria.capacidades.confirmar_remapeo.motivos == ("AUDITORIA_NO_DISPONIBLE",)
+    # Cancelar no escribe un hecho institucional y debe seguir permitiendo
+    # abandonar de forma segura la coordinación física ya iniciada.
+    assert sin_auditoria.capacidades.cancelar_remapeo.habilitada
 
 
 async def test_moderacion_proyecta_solo_los_ultimos_doscientos_eventos(tmp_path: Path) -> None:

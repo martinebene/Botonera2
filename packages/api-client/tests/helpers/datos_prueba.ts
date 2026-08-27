@@ -76,6 +76,9 @@ export function crearMockEstadoModeracion(
       desempatar: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
       otorgar_palabra: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
       quitar_palabra: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
+      iniciar_remapeo: { habilitada: true, motivos: [] },
+      confirmar_remapeo: { habilitada: false, motivos: ['REMAPEO_NO_COINCIDE'] },
+      cancelar_remapeo: { habilitada: false, motivos: ['REMAPEO_NO_COINCIDE'] },
     },
   }
 }

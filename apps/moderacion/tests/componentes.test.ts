@@ -91,7 +91,7 @@ function crearEstadoFixture(parcial: Partial<EstadoModeracion> = {}): EstadoMode
       {
         seq: 101,
         timestamp: '2026-08-24T12:00:01Z',
-        nivel: 'INFO',
+        nivel: 'L3',
         etiqueta: 'SESION',
         codigo_evento: 'PREPARACION_INICIADA',
         mensaje: 'Preparación de sala iniciada',

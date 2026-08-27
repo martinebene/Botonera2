@@ -7,8 +7,7 @@
  *    M2: En SIN_PREPARAR (donde quorum es null), no renderiza un falso indicador 0/0.
  * 2. Disponer las bancas del recinto según la configuración de filas (filas_bancas) y padrón activo.
  * 3. Reflejar presencia física y test temporal de teclado en modo solo lectura.
- * 4. Presentar el estado actual del uso de la palabra (orador en curso y solicitudes en cola)
- *    de forma pasiva, compatible con la extensión de controles completos en WP-024.
+ * 4. Integrar los controles autoritativos de palabra y el flujo de remapeo físico.
  *
  * Invariantes respetados:
  * - NO incluye controles de presencia manual ni atajos de teclado para marcar presencia.
@@ -17,15 +16,29 @@
  */
 
 import { computed } from 'vue'
-import type { EstadoModeracion } from '@botonera2/api-client'
+import {
+  crearClienteModeracion,
+  type ClienteModeracion,
+  type EstadoModeracion,
+} from '@botonera2/api-client'
 import PanelContenedor from './PanelContenedor.vue'
 import IndicadorQuorum from './IndicadorQuorum.vue'
 import GrillaRecinto from './GrillaRecinto.vue'
+import GestionPalabra from './GestionPalabra.vue'
+import GestionRemapeo from './GestionRemapeo.vue'
 
 const props = defineProps<{
   /** Estado autoritativo de moderación recibido desde el backend */
   estado: EstadoModeracion | null
+  /** Cliente compartido por la aplicación; la inyección mantiene tests deterministas. */
+  cliente?: ClienteModeracion
+  /** Solo una conexión confirmada habilita los comandos del cuadrante. */
+  conectado?: boolean
 }>()
+
+// El fallback permite renderizar el componente aislado en SSR sin abrir una
+// suscripción ni duplicar la frontera de sincronización de la aplicación.
+const clienteEfectivo = props.cliente ?? crearClienteModeracion()
 
 // Cantidad de concejales registrados en el padrón activo
 const totalConcejales = computed(() => props.estado?.concejales?.length ?? 0)
@@ -51,22 +64,12 @@ const claseBadge = computed(() => {
   }
   return 'bg-slate-800 text-slate-300 border border-slate-700'
 })
-
-// Información de orador actual
-const oradorActual = computed(() => {
-  if (!props.estado?.palabra?.orador) return null
-  const o = props.estado.palabra.orador
-  return `${o.nombre} ${o.apellido} (Banca ${o.banca})`
-})
-
-// Cantidad de solicitantes en la cola de palabra
-const cantidadEnCola = computed(() => props.estado?.palabra?.cola?.length ?? 0)
 </script>
 
 <template>
   <PanelContenedor
     titulo="Recinto y palabra"
-    subtitulo="Bancas, presencia física y estado de oradores"
+    subtitulo="Bancas, palabra y coordinación de dispositivos"
     data-testid="panel-recinto-palabra"
     :badge="textoBadge"
     :clase-badge="claseBadge"
@@ -77,6 +80,17 @@ const cantidadEnCola = computed(() => props.estado?.palabra?.cola?.length ?? 0)
         v-if="estado && estado.quorum"
         :quorum="estado.quorum"
         :total-concejales="totalConcejales"
+      />
+
+      <!-- Cola/orador y comandos: toda transición llega luego desde REST/SSE. -->
+      <GestionPalabra :estado="estado" :cliente="clienteEfectivo" :conectado="conectado ?? false" />
+
+      <!-- Flujo físico coordinado por FastAPI, nunca por acceso directo al bridge. -->
+      <GestionRemapeo
+        v-if="estado && estado.estado_global !== 'SIN_PREPARAR'"
+        :estado="estado"
+        :cliente="clienteEfectivo"
+        :conectado="conectado ?? false"
       />
 
       <!-- Mapa y disposición de bancas del recinto -->
@@ -98,67 +112,6 @@ const cantidadEnCola = computed(() => props.estado?.palabra?.cola?.length ?? 0)
           :concejales="estado.concejales"
           :filas-bancas="estado.configuracion?.filas_bancas"
         />
-      </div>
-
-      <!-- Estado pasivo del uso de la palabra -->
-      <div
-        v-if="estado?.palabra"
-        data-testid="seccion-palabra"
-        class="rounded-lg border border-slate-800 bg-slate-950/60 p-3"
-      >
-        <div class="flex items-center justify-between border-b border-slate-800 pb-2 mb-2">
-          <span class="text-xs font-bold uppercase tracking-wider text-slate-300"
-            >Uso de la palabra</span
-          >
-          <span
-            data-testid="badge-cola-palabra"
-            class="rounded px-2 py-0.5 text-[10px] font-bold"
-            :class="
-              cantidadEnCola > 0
-                ? 'bg-cyan-950 text-cyan-300 border border-cyan-700'
-                : 'bg-slate-900 text-slate-400 border border-slate-800'
-            "
-          >
-            {{ cantidadEnCola }} en cola
-          </span>
-        </div>
-
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-          <!-- Orador actual -->
-          <div class="rounded border border-slate-800/80 bg-slate-900/50 p-2">
-            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400"
-              >Orador en uso de palabra:</span
-            >
-            <p
-              data-testid="orador-actual-texto"
-              class="font-semibold mt-0.5"
-              :class="oradorActual ? 'text-cyan-300' : 'text-slate-400 italic'"
-            >
-              {{ oradorActual ?? 'Sin orador activo' }}
-            </p>
-          </div>
-
-          <!-- Próximos en cola -->
-          <div class="rounded border border-slate-800/80 bg-slate-900/50 p-2">
-            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400"
-              >Próximos pedidos en cola:</span
-            >
-            <div v-if="cantidadEnCola > 0" class="mt-0.5 space-y-0.5">
-              <p
-                v-for="(persona, idx) in estado.palabra.cola.slice(0, 3)"
-                :key="idx"
-                class="truncate text-slate-200 font-medium"
-              >
-                {{ idx + 1 }}. {{ persona.nombre }} {{ persona.apellido }} (Banca
-                {{ persona.banca }})
-              </p>
-              <p v-if="cantidadEnCola > 3" class="text-[10px] text-slate-400 italic">
-                +{{ cantidadEnCola - 3 }} más en espera
-              </p>
-            </div>
-            <p v-else class="text-slate-400 italic mt-0.5">Sin pedidos en espera</p>
-          </div>
-        </div>
       </div>
 
       <!-- Estado inicial mientras no hay datos -->

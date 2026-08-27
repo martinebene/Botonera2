@@ -162,6 +162,9 @@ function crearEstado(parcial: Partial<EstadoModeracion> = {}): EstadoModeracion 
       desempatar: { habilitada: false, motivos: ['VOTACION_NO_EMPATADA'] },
       otorgar_palabra: { habilitada: true, motivos: [] },
       quitar_palabra: { habilitada: true, motivos: [] },
+      iniciar_remapeo: { habilitada: true, motivos: [] },
+      confirmar_remapeo: { habilitada: false, motivos: ['REMAPEO_NO_COINCIDE'] },
+      cancelar_remapeo: { habilitada: false, motivos: ['REMAPEO_NO_COINCIDE'] },
     },
     ...parcial,
   }

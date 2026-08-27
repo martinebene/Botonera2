@@ -1,6 +1,7 @@
 import { describe, expect, expectTypeOf, it } from 'vitest'
 import * as ModuloApiClient from '../src'
 import { ClienteModeracion, ClienteRecinto } from '../src'
+import type { CapacidadesModeracion } from '../src'
 
 describe('Separación de superficies públicas de Moderación y Recinto', () => {
   it('ClienteModeracion expone todos los comandos del operador y sincronización', () => {
@@ -100,6 +101,17 @@ describe('Separación de superficies públicas de Moderación y Recinto', () => 
 
     // Tampoco ClienteModeracion expone rest públicamente
     expectTypeOf<ClienteModeracion>().not.toHaveProperty('rest')
+  })
+
+  it('incluye en el contrato generado las tres capacidades de remapeo de Moderación', () => {
+    type CapacidadesRemapeo = Extract<
+      keyof CapacidadesModeracion,
+      'iniciar_remapeo' | 'confirmar_remapeo' | 'cancelar_remapeo'
+    >
+
+    expectTypeOf<CapacidadesRemapeo>().toEqualTypeOf<
+      'iniciar_remapeo' | 'confirmar_remapeo' | 'cancelar_remapeo'
+    >()
   })
 
   it('el entrypoint público del paquete no exporta ClienteRest ni crearClienteRest', () => {

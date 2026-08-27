@@ -443,6 +443,9 @@ export interface components {
             desempatar: components["schemas"]["Capacidad"];
             otorgar_palabra: components["schemas"]["Capacidad"];
             quitar_palabra: components["schemas"]["Capacidad"];
+            iniciar_remapeo: components["schemas"]["Capacidad"];
+            confirmar_remapeo: components["schemas"]["Capacidad"];
+            cancelar_remapeo: components["schemas"]["Capacidad"];
         };
         /**
          * CargaOrdenDelDiaRespuesta

@@ -21,7 +21,8 @@ import PanelRecintoPalabra from './components/PanelRecintoPalabra.vue'
 import PanelEventos from './components/PanelEventos.vue'
 
 // Conectamos con el composable reactivo de moderación
-const { estado, estadoConexion, estadoGlobal, revision, desactualizado } = useEstadoModeracion()
+const { estado, estadoConexion, estadoGlobal, revision, desactualizado, conectado, cliente } =
+  useEstadoModeracion()
 
 /**
  * Conserva únicamente el punto elegido como borrador visual entre los cuadrantes.
@@ -66,7 +67,7 @@ function seleccionarPuntoOrdenDelDia(punto: PuntoOrdenDelDiaProyectado): void {
 
         <!-- Cuadrante 3 (abajo izquierda): Recinto y palabra -->
         <div class="h-[360px] lg:h-auto min-h-0 min-w-0">
-          <PanelRecintoPalabra :estado="estado" />
+          <PanelRecintoPalabra :estado="estado" :cliente="cliente" :conectado="conectado" />
         </div>
 
         <!-- Cuadrante 4 (abajo derecha): Eventos -->
