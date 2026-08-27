@@ -312,6 +312,7 @@ class EstadoRecinto(ModeloProyeccion):
     estado_global: EstadoGlobal
     preparacion: DatosPreparacion | None
     sesion: DatosSesion | None
+    filas_bancas: tuple[int, ...] | None
     concejales: tuple[ConcejalPublico, ...]
     quorum: EstadoQuorum | None
     votacion: VotacionPublica | None
@@ -438,6 +439,10 @@ class ServicioProyecciones:
             estado_global=self._estado.estado_global,
             preparacion=self._datos_preparacion(contexto),
             sesion=self._datos_sesion(sesion),
+            # La disposición pertenece a la configuración congelada de esta
+            # preparación. Copiar la tupla exacta evita que el frontend deba
+            # inferir filas desde el padrón o asumir una matriz rectangular.
+            filas_bancas=(contexto.configuracion.filas_bancas if contexto is not None else None),
             concejales=self._concejales_publicos(contexto, generado_en, monotono),
             quorum=self._quorum(contexto),
             votacion=self._votacion_publica(contexto, generado_en),

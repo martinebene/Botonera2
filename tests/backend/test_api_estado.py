@@ -99,6 +99,7 @@ async def test_rest_preparando_y_sesion_abierta_reconstruyen_todo_el_contexto(
             }
             assert preparacion_moderacion.json()["concejales"][0]["test_activo"]
             assert preparacion_recinto.json()["preparacion"]["numero_sesion"] == 17
+            assert preparacion_recinto.json()["filas_bancas"] == [3, 4, 5]
 
             orden = (
                 b"nro_votacion,tipo,tema,tipo_mayoria,factor,base\n"
@@ -125,6 +126,7 @@ async def test_rest_preparando_y_sesion_abierta_reconstruyen_todo_el_contexto(
             assert cuerpo_moderacion["orden_del_dia"][0]["tema"] == "Tema asistencial"
             assert cuerpo_moderacion["palabra"]["cola"][0]["banca"] == 1
             assert "dni" not in cuerpo_recinto["palabra"]["cola"][0]
+            assert cuerpo_recinto["filas_bancas"] == [3, 4, 5]
 
             apertura = await cliente.post(
                 "/api/v1/votaciones",

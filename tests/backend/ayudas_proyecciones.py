@@ -68,13 +68,19 @@ def crear_entorno_proyecciones(
     cuenta_regresiva: float = 4,
     resultado_publico: float = 6,
     duracion_test: float = 0.6,
+    filas_bancas: tuple[int, ...] = (3,),
 ) -> EntornoProyecciones:
-    """Crea un contexto pequeño, válido y sin eventos iniciales ficticios."""
+    """Crea un contexto válido con una disposición de bancas configurable.
+
+    Permitir filas de distinta longitud en esta ayuda hace posible demostrar
+    que la proyección pública conserva el contrato físico exacto, sin adaptar
+    los datos de prueba a una grilla rectangular.
+    """
 
     reloj = RelojManual(datetime(2026, 8, 24, 10, 0, 0))
     configuracion = ConfiguracionSistema(
         quorum=2,
-        filas_bancas=(3,),
+        filas_bancas=filas_bancas,
         tipos_votacion=("Otro", "Despacho"),
         device_test_seconds=duracion_test,
         moderacion_revelado_votos_segundos=revelado_moderacion,
@@ -92,7 +98,7 @@ def crear_entorno_proyecciones(
             dispositivo_votacion=f"P-{numero:02d}",
             ruta_imagen=f"assets/pruebas/banca-{numero}.png",
         )
-        for numero in range(1, 4)
+        for numero in range(1, sum(filas_bancas) + 1)
     )
     escritor = EscritorAuditoriaCsv(
         tmp_path / "logs",

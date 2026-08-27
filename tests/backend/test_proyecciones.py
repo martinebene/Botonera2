@@ -41,12 +41,14 @@ async def test_snapshots_sin_preparar_son_completos_y_sin_contexto(tmp_path: Pat
     assert moderacion.concejales == ()
     assert moderacion.capacidades.preparar_sala.habilitada
     assert recinto.estado_global is EstadoGlobal.SIN_PREPARAR
+    assert recinto.filas_bancas is None
     assert recinto.model_dump().keys() == {
         "revision",
         "generado_en",
         "estado_global",
         "preparacion",
         "sesion",
+        "filas_bancas",
         "concejales",
         "quorum",
         "votacion",
@@ -76,6 +78,23 @@ async def test_preparacion_proyecta_presencia_test_autoridades_y_quorum(tmp_path
         "QUORUM_INSUFICIENTE",
         "SECRETARIA_LEGISLATIVA_REQUERIDA",
     )
+
+
+@pytest.mark.parametrize("filas_bancas", ((5, 7), (3, 4, 5)))
+async def test_recinto_preserva_filas_de_distinta_longitud_en_preparacion_y_sesion(
+    tmp_path: Path,
+    filas_bancas: tuple[int, ...],
+) -> None:
+    """DP-025-01 copia cada fila física sin fabricar columnas globales."""
+
+    entorno = crear_entorno_proyecciones(tmp_path, filas_bancas=filas_bancas)
+
+    preparando = await entorno.servicio.obtener_estado_recinto()
+    assert preparando.filas_bancas == filas_bancas
+
+    abrir_sesion_prueba(entorno)
+    sesion = await entorno.servicio.obtener_estado_recinto()
+    assert sesion.filas_bancas == filas_bancas
 
 
 async def test_sesion_proyecta_palabra_y_orden_del_dia_solo_a_moderacion(

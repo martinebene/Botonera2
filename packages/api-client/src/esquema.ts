@@ -692,6 +692,8 @@ export interface components {
             estado_global: components["schemas"]["EstadoGlobal"];
             preparacion: components["schemas"]["DatosPreparacion"] | null;
             sesion: components["schemas"]["DatosSesion"] | null;
+            /** Filas Bancas */
+            filas_bancas: number[] | null;
             /** Concejales */
             concejales: components["schemas"]["ConcejalPublico"][];
             quorum: components["schemas"]["EstadoQuorum"] | null;
