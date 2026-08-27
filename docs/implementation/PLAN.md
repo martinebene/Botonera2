@@ -156,9 +156,9 @@ WP-022, WP-023 y WP-024 pueden ejecutarse en paralelo cuando sus dependencias es
 | WP | Objetivo | Estado | Depende de | Agente |
 |---|---|---|---|---|
 | WP-025 | Crear shell público, bancas, presencia, quórum y uso de palabra | INTEGRADO | WP-018, WP-015 | - |
-| WP-026 | Implementar experiencia pública de votación, secreto, revelado, resultados y temporizadores | PENDIENTE | WP-025, WP-014, WP-017, WP-033 | - |
+| WP-026 | Implementar experiencia pública de votación, secreto, revelado, resultados y temporizadores | EN_CURSO | WP-025, WP-014, WP-017, WP-033 | codex |
 
-WP-025 y WP-033 están integrados. WP-026 tiene borrador canónico en `docs/work-packages/WP-026.md`; incorpora WP-033 como dependencia operativa para exigir smoke integrado mediante `pnpm dev:stack`. Permanece `PENDIENTE` hasta aprobación explícita del contrato y posterior selección de agentes.
+WP-025 y WP-033 están integrados. WP-026 está `EN_CURSO` con `codex` como implementador autorizado y Antigravity/AGY + Gemini 3.7 Flash como revisor independiente previsto. El contrato aprobado incorpora WP-033 como dependencia operativa para exigir smoke integrado mediante `pnpm dev:stack`.
 
 ## WP técnico transversal - Entorno integrado de desarrollo
 
@@ -212,6 +212,6 @@ WP-001, WP-002, WP-003, WP-004, WP-005, WP-006, WP-007, WP-008, WP-009, WP-010, 
 
 DEC-007, DEC-009, DEC-010, DEC-011, DEC-012, DEC-013, DEC-014, DEC-015, DEC-016 y DEC-017 están vigentes. Orca continúa como entorno operativo preferido mientras esté en uso y `martinebene/Botonera2-Control` es el bus operativo obligatorio de turnos/handoffs conforme DEC-017.
 
-WP-023, WP-024, WP-025 y WP-033 están `INTEGRADO` y sin agente operativo asignado. WP-033 deja operativo el harness integrado de prueba manual dentro de `agent-dev`. WP-026 es el siguiente WP funcional de la Fase 7; su contrato está en `BORRADOR` y no debe pasar a `EN_CURSO` hasta aprobación explícita y selección de agentes conforme DEC-007.
+WP-023, WP-024, WP-025 y WP-033 están `INTEGRADO`. WP-026 está `EN_CURSO` con `codex` como implementador y Antigravity/AGY + Gemini 3.7 Flash como revisor independiente previsto. El resto del flujo permanece sujeto a DEC-007/DEC-017 y a los handoffs explícitos en Botonera2-Control.
 
 La discrepancia preexistente `D-01..D-12` versus `dev01..dev12` quedó resuelta en WP-033: el fixture de padrón de desarrollo usa `dev01..dev12`, coherente con DEC-006, el simulador y el device-bridge.
