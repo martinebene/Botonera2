@@ -156,9 +156,9 @@ WP-022, WP-023 y WP-024 pueden ejecutarse en paralelo cuando sus dependencias es
 | WP | Objetivo | Estado | Depende de | Agente |
 |---|---|---|---|---|
 | WP-025 | Crear shell público, bancas, presencia, quórum y uso de palabra | INTEGRADO | WP-018, WP-015 | - |
-| WP-026 | Implementar experiencia pública de votación, secreto, revelado, resultados y temporizadores | EN_CURSO | WP-025, WP-014, WP-017, WP-033 | codex |
+| WP-026 | Implementar experiencia pública de votación, secreto, revelado, resultados y temporizadores | INTEGRADO | WP-025, WP-014, WP-017, WP-033 | - |
 
-WP-025 y WP-033 están integrados. WP-026 está `EN_CURSO` con `codex` como implementador autorizado y Antigravity/AGY + Gemini 3.7 Flash como revisor independiente previsto. El contrato aprobado incorpora WP-033 como dependencia operativa para exigir smoke integrado mediante `pnpm dev:stack`.
+WP-025, WP-026 y WP-033 están integrados. WP-026 se integró mediante PR #34 sobre el candidato `4404e9b9f5c04953c5f7f11a0e35a711f46b304f`, revisado independientemente por Antigravity/AGY + Gemini 3.7 Flash con 0 BLOQUEANTES, 0 IMPORTANTES y 0 MENORES. El squash `b68e2f2f14f5ac93cde05f28e8552e4954290347` conserva exactamente el mismo tree SHA `13e9cdef911adc9be48e5f5911a648fc6a0fe123`; CI candidata #236 (attempt 2) y CI post-merge #237 terminaron success 6/6. El resultado completa la experiencia pública de votación: secreto durante `EN_CURSO`, countdown por deadline, revelado por banca, conteos, resultados, `EMPATADA`, desempate presidencial separado, `INCONCLUSA` y expiración pública. El smoke real se ejecutó mediante `pnpm dev:stack`.
 
 ## WP técnico transversal - Entorno integrado de desarrollo
 
@@ -212,6 +212,8 @@ WP-001, WP-002, WP-003, WP-004, WP-005, WP-006, WP-007, WP-008, WP-009, WP-010, 
 
 DEC-007, DEC-009, DEC-010, DEC-011, DEC-012, DEC-013, DEC-014, DEC-015, DEC-016 y DEC-017 están vigentes. Orca continúa como entorno operativo preferido mientras esté en uso y `martinebene/Botonera2-Control` es el bus operativo obligatorio de turnos/handoffs conforme DEC-017.
 
-WP-023, WP-024, WP-025 y WP-033 están `INTEGRADO`. WP-026 está `EN_CURSO` con `codex` como implementador y Antigravity/AGY + Gemini 3.7 Flash como revisor independiente previsto. El resto del flujo permanece sujeto a DEC-007/DEC-017 y a los handoffs explícitos en Botonera2-Control.
+WP-023, WP-024, WP-025, WP-026 y WP-033 están `INTEGRADO` y sin agente operativo asignado. La Fase 7 queda completa; WP-027 pasa a ser el siguiente WP pendiente de integración crítica, sujeto a su propia planificación/aprobación operativa y selección de agentes conforme DEC-007/DEC-017.
 
 La discrepancia preexistente `D-01..D-12` versus `dev01..dev12` quedó resuelta en WP-033: el fixture de padrón de desarrollo usa `dev01..dev12`, coherente con DEC-006, el simulador y el device-bridge.
+
+Observación fuera de alcance detectada durante WP-026: el primer attempt de CI candidata mostró una flake temporal preexistente en `tests/backend/test_api_estado.py`, donde `test_activo` puede vencer bajo contienda de I/O antes del assert debido a la ventana real de 0,6 s. El mismo SHA pasó el rerun y la revisión independiente (`847 passed`); no fue causada por PR #34. Conviene estabilizar ese test en un WP posterior de backend/testing sin alterar aquí la semántica de producción.
