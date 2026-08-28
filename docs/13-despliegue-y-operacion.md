@@ -121,3 +121,127 @@ Sin una decisión posterior documentada, los agentes no deben:
 - colocar configuración o logs dentro de una release inmutable;
 - desplegar mientras exista preparación o sesión activa;
 - agregar por iniciativa propia servicios de backup remoto o dependencias de nube.
+
+## Runbook productivo versionado
+
+Este procedimiento materializa DT-027 a DT-032. Los comandos que cambian la
+máquina institucional requieren gate humano y se ejecutan únicamente cuando
+el recinto está fuera de preparación y sesión. El desarrollo, CI y revisión
+de WP-028 no ejecutan estos pasos sobre producción.
+
+### Artefacto y trazabilidad
+
+Un checkout limpio del commit aprobado genera:
+
+```bash
+pnpm install --frozen-lockfile
+uv sync --frozen --all-packages
+pnpm empaquetar:produccion
+```
+
+La salida es `dist/produccion/botonera2-<sha-completo>.tar.gz` y su sidecar
+`.sha256`. El artifact de CI agrega una copia de
+`deploy/herramienta_despliegue.py` del mismo checkout, necesaria para preparar
+la primera release sin Git ni una instalación previa. `release.json` identifica
+commit/tree, Python objetivo, paquetes, SPA y el inventario SHA-256 de cada
+archivo. El empaquetador rechaza cambios versionables locales para no atribuir
+al commit contenido que Git no conoce.
+
+### Prerequisitos administrativos
+
+- Linux Mint 22.3 x86_64 con systemd y Nginx;
+- Python 3.14 y `uv` disponibles por rutas estables;
+- artefacto correspondiente al SHA aprobado y su sidecar;
+- acceso root solamente durante bootstrap/instalación de unidades;
+- configuración institucional real preparada fuera del repositorio.
+
+`preflight` diagnostica prerequisitos pero no instala paquetes:
+
+```bash
+python3.14 deploy/herramienta_despliegue.py preflight
+```
+
+### Primera instalación
+
+1. Descargar un único artifact aprobado de CI y transferir juntos paquete,
+   sidecar y `herramienta_despliegue.py` por un canal administrativo. No mezclar
+   archivos de ejecuciones o SHA diferentes.
+2. Crear usuarios/directorios, sin copiar fixtures del repositorio:
+
+   ```bash
+   sudo python3.14 deploy/herramienta_despliegue.py bootstrap --aplicar-usuarios
+   ```
+
+3. Provisionar manualmente `system.toml`, `concejales.csv` y
+   `bridge/devices.json` bajo `/opt/botonera2/config/`. `paths.logs_dir` debe
+   resolver exactamente a `/opt/botonera2/logs`.
+4. Aplicar el plan de permisos que imprime `bootstrap`: releases
+   administrativas; `logs/` escribible solo por backend; configuración
+   backend de solo lectura; `config/bridge/` escribible por bridge; grupo
+   `input` únicamente para el bridge.
+5. Preparar sin tocar `current`:
+
+   ```bash
+   sudo python3.14 deploy/herramienta_despliegue.py preparar \
+     botonera2-<sha>.tar.gz \
+     --checksum botonera2-<sha>.tar.gz.sha256 \
+     --sha <sha>
+   ```
+
+6. Confirmar que el estado institucional permite la intervención y activar:
+
+   ```bash
+   sudo python3.14 /opt/botonera2/releases/<sha>/deploy/herramienta_despliegue.py \
+     activar <sha>
+   ```
+
+La activación valida configuración, units y Nginx; cambia `current`
+atómicamente; reinicia backend/bridge; comprueba health y ambas SPA por Nginx;
+y recién entonces actualiza `previous`.
+
+### Actualización
+
+1. Obtener el artefacto del SHA con CI y revisión aprobadas.
+2. Ejecutar `preparar`; crea la venv en su ruta final y no reinicia servicios
+   ni cambia `current`.
+3. Verificar explícitamente que el sistema esté `SIN_PREPARAR`.
+4. Ejecutar `activar <sha>` y verificar `estado`, health y ambas SPA.
+
+Si systemd marca backend `inactive`/`failed`, la herramienta permite continuar
+con advertencia porque no existe un runtime activo. Si lo marca `active` pero
+HTTP no responde o es inconsistente, falla cerrado. No existe `--force`.
+
+### Rollback
+
+El rollback por defecto activa `previous`; también puede señalar una release
+preparada concreta:
+
+```bash
+sudo python3.14 /opt/botonera2/current/deploy/herramienta_despliegue.py rollback
+sudo python3.14 /opt/botonera2/current/deploy/herramienta_despliegue.py rollback --sha <sha>
+```
+
+Aplica el mismo guard institucional y las mismas verificaciones que una
+actualización. Un rollback exitoso intercambia de hecho `current`/`previous`,
+permitiendo roll-forward. Si una activación falla después del switch, se
+intenta restaurar automáticamente release y archivos de despliegue anteriores.
+Si esa recuperación también falla, la herramienta se detiene y exige
+intervención; nunca borra la release fallida.
+
+### Diagnóstico de solo lectura
+
+```bash
+python3.14 /opt/botonera2/current/deploy/herramienta_despliegue.py estado
+readlink -f /opt/botonera2/current
+readlink -f /opt/botonera2/previous
+systemctl status botonera2-backend.service botonera2-device-bridge.service
+journalctl -u botonera2-backend.service -u botonera2-device-bridge.service
+nginx -t
+curl --fail http://127.0.0.1:8000/api/v1/health
+curl --fail http://127.0.0.1/api/v1/health
+curl --fail http://127.0.0.1/moderacion/
+curl --fail http://127.0.0.1/recinto/
+```
+
+Activar o volver atrás nunca modifica `config/` ni `logs/`, no elimina
+releases y no recupera estado institucional volátil después de un reinicio.

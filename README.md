@@ -241,6 +241,26 @@ y salida del stack ante un fallo. Los CSV permanecen en `logs/`, ignorados por
 Git, para poder inspeccionar la auditoría real sin que una segunda ejecución
 dependa de borrar residuos de la primera.
 
+## Artefacto productivo
+
+Desde un checkout limpio y confirmado, el comando:
+
+```bash
+pnpm empaquetar:produccion
+```
+
+construye ambas SPA y deja en `dist/produccion/` un
+`botonera2-<sha-completo>.tar.gz` junto con su sidecar `.sha256`. El paquete
+contiene fuentes runtime Python, lockfiles, frontends ya compilados,
+`release.json`, unidades systemd, configuración Nginx y la herramienta de
+despliegue; no contiene configuración institucional, logs, `node_modules`,
+Git ni una venv construida en desarrollo.
+
+El procedimiento administrativo de primera instalación, actualización,
+rollback y diagnóstico está documentado en
+[`docs/13-despliegue-y-operacion.md`](docs/13-despliegue-y-operacion.md). Crear
+el artefacto no despliega ni modifica ningún host.
+
 ## Inicio aislado de un Work Package
 
 Después de que una persona apruebe el WP, lo marque `EN_CURSO` en

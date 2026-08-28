@@ -142,3 +142,46 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
+
+  production-package:
+    name: Empaquetado · release productiva
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.0.0
+        with:
+          version: '0.12.1'
+          python-version: '3.14'
+          enable-cache: true
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.18.0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: uv sync --frozen --all-packages
+      - run: pnpm install --frozen-lockfile
+      # Nginx se instala solamente en el runner efímero para validar su parser
+      # real. El job no configura servicios ni se conecta a producción.
+      - run: sudo apt-get update
+      - run: sudo apt-get install --yes nginx
+      - run: uv run python scripts/validar_archivos_despliegue.py
+      - run: pnpm empaquetar:produccion
+      - name: Smoke desde el artefacto extraído
+        run: |
+          SHA="$(git rev-parse HEAD)"
+          uv run python scripts/validar_release_produccion.py \
+            "dist/produccion/botonera2-${SHA}.tar.gz" \
+            --checksum "dist/produccion/botonera2-${SHA}.tar.gz.sha256" \
+            --sha "${SHA}"
+      - name: Publicar paquete y checksum
+        uses: actions/upload-artifact@v7
+        with:
+          name: botonera2-release-${{ github.sha }}
+          path: |
+            dist/produccion/botonera2-*.tar.gz
+            dist/produccion/botonera2-*.tar.gz.sha256
+            deploy/herramienta_despliegue.py
+          if-no-files-found: error
+          retention-days: 30

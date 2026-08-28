@@ -9,6 +9,7 @@
   },
   "scripts": {
     "build": "pnpm --filter @botonera2/moderacion build && pnpm --filter @botonera2/recinto build",
+    "empaquetar:produccion": "pnpm build && uv run python scripts/empaquetar_produccion.py",
     "check:contrato": "pnpm check:openapi && pnpm check:types",
     "check:openapi": "uv run python scripts/exportar_openapi.py --check",
     "check:types": "pnpm --filter @botonera2/api-client check:types",
