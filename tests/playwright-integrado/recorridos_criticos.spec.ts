@@ -20,6 +20,7 @@ interface EstadoBasico {
   votacion?: {
     estado_recepcion: string
     resultado: string | null
+    cantidad_votos_recibidos: number
     votos_individuales: unknown
     conteos: unknown
   } | null
@@ -203,7 +204,20 @@ test.describe.serial('WP-027 · recorridos críticos sobre el stack real', () =>
         await expect(recinto.getByTestId('espera-desempate')).toBeVisible()
         await expect(moderacion.getByTestId('formulario-votacion')).toHaveCount(0)
         const conteosAntes = await moderacion.getByTestId('conteos-votacion').textContent()
-        await expect(recinto.getByTestId('espera-desempate')).toBeVisible({ timeout: 7_000 })
+
+        // EMPATADA no usa la expiración pública normal de seis segundos. Esta
+        // espera real atraviesa deliberadamente esa frontera y recién después
+        // vuelve a observar la misma votación, sus conteos y el bloqueo de una
+        // apertura nueva. No se usa fake clock porque aquí se integra el timer
+        // real comunicado por backend, api-client y Recinto.
+        await recinto.waitForTimeout(6_500)
+        await expect(recinto.getByTestId('espera-desempate')).toBeVisible()
+        await expect(recinto.getByTestId('estado-votacion')).toHaveText('Empatada')
+        await expect(recinto.getByTestId('tema-votacion')).toHaveText('Empate simple real')
+        await expect(recinto.getByTestId('conteos-votacion')).toBeVisible()
+        await expect(moderacion.getByTestId('estado-votacion')).toHaveText('EMPATADA')
+        expect(await moderacion.getByTestId('conteos-votacion').textContent()).toBe(conteosAntes)
+        await expect(moderacion.getByTestId('formulario-votacion')).toHaveCount(0)
 
         await moderacion.getByTestId('btn-desempate-positivo').click()
         await expect(moderacion.getByTestId('estado-votacion')).toHaveText('APROBADA')
@@ -243,7 +257,7 @@ test.describe.serial('WP-027 · recorridos críticos sobre el stack real', () =>
         await expect(moderacion.getByTestId('orador-actual-texto')).toContainText('Banca 1')
       })
 
-      await test.step('G · Orden del Día asiste el borrador sin reemplazar la decisión de UI', async () => {
+      await test.step('G · Orden del Día deja una votación real EN_CURSO para el cierre', async () => {
         await moderacion.getByTestId('input-archivo-orden-dia').setInputFiles(RUTA_ORDEN_DIA)
         await moderacion.getByTestId('btn-cargar-orden-dia').click()
         await expect(moderacion.getByTestId('punto-orden-dia')).toContainText(
@@ -258,22 +272,47 @@ test.describe.serial('WP-027 · recorridos críticos sobre el stack real', () =>
         await moderacion.getByTestId('btn-abrir-votacion').click()
         await moderacion.getByTestId('btn-confirmar-apertura').click()
         await expect(recinto.getByTestId('tema-votacion')).toHaveText('Tema editado por Moderación')
-        await finalizarManualmente(moderacion, 'Fin del punto asistencial E2E')
+        await pulsar('1-2')
+        await expect(moderacion.getByTestId('estado-votacion')).toHaveText('EN_CURSO')
+        await expect(moderacion.getByTestId('cantidad-votos-recibidos')).toHaveText('1')
       })
 
-      await test.step('H · CA-063 cancela sin cerrar y luego completa el cierre', async () => {
+      await test.step('H · CA-063 cancela y CA-042 resuelve la votación antes del cierre', async () => {
         await moderacion.getByTestId('btn-cerrar-sesion').click()
         await expect(moderacion.getByTestId('dialogo-confirmacion-cierre')).toBeVisible()
         await moderacion.getByTestId('btn-cancelar-cierre').click()
         await expect(moderacion.getByTestId('vista-sesion-abierta')).toBeVisible()
         await expect(moderacion.getByTestId('orador-actual-texto')).toContainText('Banca 1')
-        expect((await obtenerEstado(moderacion, 'moderacion')).estado_global).toBe('SESION_ABIERTA')
+        const estadoTrasCancelar = await obtenerEstado(moderacion, 'moderacion')
+        expect(estadoTrasCancelar.estado_global).toBe('SESION_ABIERTA')
+        expect(estadoTrasCancelar.votacion?.estado_recepcion).toBe('EN_CURSO')
+        expect(estadoTrasCancelar.votacion?.cantidad_votos_recibidos).toBe(1)
+        await expect(recinto.getByTestId('estado-votacion')).toHaveText('En curso')
 
         await moderacion.getByTestId('btn-cerrar-sesion').click()
         await moderacion.getByTestId('btn-confirmar-cierre').click()
         await expect(moderacion.getByTestId('vista-sin-preparar')).toBeVisible()
         await expect(recinto.getByTestId('estado-sin-preparar')).toBeVisible()
         expect((await obtenerEstado(moderacion, 'recinto')).estado_global).toBe('SIN_PREPARAR')
+
+        // La UI ya limpió la votación al adoptar SIN_PREPARAR. El L1 durable
+        // permite demostrar la transición intermedia exacta exigida por CA-042:
+        // la votación 70 conservó su voto parcial, quedó INCONCLUSA por
+        // CIERRE_SESION y ese hecho fue fsync antes de SESION_CERRADA.
+        const rutaL1 = csvPrimeraPreparacion.find((ruta) => ruta.endsWith('-L1.csv'))
+        if (rutaL1 === undefined) throw new Error('La preparación no creó su archivo L1.')
+        const filasL1 = (await leerAuditoria([rutaL1])).split(/\r?\n/)
+        const indiceInconclusa = filasL1.findLastIndex(
+          (fila) =>
+            fila.includes(';VOTACION_FINALIZADA_INCONCLUSA;') &&
+            fila.includes('numero_votacion=70') &&
+            fila.includes('causa=CIERRE_SESION') &&
+            fila.includes('votos_conservados=1') &&
+            fila.includes('resultado_nuevo=INCONCLUSA'),
+        )
+        const indiceCierre = filasL1.findLastIndex((fila) => fila.includes(';SESION_CERRADA;'))
+        expect(indiceInconclusa).toBeGreaterThan(-1)
+        expect(indiceCierre).toBeGreaterThan(indiceInconclusa)
       })
 
       await test.step('I · auditoría no se reutiliza y un restart adopta baseline revisión 0', async () => {
