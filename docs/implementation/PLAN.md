@@ -172,7 +172,7 @@ WP-033 quedó integrado antes de continuar WP-026 y deja disponible el harness m
 
 | WP | Objetivo | Estado | Depende de | Agente |
 |---|---|---|---|---|
-| WP-027 | Completar E2E críticos integrando backend, simulador y ambos frontends | PENDIENTE | WP-007, WP-022, WP-023, WP-024, WP-026 | - |
+| WP-027 | Completar E2E críticos integrando backend, simulador y ambos frontends | PENDIENTE | WP-007, WP-022, WP-023, WP-024, WP-026, WP-033 | - |
 | WP-028 | Implementar empaquetado y despliegue productivo: SPA, Nginx, systemd, releases y rollback | PENDIENTE | WP-027 | - |
 | WP-029 | Validar bridge/hardware real, regresión funcional y candidato de producción | PENDIENTE | WP-019, WP-020, WP-027, WP-028 | - |
 
@@ -212,8 +212,8 @@ WP-001, WP-002, WP-003, WP-004, WP-005, WP-006, WP-007, WP-008, WP-009, WP-010, 
 
 DEC-007, DEC-009, DEC-010, DEC-011, DEC-012, DEC-013, DEC-014, DEC-015, DEC-016 y DEC-017 están vigentes. Orca continúa como entorno operativo preferido mientras esté en uso y `martinebene/Botonera2-Control` es el bus operativo obligatorio de turnos/handoffs conforme DEC-017.
 
-WP-023, WP-024, WP-025, WP-026 y WP-033 están `INTEGRADO` y sin agente operativo asignado. La Fase 7 queda completa; WP-027 pasa a ser el siguiente WP pendiente de integración crítica, sujeto a su propia planificación/aprobación operativa y selección de agentes conforme DEC-007/DEC-017.
+WP-023, WP-024, WP-025, WP-026 y WP-033 están `INTEGRADO` y sin agente operativo asignado. La Fase 7 queda completa. WP-027 es el siguiente WP: su contrato canónico está en `BORRADOR`, incorpora WP-033 como dependencia operativa para ejecutar el stack real y no debe pasar a `EN_CURSO` hasta aprobación explícita y selección de agentes conforme DEC-007/DEC-017.
 
 La discrepancia preexistente `D-01..D-12` versus `dev01..dev12` quedó resuelta en WP-033: el fixture de padrón de desarrollo usa `dev01..dev12`, coherente con DEC-006, el simulador y el device-bridge.
 
-Observación fuera de alcance detectada durante WP-026: el primer attempt de CI candidata mostró una flake temporal preexistente en `tests/backend/test_api_estado.py`, donde `test_activo` puede vencer bajo contienda de I/O antes del assert debido a la ventana real de 0,6 s. El mismo SHA pasó el rerun y la revisión independiente (`847 passed`); no fue causada por PR #34. Conviene estabilizar ese test en un WP posterior de backend/testing sin alterar aquí la semántica de producción.
+Observación detectada durante WP-026: el primer attempt de CI candidata mostró una flake temporal preexistente en `tests/backend/test_api_estado.py`, donde `test_activo` puede vencer bajo contienda de I/O antes del assert debido a la ventana real de 0,6 s. El mismo SHA pasó el rerun y la revisión independiente (`847 passed`); no fue causada por PR #34. Su estabilización queda incorporada explícitamente al alcance de WP-027 como trabajo de testing, con prohibición de aumentar el timer productivo o cambiar semántica para hacer pasar la prueba.
