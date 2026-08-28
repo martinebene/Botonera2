@@ -392,11 +392,20 @@ class RespaldoArchivo:
 
 
 def plan_permisos() -> tuple[PlanPermiso, ...]:
-    """Declara la separación mínima aprobada entre backend y bridge."""
+    """Declara la separación mínima aprobada entre backend y bridge.
+
+    ``config`` conserva lectura/listado para el grupo del backend, mientras el
+    bit de ejecución de ``other`` permite que el bridge atraviese ese directorio
+    padre sin poder enumerarlo. La separación más estricta reaparece en cada
+    hijo: sólo backend lee los archivos institucionales y sólo bridge administra
+    su subdirectorio, requisito necesario para reemplazar ``devices.json`` de
+    manera atómica.
+    """
 
     return (
+        PlanPermiso(".", "root", "root", 0o755),
         PlanPermiso("releases", "root", "root", 0o755),
-        PlanPermiso("config", "root", "botonera2-backend", 0o750),
+        PlanPermiso("config", "root", "botonera2-backend", 0o751),
         PlanPermiso("config/system.toml", "root", "botonera2-backend", 0o640),
         PlanPermiso("config/concejales.csv", "root", "botonera2-backend", 0o640),
         PlanPermiso("config/bridge", "botonera2-bridge", "botonera2-bridge", 0o750),
@@ -439,11 +448,11 @@ class GestorDespliegue:
         self.python_base = Path(sys.executable) if python_base is None else python_base
 
     def bootstrap(self, *, aplicar_usuarios: bool = False) -> tuple[PlanPermiso, ...]:
-        """Crea estructura externa idempotente y opcionalmente usuarios reales.
+        """Crea estructura externa idempotente y opcionalmente usuarios/permisos.
 
         Los archivos institucionales nunca se inventan. El comando crea solo
-        sus directorios; el operador debe provisionar los tres archivos antes
-        de activar una release.
+        sus directorios; el operador debe provisionar los tres archivos y volver
+        a ejecutar el bootstrap para aplicarles ownership y modo antes de activar.
         """
 
         if aplicar_usuarios:
@@ -479,7 +488,30 @@ class GestorDespliegue:
         self.releases.mkdir(parents=True, exist_ok=True)
         (self.config / "bridge").mkdir(parents=True, exist_ok=True)
         self.logs.mkdir(parents=True, exist_ok=True)
-        return plan_permisos()
+        plan = plan_permisos()
+        if aplicar_usuarios:
+            self._aplicar_plan_permisos(plan)
+        return plan
+
+    def _aplicar_plan_permisos(self, plan: Sequence[PlanPermiso]) -> None:
+        """Aplica ownership y modos declarados únicamente a entradas existentes.
+
+        La primera ejecución configura los directorios vacíos; una segunda,
+        posterior al aprovisionamiento institucional, alcanza también los tres
+        archivos sin crearlos ni alterar su contenido. Se rechazan enlaces
+        simbólicos para no aplicar privilegios fuera del árbol administrado.
+        """
+
+        for entrada in plan:
+            ruta = self.raiz / entrada.ruta_relativa
+            if ruta.is_symlink():
+                raise ErrorDespliegue(f"El plan de permisos rechaza el enlace simbólico: {ruta}")
+            if not ruta.exists():
+                continue
+            self.ejecutor.ejecutar(
+                ["chown", "--no-dereference", f"{entrada.usuario}:{entrada.grupo}", str(ruta)]
+            )
+            self.ejecutor.ejecutar(["chmod", f"{entrada.modo:04o}", str(ruta)])
 
     def preparar(self, paquete: Path, sidecar: Path, sha: str) -> Path:
         """Verifica, extrae e instala runtime sin modificar la release activa."""
@@ -692,6 +724,11 @@ class GestorDespliegue:
         pruebas = (
             (
                 "botonera2-backend",
+                ("-x", str(self.config)),
+                "config debe ser atravesable",
+            ),
+            (
+                "botonera2-backend",
                 ("-r", str(self.config / "system.toml")),
                 "system.toml debe ser legible",
             ),
@@ -699,6 +736,26 @@ class GestorDespliegue:
                 "botonera2-backend",
                 ("-r", str(self.config / "concejales.csv")),
                 "concejales.csv debe ser legible",
+            ),
+            (
+                "botonera2-backend",
+                ("!", "-w", str(self.config)),
+                "config no debe ser escribible",
+            ),
+            (
+                "botonera2-backend",
+                ("!", "-w", str(self.config / "system.toml")),
+                "system.toml no debe ser escribible",
+            ),
+            (
+                "botonera2-backend",
+                ("!", "-w", str(self.config / "concejales.csv")),
+                "concejales.csv no debe ser escribible",
+            ),
+            (
+                "botonera2-backend",
+                ("!", "-r", str(self.config / "bridge/devices.json")),
+                "devices.json no debe ser legible",
             ),
             (
                 "botonera2-backend",
@@ -714,6 +771,31 @@ class GestorDespliegue:
                 "botonera2-backend",
                 ("-x", str(release / ".venv/bin/uvicorn")),
                 "Uvicorn debe ser ejecutable",
+            ),
+            (
+                "botonera2-bridge",
+                ("-x", str(self.config)),
+                "config debe ser atravesable",
+            ),
+            (
+                "botonera2-bridge",
+                ("!", "-r", str(self.config)),
+                "config no debe poder enumerarse",
+            ),
+            (
+                "botonera2-bridge",
+                ("!", "-w", str(self.config)),
+                "config no debe ser escribible",
+            ),
+            (
+                "botonera2-bridge",
+                ("!", "-r", str(self.config / "system.toml")),
+                "system.toml no debe ser legible",
+            ),
+            (
+                "botonera2-bridge",
+                ("!", "-r", str(self.config / "concejales.csv")),
+                "concejales.csv no debe ser legible",
             ),
             (
                 "botonera2-bridge",
@@ -1035,7 +1117,16 @@ class GestorDespliegue:
     def preflight(self) -> None:
         """Verifica prerequisitos sin instalarlos ni modificar el sistema."""
 
-        for comando in ("uv", "systemctl", "systemd-analyze", "nginx", "runuser", "find"):
+        for comando in (
+            "uv",
+            "systemctl",
+            "systemd-analyze",
+            "nginx",
+            "runuser",
+            "find",
+            "chown",
+            "chmod",
+        ):
             if shutil.which(comando) is None:
                 raise ErrorDespliegue(f"Falta el prerequisito administrativo: {comando}")
         if sys.version_info[:2] != (3, 14):

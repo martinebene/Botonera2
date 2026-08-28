@@ -154,7 +154,8 @@ al commit contenido que Git no conoce.
   ejecutable Python debe ser atravesable y el binario legible/ejecutable por
   usuarios sin privilegios;
 - `runuser` y `find`, utilizados para comprobar accesos con las identidades
-  efectivas de backend y bridge antes de activar;
+  efectivas de backend y bridge antes de activar; `chown` y `chmod`, usados por
+  el bootstrap para materializar el plan declarado;
 - artefacto correspondiente al SHA aprobado y su sidecar;
 - acceso root solamente durante bootstrap/instalación de unidades;
 - configuración institucional real preparada fuera del repositorio.
@@ -181,10 +182,19 @@ python3.14 deploy/herramienta_despliegue.py preflight
 3. Provisionar manualmente `system.toml`, `concejales.csv` y
    `bridge/devices.json` bajo `/opt/botonera2/config/`. `paths.logs_dir` debe
    resolver exactamente a `/opt/botonera2/logs`.
-4. Aplicar el plan de permisos que imprime `bootstrap`: releases
-   administrativas; `logs/` escribible solo por backend; configuración
-   backend de solo lectura; `config/bridge/` escribible por bridge; grupo
-   `input` únicamente para el bridge.
+4. Repetir el bootstrap después de provisionar para aplicar idempotentemente el
+   plan también a los archivos recién creados:
+
+   ```bash
+   sudo python3.14 deploy/herramienta_despliegue.py bootstrap --aplicar-usuarios
+   ```
+
+   El plan deja `/opt/botonera2` atravesable, releases administrativas;
+   `logs/` escribible solo por backend; configuración institucional de solo lectura para backend; y
+   `config/bridge/` escribible solo por bridge. El modo `0751` del directorio
+   padre `config/` es deliberado: permite que bridge lo atraviese para llegar a
+   su propio subdirectorio, pero no enumerarlo ni leer los archivos del backend.
+   Únicamente bridge integra el grupo `input`.
 5. Preparar sin tocar `current`:
 
    ```bash

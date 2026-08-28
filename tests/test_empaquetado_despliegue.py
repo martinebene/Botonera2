@@ -167,6 +167,27 @@ def test_bootstrap_es_idempotente_y_crea_solo_estructura_externa(tmp_path: Path)
     assert not (gestor.config / "bridge/devices.json").exists()
 
 
+def test_bootstrap_aplica_el_plan_a_directorios_y_archivos_existentes(tmp_path: Path) -> None:
+    """La segunda ejecución materializa ownership/modo sin inventar archivos."""
+
+    ejecutor = EjecutorFalso()
+    gestor = crear_gestor(tmp_path, ejecutor)
+    gestor.bootstrap()
+    crear_config_externa(gestor)
+
+    plan = gestor.bootstrap(aplicar_usuarios=True)
+
+    for entrada in plan:
+        ruta = gestor.raiz / entrada.ruta_relativa
+        assert [
+            "chown",
+            "--no-dereference",
+            f"{entrada.usuario}:{entrada.grupo}",
+            str(ruta),
+        ] in ejecutor.llamadas
+        assert ["chmod", f"{entrada.modo:04o}", str(ruta)] in ejecutor.llamadas
+
+
 def test_preparar_es_idempotente_y_no_cambia_current(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -555,6 +576,25 @@ def test_permisos_correctos_verifican_ambos_usuarios_y_grupo_input(tmp_path: Pat
     llamadas_runuser = [llamada for llamada in ejecutor.llamadas if llamada[:1] == ["runuser"]]
     assert any("botonera2-backend" in llamada for llamada in llamadas_runuser)
     assert any("botonera2-bridge" in llamada for llamada in llamadas_runuser)
+    assert [
+        "runuser",
+        "--user",
+        "botonera2-bridge",
+        "--",
+        "test",
+        "-x",
+        str(gestor.config),
+    ] in llamadas_runuser
+    assert [
+        "runuser",
+        "--user",
+        "botonera2-bridge",
+        "--",
+        "test",
+        "!",
+        "-r",
+        str(gestor.config / "system.toml"),
+    ] in llamadas_runuser
     assert ["id", "--groups", "--name", "botonera2-backend"] in ejecutor.llamadas
     assert ["id", "--groups", "--name", "botonera2-bridge"] in ejecutor.llamadas
     assert resolver_enlace_release(gestor.current, gestor.releases) == release
@@ -623,13 +663,61 @@ def test_fallo_del_rollback_detiene_y_reporta_ambos_errores(
 
 
 def test_plan_de_permisos_separa_backend_bridge_e_input() -> None:
-    """El plan deja releases administrativas y escritura mínima por servicio."""
+    """El plan completo satisface traversal y mínimo privilegio POSIX."""
 
     por_ruta = {entrada.ruta_relativa: entrada for entrada in plan_permisos()}
+
+    def tiene_permiso(usuario: str, grupos: set[str], ruta: str, permiso: int) -> bool:
+        """Evalúa un bit efectivo y el traversal de cada directorio padre."""
+
+        partes = Path(ruta).parts
+        for cantidad in range(1, len(partes)):
+            padre = por_ruta[Path(*partes[:cantidad]).as_posix()]
+            if not bit_efectivo(usuario, grupos, padre, 0o1):
+                return False
+        return bit_efectivo(usuario, grupos, por_ruta[ruta], permiso)
+
+    def bit_efectivo(
+        usuario: str,
+        grupos: set[str],
+        entrada: modulo_despliegue.PlanPermiso,
+        permiso: int,
+    ) -> bool:
+        """Selecciona owner/group/other como lo hace el modelo POSIX clásico."""
+
+        desplazamiento = 6 if usuario == entrada.usuario else 3 if entrada.grupo in grupos else 0
+        return bool(entrada.modo & (permiso << desplazamiento))
+
+    grupos_backend = {"botonera2-backend"}
+    grupos_bridge = {"botonera2-bridge", "input"}
+
+    assert por_ruta["."].modo == 0o755
     assert por_ruta["releases"].usuario == "root"
     assert por_ruta["logs"].usuario == "botonera2-backend"
     assert por_ruta["config/bridge"].usuario == "botonera2-bridge"
     assert por_ruta["config/system.toml"].modo == 0o640
+    assert por_ruta["config"].modo == 0o751
+
+    # Backend puede leer sus dos entradas y crear auditoría, pero no modificar
+    # configuración ni atravesar el subdirectorio privado del bridge.
+    assert tiene_permiso("botonera2-backend", grupos_backend, "config/system.toml", 0o4)
+    assert tiene_permiso("botonera2-backend", grupos_backend, "config/concejales.csv", 0o4)
+    assert not tiene_permiso("botonera2-backend", grupos_backend, "config/system.toml", 0o2)
+    assert not tiene_permiso("botonera2-backend", grupos_backend, "config", 0o2)
+    assert not tiene_permiso("botonera2-backend", grupos_backend, "config/bridge/devices.json", 0o4)
+    assert tiene_permiso("botonera2-backend", grupos_backend, "logs", 0o2)
+    assert tiene_permiso("botonera2-backend", grupos_backend, "logs", 0o1)
+
+    # Bridge atraviesa el padre sin poder enumerarlo, llega a devices.json y
+    # tiene write+execute sobre su directorio para tempfile + os.replace.
+    assert tiene_permiso("botonera2-bridge", grupos_bridge, "config", 0o1)
+    assert not tiene_permiso("botonera2-bridge", grupos_bridge, "config", 0o4)
+    assert not tiene_permiso("botonera2-bridge", grupos_bridge, "config/system.toml", 0o4)
+    assert not tiene_permiso("botonera2-bridge", grupos_bridge, "config/concejales.csv", 0o4)
+    assert tiene_permiso("botonera2-bridge", grupos_bridge, "config/bridge", 0o2)
+    assert tiene_permiso("botonera2-bridge", grupos_bridge, "config/bridge", 0o1)
+    assert tiene_permiso("botonera2-bridge", grupos_bridge, "config/bridge/devices.json", 0o4)
+    assert tiene_permiso("botonera2-bridge", grupos_bridge, "config/bridge/devices.json", 0o2)
 
 
 def test_plantillas_fijan_loopback_worker_usuarios_y_sse() -> None:
