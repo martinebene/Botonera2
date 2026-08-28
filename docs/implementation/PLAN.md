@@ -173,7 +173,7 @@ WP-033 quedó integrado antes de continuar WP-026 y deja disponible el harness m
 | WP | Objetivo | Estado | Depende de | Agente |
 |---|---|---|---|---|
 | WP-027 | Completar E2E críticos integrando backend, simulador y ambos frontends | INTEGRADO | WP-007, WP-022, WP-023, WP-024, WP-026, WP-033 | - |
-| WP-028 | Implementar empaquetado y despliegue productivo: SPA, Nginx, systemd, releases y rollback | PENDIENTE | WP-027 | - |
+| WP-028 | Implementar empaquetado y despliegue productivo: SPA, Nginx, systemd, releases y rollback | EN_CURSO | WP-027 | codex |
 | WP-029 | Validar bridge/hardware real, regresión funcional y candidato de producción | PENDIENTE | WP-019, WP-020, WP-027, WP-028 | - |
 
 ## Cobertura funcional esperada
@@ -212,7 +212,7 @@ WP-001, WP-002, WP-003, WP-004, WP-005, WP-006, WP-007, WP-008, WP-009, WP-010, 
 
 DEC-007, DEC-009, DEC-010, DEC-011, DEC-012, DEC-013, DEC-014, DEC-015, DEC-016 y DEC-017 están vigentes. Orca continúa como entorno operativo preferido mientras esté en uso y `martinebene/Botonera2-Control` es el bus operativo obligatorio de turnos/handoffs conforme DEC-017.
 
-WP-023, WP-024, WP-025, WP-026, WP-027 y WP-033 están `INTEGRADO`. WP-027 se integró mediante PR #35 sobre el candidato `4745558db75a10c2b77de1ad1ca78be5871f7757`, revisado independientemente por Antigravity/AGY + Gemini 3.7 Flash con 0 BLOQUEANTES, 0 IMPORTANTES y 0 MENORES. El squash `c3edfb199b8b76328428e3e263a8132bda2c0501` conserva exactamente el mismo tree SHA `cfe297448644dd2f493441455baceeefa171b068`; CI candidata #244 y CI post-merge #245 terminaron success 7/7. El resultado agrega `pnpm test:e2e:integrado`, FastAPI/Moderación/Recinto/REST/SSE/simulador reales, un séptimo gate CI independiente, restart/cleanup verificables y estabiliza el test temporal `test_activo` sin cambiar el timer productivo. WP-028 es el siguiente WP de la Fase 8 y su contrato canónico está en `BORRADOR`: implementa paquete productivo por SHA, Nginx/systemd, releases inmutables y rollback, pero no autoriza todavía cambios sobre la máquina real del Concejo.
+WP-023, WP-024, WP-025, WP-026, WP-027 y WP-033 están `INTEGRADO`. WP-027 se integró mediante PR #35 sobre el candidato `4745558db75a10c2b77de1ad1ca78be5871f7757`, revisado independientemente por Antigravity/AGY + Gemini 3.7 Flash con 0 BLOQUEANTES, 0 IMPORTANTES y 0 MENORES. El squash `c3edfb199b8b76328428e3e263a8132bda2c0501` conserva exactamente el mismo tree SHA `cfe297448644dd2f493441455baceeefa171b068`; CI candidata #244 y CI post-merge #245 terminaron success 7/7. El resultado agrega `pnpm test:e2e:integrado`, FastAPI/Moderación/Recinto/REST/SSE/simulador reales, un séptimo gate CI independiente, restart/cleanup verificables y estabiliza el test temporal `test_activo` sin cambiar el timer productivo. WP-028 está `EN_CURSO` con `codex` como implementador autorizado y Antigravity/AGY + Gemini 3.7 Flash como revisor independiente previsto. Su alcance implementa paquete productivo por SHA, Nginx/systemd, releases inmutables y rollback, sin autorizar cambios reales sobre la máquina del Concejo durante implementación/revisión.
 
 La discrepancia preexistente `D-01..D-12` versus `dev01..dev12` quedó resuelta en WP-033: el fixture de padrón de desarrollo usa `dev01..dev12`, coherente con DEC-006, el simulador y el device-bridge.
 
