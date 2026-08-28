@@ -2,7 +2,7 @@
 /** Construye la geometría física desde filas_bancas y el número de cada banca. */
 
 import { computed } from 'vue'
-import type { ConcejalPublico } from '@botonera2/api-client'
+import type { ConcejalPublico, VotoPublico } from '@botonera2/api-client'
 import BancaPublica from './BancaPublica.vue'
 
 interface BancaFisica {
@@ -19,7 +19,12 @@ const props = defineProps<{
   filasBancas: number[] | null
   concejales: ConcejalPublico[]
   bancaOrador: number | null
+  votosIndividuales: VotoPublico[] | null
 }>()
+
+const votosPorBanca = computed(
+  () => new Map((props.votosIndividuales ?? []).map((voto) => [voto.banca, voto])),
+)
 
 const filasVisuales = computed<FilaFisica[]>(() => {
   if (!props.filasBancas?.length) return []
@@ -61,6 +66,7 @@ const filasVisuales = computed<FilaFisica[]>(() => {
           v-if="banca.concejal"
           :concejal="banca.concejal"
           :es-orador="bancaOrador === banca.numero"
+          :voto="votosPorBanca.get(banca.numero) ?? null"
         />
         <div v-else class="banca-sin-datos" :data-banca="banca.numero">
           Banca {{ banca.numero }} sin datos públicos

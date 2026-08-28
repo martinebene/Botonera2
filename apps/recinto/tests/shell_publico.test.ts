@@ -111,7 +111,7 @@ describe('Shell público del Recinto', () => {
           resultado: null,
           fecha_hora_apertura: '2026-08-27T10:20:00Z',
           fecha_hora_cierre: null,
-          cuenta_regresiva_hasta: '2026-08-27T10:20:04Z',
+          cuenta_regresiva_hasta: null,
           resultado_visible_hasta: null,
           votos_individuales: null,
           conteos: null,
@@ -132,7 +132,9 @@ describe('Shell público del Recinto', () => {
       '1Nombre7 Apellido7Banca 7',
       '2Nombre1 Apellido1Banca 1',
     ])
-    expect(wrapper.text()).not.toContain('Tema reservado para WP-026')
+    expect(wrapper.get('[data-testid="tema-votacion"]').text()).toContain(
+      'Tema reservado para WP-026',
+    )
     expect(wrapper.findAll('button, input, select, textarea, form')).toHaveLength(0)
   })
 
@@ -163,7 +165,7 @@ describe('Shell público del Recinto', () => {
     expect(wrapper.find('[data-banca="1"]').exists()).toBe(false)
 
     const banca = mount(BancaPublica, {
-      props: { concejal: crearConcejalesPublicos(1)[0]!, esOrador: false },
+      props: { concejal: crearConcejalesPublicos(1)[0]!, esOrador: false, voto: null },
     })
     await banca.get('img').trigger('error')
     expect(banca.get('[data-testid="imagen-fallback"]').text()).toBe('NA')

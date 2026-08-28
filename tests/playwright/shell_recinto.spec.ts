@@ -1,6 +1,8 @@
-/** Recorrido público determinista de WP-025 en Full HD y 1366×768. */
+/** Recorrido público determinista de WP-026 en Full HD y 1366×768. */
 
 import { expect, test, type Page } from '@playwright/test'
+
+const HORA_RELOJ_E2E = new Date('2026-08-28T10:00:00Z')
 
 function crearConcejales(cantidad: number) {
   return Array.from({ length: cantidad }, (_, indice) => {
@@ -30,6 +32,28 @@ function crearEstado(parcial: Record<string, unknown> = {}) {
     quorum: null,
     votacion: null,
     palabra: null,
+    ...parcial,
+  }
+}
+
+function crearVotacion(parcial: Record<string, unknown> = {}) {
+  return {
+    id: 'votacion-e2e',
+    numero_votacion: 2,
+    tipo: 'Despacho',
+    tema: 'Coexistencia palabra-votación',
+    tipo_mayoria: 'SIMPLE',
+    factor: 0,
+    base: 'VOTOS_COMPUTABLES',
+    estado_recepcion: 'EN_CURSO',
+    resultado: null,
+    fecha_hora_apertura: HORA_RELOJ_E2E.toISOString(),
+    fecha_hora_cierre: null,
+    cuenta_regresiva_hasta: null,
+    resultado_visible_hasta: null,
+    votos_individuales: null,
+    conteos: null,
+    voto_presidencial: null,
     ...parcial,
   }
 }
@@ -150,8 +174,17 @@ for (const viewport of [
     page,
   }) => {
     await page.setViewportSize(viewport)
+    // Playwright reemplaza Date y los timers del navegador. Así se recorren
+    // los deadlines del contrato sin esperas reales ni carreras de CI.
+    await page.clock.install({ time: new Date('2026-08-28T09:59:00Z') })
     await instalarBackendPublico(page, crearEstado())
     await page.goto('http://localhost:3001/recinto/')
+    // El EventSource de prueba abre con un setTimeout(10). También se lo hace
+    // avanzar de forma controlada, una vez montado el shell que lo construye,
+    // antes de fijar el instante institucional.
+    await page.getByTestId('estado-conexion').waitFor()
+    await page.clock.runFor(20)
+    await page.clock.pauseAt(HORA_RELOJ_E2E)
 
     await expect(page.getByTestId('estado-sin-preparar')).toContainText('Sala sin preparar')
     await expect(page.getByTestId('estado-conexion')).toContainText('En línea')
@@ -203,24 +236,7 @@ for (const viewport of [
           { nombre: 'Nombre1', apellido: 'Apellido1', banca: 1 },
         ],
       },
-      votacion: {
-        id: 'votacion-e2e',
-        numero_votacion: 2,
-        tipo: 'Despacho',
-        tema: 'Coexistencia palabra-votación',
-        tipo_mayoria: 'SIMPLE',
-        factor: 0,
-        base: 'VOTOS_COMPUTABLES',
-        estado_recepcion: 'EN_CURSO',
-        resultado: null,
-        fecha_hora_apertura: '2026-08-27T10:20:00Z',
-        fecha_hora_cierre: null,
-        cuenta_regresiva_hasta: '2026-08-27T10:20:04Z',
-        resultado_visible_hasta: null,
-        votos_individuales: null,
-        conteos: null,
-        voto_presidencial: null,
-      },
+      votacion: null,
     })
     await publicar(page, sesion)
 
@@ -238,6 +254,152 @@ for (const viewport of [
       'Nombre1 Apellido1',
     )
 
+    // La votación nueva reemplaza la sesión sin votación. Aun si el mock
+    // incluyera datos prohibidos, EN_CURSO no revela voto ni conteos en DOM.
+    const ahoraCountdown = await page.evaluate(() => Date.now())
+    const enCurso = {
+      ...sesion,
+      revision: 3,
+      generado_en: new Date(ahoraCountdown).toISOString(),
+      votacion: crearVotacion({
+        tema: 'Expediente público con countdown',
+        fecha_hora_apertura: new Date(ahoraCountdown).toISOString(),
+        cuenta_regresiva_hasta: new Date(ahoraCountdown + 1200).toISOString(),
+        votos_individuales: [
+          { nombre: 'Nombre1', apellido: 'Apellido1', banca: 1, valor: 'POSITIVO' },
+        ],
+        conteos: { positivos: 99, negativos: 0, abstenciones: 0, total: 99 },
+      }),
+    }
+    await publicar(page, enCurso)
+
+    await expect(page.getByTestId('estado-votacion')).toHaveText('En curso')
+    await expect(page.getByTestId('tema-votacion')).toContainText('Expediente público')
+    await expect(page.getByTestId('countdown-votacion')).toBeVisible()
+    await expect(page.getByTestId('panel-quorum')).toBeVisible()
+    await expect(page.getByTestId('orador-actual')).toContainText('Nombre4 Apellido4')
+    await expect(page.getByTestId('voto-banca')).toHaveCount(0)
+    await expect(page.getByTestId('conteos-votacion')).toHaveCount(0)
+    await expect(page.getByText('Positivo', { exact: true })).toHaveCount(0)
+
+    await page.clock.runFor(1500)
+    await expect(page.getByTestId('countdown-votacion')).toHaveCount(0)
+    await expect(page.getByTestId('estado-votacion')).toHaveText('En curso')
+    await expect(page.getByTestId('voto-banca')).toHaveCount(0)
+
+    const temaLargo =
+      'Tratamiento extenso del expediente institucional con una descripción deliberadamente larga para validar la degradación controlada del texto público'
+    const ahoraAprobada = await page.evaluate(() => Date.now())
+    const aprobada = {
+      ...sesion,
+      revision: 4,
+      generado_en: new Date(ahoraAprobada).toISOString(),
+      votacion: crearVotacion({
+        tema: temaLargo,
+        estado_recepcion: 'CERRADA',
+        resultado: 'APROBADA',
+        fecha_hora_cierre: new Date(ahoraAprobada).toISOString(),
+        cuenta_regresiva_hasta: null,
+        resultado_visible_hasta: new Date(ahoraAprobada + 1400).toISOString(),
+        votos_individuales: [
+          { nombre: 'Nombre3', apellido: 'Apellido3', banca: 3, valor: 'ABSTENCION' },
+          { nombre: 'Nombre1', apellido: 'Apellido1', banca: 1, valor: 'POSITIVO' },
+          { nombre: 'Nombre2', apellido: 'Apellido2', banca: 2, valor: 'NEGATIVO' },
+        ],
+        conteos: { positivos: 8, negativos: 2, abstenciones: 1, total: 11 },
+      }),
+    }
+    await publicar(page, aprobada)
+
+    await expect(page.getByTestId('estado-votacion')).toHaveText('Aprobada')
+    await expect(page.getByTestId('tema-votacion')).toHaveAttribute('title', temaLargo)
+    await expect(page.locator('[data-banca="1"] [data-testid="voto-banca"]')).toHaveText('Positivo')
+    await expect(page.locator('[data-banca="2"] [data-testid="voto-banca"]')).toHaveText('Negativo')
+    await expect(page.locator('[data-banca="3"] [data-testid="voto-banca"]')).toHaveText(
+      'Abstención',
+    )
+    await expect(page.locator('[data-banca="4"] [data-testid="voto-banca"]')).toHaveCount(0)
+    await expect(page.getByTestId('conteos-votacion')).toContainText('Positivos8')
+    await expect(page.getByTestId('conteos-votacion')).toContainText('Total11')
+    await page.clock.runFor(1750)
+    await expect(page.getByTestId('votacion-publica')).toHaveCount(0)
+    await expect(page.getByTestId('voto-banca')).toHaveCount(0)
+
+    const empatada = {
+      ...sesion,
+      revision: 5,
+      generado_en: new Date(await page.evaluate(() => Date.now())).toISOString(),
+      votacion: crearVotacion({
+        id: 'votacion-empate',
+        numero_votacion: 3,
+        tema: 'Votación simple empatada',
+        estado_recepcion: 'CERRADA',
+        resultado: 'EMPATADA',
+        resultado_visible_hasta: null,
+        votos_individuales: [
+          { nombre: 'Nombre1', apellido: 'Apellido1', banca: 1, valor: 'POSITIVO' },
+          { nombre: 'Nombre2', apellido: 'Apellido2', banca: 2, valor: 'NEGATIVO' },
+        ],
+        conteos: { positivos: 1, negativos: 1, abstenciones: 0, total: 2 },
+      }),
+    }
+    await publicar(page, empatada)
+    await expect(page.getByTestId('estado-votacion')).toHaveText('Empatada')
+    await expect(page.getByTestId('espera-desempate')).toContainText('Presidencia')
+    await page.clock.runFor(1500)
+    await expect(page.getByTestId('estado-votacion')).toHaveText('Empatada')
+    await expect(page.getByTestId('voto-banca')).toHaveCount(2)
+
+    const ahoraDesempate = await page.evaluate(() => Date.now())
+    await publicar(page, {
+      ...empatada,
+      revision: 6,
+      generado_en: new Date(ahoraDesempate).toISOString(),
+      votacion: crearVotacion({
+        id: 'votacion-empate',
+        numero_votacion: 3,
+        tema: 'Votación simple desempatada',
+        estado_recepcion: 'CERRADA',
+        resultado: 'RECHAZADA',
+        resultado_visible_hasta: new Date(ahoraDesempate + 1800).toISOString(),
+        votos_individuales: [
+          { nombre: 'Nombre1', apellido: 'Apellido1', banca: 1, valor: 'POSITIVO' },
+          { nombre: 'Nombre2', apellido: 'Apellido2', banca: 2, valor: 'NEGATIVO' },
+        ],
+        conteos: { positivos: 1, negativos: 1, abstenciones: 0, total: 2 },
+        voto_presidencial: { presidencia: 'Ana Presidencia', sentido: 'NEGATIVO' },
+      }),
+    })
+    await expect(page.getByTestId('estado-votacion')).toHaveText('Rechazada')
+    await expect(page.getByTestId('voto-presidencial')).toContainText('Ana Presidencia')
+    await expect(page.getByTestId('voto-presidencial')).toContainText('Negativo')
+    await expect(page.getByTestId('voto-banca')).toHaveCount(2)
+    await expect(page.getByTestId('conteos-votacion')).toContainText('Total2')
+
+    const ahoraInconclusa = await page.evaluate(() => Date.now())
+    const inconclusa = {
+      ...sesion,
+      revision: 7,
+      generado_en: new Date(ahoraInconclusa).toISOString(),
+      votacion: crearVotacion({
+        id: 'votacion-inconclusa',
+        numero_votacion: 4,
+        tema: 'Votación inconclusa con recepción parcial',
+        estado_recepcion: 'CERRADA',
+        resultado: 'INCONCLUSA',
+        resultado_visible_hasta: new Date(ahoraInconclusa + 1800).toISOString(),
+        votos_individuales: [
+          { nombre: 'Nombre1', apellido: 'Apellido1', banca: 1, valor: 'POSITIVO' },
+        ],
+        conteos: { positivos: 1, negativos: 0, abstenciones: 0, total: 1 },
+      }),
+    }
+    await publicar(page, inconclusa)
+    await expect(page.getByTestId('estado-votacion')).toHaveText('Inconclusa')
+    await expect(page.getByTestId('voto-banca')).toHaveCount(1)
+    await expect(page.locator('[data-banca="4"] [data-testid="voto-banca"]')).toHaveCount(0)
+    await expect(page.getByTestId('orador-actual')).toContainText('Nombre4 Apellido4')
+
     const cajas = await Promise.all([
       page.locator('.escenario-bancas').boundingBox(),
       page.locator('.paneles-publicos').boundingBox(),
@@ -250,6 +412,9 @@ for (const viewport of [
     ).toBe(true)
 
     const reinicio = crearEstado({ revision: 0, estado_global: 'SIN_PREPARAR' })
+    // La reconexión pertenece a WP-025 y sí necesita que el backoff vuelva a
+    // avanzar naturalmente después de completar las fronteras de WP-026.
+    await page.clock.resume()
     await cortarYRecuperar(page, reinicio)
     await expect(page.getByTestId('estado-conexion')).toContainText('desactualizada')
     await expect(page.getByTestId('orador-actual')).toContainText('Nombre4 Apellido4')

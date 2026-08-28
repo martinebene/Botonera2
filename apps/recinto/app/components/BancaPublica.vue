@@ -2,12 +2,13 @@
 /** Tarjeta pública de una banca, sin DNI, dispositivo ni interacción mutante. */
 
 import { computed, ref, watch } from 'vue'
-import type { ConcejalPublico } from '@botonera2/api-client'
+import type { ConcejalPublico, VotoPublico } from '@botonera2/api-client'
 import { resolverRutaAsset } from '../utils/rutas'
 
 const props = defineProps<{
   concejal: ConcejalPublico
   esOrador: boolean
+  voto: VotoPublico | null
 }>()
 
 const imagenFallida = ref(false)
@@ -15,6 +16,14 @@ const urlImagen = computed(() => resolverRutaAsset(props.concejal.ruta_imagen))
 const iniciales = computed(() =>
   `${props.concejal.nombre.charAt(0)}${props.concejal.apellido.charAt(0)}`.toUpperCase(),
 )
+const presentacionVoto = computed(() => {
+  const presentaciones: Record<string, { texto: string; clase: string }> = {
+    POSITIVO: { texto: 'Positivo', clase: 'etiqueta-voto-positivo' },
+    NEGATIVO: { texto: 'Negativo', clase: 'etiqueta-voto-negativo' },
+    ABSTENCION: { texto: 'Abstención', clase: 'etiqueta-voto-abstencion' },
+  }
+  return props.voto ? (presentaciones[props.voto.valor] ?? null) : null
+})
 
 // Si una baseline cambia la persona o su ruta, se permite intentar la nueva imagen.
 watch(urlImagen, () => {
@@ -32,7 +41,7 @@ watch(urlImagen, () => {
       'banca-test': concejal.test_activo,
       'banca-orador': esOrador,
     }"
-    :aria-label="`Banca ${concejal.banca}, ${concejal.nombre} ${concejal.apellido}, ${concejal.presente ? 'presente' : 'ausente'}`"
+    :aria-label="`Banca ${concejal.banca}, ${concejal.nombre} ${concejal.apellido}, ${concejal.presente ? 'presente' : 'ausente'}${presentacionVoto ? `, voto ${presentacionVoto.texto}` : ''}`"
   >
     <div class="foto-concejal">
       <img
@@ -69,6 +78,14 @@ watch(urlImagen, () => {
       </span>
       <span v-if="esOrador" data-testid="estado-orador" class="etiqueta-estado etiqueta-orador">
         En uso de la palabra
+      </span>
+      <span
+        v-if="presentacionVoto"
+        data-testid="voto-banca"
+        class="etiqueta-estado etiqueta-voto"
+        :class="presentacionVoto.clase"
+      >
+        {{ presentacionVoto.texto }}
       </span>
     </div>
   </article>
@@ -220,6 +237,27 @@ watch(urlImagen, () => {
 .etiqueta-orador {
   color: #082f49;
   background: #7dd3fc;
+}
+
+.etiqueta-voto {
+  flex-basis: 100%;
+  border: 1px solid currentColor;
+  text-align: center;
+}
+
+.etiqueta-voto-positivo {
+  color: #a7f3d0;
+  background: rgba(6, 95, 70, 0.92);
+}
+
+.etiqueta-voto-negativo {
+  color: #fecaca;
+  background: rgba(153, 27, 27, 0.92);
+}
+
+.etiqueta-voto-abstencion {
+  color: #422006;
+  background: #fbbf24;
 }
 
 @media (max-height: 820px) {
