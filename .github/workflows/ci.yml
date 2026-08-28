@@ -96,6 +96,38 @@ jobs:
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm test:e2e
 
+  integration-e2e:
+    name: Integración · E2E stack real
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.0.0
+        with:
+          version: '0.12.1'
+          python-version: '3.14'
+          enable-cache: true
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.18.0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: uv sync --frozen --all-packages
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      # Este gate levanta FastAPI y ambas SPA bajo un único origen. Se mantiene
+      # separado del E2E frontend para que una falla identifique su frontera real.
+      - run: pnpm test:e2e:integrado
+      - name: Conservar diagnóstico del E2E integrado
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-integrado-diagnostico
+          path: test-results/
+          if-no-files-found: warn
+          retention-days: 14
+
   build:
     name: Frontend · build estático
     runs-on: ubuntu-latest

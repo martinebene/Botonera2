@@ -81,6 +81,12 @@ async def test_rest_preparando_y_sesion_abierta_reconstruyen_todo_el_contexto(
                     json={"dispositivo": "D-01", "tecla": "8"},
                 )
             ).status_code == 200
+            # El test visual dura deliberadamente pocos milisegundos. Lo observamos
+            # inmediatamente después del comando que lo activa, antes de ejecutar las
+            # siete mutaciones de presencia que no forman parte de esta aserción.
+            moderacion_con_test = await cliente.get("/api/v1/estado/moderacion")
+            assert moderacion_con_test.status_code == 200
+            assert moderacion_con_test.json()["concejales"][0]["test_activo"]
             for numero in range(1, 8):
                 respuesta = await cliente.post(
                     "/api/v1/entradas/tecla",
@@ -97,7 +103,6 @@ async def test_rest_preparando_y_sesion_abierta_reconstruyen_todo_el_contexto(
                 "requerido": 7,
                 "alcanzado": True,
             }
-            assert preparacion_moderacion.json()["concejales"][0]["test_activo"]
             assert preparacion_recinto.json()["preparacion"]["numero_sesion"] == 17
             assert preparacion_recinto.json()["filas_bancas"] == [3, 4, 5]
 

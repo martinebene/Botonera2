@@ -130,6 +130,7 @@ pnpm format:check
 pnpm typecheck
 pnpm test
 pnpm test:e2e
+pnpm test:e2e:integrado
 pnpm build
 
 # Contrato OpenAPI y tipos TypeScript (detección de drift / regeneración)
@@ -210,6 +211,35 @@ transporta el loopback del contenedor por la conexión SSH existente.
 
 Los CSV de esta prueba se escriben en `logs/`, permanecen locales e ignorados
 por Git. El harness no borra registros anteriores automáticamente.
+
+### E2E frontend y E2E integrado
+
+Hay dos suites Playwright con propósitos distintos:
+
+- `pnpm test:e2e` verifica de forma rápida y determinista los shells frontend
+  con servidores Nuxt y respuestas controladas. No necesita Python.
+- `pnpm test:e2e:integrado` construye las dos SPA, inicia el FastAPI real en
+  `127.0.0.1:18027` y recorre REST, SSE, Moderación, Recinto y la CLI real del
+  simulador. También reinicia el backend para comprobar que la nueva baseline
+  vuelve a `SIN_PREPARAR` con revisión 0.
+
+La suite integrada requiere los mismos Python, uv, Node, pnpm y lockfiles del
+proyecto, además de Chromium instalado para Playwright. En una instalación
+nueva ejecutá primero:
+
+```powershell
+uv sync --frozen --all-packages
+pnpm install --frozen-lockfile
+pnpm exec playwright install chromium
+pnpm test:e2e:integrado
+```
+
+Los recorridos integrados son seriales porque comparten un único estado
+institucional en memoria. El runner controla solamente el proceso que crea,
+verifica readiness y liberación del puerto, y conserva trace, screenshot, video
+y salida del stack ante un fallo. Los CSV permanecen en `logs/`, ignorados por
+Git, para poder inspeccionar la auditoría real sin que una segunda ejecución
+dependa de borrar residuos de la primera.
 
 ## Inicio aislado de un Work Package
 

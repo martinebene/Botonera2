@@ -15,8 +15,8 @@
     "dev:moderacion": "pnpm --filter @botonera2/moderacion dev",
     "dev:recinto": "pnpm --filter @botonera2/recinto dev",
     "dev:stack": "pnpm build && uv run python scripts/iniciar_stack_desarrollo.py",
-    "format": "prettier --write '.github/**/*.yml' 'apps/**/*.{ts,vue,css,json,mjs}' 'packages/**/*.{ts,json}' 'tests/**/*.{ts,json}' playwright.config.ts vitest.config.mjs package.json pnpm-workspace.yaml README.md tools/device-simulator/README.md config/README.md",
-    "format:check": "prettier --check '.github/**/*.yml' 'apps/**/*.{ts,vue,css,json,mjs}' 'packages/**/*.{ts,json}' 'tests/**/*.{ts,json}' playwright.config.ts vitest.config.mjs package.json pnpm-workspace.yaml README.md tools/device-simulator/README.md config/README.md",
+    "format": "prettier --write '.github/**/*.yml' 'apps/**/*.{ts,vue,css,json,mjs}' 'packages/**/*.{ts,json}' 'tests/**/*.{ts,json}' playwright.config.ts playwright.integrado.config.ts vitest.config.mjs package.json pnpm-workspace.yaml README.md tools/device-simulator/README.md config/README.md",
+    "format:check": "prettier --check '.github/**/*.yml' 'apps/**/*.{ts,vue,css,json,mjs}' 'packages/**/*.{ts,json}' 'tests/**/*.{ts,json}' playwright.config.ts playwright.integrado.config.ts vitest.config.mjs package.json pnpm-workspace.yaml README.md tools/device-simulator/README.md config/README.md",
     "generate:contrato": "pnpm generate:openapi && pnpm generate:types",
     "generate:openapi": "uv run python scripts/exportar_openapi.py",
     "generate:types": "pnpm --filter @botonera2/api-client generate:types",
@@ -24,6 +24,7 @@
     "postinstall": "pnpm --filter @botonera2/moderacion prepare && pnpm --filter @botonera2/recinto prepare",
     "test": "vitest run && vitest run --config apps/recinto/vitest.config.ts",
     "test:e2e": "playwright test",
+    "test:e2e:integrado": "pnpm build && playwright test --config playwright.integrado.config.ts",
     "typecheck": "pnpm --filter @botonera2/api-client typecheck && pnpm --filter @botonera2/moderacion typecheck && pnpm --filter @botonera2/recinto typecheck"
   },
   "devDependencies": {
