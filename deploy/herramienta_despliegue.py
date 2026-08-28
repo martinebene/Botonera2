@@ -378,6 +378,19 @@ class PlanPermiso:
     modo: int
 
 
+@dataclass(frozen=True, slots=True)
+class RespaldoArchivo:
+    """Snapshot suficiente para restaurar exactamente un archivo de sistema.
+
+    ``contenido=None`` representa un destino que no existía antes de iniciar
+    la transacción. Para archivos existentes también conservamos el modo, de
+    modo que un rollback no cambie silenciosamente sus permisos.
+    """
+
+    contenido: bytes | None
+    modo: int | None
+
+
 def plan_permisos() -> tuple[PlanPermiso, ...]:
     """Declara la separación mínima aprobada entre backend y bridge."""
 
@@ -404,6 +417,7 @@ class GestorDespliegue:
         consultor_texto: Callable[[str, float], str] = consultar_texto,
         directorio_systemd: Path = Path("/etc/systemd/system"),
         ruta_nginx: Path = Path("/etc/nginx/conf.d/botonera2.conf"),
+        python_base: Path | None = None,
     ) -> None:
         raiz_absoluta = raiz.resolve()
         if raiz_absoluta == Path("/"):
@@ -419,6 +433,10 @@ class GestorDespliegue:
         self.consultor_texto = consultor_texto
         self.directorio_systemd = directorio_systemd
         self.ruta_nginx = ruta_nginx
+        # La herramienta productiva se invoca con ``python3.14``. Guardamos
+        # ese ejecutable como entrada explícita para uv, evitando que uv elija
+        # por preferencia un Python administrado dentro del home de root.
+        self.python_base = Path(sys.executable) if python_base is None else python_base
 
     def bootstrap(self, *, aplicar_usuarios: bool = False) -> tuple[PlanPermiso, ...]:
         """Crea estructura externa idempotente y opcionalmente usuarios reales.
@@ -482,11 +500,23 @@ class GestorDespliegue:
                 "se requiere inspección administrativa."
             )
 
+        # Se valida antes de extraer para que un prerequisito administrativo
+        # incorrecto no deje siquiera una release parcial para diagnosticar.
+        python_base = self._validar_python_base()
         manifest = extraer_paquete_seguro(paquete, destino, sha)
         try:
             entorno = {"UV_PROJECT_ENVIRONMENT": str(destino / ".venv")}
             self.ejecutor.ejecutar(
-                ["uv", "sync", "--frozen", "--no-dev", "--all-packages"],
+                [
+                    "uv",
+                    "sync",
+                    "--frozen",
+                    "--no-dev",
+                    "--all-packages",
+                    "--python",
+                    str(python_base),
+                    "--no-python-downloads",
+                ],
                 directorio=destino / "app",
                 entorno=entorno,
             )
@@ -504,7 +534,11 @@ class GestorDespliegue:
             self._validar_estructura_release(destino)
             marcador.write_text(
                 json.dumps(
-                    {"commit_sha": sha, "tree_sha": manifest.get("tree_sha")},
+                    {
+                        "commit_sha": sha,
+                        "tree_sha": manifest.get("tree_sha"),
+                        "python_base": str(python_base),
+                    },
                     sort_keys=True,
                 )
                 + "\n",
@@ -536,12 +570,81 @@ class GestorDespliegue:
 
     @staticmethod
     def _hacer_release_solo_lectura(release: Path) -> None:
-        """Retira escritura para runtimes después de crear la venv final."""
+        """Retira escritura sin seguir enlaces simbólicos fuera de la release.
 
-        for ruta in sorted(release.rglob("*"), reverse=True):
-            modo = ruta.stat().st_mode
-            ruta.chmod(modo & ~(stat.S_IWUSR | stat.S_IWGRP | stat.S_IWOTH))
-        release.chmod(release.stat().st_mode & ~(stat.S_IWUSR | stat.S_IWGRP | stat.S_IWOTH))
+        Una venv POSIX contiene normalmente symlinks hacia su intérprete base.
+        ``os.walk(..., followlinks=False)`` evita recorrer symlinks de
+        directorio; ``lstat`` y ``follow_symlinks=False`` garantizan además
+        que una carrera o un enlace de archivo nunca termine aplicando chmod
+        sobre el inode externo apuntado.
+        """
+
+        mascara_escritura = stat.S_IWUSR | stat.S_IWGRP | stat.S_IWOTH
+        entradas: list[Path] = []
+        for directorio, nombres_directorio, nombres_archivo in os.walk(
+            release, topdown=False, followlinks=False
+        ):
+            base = Path(directorio)
+            entradas.extend(base / nombre for nombre in nombres_archivo)
+            entradas.extend(base / nombre for nombre in nombres_directorio)
+
+        for ruta in entradas:
+            modo = ruta.lstat().st_mode
+            if stat.S_ISLNK(modo):
+                # Los permisos de un symlink no gobiernan el acceso POSIX y
+                # modificarlo podría seguir el target en algunas plataformas.
+                continue
+            if not (stat.S_ISREG(modo) or stat.S_ISDIR(modo)):
+                raise ErrorDespliegue(f"La release contiene una entrada especial: {ruta}")
+            ruta.chmod(modo & ~mascara_escritura, follow_symlinks=False)
+
+        modo_raiz = release.lstat().st_mode
+        release.chmod(modo_raiz & ~mascara_escritura, follow_symlinks=False)
+
+    def _validar_python_base(self) -> Path:
+        """Exige un Python 3.14 estable y accesible a cualquier runtime.
+
+        La ruta se resuelve antes de pasarla a uv. Cada directorio padre debe
+        ser atravesable por ``other`` y el ejecutable debe ser legible y
+        ejecutable por ``other``; esta condición fuerte evita depender del
+        home privado del administrador o de grupos particulares.
+        """
+
+        try:
+            python_base = self.python_base.resolve(strict=True)
+        except OSError as error:
+            raise ErrorDespliegue(
+                f"No se pudo resolver el Python base {self.python_base}: {error}"
+            ) from error
+
+        modo_python = python_base.stat().st_mode
+        if not stat.S_ISREG(modo_python) or modo_python & (stat.S_IROTH | stat.S_IXOTH) != (
+            stat.S_IROTH | stat.S_IXOTH
+        ):
+            raise ErrorDespliegue(
+                f"El Python base no es legible/ejecutable por los runtimes: {python_base}"
+            )
+        for directorio in python_base.parents:
+            if directorio.stat().st_mode & stat.S_IXOTH == 0:
+                raise ErrorDespliegue(
+                    "El Python base depende de un directorio no atravesable por los "
+                    f"usuarios runtime: {directorio}"
+                )
+
+        resultado = self.ejecutor.ejecutar(
+            [
+                str(python_base),
+                "-c",
+                "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')",
+            ],
+            comprobar=False,
+        )
+        if resultado.codigo != 0 or resultado.salida.strip() != "3.14":
+            diagnostico = resultado.error.strip() or resultado.salida.strip() or "sin salida"
+            raise ErrorDespliegue(
+                f"El Python base {python_base} no es Python 3.14 utilizable: {diagnostico}"
+            )
+        return python_base
 
     def validar_configuracion(self, release: Path) -> None:
         """Usa parsers propietarios instalados y exige logs externos exactos."""
@@ -563,6 +666,119 @@ class GestorDespliegue:
             ],
             directorio=self.raiz,
         )
+
+    def _exigir_acceso_runtime(
+        self, usuario: str, argumentos_test: Sequence[str], descripcion: str
+    ) -> None:
+        """Ejecuta una prueba POSIX con la identidad real del servicio.
+
+        ``runuser`` permite verificar usuarios y permisos efectivos sin
+        arrancar servicios ni crear datos institucionales. Se usa ``test``
+        como comando directo, nunca mediante un shell.
+        """
+
+        resultado = self.ejecutor.ejecutar(
+            ["runuser", "--user", usuario, "--", "test", *argumentos_test],
+            comprobar=False,
+        )
+        if resultado.codigo != 0:
+            diagnostico = resultado.error.strip() or resultado.salida.strip()
+            detalle = f": {diagnostico}" if diagnostico else ""
+            raise ErrorDespliegue(f"Permisos incompatibles para {usuario}: {descripcion}{detalle}")
+
+    def _validar_permisos_runtime(self, release: Path) -> None:
+        """Demuestra accesos mínimos y separación antes de cambiar ``current``."""
+
+        pruebas = (
+            (
+                "botonera2-backend",
+                ("-r", str(self.config / "system.toml")),
+                "system.toml debe ser legible",
+            ),
+            (
+                "botonera2-backend",
+                ("-r", str(self.config / "concejales.csv")),
+                "concejales.csv debe ser legible",
+            ),
+            (
+                "botonera2-backend",
+                ("-w", str(self.logs)),
+                "logs debe ser escribible",
+            ),
+            (
+                "botonera2-backend",
+                ("-x", str(self.logs)),
+                "logs debe ser atravesable",
+            ),
+            (
+                "botonera2-backend",
+                ("-x", str(release / ".venv/bin/uvicorn")),
+                "Uvicorn debe ser ejecutable",
+            ),
+            (
+                "botonera2-bridge",
+                ("-r", str(self.config / "bridge/devices.json")),
+                "devices.json debe ser legible",
+            ),
+            (
+                "botonera2-bridge",
+                ("-w", str(self.config / "bridge/devices.json")),
+                "devices.json debe ser escribible",
+            ),
+            (
+                "botonera2-bridge",
+                ("-w", str(self.config / "bridge")),
+                "config/bridge debe ser escribible para reemplazos atómicos",
+            ),
+            (
+                "botonera2-bridge",
+                ("-x", str(self.config / "bridge")),
+                "config/bridge debe ser atravesable",
+            ),
+            (
+                "botonera2-bridge",
+                ("-x", str(release / ".venv/bin/botonera2-device-bridge")),
+                "device-bridge debe ser ejecutable",
+            ),
+        )
+        for usuario, argumentos, descripcion in pruebas:
+            self._exigir_acceso_runtime(usuario, argumentos, descripcion)
+
+        # Probar sólo la raíz no alcanzaría: una ACL o un modo accidental en
+        # un archivo interno podría dejar una porción de la release escribible.
+        # ``find -writable -quit`` evalúa cada entrada con la identidad real y
+        # entrega como máximo una ruta diagnóstica.
+        for usuario in ("botonera2-backend", "botonera2-bridge"):
+            resultado = self.ejecutor.ejecutar(
+                [
+                    "runuser",
+                    "--user",
+                    usuario,
+                    "--",
+                    "find",
+                    str(release),
+                    "-writable",
+                    "-print",
+                    "-quit",
+                ],
+                comprobar=False,
+            )
+            if resultado.codigo != 0 or resultado.salida.strip():
+                ruta = resultado.salida.strip() or resultado.error.strip() or "sin diagnóstico"
+                raise ErrorDespliegue(
+                    f"La release no es íntegramente de solo lectura para {usuario}: {ruta}"
+                )
+
+        grupos_backend = self.ejecutor.ejecutar(
+            ["id", "--groups", "--name", "botonera2-backend"], comprobar=False
+        )
+        grupos_bridge = self.ejecutor.ejecutar(
+            ["id", "--groups", "--name", "botonera2-bridge"], comprobar=False
+        )
+        if grupos_backend.codigo != 0 or grupos_bridge.codigo != 0:
+            raise ErrorDespliegue("No se pudieron verificar los grupos de los usuarios runtime.")
+        if "input" in grupos_backend.salida.split() or "input" not in grupos_bridge.salida.split():
+            raise ErrorDespliegue("El grupo input debe pertenecer únicamente a botonera2-bridge.")
 
     def guard_institucional(self) -> None:
         """Permite solo SIN_PREPARAR y falla cerrado ante runtime inconsistente."""
@@ -605,42 +821,87 @@ class GestorDespliegue:
         # switch de current y puede restaurarse si algo posterior falla.
 
     @staticmethod
-    def _copiar_atomico(origen: Path, destino: Path) -> bytes | None:
-        """Instala un archivo regular y devuelve su contenido anterior."""
+    def _copiar_atomico(origen: Path, destino: Path) -> None:
+        """Instala un archivo regular mediante reemplazo en el mismo directorio."""
 
-        anterior = destino.read_bytes() if destino.is_file() else None
         destino.parent.mkdir(parents=True, exist_ok=True)
         temporal = destino.with_name(f".{destino.name}.nuevo-{os.getpid()}")
-        shutil.copyfile(origen, temporal)
-        os.chmod(temporal, 0o644)
-        os.replace(temporal, destino)
-        return anterior
+        temporal.unlink(missing_ok=True)
+        try:
+            shutil.copyfile(origen, temporal)
+            os.chmod(temporal, 0o644)
+            os.replace(temporal, destino)
+        finally:
+            temporal.unlink(missing_ok=True)
 
     @staticmethod
-    def _restaurar_archivo(destino: Path, contenido: bytes | None) -> None:
+    def _respaldar_archivo(destino: Path) -> RespaldoArchivo:
+        """Captura bytes y modo sin aceptar destinos especiales o symlinks."""
+
+        if destino.is_symlink():
+            raise ErrorDespliegue(f"El destino de sistema no puede ser symlink: {destino}")
+        if not destino.exists():
+            return RespaldoArchivo(None, None)
+        modo = destino.lstat().st_mode
+        if not stat.S_ISREG(modo):
+            raise ErrorDespliegue(f"El destino de sistema no es un archivo regular: {destino}")
+        return RespaldoArchivo(destino.read_bytes(), stat.S_IMODE(modo))
+
+    @staticmethod
+    def _restaurar_archivo(destino: Path, respaldo: RespaldoArchivo) -> None:
         """Restaura bytes anteriores o retira un archivo creado por la operación."""
 
-        if contenido is None:
+        if respaldo.contenido is None:
             destino.unlink(missing_ok=True)
             return
         temporal = destino.with_name(f".{destino.name}.restaurar-{os.getpid()}")
-        temporal.write_bytes(contenido)
-        os.chmod(temporal, 0o644)
-        os.replace(temporal, destino)
+        temporal.unlink(missing_ok=True)
+        try:
+            temporal.write_bytes(respaldo.contenido)
+            os.chmod(temporal, respaldo.modo if respaldo.modo is not None else 0o644)
+            os.replace(temporal, destino)
+        finally:
+            temporal.unlink(missing_ok=True)
 
-    def _instalar_archivos_sistema(self, release: Path) -> dict[Path, bytes | None]:
-        """Aplica units/config Nginx y conserva snapshot para rollback automático."""
+    def _instalar_archivos_sistema(self, release: Path) -> dict[Path, RespaldoArchivo]:
+        """Instala el conjunto o restaura todos los destinos ante fallo parcial."""
 
-        destinos = {
-            self.directorio_systemd / SERVICIO_BACKEND: release
-            / "deploy/systemd"
-            / SERVICIO_BACKEND,
-            self.directorio_systemd / SERVICIO_BRIDGE: release / "deploy/systemd" / SERVICIO_BRIDGE,
-            self.ruta_nginx: release / "deploy/nginx/botonera2.conf",
-        }
-        return {
-            destino: self._copiar_atomico(origen, destino) for destino, origen in destinos.items()
-        }
+        destinos = (
+            (
+                self.directorio_systemd / SERVICIO_BACKEND,
+                release / "deploy/systemd" / SERVICIO_BACKEND,
+            ),
+            (
+                self.directorio_systemd / SERVICIO_BRIDGE,
+                release / "deploy/systemd" / SERVICIO_BRIDGE,
+            ),
+            (self.ruta_nginx, release / "deploy/nginx/botonera2.conf"),
+        )
+        respaldos: dict[Path, RespaldoArchivo] = {}
+        try:
+            for destino, origen in destinos:
+                # El snapshot se registra antes de cada mutación. Así también
+                # podemos restaurar un destino si una falla aparece después
+                # de su os.replace pero antes de completar el conjunto.
+                respaldos[destino] = self._respaldar_archivo(destino)
+                self._copiar_atomico(origen, destino)
+        except Exception as error_original:
+            errores_restauracion: list[str] = []
+            for destino, respaldo in reversed(tuple(respaldos.items())):
+                try:
+                    self._restaurar_archivo(destino, respaldo)
+                except Exception as error_restauracion:  # noqa: BLE001 - diagnóstico acumulado
+                    errores_restauracion.append(f"{destino}: {error_restauracion}")
+            if errores_restauracion:
+                raise ErrorDespliegue(
+                    "Falló la instalación parcial de archivos de sistema y también su "
+                    f"restauración ({'; '.join(errores_restauracion)}): {error_original}"
+                ) from error_original
+            raise ErrorDespliegue(
+                "Falló la instalación de archivos de sistema; todos los destinos "
+                f"modificados fueron restaurados: {error_original}"
+            ) from error_original
+        return respaldos
 
     def _esperar_health(self, *, intentos: int = 20, pausa: float = 0.5) -> None:
         """Espera acotadamente el backend nuevo y conserva el último diagnóstico."""
@@ -678,6 +939,7 @@ class GestorDespliegue:
         objetivo = self.releases / validar_sha(sha)
         self._validar_release_preparada(objetivo)
         self.validar_configuracion(objetivo)
+        self._validar_permisos_runtime(objetivo)
         self.guard_institucional()
         self._validar_archivos_sistema(objetivo)
         anterior = resolver_enlace_release(self.current, self.releases)
@@ -697,13 +959,13 @@ class GestorDespliegue:
             cambiar_enlace_atomico(self.previous, anterior)
         except Exception as error_original:
             if not hubo_switch:
-                for ruta, contenido in respaldo_archivos.items():
-                    self._restaurar_archivo(ruta, contenido)
+                for ruta, respaldo in respaldo_archivos.items():
+                    self._restaurar_archivo(ruta, respaldo)
                 raise
             try:
                 cambiar_enlace_atomico(self.current, anterior)
-                for ruta, contenido in respaldo_archivos.items():
-                    self._restaurar_archivo(ruta, contenido)
+                for ruta, respaldo in respaldo_archivos.items():
+                    self._restaurar_archivo(ruta, respaldo)
                 self.ejecutor.ejecutar(["systemctl", "daemon-reload"])
                 if anterior is not None:
                     self.ejecutor.ejecutar(["systemctl", "restart", SERVICIO_BACKEND])
@@ -773,11 +1035,12 @@ class GestorDespliegue:
     def preflight(self) -> None:
         """Verifica prerequisitos sin instalarlos ni modificar el sistema."""
 
-        for comando in ("uv", "systemctl", "systemd-analyze", "nginx"):
+        for comando in ("uv", "systemctl", "systemd-analyze", "nginx", "runuser", "find"):
             if shutil.which(comando) is None:
                 raise ErrorDespliegue(f"Falta el prerequisito administrativo: {comando}")
         if sys.version_info[:2] != (3, 14):
             raise ErrorDespliegue("La herramienta productiva requiere Python 3.14.")
+        self._validar_python_base()
 
 
 def crear_parser() -> argparse.ArgumentParser:

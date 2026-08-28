@@ -150,12 +150,18 @@ al commit contenido que Git no conoce.
 ### Prerequisitos administrativos
 
 - Linux Mint 22.3 x86_64 con systemd y Nginx;
-- Python 3.14 y `uv` disponibles por rutas estables;
+- Python 3.14 y `uv` disponibles por rutas estables; cada directorio padre del
+  ejecutable Python debe ser atravesable y el binario legible/ejecutable por
+  usuarios sin privilegios;
+- `runuser` y `find`, utilizados para comprobar accesos con las identidades
+  efectivas de backend y bridge antes de activar;
 - artefacto correspondiente al SHA aprobado y su sidecar;
 - acceso root solamente durante bootstrap/instalación de unidades;
 - configuración institucional real preparada fuera del repositorio.
 
-`preflight` diagnostica prerequisitos pero no instala paquetes:
+`preflight` diagnostica prerequisitos pero no instala paquetes. También
+resuelve el mismo Python 3.14 con que se ejecutó la herramienta y rechaza una
+ruta que dependa de un home privado del administrador:
 
 ```bash
 python3.14 deploy/herramienta_despliegue.py preflight
@@ -198,6 +204,14 @@ python3.14 deploy/herramienta_despliegue.py preflight
 La activación valida configuración, units y Nginx; cambia `current`
 atómicamente; reinicia backend/bridge; comprueba health y ambas SPA por Nginx;
 y recién entonces actualiza `previous`.
+
+Durante `preparar`, `uv sync` recibe explícitamente la ruta resuelta de ese
+Python 3.14 mediante `--python` y deshabilita descargas automáticas. De esta
+manera la venv no puede seleccionar por preferencia un Python administrado en
+el home privado de root. Antes del switch, `activar` usa `runuser` para probar
+con ambos usuarios reales la lectura, escritura, ejecución y pertenencia al
+grupo `input` declaradas por el plan. Si un acceso no coincide, falla sin
+instalar archivos de sistema, reiniciar servicios ni cambiar `current`.
 
 ### Actualización
 

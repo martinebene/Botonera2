@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import json
+import stat
 import subprocess
 import sys
 import tarfile
@@ -197,6 +198,12 @@ def test_preparar_es_idempotente_y_no_cambia_current(
     assert (release / ".venv/bin/uvicorn").is_file()
     assert resolver_enlace_release(gestor.current, gestor.releases) is None
     assert len(ejecutor.llamadas) == llamadas_primera
+    llamada_uv = next(llamada for llamada in ejecutor.llamadas if llamada[:2] == ["uv", "sync"])
+    python_base = str(Path("/usr/bin/python3").resolve())
+    assert llamada_uv[llamada_uv.index("--python") + 1] == python_base
+    assert "--no-python-downloads" in llamada_uv
+    marcador = json.loads((release / modulo_despliegue.MARCADOR_PREPARADA).read_text())
+    assert marcador["python_base"] == python_base
 
 
 def crear_tar_malicioso(ruta: Path, nombre: str, *, tipo: bytes | None = None) -> None:
@@ -233,6 +240,56 @@ def test_extraccion_rechaza_rutas_y_enlaces(
     assert not (tmp_path / "escape").exists()
 
 
+def test_solo_lectura_no_sigue_symlinks_fuera_de_release(tmp_path: Path) -> None:
+    """La inmutabilidad jamás cambia bytes ni modo de targets externos."""
+
+    externo = tmp_path / "externo"
+    externo.mkdir(mode=0o775)
+    archivo_externo = externo / "python3.14"
+    archivo_externo.write_bytes(b"interprete compartido")
+    archivo_externo.chmod(0o775)
+    modo_directorio_antes = stat.S_IMODE(externo.stat().st_mode)
+    modo_archivo_antes = stat.S_IMODE(archivo_externo.stat().st_mode)
+
+    release = tmp_path / "release"
+    interno = release / "app/modulo.py"
+    interno.parent.mkdir(parents=True)
+    interno.write_text("dato = 1\n", encoding="utf-8")
+    (release / "python").symlink_to(archivo_externo)
+    (release / "biblioteca-externa").symlink_to(externo, target_is_directory=True)
+
+    GestorDespliegue._hacer_release_solo_lectura(  # pyright: ignore[reportPrivateUsage]
+        release
+    )
+
+    assert archivo_externo.read_bytes() == b"interprete compartido"
+    assert stat.S_IMODE(archivo_externo.stat().st_mode) == modo_archivo_antes
+    assert stat.S_IMODE(externo.stat().st_mode) == modo_directorio_antes
+    assert stat.S_IMODE(interno.stat().st_mode) & 0o222 == 0
+    assert stat.S_IMODE(release.stat().st_mode) & 0o222 == 0
+    assert (release / "python").is_symlink()
+    assert (release / "biblioteca-externa").is_symlink()
+
+    # pytest necesita volver a retirar el árbol temporal con el usuario normal.
+    release.chmod(0o755)
+    interno.parent.chmod(0o755)
+    interno.chmod(0o644)
+
+
+def test_python_base_rechaza_directorio_privado(tmp_path: Path) -> None:
+    """Un Python bajo un home no atravesable no puede sostener la venv productiva."""
+
+    privado = tmp_path / "home-privado"
+    privado.mkdir(mode=0o700)
+    python_privado = privado / "python3.14"
+    python_privado.write_text("binario", encoding="utf-8")
+    python_privado.chmod(0o755)
+    gestor = GestorDespliegue(tmp_path / "opt/botonera2", python_base=python_privado)
+
+    with pytest.raises(ErrorDespliegue, match="no atravesable"):
+        gestor._validar_python_base()  # pyright: ignore[reportPrivateUsage]
+
+
 class EjecutorFalso:
     """Emula comandos privilegiados y materializa la venv mínima al preparar."""
 
@@ -251,6 +308,8 @@ class EjecutorFalso:
         del comprobar
         args = [str(valor) for valor in argumentos]
         self.llamadas.append(args)
+        if len(args) >= 3 and args[1] == "-c" and "sys.version_info" in args[2]:
+            return ResultadoComando(0, "3.14\n")
         if args[:2] == ["uv", "sync"]:
             assert directorio is not None and entorno is not None
             venv = Path(entorno["UV_PROJECT_ENVIRONMENT"])
@@ -259,6 +318,10 @@ class EjecutorFalso:
                 (venv / "bin" / nombre).write_text("ejecutable", encoding="utf-8")
         if args[:2] == ["systemctl", "is-active"]:
             return ResultadoComando(0, f"{self.estado_backend}\n")
+        if args == ["id", "--groups", "--name", "botonera2-backend"]:
+            return ResultadoComando(0, "botonera2-backend\n")
+        if args == ["id", "--groups", "--name", "botonera2-bridge"]:
+            return ResultadoComando(0, "botonera2-bridge input\n")
         return ResultadoComando(0)
 
 
@@ -312,6 +375,7 @@ def crear_gestor(tmp_path: Path, ejecutor: EjecutorFalso | None = None) -> Gesto
         consultor_texto=html_ok,
         directorio_systemd=tmp_path / "etc/systemd/system",
         ruta_nginx=tmp_path / "etc/nginx/conf.d/botonera2.conf",
+        python_base=Path("/usr/bin/python3"),
     )
 
 
@@ -382,6 +446,118 @@ def test_guard_falla_cerrado_si_systemd_activo_pero_http_inaccesible(tmp_path: P
     gestor.consultor_json = inaccesible
     with pytest.raises(ErrorDespliegue, match="sin respuesta"):
         gestor.guard_institucional()
+
+
+def test_instalacion_parcial_restaura_todo_sin_switch_ni_reinicios(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Un fallo tras copiar la segunda unit revierte existentes y nuevos."""
+
+    ejecutor = EjecutorFalso()
+    gestor = crear_gestor(tmp_path, ejecutor)
+    release_a = crear_release_preparada(gestor, SHA_A)
+    crear_release_preparada(gestor, SHA_B)
+    crear_config_externa(gestor)
+    modulo_despliegue.cambiar_enlace_atomico(gestor.current, release_a)
+
+    unit_backend = gestor.directorio_systemd / modulo_despliegue.SERVICIO_BACKEND
+    unit_bridge = gestor.directorio_systemd / modulo_despliegue.SERVICIO_BRIDGE
+    unit_backend.parent.mkdir(parents=True)
+    unit_backend.write_bytes(b"backend anterior")
+    unit_backend.chmod(0o600)
+    gestor.ruta_nginx.parent.mkdir(parents=True)
+    gestor.ruta_nginx.write_bytes(b"nginx anterior")
+    original = gestor._copiar_atomico  # pyright: ignore[reportPrivateUsage]
+    cantidad = 0
+
+    def copiar_y_fallar_segunda(origen: Path, destino: Path) -> None:
+        """Simula un error posterior al reemplazo de la segunda entrada."""
+
+        nonlocal cantidad
+        cantidad += 1
+        original(origen, destino)
+        if cantidad == 2:
+            raise OSError("fallo inyectado en segunda copia")
+
+    monkeypatch.setattr(gestor, "_copiar_atomico", copiar_y_fallar_segunda)
+
+    with pytest.raises(ErrorDespliegue, match="todos los destinos modificados"):
+        gestor.activar(SHA_B)
+
+    assert resolver_enlace_release(gestor.current, gestor.releases) == release_a
+    assert unit_backend.read_bytes() == b"backend anterior"
+    assert stat.S_IMODE(unit_backend.stat().st_mode) == 0o600
+    assert not unit_bridge.exists()
+    assert gestor.ruta_nginx.read_bytes() == b"nginx anterior"
+    assert not any(
+        llamada[:2]
+        in (["systemctl", "daemon-reload"], ["systemctl", "restart"], ["systemctl", "reload"])
+        for llamada in ejecutor.llamadas
+    )
+
+
+def test_permisos_incompatibles_fallan_antes_del_switch(tmp_path: Path) -> None:
+    """La activación no avanza si backend no puede escribir el directorio de logs."""
+
+    class EjecutorConLogsDenegados(EjecutorFalso):
+        """Niega una comprobación efectiva sin crear usuarios reales en el test."""
+
+        def ejecutar(
+            self,
+            argumentos: Sequence[str],
+            *,
+            directorio: Path | None = None,
+            entorno: Mapping[str, str] | None = None,
+            comprobar: bool = True,
+        ) -> ResultadoComando:
+            args = [str(valor) for valor in argumentos]
+            if args[:7] == [
+                "runuser",
+                "--user",
+                "botonera2-backend",
+                "--",
+                "test",
+                "-w",
+                str(tmp_path / "opt/botonera2/logs"),
+            ]:
+                self.llamadas.append(args)
+                return ResultadoComando(1, error="permiso denegado")
+            return super().ejecutar(
+                argumentos,
+                directorio=directorio,
+                entorno=entorno,
+                comprobar=comprobar,
+            )
+
+    ejecutor = EjecutorConLogsDenegados()
+    gestor = crear_gestor(tmp_path, ejecutor)
+    crear_release_preparada(gestor, SHA_A)
+    crear_config_externa(gestor)
+
+    with pytest.raises(ErrorDespliegue, match="logs debe ser escribible"):
+        gestor.activar(SHA_A)
+
+    assert resolver_enlace_release(gestor.current, gestor.releases) is None
+    assert not (gestor.directorio_systemd / modulo_despliegue.SERVICIO_BACKEND).exists()
+    assert not any(llamada[:2] == ["systemctl", "restart"] for llamada in ejecutor.llamadas)
+
+
+def test_permisos_correctos_verifican_ambos_usuarios_y_grupo_input(tmp_path: Path) -> None:
+    """El gate confirma accesos/grupos correctos y permite completar la activación."""
+
+    ejecutor = EjecutorFalso()
+    gestor = crear_gestor(tmp_path, ejecutor)
+    release = crear_release_preparada(gestor, SHA_A)
+    crear_config_externa(gestor)
+
+    gestor.activar(SHA_A)
+
+    llamadas_runuser = [llamada for llamada in ejecutor.llamadas if llamada[:1] == ["runuser"]]
+    assert any("botonera2-backend" in llamada for llamada in llamadas_runuser)
+    assert any("botonera2-bridge" in llamada for llamada in llamadas_runuser)
+    assert ["id", "--groups", "--name", "botonera2-backend"] in ejecutor.llamadas
+    assert ["id", "--groups", "--name", "botonera2-bridge"] in ejecutor.llamadas
+    assert resolver_enlace_release(gestor.current, gestor.releases) == release
 
 
 def test_fallo_health_restaura_current_y_no_actualiza_previous(
