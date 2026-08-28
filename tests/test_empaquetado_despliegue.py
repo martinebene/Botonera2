@@ -15,6 +15,7 @@ from typing import Any
 import pytest
 
 import deploy.herramienta_despliegue as modulo_despliegue
+import scripts.verificar_reproducibilidad_produccion as modulo_reproducibilidad
 from deploy.herramienta_despliegue import (
     ErrorDespliegue,
     GestorDespliegue,
@@ -26,6 +27,7 @@ from deploy.herramienta_despliegue import (
     verificar_checksum,
 )
 from scripts.empaquetar_produccion import construir_paquete, sha256_archivo
+from scripts.verificar_reproducibilidad_produccion import ErrorReproducibilidad
 
 SHA_A = "a" * 40
 SHA_B = "b" * 40
@@ -91,6 +93,81 @@ def test_paquete_es_reproducible_trazable_y_excluye_configuracion(tmp_path: Path
     assert manifest["commit_sha"] == SHA_A
     assert "config/system.toml" not in nombres
     assert not any("node_modules" in nombre or ".venv" in nombre for nombre in nombres)
+
+
+def test_gate_compara_dos_empaquetados_completos(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Dos ejecuciones idénticas dejan la segunda release y devuelven su hash."""
+
+    salida = tmp_path / "dist/produccion"
+    paquete = salida / f"botonera2-{SHA_A}.tar.gz"
+    sidecar = paquete.with_name(f"{paquete.name}.sha256")
+    ejecuciones = 0
+
+    def empaquetar_falso(raiz: Path) -> None:
+        """Simula el comando público sin pagar dos builds Nuxt en este test."""
+
+        nonlocal ejecuciones
+        assert raiz == tmp_path
+        ejecuciones += 1
+        salida.mkdir(parents=True, exist_ok=True)
+        paquete.write_bytes(b"release estable")
+        sidecar.write_text("checksum estable\n", encoding="ascii")
+
+    def devolver_sha_falso(*argumentos: str, raiz: Path = tmp_path) -> str:
+        """Sustituye sólo la consulta Git usada para nombrar el paquete."""
+
+        del argumentos, raiz
+        return SHA_A
+
+    monkeypatch.setattr(modulo_reproducibilidad, "_ejecutar_empaquetado", empaquetar_falso)
+    monkeypatch.setattr(modulo_reproducibilidad, "ejecutar_git", devolver_sha_falso)
+
+    checksum = modulo_reproducibilidad.verificar_reproducibilidad(tmp_path)
+
+    assert ejecuciones == 2
+    assert checksum == sha256_archivo(paquete)
+
+
+@pytest.mark.parametrize("archivo_variable", ["paquete", "sidecar"])
+def test_gate_rechaza_bytes_variables(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    archivo_variable: str,
+) -> None:
+    """Una diferencia en el tar o su sidecar impide aceptar la release."""
+
+    salida = tmp_path / "dist/produccion"
+    paquete = salida / f"botonera2-{SHA_A}.tar.gz"
+    sidecar = paquete.with_name(f"{paquete.name}.sha256")
+    ejecuciones = 0
+
+    def empaquetar_falso(raiz: Path) -> None:
+        """Introduce variación sólo en el archivo parametrizado."""
+
+        nonlocal ejecuciones
+        assert raiz == tmp_path
+        ejecuciones += 1
+        salida.mkdir(parents=True, exist_ok=True)
+        sufijo_paquete = str(ejecuciones) if archivo_variable == "paquete" else "estable"
+        sufijo_sidecar = str(ejecuciones) if archivo_variable == "sidecar" else "estable"
+        paquete.write_bytes(f"release {sufijo_paquete}".encode())
+        sidecar.write_text(f"checksum {sufijo_sidecar}\n", encoding="ascii")
+
+    def devolver_sha_falso(*argumentos: str, raiz: Path = tmp_path) -> str:
+        """Sustituye sólo la consulta Git usada para nombrar el paquete."""
+
+        del argumentos, raiz
+        return SHA_A
+
+    monkeypatch.setattr(modulo_reproducibilidad, "_ejecutar_empaquetado", empaquetar_falso)
+    monkeypatch.setattr(modulo_reproducibilidad, "ejecutar_git", devolver_sha_falso)
+
+    with pytest.raises(ErrorReproducibilidad):
+        modulo_reproducibilidad.verificar_reproducibilidad(tmp_path)
+
+    assert ejecuciones == 2
 
 
 @pytest.mark.parametrize(

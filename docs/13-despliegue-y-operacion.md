@@ -147,6 +147,13 @@ commit/tree, Python objetivo, paquetes, SPA y el inventario SHA-256 de cada
 archivo. El empaquetador rechaza cambios versionables locales para no atribuir
 al commit contenido que Git no conoce.
 
+La identidad de ambos builds Nuxt se deriva del SHA Git completo y la marca de
+prerender del timestamp del mismo commit. Como estas SPA no usan reglas de ruta
+en cliente, el app manifest experimental se desactiva para evitar UUID y fechas
+volátiles sin quitar funcionalidad. El job productivo ejecuta dos veces
+`pnpm empaquetar:produccion` y compara tar y sidecar byte a byte antes del smoke;
+por eso la reproducibilidad cubre también `pnpm build`, no sólo el tar final.
+
 ### Prerequisitos administrativos
 
 - Linux Mint 22.3 x86_64 con systemd y Nginx;
