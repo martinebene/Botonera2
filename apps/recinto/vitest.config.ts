@@ -17,6 +17,6 @@ export default defineConfig({
     // Vite la variante cliente de los SFC para montar su render real.
     environment: './tests/entorno_dom_cliente.ts',
     setupFiles: ['../moderacion/tests/setup_dom.ts'],
-    include: ['tests/shell_publico.test.ts'],
+    include: ['tests/*.test.ts'],
   },
 })

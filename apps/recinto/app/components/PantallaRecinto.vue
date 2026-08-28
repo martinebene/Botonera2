@@ -4,10 +4,12 @@
 import { computed, toRefs } from 'vue'
 import type { EstadoRecinto } from '@botonera2/api-client'
 import type { EstadoConexionRecinto } from '../composables/useEstadoRecinto'
+import { usePresentacionVotacion } from '../composables/usePresentacionVotacion'
 import CabeceraRecinto from './CabeceraRecinto.vue'
 import GrillaBancas from './GrillaBancas.vue'
 import IndicadorQuorumPublico from './IndicadorQuorumPublico.vue'
 import PanelPalabraPublico from './PanelPalabraPublico.vue'
+import PanelVotacionPublica from './PanelVotacionPublica.vue'
 
 const props = defineProps<{
   estado: EstadoRecinto | null
@@ -21,6 +23,12 @@ const contextoInstitucional = computed(
 )
 const sesionAbierta = computed(() => estado.value?.estado_global === 'SESION_ABIERTA')
 const bancaOrador = computed(() => estado.value?.palabra?.orador?.banca ?? null)
+const { votacion: votacionPresentada, segundosCuentaRegresiva } = usePresentacionVotacion(estado)
+const votosIndividualesVisibles = computed(() => {
+  const votacion = votacionPresentada.value
+  if (votacion?.estado_recepcion === 'EN_CURSO') return null
+  return votacion?.votos_individuales ?? null
+})
 </script>
 
 <template>
@@ -78,12 +86,25 @@ const bancaOrador = computed(() => estado.value?.palabra?.orador?.banca ?? null)
           </dl>
         </header>
 
+        <PanelVotacionPublica v-if="votacionPresentada" :votacion="votacionPresentada" />
+
         <div class="envoltura-grilla">
           <GrillaBancas
             :filas-bancas="estado.filas_bancas"
             :concejales="estado.concejales"
             :banca-orador="bancaOrador"
+            :votos-individuales="votosIndividualesVisibles"
           />
+          <div
+            v-if="segundosCuentaRegresiva !== null"
+            data-testid="countdown-votacion"
+            class="countdown-votacion"
+            role="status"
+            aria-live="polite"
+          >
+            <span>Comienza en</span>
+            <strong>{{ segundosCuentaRegresiva }}</strong>
+          </div>
         </div>
       </section>
 
@@ -97,9 +118,11 @@ const bancaOrador = computed(() => estado.value?.palabra?.orador?.banca ?? null)
 
 <style scoped>
 .aplicacion-recinto {
+  height: 100dvh;
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
   background:
     radial-gradient(circle at 48% 105%, rgba(14, 116, 144, 0.2), transparent 38%),
     linear-gradient(155deg, #07111f 0%, #0b1729 48%, #07101d 100%);
@@ -227,11 +250,42 @@ const bancaOrador = computed(() => estado.value?.palabra?.orador?.banca ?? null)
 }
 
 .envoltura-grilla {
+  position: relative;
   min-width: 0;
   min-height: 0;
   display: flex;
   flex: 1;
   overflow: auto;
+}
+
+.countdown-votacion {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  border: 1px solid rgba(125, 211, 252, 0.5);
+  border-radius: 18px;
+  color: #f8fafc;
+  background: rgba(2, 8, 23, 0.78);
+  backdrop-filter: blur(3px);
+  pointer-events: none;
+}
+
+.countdown-votacion span {
+  color: #bae6fd;
+  font-size: clamp(0.8rem, 1.4vw, 1.2rem);
+  font-weight: 900;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.countdown-votacion strong {
+  margin-top: 0.2rem;
+  font-size: clamp(4rem, 12vw, 9rem);
+  line-height: 0.9;
+  text-shadow: 0 0 32px rgba(56, 189, 248, 0.45);
 }
 
 .paneles-publicos {
