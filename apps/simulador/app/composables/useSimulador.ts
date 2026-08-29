@@ -31,7 +31,14 @@ import {
   type Suscripcion,
   type ConfiguracionCliente,
 } from '@botonera2/api-client'
-import type { EntradaLogSimulador, EstadoConexion } from '../types/simulador'
+import {
+  CANTIDAD_DISPOSITIVOS_MINIMA,
+  CANTIDAD_DISPOSITIVOS_MAXIMA,
+  CANTIDAD_DISPOSITIVOS_POR_DEFECTO,
+  generarIdentificadoresDispositivos,
+  type EntradaLogSimulador,
+  type EstadoConexion,
+} from '../types/simulador'
 
 /**
  * Parámetros opcionales para configurar o inyectar dependencias en useSimulador.
@@ -45,6 +52,8 @@ export interface OpcionesSimulador {
   autoIniciar?: boolean
   /** Límite máximo de entradas retenidas en memoria para el log global */
   limiteLog?: number
+  /** Cantidad inicial de dispositivos visibles (por defecto 12, rango 1..20) */
+  cantidadInicial?: number
 }
 
 /**
@@ -77,6 +86,16 @@ export interface ManejadorSimulador {
   peticionesEnVuelo: Ref<Record<string, boolean>>
   /** Historial en memoria de las pulsaciones enviadas y sus respuestas */
   entradasLog: Ref<EntradaLogSimulador[]>
+  /** Cantidad de dispositivos actualmente seleccionados para visualización (1..20, WP-035) */
+  cantidadDispositivos: Ref<number>
+  /** Lista dinámica y ordenada de identificadores de dispositivos visibles (dev01..devNN) */
+  dispositivosVisibles: ComputedRef<string[]>
+  /** Incrementa en 1 la cantidad de dispositivos visibles (hasta un máximo de 20) */
+  incrementarCantidad: () => void
+  /** Decrementa en 1 la cantidad de dispositivos visibles (hasta un mínimo de 1) */
+  decrementarCantidad: () => void
+  /** Establece directamente la cantidad de dispositivos visibles respetando los límites 1..20 */
+  establecerCantidad: (nuevaCantidad: number) => void
   /** Instancia del cliente API */
   cliente: ClienteSimulador
   /** Emite una pulsación lógica directa a FastAPI sin pasar por el device-bridge */
@@ -116,6 +135,51 @@ export function useSimulador(opciones: OpcionesSimulador = {}): ManejadorSimulad
   const ultimaLatenciaMs = ref<number | null>(null)
   const peticionesEnVuelo = ref<Record<string, boolean>>({})
   const entradasLog = ref<EntradaLogSimulador[]>([])
+
+  // Cantidad dinámica de dispositivos (WP-035: default 12, rango 1..20, sin persistencia)
+  const cantidadDispositivos = ref<number>(
+    opciones.cantidadInicial !== undefined
+      ? Math.min(
+          Math.max(Math.floor(opciones.cantidadInicial), CANTIDAD_DISPOSITIVOS_MINIMA),
+          CANTIDAD_DISPOSITIVOS_MAXIMA,
+        )
+      : CANTIDAD_DISPOSITIVOS_POR_DEFECTO,
+  )
+
+  const dispositivosVisibles = computed(() =>
+    generarIdentificadoresDispositivos(cantidadDispositivos.value),
+  )
+
+  /**
+   * Incrementa en 1 la cantidad de dispositivos lógicos mostrados (máximo 20).
+   * Al aumentar reaparecen en orden continuo (WP-035).
+   */
+  function incrementarCantidad(): void {
+    if (cantidadDispositivos.value < CANTIDAD_DISPOSITIVOS_MAXIMA) {
+      cantidadDispositivos.value += 1
+    }
+  }
+
+  /**
+   * Decrementa en 1 la cantidad de dispositivos lógicos mostrados (mínimo 1).
+   * Al disminuir se ocultan solo los de mayor número (WP-035).
+   */
+  function decrementarCantidad(): void {
+    if (cantidadDispositivos.value > CANTIDAD_DISPOSITIVOS_MINIMA) {
+      cantidadDispositivos.value -= 1
+    }
+  }
+
+  /**
+   * Establece directamente la cantidad deseada acotándola al rango 1..20.
+   */
+  function establecerCantidad(nuevaCantidad: number): void {
+    const saneada = Math.min(
+      Math.max(Math.floor(nuevaCantidad), CANTIDAD_DISPOSITIVOS_MINIMA),
+      CANTIDAD_DISPOSITIVOS_MAXIMA,
+    )
+    cantidadDispositivos.value = saneada
+  }
 
   let suscripcionActiva: Suscripcion | null = null
 
@@ -317,6 +381,11 @@ export function useSimulador(opciones: OpcionesSimulador = {}): ManejadorSimulad
     ultimaLatenciaMs,
     peticionesEnVuelo,
     entradasLog,
+    cantidadDispositivos,
+    dispositivosVisibles,
+    incrementarCantidad,
+    decrementarCantidad,
+    establecerCantidad,
     cliente,
     enviarPulsacion,
     limpiarLog,
