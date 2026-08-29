@@ -119,6 +119,9 @@ jobs:
       # Este gate levanta FastAPI y ambas SPA bajo un único origen. Se mantiene
       # separado del E2E frontend para que una falla identifique su frontera real.
       - run: pnpm test:e2e:integrado
+      # Valida el stack interactivo con hot reload (WP-042), ejecutando
+      # procesos reales, enrutamiento mismo origen, SSE, WebSocket HMR y liberación de puertos.
+      - run: uv run pytest tests/test_stack_hot.py -k test_stack_hot_integrado_completo_con_procesos_reales
       - name: Conservar diagnóstico del E2E integrado
         if: failure()
         uses: actions/upload-artifact@v7

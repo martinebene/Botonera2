@@ -17,6 +17,7 @@
     "dev:recinto": "pnpm --filter @botonera2/recinto dev",
     "dev:simulador": "pnpm --filter @botonera2/simulador dev",
     "dev:stack": "pnpm build && uv run python scripts/iniciar_stack_desarrollo.py",
+    "dev:stack:hot": "node scripts/iniciar_stack_hot.mjs",
     "format": "prettier --write '.github/**/*.yml' 'apps/**/*.{ts,vue,css,json,mjs}' 'packages/**/*.{ts,json}' 'scripts/**/*.mjs' 'tests/**/*.{ts,json}' playwright.config.ts playwright.integrado.config.ts vitest.config.mjs package.json pnpm-workspace.yaml README.md tools/device-simulator/README.md config/README.md",
     "format:check": "prettier --check '.github/**/*.yml' 'apps/**/*.{ts,vue,css,json,mjs}' 'packages/**/*.{ts,json}' 'scripts/**/*.mjs' 'tests/**/*.{ts,json}' playwright.config.ts playwright.integrado.config.ts vitest.config.mjs package.json pnpm-workspace.yaml README.md tools/device-simulator/README.md config/README.md",
     "generate:contrato": "pnpm generate:openapi && pnpm generate:types",

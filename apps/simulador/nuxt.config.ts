@@ -16,6 +16,8 @@ export default defineNuxtConfig({
   },
   app: {
     // Prefijo canónico de la subruta del simulador bajo el contrato de mismo origen.
+    // En desarrollo interactivo con `dev:stack:hot`, HMR se transporta sobre WebSocket
+    // en la misma URL base y puerto unificado del proxy sin requerir configuración adicional.
     baseURL: '/simulador/',
   },
   modules: ['@nuxt/eslint'],
