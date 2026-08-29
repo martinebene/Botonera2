@@ -253,16 +253,21 @@ El agente sigue la misma regla de descubrimiento desde `Botonera2-Control`.
 IMPLEMENTER:
 
 1. verifica elegibilidad;
-2. trabaja únicamente en el worktree/rama del WP;
-3. respeta AGENTS, WP, DECs y asignación;
-4. sincroniza con `origin/main` según corresponda;
-5. ejecuta validaciones aplicables;
-6. crea commits;
-7. push de rama;
-8. crea/actualiza PR;
-9. deja candidato remoto con SHA exacto;
-10. publica únicamente `expected_response_path` en `Botonera2-Control`;
-11. se detiene.
+2. desde ese momento continúa autónomamente hasta el handoff, sin pedir permisos intermedios para acciones rutinarias;
+3. trabaja únicamente en el worktree/rama del WP;
+4. respeta AGENTS, WP, DECs y asignación;
+5. sincroniza con `origin/main` según corresponda;
+6. ejecuta validaciones aplicables;
+7. diagnostica y corrige fallos normales dentro del alcance;
+8. crea commits sin solicitar confirmación adicional;
+9. push de rama sin solicitar confirmación adicional;
+10. crea/actualiza PR;
+11. deja candidato remoto con SHA exacto;
+12. verifica CI según la asignación;
+13. publica mediante commit/push únicamente `expected_response_path` en `Botonera2-Control`;
+14. se detiene.
+
+El inicio del turno por HUMAN_GATE ya autoriza estos pasos. El IMPLEMENTER solo vuelve al humano antes del handoff ante un gate real: DT-038/aprobación reservada, contradicción material, conflicto Git no trivial, operación destructiva/no autorizada, merge/deploy/infraestructura persistente no autorizada, credencial faltante o imposibilidad técnica.
 
 El operador informa al ORCHESTRATOR que terminó el implementador.
 
@@ -291,15 +296,19 @@ El operador inicia manualmente el turno con `Revisá`.
 REVIEWER:
 
 - verifica elegibilidad desde `Botonera2-Control`;
+- desde ese momento completa autónomamente toda la revisión hasta el handoff, sin pedir permisos intermedios;
 - utiliza una sesión distinta;
 - preferentemente usa otra familia de modelo;
 - revisa el SHA exacto;
 - inspecciona directamente código/diff/tests/CI;
-- trabaja en solo lectura;
+- ejecuta tests/builds/validaciones no destructivas sin solicitar confirmación;
+- trabaja en solo lectura respecto de Botonera2;
 - no lee el informe privado del IMPLEMENTER;
-- no modifica/pushea/mergea código;
-- publica únicamente su resultado para el ORCHESTRATOR;
+- no modifica/pushea/mergea código de Botonera2;
+- crea, commitea y pushea sin confirmación adicional únicamente su resultado para el ORCHESTRATOR en Botonera2-Control;
 - finaliza con el worktree limpio.
+
+Encontrar hallazgos no detiene el turno: debe completar la revisión y publicarlos. Solo un gate real de escalamiento o una imposibilidad técnica justifica devolver el control antes del handoff.
 
 Cambiar solo de arnés manteniendo el mismo modelo efectivo no satisface por sí mismo la independencia.
 
