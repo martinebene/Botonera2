@@ -130,6 +130,8 @@ export type SolicitudFinalizarVotacion = components['schemas']['SolicitudFinaliz
 export type SolicitudDesempate = components['schemas']['SolicitudDesempate']
 export type SolicitudIniciarRemapeo = components['schemas']['SolicitudIniciarRemapeo']
 export type SolicitudConfirmarRemapeo = components['schemas']['SolicitudConfirmarRemapeo']
+export type SolicitudTecla = components['schemas']['SolicitudTecla']
+export type RespuestaTecla = components['schemas']['RespuestaTecla']
 
 // =============================================================================
 // 2. Tipos y contratos del cliente TypeScript (no-DTOs de backend)

@@ -1,15 +1,15 @@
 /**
- * Construye ambas SPA con una identidad estable derivada del commit actual.
+ * Construye las tres SPA con una identidad estable derivada del commit actual.
  *
  * Nuxt genera por defecto un buildId aleatorio y una fecha de prerender actual.
- * Este lanzador obtiene una sola identidad Git y la entrega a los dos builds,
+ * Este lanzador obtiene una sola identidad Git y la entrega a los tres builds,
  * sin depender de sintaxis de shell para conservar compatibilidad con Windows.
  */
 
 import { execFileSync } from 'node:child_process'
 import process from 'node:process'
 
-const PAQUETES_FRONTEND = ['@botonera2/moderacion', '@botonera2/recinto']
+const PAQUETES_FRONTEND = ['@botonera2/moderacion', '@botonera2/recinto', '@botonera2/simulador']
 
 /** Ejecuta una consulta Git de solo lectura y normaliza su salida. */
 function ejecutarGit(argumentos) {

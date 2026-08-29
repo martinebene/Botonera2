@@ -9,6 +9,7 @@
 // Clientes y fábricas públicas
 export { ClienteModeracion, crearClienteModeracion } from './moderacion'
 export { ClienteRecinto, crearClienteRecinto } from './recinto'
+export { ClienteSimulador, crearClienteSimulador } from './simulador'
 export { SincronizadorEstado, iniciarSincronizacionEstado } from './sincronizador'
 export { EstrategiaBackoff, temporizadorPredeterminado } from './backoff'
 export { crearFabricaEventSourcePredeterminada } from './event_source'
@@ -73,6 +74,8 @@ export type {
   SolicitudDesempate,
   SolicitudIniciarRemapeo,
   SolicitudConfirmarRemapeo,
+  SolicitudTecla,
+  RespuestaTecla,
   // Tipos de cliente y ciclo de vida
   Temporizador,
   ConfiguracionBackoff,

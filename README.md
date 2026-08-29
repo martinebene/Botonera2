@@ -80,15 +80,16 @@ Ver `docs/12-decisiones-tecnicas.md`.
 ## Estructura ejecutable
 
 ```text
-apps/backend/              paquete Python importable; FastAPI llegará en WP-002
+apps/backend/              paquete Python importable; servicio FastAPI
 apps/moderacion/           SPA Nuxt 4 de Moderación
 apps/recinto/              SPA Nuxt 4 pública
-services/device-bridge/    paquete Python importable; todavía sin hardware
+apps/simulador/            SPA Nuxt 4 del simulador visual de dispositivos lógicos (WP-034)
+services/device-bridge/    paquete Python importable; captura y remapeo físico
 packages/api-client/       cliente TypeScript REST/SSE, reconexión y tipos derivados de OpenAPI
-packages/frontend-shared/  entrada reservada para código realmente común
-tools/device-simulator/    ubicación reservada para la futura CLI
+packages/frontend-shared/  código frontend compartido
+tools/device-simulator/    herramienta CLI de simulación y ejecución de escenarios declarativos
 scripts/iniciar_wp.py      lanzador seguro de Work Packages
-config/                    ubicación reservada para datos funcionales
+config/                    configuración y padrón institucional
 ```
 
 Los paquetes vacíos son límites arquitectónicos deliberados. No contienen
@@ -218,8 +219,8 @@ Hay dos suites Playwright con propósitos distintos:
 
 - `pnpm test:e2e` verifica de forma rápida y determinista los shells frontend
   con servidores Nuxt y respuestas controladas. No necesita Python.
-- `pnpm test:e2e:integrado` construye las dos SPA, inicia el FastAPI real en
-  `127.0.0.1:18027` y recorre REST, SSE, Moderación, Recinto y la CLI real del
+- `pnpm test:e2e:integrado` construye las tres SPA, inicia el FastAPI real en
+  `127.0.0.1:18027` y recorre REST, SSE, Moderación, Recinto, Simulador y la CLI real del
   simulador. También reinicia el backend para comprobar que la nueva baseline
   vuelve a `SIN_PREPARAR` con revisión 0.
 

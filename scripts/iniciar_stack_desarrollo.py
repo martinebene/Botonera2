@@ -1,4 +1,4 @@
-"""Servidor efímero que integra FastAPI con las dos SPA estáticas.
+"""Servidor efímero que integra FastAPI con las tres SPA estáticas.
 
 Este módulo pertenece exclusivamente al tooling de desarrollo. La aplicación
 productiva continúa siendo ``botonera2_backend.main:app`` y, por lo tanto, no
@@ -25,6 +25,7 @@ ESPERA_APAGADO_SEGUNDOS = 3
 RAIZ_REPOSITORIO = Path(__file__).resolve().parents[1]
 SALIDA_MODERACION = RAIZ_REPOSITORIO / "apps" / "moderacion" / ".output" / "public"
 SALIDA_RECINTO = RAIZ_REPOSITORIO / "apps" / "recinto" / ".output" / "public"
+SALIDA_SIMULADOR = RAIZ_REPOSITORIO / "apps" / "simulador" / ".output" / "public"
 
 
 class ErrorSalidaSpa(RuntimeError):
@@ -71,6 +72,7 @@ def validar_salida_spa(ruta: Path, nombre: str) -> None:
 def crear_aplicacion_integrada(
     salida_moderacion: Path = SALIDA_MODERACION,
     salida_recinto: Path = SALIDA_RECINTO,
+    salida_simulador: Path = SALIDA_SIMULADOR,
 ) -> FastAPI:
     """Crea una instancia real de FastAPI y monta las SPA para desarrollo.
 
@@ -82,6 +84,7 @@ def crear_aplicacion_integrada(
     Args:
         salida_moderacion: Build estático de la aplicación de Moderación.
         salida_recinto: Build estático de la Pantalla del Recinto.
+        salida_simulador: Build estático del Simulador de dispositivos lógicos.
 
     Returns:
         Aplicación FastAPI lista para ejecutarse en un único proceso ASGI.
@@ -92,6 +95,7 @@ def crear_aplicacion_integrada(
 
     validar_salida_spa(salida_moderacion, "Moderación")
     validar_salida_spa(salida_recinto, "Recinto")
+    validar_salida_spa(salida_simulador, "Simulador")
 
     aplicacion = crear_aplicacion()
 
@@ -106,6 +110,7 @@ def crear_aplicacion_integrada(
     <ul>
       <li><a href="/moderacion/">Moderación</a></li>
       <li><a href="/recinto/">Pantalla del Recinto</a></li>
+      <li><a href="/simulador/">Simulador</a></li>
       <li><a href="/docs">API (Swagger)</a></li>
     </ul>
   </body>
@@ -132,6 +137,11 @@ def crear_aplicacion_integrada(
         "/recinto",
         StaticFiles(directory=salida_recinto, html=True),
         name="recinto",
+    )
+    aplicacion.mount(
+        "/simulador",
+        StaticFiles(directory=salida_simulador, html=True),
+        name="simulador",
     )
     return aplicacion
 

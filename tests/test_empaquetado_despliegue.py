@@ -50,6 +50,8 @@ def crear_checkout_minimo(raiz: Path) -> None:
         "apps/moderacion/.output/public/_nuxt/app.js": "m",
         "apps/recinto/.output/public/index.html": "<!doctype html>Recinto",
         "apps/recinto/.output/public/_nuxt/app.js": "r",
+        "apps/simulador/.output/public/index.html": "<!doctype html>Simulador",
+        "apps/simulador/.output/public/_nuxt/app.js": "s",
         "deploy/__init__.py": "",
         "deploy/herramienta_despliegue.py": "# herramienta",
         "deploy/validar_configuracion.py": "# validador",
@@ -433,6 +435,7 @@ def crear_release_preparada(gestor: GestorDespliegue, sha: str) -> Path:
         ".venv/bin/botonera2-device-bridge",
         "web/moderacion/index.html",
         "web/recinto/index.html",
+        "web/simulador/index.html",
         "deploy/systemd/botonera2-backend.service",
         "deploy/systemd/botonera2-device-bridge.service",
         "deploy/nginx/botonera2.conf",
@@ -818,3 +821,16 @@ def test_plantillas_fijan_loopback_worker_usuarios_y_sse() -> None:
     assert "proxy_pass http://127.0.0.1:8000;" in nginx
     assert "cors" not in nginx.lower()
     assert "ssl" not in nginx.lower()
+
+
+def test_configuracion_nginx_restringe_simulador_a_loopback() -> None:
+    """Nginx expone /simulador/ restringido a loopback con allow 127.0.0.1; ::1; deny all."""
+
+    raiz = Path(__file__).resolve().parents[1]
+    nginx = (raiz / "deploy/nginx/botonera2.conf").read_text(encoding="utf-8")
+
+    assert "location /simulador/ {" in nginx
+    assert "allow 127.0.0.1;" in nginx
+    assert "allow ::1;" in nginx
+    assert "deny all;" in nginx
+    assert "try_files $uri $uri/ /simulador/index.html;" in nginx
