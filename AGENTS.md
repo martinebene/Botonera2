@@ -23,6 +23,12 @@ Una instrucción humana breve como `Seguí` o `Revisá` **no contiene por sí mi
 
 Si el rol no coincide, la asignación no existe, los metadatos no coinciden, el resultado esperado ya existe o el estado es ambiguo, el agente debe detenerse sin modificar nada e indicar al operador qué actor corresponde.
 
+### Varios WPs activos
+
+Desde protocolo 1.1, `Botonera2-Control/CURRENT.json` puede contener `active_assignments`. Cuando exista esa colección, los campos escalares históricos de turno no son autoridad de elegibilidad. El agente debe seleccionar exactamente una entrada compatible con su rol y con el arnés/modelo de la sesión, verificar su `assignment_id`, WP, iteración, ruta y respuesta pendiente, y recién entonces actuar.
+
+Cero coincidencias implica que ese agente no tiene turno; más de una implica ambigüedad y obliga a detenerse. Cambios en otras asignaciones paralelas no invalidan un turno ya iniciado: solo la entrada propia determina su continuidad.
+
 Una vez que esas comprobaciones pasan, la intervención humana que inició el turno **autoriza la ejecución completa de la asignación hasta el handoff**. El agente no debe introducir micro-confirmaciones adicionales para acciones rutinarias ya autorizadas.
 
 En particular:
