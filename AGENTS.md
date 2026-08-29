@@ -23,6 +23,18 @@ Una instrucción humana breve como `Seguí` o `Revisá` **no contiene por sí mi
 
 Si el rol no coincide, la asignación no existe, los metadatos no coinciden, el resultado esperado ya existe o el estado es ambiguo, el agente debe detenerse sin modificar nada e indicar al operador qué actor corresponde.
 
+Una vez que esas comprobaciones pasan, la intervención humana que inició el turno **autoriza la ejecución completa de la asignación hasta el handoff**. El agente no debe introducir micro-confirmaciones adicionales para acciones rutinarias ya autorizadas.
+
+En particular:
+
+- IMPLEMENTER no pide permiso para editar dentro del alcance, ejecutar comandos/tests/builds, crear commits normales, sincronizar Git según el flujo, hacer push, crear/actualizar PR, esperar/verificar CI ni publicar su handoff;
+- REVIEWER no pide permiso para inspeccionar, ejecutar tests/builds/validaciones no destructivas ni completar el análisis; su modo solo lectura prohíbe modificar/commitear/pushear Botonera2, pero **sí** puede crear, commitear y pushear su único handoff en Botonera2-Control;
+- encontrar un bug o un test fallido no habilita detenerse para preguntar: el IMPLEMENTER lo corrige dentro del alcance y el REVIEWER lo investiga/documenta;
+- solo se detiene antes del handoff ante DT-038/aprobación humana explícita, contradicción material, conflicto/divergencia Git no trivial, operación destructiva o no autorizada, merge/deploy/cambio persistente de infraestructura no autorizado, secreto/credencial faltante, pérdida de elegibilidad o imposibilidad técnica real.
+
+La configuración del arnés/Orca con permisos completos debe aprovecharse para ejecutar estas acciones sin solicitudes de confirmación artificiales.
+
+
 El repositorio `Botonera2-Control` es únicamente transporte, estado de turno e historial operativo. **Este repositorio Botonera2 continúa siendo la fuente normativa del producto, WPs, decisiones, código, CI e integración.** Una asignación del repositorio de control no puede ampliar ni contradecir el alcance canónico.
 
 IMPLEMENTER y REVIEWER no se comunican lateralmente. El implementador no consume informes `reviewer-to-orchestrator`; el revisor no consume informes `implementer-to-orchestrator`. Todo hallazgo que deba cruzar de un rol al otro pasa primero por el ORCHESTRATOR.
