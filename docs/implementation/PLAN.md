@@ -182,7 +182,7 @@ WP-033 quedó integrado antes de continuar WP-026 y deja disponible el harness m
 | WP-034 | Crear simulador visual web de dispositivos lógicos para prueba humana y diagnóstico | INTEGRADO | WP-007, WP-018, WP-028, WP-033 | - |
 | WP-035 | Ajustar layout y cantidad dinámica de dispositivos del simulador visual | INTEGRADO | WP-034 | - |
 | WP-036 | Compactar shell/cabecera de Moderación y centralizar estado, reloj, sesión, quórum y autoridades | INTEGRADO | WP-022, WP-024 | - |
-| WP-037 | Rediseñar estados del cuadrante Sesión y votación sin scroll interno | PENDIENTE | WP-036 | - |
+| WP-037 | Rediseñar estados del cuadrante Sesión y votación sin scroll interno | EN_CURSO | WP-036 | codex |
 | WP-038 | Unificar representación y disposición de bancas/concejales entre Moderación y Recinto | PENDIENTE | WP-036 | - |
 | WP-039 | Reorganizar Recinto y palabra y compactar la pantalla pública tomando producción como referencia | PENDIENTE | WP-038 | - |
 | WP-040 | Simplificar estados y tarjetas del Orden del Día | PENDIENTE | WP-036 | - |
@@ -230,6 +230,8 @@ WP-023, WP-024, WP-025, WP-026, WP-027, WP-028, WP-033 y WP-034 están `INTEGRAD
 WP-036 quedó integrado mediante PR #40 sobre el candidato `759a832201e1519062ed3096ecc00e47f46994c7`, revisado independientemente por OpenCode + DeepSeek V4 Pro con 0 BLOQUEANTES, 0 IMPORTANTES y 3 MENORES no bloqueantes. El squash `b9a972afd9c4570a241fa1e579c373b373c8ae45` conserva exactamente el mismo tree SHA `28b8d83353993e99d4c2cb88f6b5155de79d4ecc`; CI candidata #284 y CI post-merge #285 terminaron success 8/8. Los menores aceptados fueron: límites en píxeles preexistentes dentro de tarjetas de bancas (no del shell), revisión monotónica disponible solo por `title` aunque el WP permite omitirla de la vista principal, y una técnica de test de Vue/Vitest potencialmente frágil pero sin impacto productivo.
 
 La primera campaña humana produjo los ajustes WP-035..WP-041. WP-035 y WP-036 pueden ejecutarse en paralelo porque afectan aplicaciones distintas y no comparten archivos sustantivos. WP-037..WP-041 permanecen pendientes y se detallarán individualmente con HUMAN_GATE antes de aprobar sus especificaciones. WP-029 queda bloqueado hasta integrar toda esta tanda visual/UX y continúa reservado para hardware real, regresión física y candidato de producción.
+
+WP-037 fue definido y aprobado por HUMAN_GATE con las decisiones UX 1A/2A/3A/4A/5A: vista SIN_PREPARAR compacta; PREPARANDO con número de sesión y autoridades visibles; SESION_ABIERTA con edición de autoridades mediante modal; Cerrar sesión en franja superior; y resultado de votación con conteos agregados sin lista individual en Q1. Implementador acordado: Codex. Revisor independiente acordado: Antigravity/AGY. La selección responde a disponibilidad/cuotas del operador y no altera las reglas de independencia.
 
 La discrepancia preexistente `D-01..D-12` versus `dev01..dev12` quedó resuelta en WP-033: el fixture de padrón de desarrollo usa `dev01..dev12`, coherente con DEC-006, el simulador y el device-bridge.
 
