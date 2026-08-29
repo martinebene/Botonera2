@@ -64,6 +64,13 @@ Publicar un resultado no puede iniciar automáticamente al siguiente agente.
 
 El operador conserva la autoridad de iniciar el turno, aprobar decisiones reservadas por DT-038 y autorizar las transiciones documentales que DEC-005 reserve a aprobación humana.
 
+La compuerta humana opera **entre turnos**, no entre cada acción del mismo turno. Una vez que HUMAN_GATE inicia un actor cuya asignación es elegible, ese actor queda autorizado a ejecutar autónomamente la tarea completa hasta publicar su resultado.
+
+No se requiere una nueva confirmación humana para commits normales, push, tests, builds, creación/actualización de PR, consultas de CI ni publicación del handoff cuando esas acciones están comprendidas por el rol y la asignación. En REVIEWER, el modo solo lectura prohíbe modificar el candidato de Botonera2, pero no prohíbe commitear/pushear el informe de revisión en Botonera2-Control.
+
+Solo gates expresos —DT-038, aprobaciones humanas reservadas, contradicciones materiales, operaciones destructivas/no autorizadas, conflicto Git no trivial, merge/deploy/cambios persistentes de infraestructura no autorizados, credenciales faltantes o imposibilidad técnica— interrumpen legítimamente el turno antes del handoff.
+
+
 ### 3. `CURRENT.json` como puntero operativo
 
 `Botonera2-Control/CURRENT.json` es el puntero mutable que determina:
