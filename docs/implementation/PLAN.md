@@ -186,7 +186,7 @@ WP-033 quedó integrado antes de continuar WP-026 y deja disponible el harness m
 | WP-038 | Unificar representación y disposición de bancas/concejales entre Moderación y Recinto | PENDIENTE | WP-036 | - |
 | WP-039 | Reorganizar Recinto y palabra y compactar la pantalla pública tomando producción como referencia | PENDIENTE | WP-038 | - |
 | WP-040 | Simplificar estados y tarjetas del Orden del Día | PENDIENTE | WP-036 | - |
-| WP-041 | Ajustar Eventos con nivel visible fijo y orden/autoscroll hacia el evento más reciente | PENDIENTE | WP-036 | - |
+| WP-041 | Ajustar Eventos con nivel visible fijo y orden/autoscroll hacia el evento más reciente | EN_CURSO | WP-036 | claude |
 | WP-029 | Validar bridge/hardware real, regresión funcional y candidato de producción | PENDIENTE | WP-019, WP-020, WP-027, WP-028, WP-034, WP-035, WP-036, WP-037, WP-038, WP-039, WP-040, WP-041 | - |
 
 ## Cobertura funcional esperada
@@ -231,7 +231,9 @@ WP-036 quedó integrado mediante PR #40 sobre el candidato `759a832201e1519062ed
 
 La primera campaña humana produjo los ajustes WP-035..WP-041. WP-035 y WP-036 pueden ejecutarse en paralelo porque afectan aplicaciones distintas y no comparten archivos sustantivos. WP-037..WP-041 permanecen pendientes y se detallarán individualmente con HUMAN_GATE antes de aprobar sus especificaciones. WP-029 queda bloqueado hasta integrar toda esta tanda visual/UX y continúa reservado para hardware real, regresión física y candidato de producción.
 
-WP-041 quedó definido y aprobado por HUMAN_GATE con eventos más nuevos arriba, selector L3/L2/L1 fijo en la cabecera del panel y mantenimiento del filtro acumulativo vigente. Implementador acordado: Codex. Revisor independiente acordado: Antigravity/AGY. Su activación queda deliberadamente pendiente mientras WP-037 tenga una asignación IMPLEMENTER activa también para Codex: bajo protocolo 1.1, dos asignaciones simultáneas con el mismo rol y harness serían ambiguas para la elegibilidad. En cuanto WP-037 publique su handoff de implementación, WP-041 puede pasar a EN_CURSO mientras WP-037 entra en revisión, logrando paralelismo seguro entre Codex y AGY.
+WP-041 quedó definido y aprobado por HUMAN_GATE con eventos más nuevos arriba, selector L3/L2/L1 fijo en la cabecera del panel y mantenimiento del filtro acumulativo vigente. Antes de activarlo, HUMAN_GATE reemplazó la selección operativa inicial y acordó Claude Code como implementador y OpenCode como revisor independiente. Al usar un harness distinto de Codex, WP-041 puede ejecutarse en paralelo con la implementación activa de WP-037 sin ambigüedad de elegibilidad bajo protocolo 1.1.
+
+WP-040 quedó definido y aprobado documentalmente por HUMAN_GATE con decisiones 1A/2A/3A/4A: carga CSV compacta cuando no hay colección; con colección cargada se oculta el selector de archivo y queda únicamente `Quitar Orden del Día`; al quitar y confirmar snapshot vacío vuelve la vista de carga; y las tarjetas conservan solo información del punto, sin texto instructivo de copiado. Permanece PENDIENTE hasta acordar implementador/revisor y activación.
 
 WP-037 fue definido y aprobado por HUMAN_GATE con las decisiones UX 1A/2A/3A/4A/5A: vista SIN_PREPARAR compacta; PREPARANDO con número de sesión y autoridades visibles; SESION_ABIERTA con edición de autoridades mediante modal; Cerrar sesión en franja superior; y resultado de votación con conteos agregados sin lista individual en Q1. Implementador acordado: Codex. Revisor independiente acordado: Antigravity/AGY. La selección responde a disponibilidad/cuotas del operador y no altera las reglas de independencia.
 
