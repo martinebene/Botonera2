@@ -23,6 +23,8 @@ import BancaConcejal from '../app/components/BancaConcejal.vue'
 import GrillaRecinto from '../app/components/GrillaRecinto.vue'
 import DialogoConfirmacionCierre from '../app/components/DialogoConfirmacionCierre.vue'
 import fuenteDialogoConfirmacionCierre from '../app/components/DialogoConfirmacionCierre.vue?raw'
+import DialogoEdicionAutoridades from '../app/components/DialogoEdicionAutoridades.vue'
+import fuenteDialogoEdicionAutoridades from '../app/components/DialogoEdicionAutoridades.vue?raw'
 import { resolverRutaAsset } from '../app/utils/rutas'
 import { traducirMotivo, traducirMotivos } from '../app/utils/motivos'
 import { reiniciarInstanciaCompartidaParaPruebas } from '../app/composables/useEstadoModeracion'
@@ -79,9 +81,11 @@ function habilitarRenderCliente(
 
 habilitarRenderCliente(PanelContenedor, fuentePanelContenedor)
 habilitarRenderCliente(DialogoConfirmacionCierre, fuenteDialogoConfirmacionCierre)
+habilitarRenderCliente(DialogoEdicionAutoridades, fuenteDialogoEdicionAutoridades)
 habilitarRenderCliente(PanelSesionVotacion, fuentePanelSesionVotacion, {
   PanelContenedor,
   DialogoConfirmacionCierre,
+  DialogoEdicionAutoridades,
 })
 
 async function renderizarSSR(
@@ -359,7 +363,7 @@ describe('WP-022: Preparación, presencia, autoridades, sesión y advertencia de
   // 4. SESION_ABIERTA Y AUTORIDADES (SSR Y M1)
   // ===========================================================================
   describe('4. Estado SESION_ABIERTA (Estructura y M1)', () => {
-    it('muestra número inmutable y autoridades en sesión sin repetir el quórum global (WP-036)', async () => {
+    it('muestra la franja compacta sin inputs permanentes ni quórum repetido', async () => {
       const estado = crearEstadoBase({
         estado_global: 'SESION_ABIERTA',
         sesion: {
@@ -391,10 +395,10 @@ describe('WP-022: Preparación, presencia, autoridades, sesión y advertencia de
       expect(html).not.toContain('data-testid="badge-quorum-resumen-sesion"')
       expect(html).not.toContain('Quórum legal')
       expect(html).not.toContain('9 / 7 presentes')
-      // Los controles de autoridades siguen siendo comandos y se conservan.
-      expect(html).toContain('data-testid="input-presidencia-sesion"')
-      expect(html).toContain('data-testid="input-secretaria-sesion"')
-      expect(html).toContain('data-testid="btn-actualizar-autoridades"')
+      expect(html).toContain('data-testid="franja-sesion-abierta"')
+      expect(html).not.toContain('data-testid="input-presidencia-sesion"')
+      expect(html).not.toContain('data-testid="input-secretaria-sesion"')
+      expect(html).toContain('data-testid="btn-editar-autoridades"')
       expect(html).toContain('data-testid="btn-cerrar-sesion"')
     })
   })
@@ -751,7 +755,7 @@ describe('WP-022: Preparación, presencia, autoridades, sesión y advertencia de
       expect(mockCliente.cancelarPreparacion).toHaveBeenCalledTimes(1)
     })
 
-    it('N2.G — actualiza autoridades mediante inputs reales aunque exista una votación', async () => {
+    it('N2.G — abre el modal y actualiza autoridades aunque exista una votación', async () => {
       const mockCliente = crearMockCliente()
       const estado = crearEstadoSesionAbierta({
         votacion: {
@@ -766,17 +770,74 @@ describe('WP-022: Preparación, presencia, autoridades, sesión y advertencia de
         props: { estado, clienteInyectado: mockCliente },
       })
 
+      expect(wrapper.find('[data-testid="input-presidencia-sesion"]').exists()).toBe(false)
+      await wrapper.get('[data-testid="btn-editar-autoridades"]').trigger('click')
+      expect(wrapper.get('[data-testid="dialogo-edicion-autoridades"]').exists()).toBe(true)
       await wrapper
-        .get('[data-testid="input-presidencia-sesion"]')
+        .get('[data-testid="input-presidencia-modal"]')
         .setValue('Dra. Nueva Presidencia')
-      await wrapper.get('[data-testid="input-secretaria-sesion"]').setValue('Lic. Nueva Secretaría')
-      await wrapper.get('[data-testid="btn-actualizar-autoridades"]').trigger('click')
+      await wrapper.get('[data-testid="input-secretaria-modal"]').setValue('Lic. Nueva Secretaría')
+      await wrapper.get('[data-testid="btn-guardar-autoridades"]').trigger('click')
       await flushPromises()
 
       expect(mockCliente.actualizarSesion).toHaveBeenCalledWith({
         presidencia: 'Dra. Nueva Presidencia',
         secretaria_legislativa: 'Lic. Nueva Secretaría',
       })
+      expect(wrapper.find('[data-testid="dialogo-edicion-autoridades"]').exists()).toBe(false)
+    })
+
+    it('WP-037 — un rechazo al actualizar queda visible y conserva abierto el modal', async () => {
+      const mockCliente = crearMockCliente({
+        actualizarSesion: vi.fn().mockRejectedValue({ mensaje: 'Auditoría no disponible' }),
+      })
+      const wrapper = montarComponenteAislado(PanelSesionVotacion, {
+        props: { estado: crearEstadoSesionAbierta(), clienteInyectado: mockCliente },
+      })
+
+      await wrapper.get('[data-testid="btn-editar-autoridades"]').trigger('click')
+      await wrapper.get('[data-testid="btn-guardar-autoridades"]').trigger('click')
+      await flushPromises()
+
+      expect(wrapper.get('[data-testid="dialogo-edicion-autoridades"]').exists()).toBe(true)
+      expect(wrapper.get('[data-testid="error-autoridades-modal"]').text()).toContain(
+        'Auditoría no disponible',
+      )
+    })
+
+    it('WP-037 — el modal preserva un borrador dirty ante SSE ajeno y cancelar lo descarta', async () => {
+      const wrapper = montarComponenteAislado(PanelSesionVotacion, {
+        props: { estado: crearEstadoSesionAbierta(), clienteInyectado: crearMockCliente() },
+      })
+
+      await wrapper.get('[data-testid="btn-editar-autoridades"]').trigger('click')
+      const presidencia = wrapper.get<HTMLInputElement>('[data-testid="input-presidencia-modal"]')
+      const secretaria = wrapper.get<HTMLInputElement>('[data-testid="input-secretaria-modal"]')
+      await presidencia.setValue('Dra. Borrador local')
+
+      await wrapper.setProps({
+        estado: crearEstadoSesionAbierta({
+          revision: 2,
+          sesion: {
+            fecha_hora_inicio_preparacion: '2026-08-25T10:00:00Z',
+            fecha_hora_apertura: '2026-08-25T10:30:00Z',
+            numero_sesion: 42,
+            presidencia: 'Dr. Cambio ajeno',
+            secretaria_legislativa: 'Lic. Confirmada por SSE',
+          },
+        }),
+      })
+
+      expect(presidencia.element.value).toBe('Dra. Borrador local')
+      expect(secretaria.element.value).toBe('Lic. Confirmada por SSE')
+
+      await wrapper.get('[data-testid="btn-cancelar-autoridades"]').trigger('click')
+      expect(wrapper.find('[data-testid="dialogo-edicion-autoridades"]').exists()).toBe(false)
+
+      await wrapper.get('[data-testid="btn-editar-autoridades"]').trigger('click')
+      expect(
+        wrapper.get<HTMLInputElement>('[data-testid="input-presidencia-modal"]').element.value,
+      ).toBe('Dr. Cambio ajeno')
     })
 
     it('N2.H/CA-063 — sin palabra pendiente cierra directamente y no muestra diálogo', async () => {

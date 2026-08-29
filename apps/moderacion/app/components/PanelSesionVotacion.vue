@@ -7,8 +7,8 @@
  *    - SIN_PREPARAR: Preparación de sala como acción principal.
  *    - PREPARANDO: Carga y edición de número de sesión, Presidencia y Secretaría Legislativa,
  *      apertura formal de sesión cuando se cumplan las capacidades, o cancelación de la preparación.
- *    - SESION_ABIERTA: Número inmutable, edición de autoridades durante la sesión
- *      y cierre formal con advertencia confirmatoria ante palabra pendiente.
+ *    - SESION_ABIERTA: Franja institucional compacta, autoridades mediante modal,
+ *      votación como contenido principal y cierre con advertencia de palabra pendiente.
  * 2. Gestión robusta de borradores locales (H1): Los campos en edición activa (dirty) no son
  *    sobrescritos por snapshots SSE no relacionados (ej. pulsaciones de presencia o test de teclado).
  *    Al cambiar de estado global, los borradores se resincronizan con el nuevo estado institucional.
@@ -21,7 +21,9 @@
  * 5. Gate de comandos mutantes: Solo permite emitir mutaciones cuando existe conexión plena (CONECTADO),
  *    la capacidad correspondiente está habilitada por el backend y no hay solicitudes en vuelo.
  * 6. Feedback de errores legibles sin optimismo ficticio ni alteración del estado confirmado.
- * 7. Integrar DialogoConfirmacionCierre para salvaguarda de oradores y pedidos en cola.
+ * 7. Integrar los diálogos de autoridades y cierre sin reservar altura cuando están cerrados.
+ * 8. El cuerpo de Q1 no tiene scroll en desktop: cada estado reduce tarjetas, espacios y
+ *    textos secundarios para caber completo en la celda asignada por el shell.
  */
 
 import { ref, computed, watch } from 'vue'
@@ -33,6 +35,7 @@ import type {
 import { useEstadoModeracion } from '../composables/useEstadoModeracion'
 import PanelContenedor from './PanelContenedor.vue'
 import DialogoConfirmacionCierre from './DialogoConfirmacionCierre.vue'
+import DialogoEdicionAutoridades from './DialogoEdicionAutoridades.vue'
 import GestionVotacion from './GestionVotacion.vue'
 import { traducirMotivos } from '../utils/motivos'
 
@@ -70,6 +73,7 @@ const mensajeExito = ref<string | null>(null)
 
 // Control de apertura del diálogo de advertencia de cierre
 const mostrarDialogoCierre = ref(false)
+const mostrarDialogoAutoridades = ref(false)
 
 /**
  * Conserva el número de sesión como borrador textual aunque el control sea type="number".
@@ -281,6 +285,14 @@ const puedeActualizarSesion = computed(() => {
   )
 })
 
+const puedeAbrirEdicionAutoridades = computed(() => {
+  return (
+    conectado.value &&
+    (props.estado?.capacidades?.actualizar_sesion?.habilitada ?? false) &&
+    !enviando.value
+  )
+})
+
 const puedeCerrarSesion = computed(() => {
   return (
     conectado.value &&
@@ -407,11 +419,49 @@ async function ejecutarActualizarSesion(): Promise<void> {
       secretaria_legislativa: secretariaInput.value.trim(),
     })
     mensajeExito.value = 'Autoridades actualizadas correctamente.'
+    // El modal puede cerrarse tras la aceptación HTTP sin falsear el estado visible:
+    // la cabecera continúa mostrando exclusivamente el snapshot confirmado.
+    mostrarDialogoAutoridades.value = false
   } catch (error: unknown) {
     mensajeError.value = extraerMensajeError(error, 'Error al actualizar las autoridades')
   } finally {
     enviando.value = false
   }
+}
+
+/**
+ * Abre la edición desde los valores autoritativos vigentes. Mientras el modal está
+ * abierto, el watcher general protege cada campo dirty frente a snapshots SSE ajenos.
+ */
+function abrirEdicionAutoridades(): void {
+  if (!props.estado?.sesion) return
+  limpiarMensajes()
+  presidenciaInput.value = props.estado.sesion.presidencia ?? ''
+  secretariaInput.value = props.estado.sesion.secretaria_legislativa ?? ''
+  presidenciaDirty.value = false
+  secretariaDirty.value = false
+  mostrarDialogoAutoridades.value = true
+}
+
+/** Cancela la edición local y vuelve a los valores confirmados por el backend. */
+function cancelarEdicionAutoridades(): void {
+  if (enviando.value) return
+  presidenciaInput.value = props.estado?.sesion?.presidencia ?? ''
+  secretariaInput.value = props.estado?.sesion?.secretaria_legislativa ?? ''
+  presidenciaDirty.value = false
+  secretariaDirty.value = false
+  mostrarDialogoAutoridades.value = false
+  limpiarMensajes()
+}
+
+function actualizarPresidenciaModal(valor: string): void {
+  presidenciaInput.value = valor
+  presidenciaDirty.value = true
+}
+
+function actualizarSecretariaModal(valor: string): void {
+  secretariaInput.value = valor
+  secretariaDirty.value = true
 }
 
 /**
@@ -487,17 +537,21 @@ const claseBadge = computed(() => {
 <template>
   <PanelContenedor
     titulo="Sesión y votación"
-    subtitulo="Control institucional y ciclo de votaciones"
     data-testid="panel-sesion-votacion"
     :badge="textoBadge"
     :clase-badge="claseBadge"
+    :contenido-sin-scroll="true"
   >
-    <div class="space-y-4 text-sm text-slate-300">
-      <!-- Notificaciones de error o éxito de comandos locales -->
+    <div class="relative h-full min-h-0 text-xs text-slate-300">
+      <!--
+        El feedback flota dentro del viewport y no reserva una fila vacía en Q1.
+        Sigue siendo accesible mediante role y puede cerrarse manualmente.
+      -->
       <div
         v-if="mensajeError"
         data-testid="alerta-error-comando"
-        class="flex items-center justify-between gap-2 rounded-lg border border-rose-700/80 bg-rose-950/80 p-3 text-xs text-rose-200"
+        class="fixed top-16 right-4 z-40 flex max-w-md items-center justify-between gap-2 rounded-lg border border-rose-700/80 bg-rose-950/95 p-2 text-xs text-rose-200 shadow-xl"
+        role="alert"
       >
         <div class="flex items-center gap-2">
           <span class="font-bold text-rose-400">Error:</span>
@@ -515,7 +569,8 @@ const claseBadge = computed(() => {
       <div
         v-if="mensajeExito"
         data-testid="alerta-exito-comando"
-        class="flex items-center justify-between gap-2 rounded-lg border border-emerald-700/80 bg-emerald-950/80 p-3 text-xs text-emerald-200"
+        class="fixed top-16 right-4 z-40 flex max-w-md items-center justify-between gap-2 rounded-lg border border-emerald-700/80 bg-emerald-950/95 p-2 text-xs text-emerald-200 shadow-xl"
+        role="status"
       >
         <div class="flex items-center gap-2">
           <span class="font-bold text-emerald-400">Éxito:</span>
@@ -530,79 +585,45 @@ const claseBadge = computed(() => {
         </button>
       </div>
 
-      <!-- ===================================================================== -->
-      <!-- 1. VISTA: SIN_PREPARAR -->
-      <!-- ===================================================================== -->
       <div
         v-if="estado?.estado_global === 'SIN_PREPARAR'"
         data-testid="vista-sin-preparar"
-        class="flex flex-col gap-4 rounded-xl border border-slate-800 bg-slate-950/60 p-4"
+        class="flex h-full flex-col justify-center gap-3 rounded-lg border border-slate-800 bg-slate-950/50 p-3"
       >
-        <div class="flex items-center gap-3">
-          <div
-            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-800 text-slate-400 border border-slate-700"
-          >
-            🏛
-          </div>
-          <div>
-            <h4 class="font-bold text-slate-100">Sala sin preparar</h4>
-            <p class="text-xs text-slate-400">
-              Inicie la preparación para congelar el padrón, registrar presencias y configurar
-              autoridades.
-            </p>
-          </div>
+        <div>
+          <h3 class="text-sm font-bold text-slate-100">Sala sin preparar</h3>
+          <p class="mt-0.5 text-xs text-slate-400">Iniciá la preparación para operar la sesión.</p>
         </div>
-
-        <!-- Botón principal de Preparar Sala -->
-        <div class="pt-2">
-          <button
-            type="button"
-            data-testid="btn-preparar-sala"
-            class="flex w-full items-center justify-center gap-2 rounded-lg bg-cyan-600 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-slate-950 shadow-md hover:bg-cyan-500 active:bg-cyan-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            :disabled="!puedePrepararSala"
-            @click="ejecutarPrepararSala"
-          >
-            <span
-              v-if="enviando"
-              class="inline-block h-3 w-3 animate-spin rounded-full border-2 border-slate-950 border-t-transparent"
-            />
-            <span>{{ enviando ? 'Preparando sala...' : 'Preparar sala' }}</span>
-          </button>
-
-          <!-- Motivos de bloqueo si preparar_sala está deshabilitada -->
-          <div
-            v-if="!puedePrepararSala && motivosPrepararSala.length > 0"
-            data-testid="motivos-preparar-sala"
-            class="mt-2 space-y-1 rounded bg-slate-900/80 p-2 text-[11px] text-amber-300 border border-slate-800"
-          >
-            <p v-for="(motivo, idx) in motivosPrepararSala" :key="idx">• {{ motivo }}</p>
-          </div>
-        </div>
+        <button
+          type="button"
+          data-testid="btn-preparar-sala"
+          class="flex w-full items-center justify-center gap-2 rounded-lg bg-cyan-600 px-4 py-2 text-xs font-bold uppercase tracking-wider text-slate-950 hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-40"
+          :disabled="!puedePrepararSala"
+          @click="ejecutarPrepararSala"
+        >
+          <span
+            v-if="enviando"
+            class="inline-block h-3 w-3 animate-spin rounded-full border-2 border-slate-950 border-t-transparent"
+          />
+          {{ enviando ? 'Preparando sala...' : 'Preparar sala' }}
+        </button>
+        <p
+          v-if="!puedePrepararSala && motivosPrepararSala.length > 0"
+          data-testid="motivos-preparar-sala"
+          class="text-[11px] text-amber-300"
+        >
+          {{ motivosPrepararSala.join(' · ') }}
+        </p>
       </div>
 
-      <!-- ===================================================================== -->
-      <!-- 2. VISTA: PREPARANDO -->
-      <!-- ===================================================================== -->
       <div
         v-else-if="estado?.estado_global === 'PREPARANDO'"
         data-testid="vista-preparando"
-        class="space-y-4 rounded-xl border border-cyan-900/40 bg-slate-950/60 p-4"
+        class="flex h-full flex-col gap-2 rounded-lg border border-cyan-900/50 bg-slate-950/50 p-2"
       >
-        <div class="flex items-center justify-between border-b border-slate-800 pb-2">
-          <div class="flex items-center gap-2">
-            <span class="inline-block h-2.5 w-2.5 rounded-full bg-cyan-400 animate-pulse" />
-            <h4 class="font-bold text-slate-100">Etapa de preparación de sala</h4>
-          </div>
-          <span class="text-xs font-mono text-cyan-400">Padrón congelado</span>
-        </div>
-
-        <!-- Formulario de carga y edición de número y autoridades -->
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <!-- Número de Sesión -->
-          <div>
-            <label for="prep-numero-sesion" class="block text-xs font-semibold text-slate-300 mb-1">
-              Sesión Nº
-            </label>
+        <div class="grid grid-cols-1 gap-2 sm:grid-cols-[0.55fr_1fr_1fr]">
+          <label for="prep-numero-sesion" class="text-[11px] font-semibold text-slate-300">
+            Sesión Nº
             <input
               id="prep-numero-sesion"
               :value="numeroSesionInput"
@@ -610,232 +631,146 @@ const claseBadge = computed(() => {
               min="1"
               step="1"
               data-testid="input-numero-sesion"
-              placeholder="Ej: 42"
-              class="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs text-slate-100 placeholder-slate-500 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 disabled:opacity-50"
+              class="mt-0.5 w-full rounded border border-slate-700 bg-slate-900 px-2 py-1.5 text-xs text-slate-100 focus:border-cyan-500 focus:outline-none disabled:opacity-50"
               :disabled="enviando || !conectado"
               @input="manejarInputNumeroSesion"
             />
-          </div>
-
-          <!-- Presidencia -->
-          <div>
-            <label for="prep-presidencia" class="block text-xs font-semibold text-slate-300 mb-1">
-              Presidencia
-            </label>
+          </label>
+          <label for="prep-presidencia" class="text-[11px] font-semibold text-slate-300">
+            Presidencia
             <input
               id="prep-presidencia"
               v-model="presidenciaInput"
               type="text"
               data-testid="input-presidencia"
-              placeholder="Nombre de autoridad"
-              class="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs text-slate-100 placeholder-slate-500 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 disabled:opacity-50"
+              class="mt-0.5 w-full rounded border border-slate-700 bg-slate-900 px-2 py-1.5 text-xs text-slate-100 focus:border-cyan-500 focus:outline-none disabled:opacity-50"
               :disabled="enviando || !conectado"
               @input="presidenciaDirty = true"
             />
-          </div>
-
-          <!-- Secretaría Legislativa -->
-          <div>
-            <label for="prep-secretaria" class="block text-xs font-semibold text-slate-300 mb-1">
-              Secretaría Legislativa
-            </label>
+          </label>
+          <label for="prep-secretaria" class="text-[11px] font-semibold text-slate-300">
+            Secretaría Legislativa
             <input
               id="prep-secretaria"
               v-model="secretariaInput"
               type="text"
               data-testid="input-secretaria"
-              placeholder="Nombre de autoridad"
-              class="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs text-slate-100 placeholder-slate-500 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 disabled:opacity-50"
+              class="mt-0.5 w-full rounded border border-slate-700 bg-slate-900 px-2 py-1.5 text-xs text-slate-100 focus:border-cyan-500 focus:outline-none disabled:opacity-50"
               :disabled="enviando || !conectado"
               @input="secretariaDirty = true"
             />
-          </div>
+          </label>
         </div>
 
-        <!-- Botón para guardar/actualizar preparación -->
-        <div class="flex justify-end">
+        <div class="flex flex-wrap items-center justify-end gap-2 border-t border-slate-800 pt-2">
           <button
             type="button"
             data-testid="btn-guardar-preparacion"
-            class="rounded-lg border border-cyan-700 bg-cyan-950/80 px-3 py-1.5 text-xs font-semibold text-cyan-200 hover:bg-cyan-900 active:bg-cyan-950 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            class="rounded border border-cyan-700 bg-cyan-950 px-3 py-1.5 text-[11px] font-semibold text-cyan-200 disabled:opacity-40"
             :disabled="!puedeActualizarPreparacion"
             @click="ejecutarActualizarPreparacion"
           >
-            Guardar datos de sesión
+            Guardar datos
+          </button>
+          <button
+            type="button"
+            data-testid="btn-cancelar-preparacion"
+            class="rounded border border-slate-700 bg-slate-800 px-3 py-1.5 text-[11px] font-semibold text-rose-300 disabled:opacity-40"
+            :disabled="!puedeCancelarPreparacion"
+            @click="ejecutarCancelarPreparacion"
+          >
+            Cancelar preparación
+          </button>
+          <button
+            type="button"
+            data-testid="btn-abrir-sesion"
+            class="rounded bg-emerald-600 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-950 disabled:opacity-40"
+            :disabled="!puedeAbrirSesion"
+            @click="ejecutarAbrirSesion"
+          >
+            {{ enviando ? 'Abriendo...' : 'Abrir sesión' }}
           </button>
         </div>
-
-        <!-- Acciones institucionales: Abrir sesión y Cancelar preparación -->
-        <div class="flex flex-col gap-2 pt-2 border-t border-slate-800">
-          <div class="flex flex-wrap items-center justify-between gap-2">
-            <button
-              type="button"
-              data-testid="btn-cancelar-preparacion"
-              class="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-semibold text-rose-300 hover:bg-slate-700 active:bg-slate-900 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-              :disabled="!puedeCancelarPreparacion"
-              @click="ejecutarCancelarPreparacion"
-            >
-              Cancelar preparación
-            </button>
-
-            <button
-              type="button"
-              data-testid="btn-abrir-sesion"
-              class="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold uppercase tracking-wider text-slate-950 shadow-md hover:bg-emerald-500 active:bg-emerald-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-              :disabled="!puedeAbrirSesion"
-              @click="ejecutarAbrirSesion"
-            >
-              <span
-                v-if="enviando"
-                class="inline-block h-3 w-3 animate-spin rounded-full border-2 border-slate-950 border-t-transparent"
-              />
-              <span>{{ enviando ? 'Abriendo...' : 'Abrir sesión' }}</span>
-            </button>
-          </div>
-
-          <!-- Motivos de bloqueo de apertura si abrir_sesion está deshabilitada -->
-          <div
-            v-if="!puedeAbrirSesion && motivosAbrirSesion.length > 0"
-            data-testid="motivos-abrir-sesion"
-            class="space-y-1 rounded bg-slate-900/90 p-2 text-xs text-amber-300 border border-slate-800"
-          >
-            <p class="font-bold text-[11px] uppercase tracking-wider text-amber-400">
-              Requisitos pendientes para abrir sesión:
-            </p>
-            <p v-for="(motivo, idx) in motivosAbrirSesion" :key="idx" class="text-slate-300">
-              • {{ motivo }}
-            </p>
-          </div>
-        </div>
+        <p
+          v-if="!puedeAbrirSesion && motivosAbrirSesion.length > 0"
+          data-testid="motivos-abrir-sesion"
+          class="text-[11px] leading-tight text-amber-300"
+        >
+          {{ motivosAbrirSesion.join(' · ') }}
+        </p>
       </div>
 
-      <!-- ===================================================================== -->
-      <!-- 3. VISTA: SESION_ABIERTA -->
-      <!-- ===================================================================== -->
       <div
         v-else-if="estado?.estado_global === 'SESION_ABIERTA'"
         data-testid="vista-sesion-abierta"
-        class="space-y-4 rounded-xl border border-emerald-900/40 bg-slate-950/60 p-4"
+        class="flex h-full min-h-0 flex-col gap-2"
       >
-        <div class="flex items-center justify-between border-b border-slate-800 pb-2">
-          <div class="flex items-center gap-2">
-            <span class="inline-block h-2.5 w-2.5 rounded-full bg-emerald-400" />
-            <h4 class="font-bold text-slate-100">Sesión formal abierta</h4>
-          </div>
-          <!-- Número de sesión presentado como dato inmutable -->
-          <span
-            data-testid="numero-sesion-inmutable"
-            class="rounded bg-emerald-950 px-2.5 py-0.5 text-xs font-bold text-emerald-300 border border-emerald-700"
-          >
+        <div
+          data-testid="franja-sesion-abierta"
+          class="flex shrink-0 flex-wrap items-center justify-between gap-2 rounded-lg border border-emerald-900/60 bg-emerald-950/25 px-2 py-1.5"
+        >
+          <span data-testid="numero-sesion-inmutable" class="font-bold text-emerald-300">
             Sesión Nº {{ estado.sesion?.numero_sesion }}
           </span>
-        </div>
-
-        <!-- Edición de autoridades durante sesión abierta -->
-        <div class="space-y-3">
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label
-                for="sesion-presidencia"
-                class="block text-xs font-semibold text-slate-300 mb-1"
-              >
-                Presidencia en sesión
-              </label>
-              <input
-                id="sesion-presidencia"
-                v-model="presidenciaInput"
-                type="text"
-                data-testid="input-presidencia-sesion"
-                placeholder="Nombre de autoridad"
-                class="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs text-slate-100 placeholder-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 disabled:opacity-50"
-                :disabled="enviando || !conectado"
-                @input="presidenciaDirty = true"
-              />
-            </div>
-
-            <div>
-              <label
-                for="sesion-secretaria"
-                class="block text-xs font-semibold text-slate-300 mb-1"
-              >
-                Secretaría Legislativa en sesión
-              </label>
-              <input
-                id="sesion-secretaria"
-                v-model="secretariaInput"
-                type="text"
-                data-testid="input-secretaria-sesion"
-                placeholder="Nombre de autoridad"
-                class="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs text-slate-100 placeholder-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 disabled:opacity-50"
-                :disabled="enviando || !conectado"
-                @input="secretariaDirty = true"
-              />
-            </div>
-          </div>
-
-          <div class="flex justify-end">
+          <div class="flex items-center gap-2">
             <button
               type="button"
-              data-testid="btn-actualizar-autoridades"
-              class="rounded-lg border border-emerald-700 bg-emerald-950/80 px-3 py-1.5 text-xs font-semibold text-emerald-200 hover:bg-emerald-900 active:bg-emerald-950 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-              :disabled="!puedeActualizarSesion"
-              @click="ejecutarActualizarSesion"
+              data-testid="btn-editar-autoridades"
+              class="rounded border border-emerald-700 bg-emerald-950 px-2.5 py-1 text-[11px] font-semibold text-emerald-200 disabled:opacity-40"
+              :disabled="!puedeAbrirEdicionAutoridades"
+              @click="abrirEdicionAutoridades"
             >
-              Actualizar autoridades
+              Editar autoridades
+            </button>
+            <button
+              type="button"
+              data-testid="btn-cerrar-sesion"
+              class="rounded border border-rose-700 bg-rose-950 px-2.5 py-1 text-[11px] font-semibold text-rose-200 disabled:opacity-40"
+              :disabled="!puedeCerrarSesion"
+              @click="iniciarCerrarSesion"
+            >
+              {{ enviando ? 'Cerrando...' : 'Cerrar sesión' }}
             </button>
           </div>
         </div>
 
-        <!--
-          El ciclo de votación vive en un componente enfocado para que la gestión de
-          borradores, CA-062, finalización y desempate no se mezcle con autoridades.
-          Recibe la conexión ya resuelta por este panel y adopta siempre la votación
-          proyectada en `estado`, sin mantener una copia institucional paralela.
-        -->
         <GestionVotacion
+          class="min-h-0 flex-1"
           :estado="estado"
           :cliente="cliente"
           :conectado="conectado"
           :punto-preseleccionado="puntoPreseleccionado ?? null"
         />
 
-        <!-- Acción de Cerrar Sesión -->
-        <div class="flex flex-col gap-2 pt-3 border-t border-slate-800">
-          <div class="flex justify-end">
-            <button
-              type="button"
-              data-testid="btn-cerrar-sesion"
-              class="flex items-center gap-1.5 rounded-lg border border-rose-700 bg-rose-950/80 px-4 py-2 text-xs font-bold uppercase tracking-wider text-rose-200 hover:bg-rose-900 active:bg-rose-950 shadow-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-              :disabled="!puedeCerrarSesion"
-              @click="iniciarCerrarSesion"
-            >
-              <span
-                v-if="enviando"
-                class="inline-block h-3 w-3 animate-spin rounded-full border-2 border-rose-400 border-t-transparent"
-              />
-              <span>{{ enviando ? 'Cerrando sesión...' : 'Cerrar sesión' }}</span>
-            </button>
-          </div>
-
-          <!-- Motivos de bloqueo si cerrar_sesion está deshabilitada -->
-          <div
-            v-if="!puedeCerrarSesion && motivosCerrarSesion.length > 0"
-            data-testid="motivos-cerrar-sesion"
-            class="space-y-1 rounded bg-slate-900/90 p-2 text-xs text-amber-300 border border-slate-800"
-          >
-            <p v-for="(motivo, idx) in motivosCerrarSesion" :key="idx">• {{ motivo }}</p>
-          </div>
-        </div>
+        <p
+          v-if="!puedeCerrarSesion && motivosCerrarSesion.length > 0"
+          data-testid="motivos-cerrar-sesion"
+          class="shrink-0 text-[11px] leading-tight text-amber-300"
+        >
+          {{ motivosCerrarSesion.join(' · ') }}
+        </p>
       </div>
 
-      <!-- Estado inicial de carga si no hay snapshot -->
       <div
         v-else
-        class="p-6 text-center text-xs text-slate-400 border border-dashed border-slate-800 rounded-lg"
+        class="flex h-full items-center justify-center rounded-lg border border-dashed border-slate-800 p-4 text-center text-xs text-slate-400"
       >
         Conectando y esperando estado autoritativo del backend...
       </div>
     </div>
+
+    <DialogoEdicionAutoridades
+      :abierto="mostrarDialogoAutoridades"
+      :presidencia="presidenciaInput"
+      :secretaria="secretariaInput"
+      :puede-guardar="puedeActualizarSesion"
+      :enviando="enviando"
+      :mensaje-error="mostrarDialogoAutoridades ? mensajeError : null"
+      @actualizar-presidencia="actualizarPresidenciaModal"
+      @actualizar-secretaria="actualizarSecretariaModal"
+      @guardar="ejecutarActualizarSesion"
+      @cancelar="cancelarEdicionAutoridades"
+    />
 
     <!-- Diálogo de confirmación ante cierre de sesión con palabra pendiente -->
     <DialogoConfirmacionCierre

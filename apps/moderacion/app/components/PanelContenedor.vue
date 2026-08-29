@@ -11,6 +11,13 @@
  * Cada cuadrante ahorra así altura de chrome, que es la que necesita la grilla 2×2 para
  * entrar completa a 1366×768. El componente nunca fija su altura en píxeles: siempre
  * ocupa el 100 % de la celda de grilla que le asigna el shell.
+ *
+ * WP-037 agrega una excepción explícita para Q1: `contenidoSinScroll` cambia el
+ * cuerpo a `overflow-hidden` desde el breakpoint desktop. El panel de Sesión y
+ * votación debe componer todos sus estados dentro del alto disponible y sus pruebas
+ * verifican además que el contenido no quede recortado (`scrollHeight <= clientHeight`).
+ * En pantallas menores vuelve el scroll defensivo para preservar la adaptación; los
+ * demás cuadrantes siempre conservan el scroll aislado que necesitan para colecciones.
  */
 
 defineProps<{
@@ -24,6 +31,8 @@ defineProps<{
   claseBadge?: string
   /** Identificador de pruebas para Playwright / Vitest */
   dataTestid?: string
+  /** Desactiva el scroll interno en desktop cuando el contenido debe caber completo. */
+  contenidoSinScroll?: boolean
 }>()
 </script>
 
@@ -59,7 +68,11 @@ defineProps<{
     </header>
 
     <!-- Cuerpo del panel con scroll vertical interno aislado -->
-    <div class="flex-1 min-h-0 overflow-y-auto p-3">
+    <div
+      data-testid="cuerpo-panel"
+      class="flex-1 min-h-0"
+      :class="contenidoSinScroll ? 'overflow-y-auto p-2 lg:overflow-hidden' : 'overflow-y-auto p-3'"
+    >
       <slot />
     </div>
   </section>

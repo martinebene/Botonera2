@@ -207,7 +207,7 @@ describe('Componentes del Shell de Moderación', () => {
 
       expect(html).toContain('data-testid="panel-sesion-votacion"')
       expect(html).toContain('Sesión y votación')
-      expect(html).toContain('PREPARANDO')
+      expect(html).toContain('Preparando sala')
       expect(html).toContain('Dra. García')
     })
   })
