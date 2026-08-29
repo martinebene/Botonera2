@@ -65,6 +65,7 @@ export function obtenerRamaActual(raiz = RAIZ_REPOSITORIO) {
       cwd: raiz,
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'ignore'],
+      timeout: 10000,
     }).trim()
   } catch (error) {
     throw new Error(`No se pudo determinar la rama Git actual: ${error.message}`)
@@ -364,7 +365,7 @@ export function lanzarProcesosHijos(configuracion) {
 
   const procesos = []
 
-  // 1. Backend FastAPI en Uvicorn con autoreload
+  // 1. Backend FastAPI en Uvicorn con autoreload observando el código Python de backend
   const procesoBackend = spawn(
     comandoUv,
     [
@@ -380,8 +381,6 @@ export function lanzarProcesosHijos(configuracion) {
       '--reload',
       '--reload-dir',
       'apps/backend/src',
-      '--reload-dir',
-      'config',
     ],
     {
       cwd: raiz,
@@ -389,6 +388,7 @@ export function lanzarProcesosHijos(configuracion) {
       stdio: 'pipe',
     },
   )
+  conectarSalidaProceso(procesoBackend, 'Backend')
   procesos.push({ nombre: 'FastAPI Backend', proceso: procesoBackend })
 
   // 2. Moderación (Nuxt / Vite HMR)
@@ -412,6 +412,7 @@ export function lanzarProcesosHijos(configuracion) {
       stdio: 'pipe',
     },
   )
+  conectarSalidaProceso(procesoModeracion, 'Moderacion')
   procesos.push({ nombre: 'Moderación (Nuxt)', proceso: procesoModeracion })
 
   // 3. Recinto (Nuxt / Vite HMR)
@@ -435,6 +436,7 @@ export function lanzarProcesosHijos(configuracion) {
       stdio: 'pipe',
     },
   )
+  conectarSalidaProceso(procesoRecinto, 'Recinto')
   procesos.push({ nombre: 'Recinto (Nuxt)', proceso: procesoRecinto })
 
   // 4. Simulador (Nuxt / Vite HMR)
@@ -458,9 +460,42 @@ export function lanzarProcesosHijos(configuracion) {
       stdio: 'pipe',
     },
   )
+  conectarSalidaProceso(procesoSimulador, 'Simulador')
   procesos.push({ nombre: 'Simulador (Nuxt)', proceso: procesoSimulador })
 
   return procesos
+}
+
+/**
+ * Conecta los flujos stdout y stderr de un proceso hijo a la terminal del coordinador,
+ * prefijando cada línea con la etiqueta del componente para trazabilidad y diagnóstico claro.
+ *
+ * Al consumir activamente los flujos de datos mediante eventos 'data', se previene
+ * que los buffers de tubería (pipe) del sistema operativo se llenen y bloqueen los procesos.
+ */
+export function conectarSalidaProceso(proceso, etiqueta) {
+  const canalizarFlujo = (stream, destino) => {
+    if (!stream) return
+    let remanente = ''
+    stream.on('data', (fragmento) => {
+      remanente += fragmento.toString('utf8')
+      const lineas = remanente.split('\n')
+      remanente = lineas.pop() ?? ''
+      for (const linea of lineas) {
+        if (linea.trim().length > 0) {
+          destino.write(`[${etiqueta}] ${linea}\n`)
+        }
+      }
+    })
+    stream.on('end', () => {
+      if (remanente.trim().length > 0) {
+        destino.write(`[${etiqueta}] ${remanente}\n`)
+      }
+    })
+  }
+
+  canalizarFlujo(proceso.stdout, process.stdout)
+  canalizarFlujo(proceso.stderr, process.stderr)
 }
 
 /**

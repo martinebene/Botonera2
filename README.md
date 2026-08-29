@@ -195,7 +195,7 @@ pnpm dev:stack:hot
    git pull --ff-only origin main
    ```
 4. Los watchers detectan los archivos actualizados y Vite propaga los cambios por HMR a las tres SPA sin necesidad de ejecutar `pnpm build`, sin recargar la página (`Ctrl+F5`) y sin reiniciar el stack.
-5. Si el cambio afectó código Python del backend (`apps/backend/src` o `config/`), Uvicorn reinicia automáticamente el proceso FastAPI. Como el estado institucional es deliberadamente volátil en memoria, el sistema vuelve a `SIN_PREPARAR`.
+5. Si el cambio afectó código Python del backend (`apps/backend/src`), Uvicorn reinicia automáticamente el proceso FastAPI. Como el estado institucional es deliberadamente volátil en memoria, el sistema vuelve a `SIN_PREPARAR`. Modificaciones en archivos de configuración no Python (`config/*.toml` o `config/*.csv`) requieren reiniciar el stack manualmente porque el reloader estándar de Uvicorn vigila exclusivamente archivos Python.
 6. Para detener todo el árbol de procesos y liberar los puertos auxiliares, presionar `Ctrl+C`.
 
 > **Nota para pruebas del WP**: El comando rechaza ejecutarse si el checkout no está en la rama `main`. Para validar el propio candidato en ramas de desarrollo se admite la excepción explícita `--allow-non-main` (ej. `pnpm dev:stack:hot --allow-non-main`). Esta opción no debe usarse como flujo habitual.

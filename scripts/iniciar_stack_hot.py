@@ -85,6 +85,7 @@ def obtener_rama_actual(raiz: Path = RAIZ_REPOSITORIO) -> str:
             capture_output=True,
             text=True,
             check=True,
+            timeout=10,
         )
         return resultado.stdout.strip()
     except subprocess.CalledProcessError as error:

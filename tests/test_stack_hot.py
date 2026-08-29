@@ -7,8 +7,10 @@ enrutamiento del servidor proxy bajo el mismo origen.
 
 from __future__ import annotations
 
+import json
 import socket
 import subprocess
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -148,17 +150,124 @@ def test_puerto_en_uso_detecta_ocupacion_y_liberacion() -> None:
     assert puerto_en_uso(puerto, "127.0.0.1") is False
 
 
+def test_verificar_rama_main_node_hermetico(tmp_path: Path) -> None:
+    """Verifica herméticamente en Node que verificarRamaMain valida y rechaza ramas.
+
+    No muta el repositorio del checkout principal ni depende de la rama activa.
+    """
+
+    import os
+
+    env_git = {
+        **os.environ,
+        "GIT_AUTHOR_NAME": "Test",
+        "GIT_AUTHOR_EMAIL": "test@example.com",
+        "GIT_COMMITTER_NAME": "Test",
+        "GIT_COMMITTER_EMAIL": "test@example.com",
+    }
+
+    repo_no_main = tmp_path / "repo_no_main"
+    repo_no_main.mkdir()
+    subprocess.run(
+        ["git", "init", "-b", "rama-desarrollo"],
+        cwd=repo_no_main,
+        check=True,
+        capture_output=True,
+        timeout=10,
+        env=env_git,
+    )
+    subprocess.run(
+        ["git", "commit", "--allow-empty", "-m", "inicial"],
+        cwd=repo_no_main,
+        check=True,
+        capture_output=True,
+        timeout=10,
+        env=env_git,
+    )
+
+    repo_main = tmp_path / "repo_main"
+    repo_main.mkdir()
+    subprocess.run(
+        ["git", "init", "-b", "main"],
+        cwd=repo_main,
+        check=True,
+        capture_output=True,
+        timeout=10,
+        env=env_git,
+    )
+    subprocess.run(
+        ["git", "commit", "--allow-empty", "-m", "inicial"],
+        cwd=repo_main,
+        check=True,
+        capture_output=True,
+        timeout=10,
+        env=env_git,
+    )
+
+    codigo_prueba_node = f"""
+import assert from 'node:assert';
+import {{ verificarRamaMain }} from './scripts/iniciar_stack_hot.mjs';
+
+const rutaNoMain = {json.dumps(str(repo_no_main))};
+const rutaMain = {json.dumps(str(repo_main))};
+
+// 1. En rama distinta de main sin flag, debe lanzar error explícito
+let errorLanzado = false;
+try {{
+  verificarRamaMain({{}}, rutaNoMain);
+}} catch (error) {{
+  errorLanzado = true;
+  assert(
+    error.message.includes('destinado exclusivamente al checkout coordinador de la rama `main`'),
+    'El mensaje de error debe indicar que está destinado a main: ' + error.message
+  );
+}}
+assert(errorLanzado, 'verificarRamaMain debía arrojar error en rama distinta de main sin flag');
+
+// 2. En rama distinta de main con flag, debe permitir la ejecución
+const resultadoNoMainPermitido = verificarRamaMain({{ permitirRamaNoMain: true }}, rutaNoMain);
+assert.strictEqual(resultadoNoMainPermitido.esMain, false);
+assert.strictEqual(resultadoNoMainPermitido.permitida, true);
+assert.strictEqual(resultadoNoMainPermitido.rama, 'rama-desarrollo');
+
+// 3. En rama main sin flag, debe ser exitoso
+const resultadoMain = verificarRamaMain({{}}, rutaMain);
+assert.strictEqual(resultadoMain.esMain, true);
+assert.strictEqual(resultadoMain.permitida, true);
+assert.strictEqual(resultadoMain.rama, 'main');
+
+console.log('OK_VERIFICAR_RAMA_NODE_HERMETICO');
+"""
+
+    resultado = subprocess.run(
+        ["node", "--input-type=module", "-e", codigo_prueba_node],
+        cwd=RAIZ_REPOSITORIO,
+        capture_output=True,
+        text=True,
+        check=True,
+        timeout=15,
+    )
+    assert "OK_VERIFICAR_RAMA_NODE_HERMETICO" in resultado.stdout
+
+
 def test_script_node_rechaza_rama_no_main_sin_flag() -> None:
-    """El orquestador Node.js falla con código 1 si no está en main ni tiene el flag."""
+    """El orquestador Node.js falla con código 1 si el checkout no está en main ni tiene el flag."""
+
+    _, es_main = verificar_rama_main(permitir_no_main=True)
+    if es_main:
+        pytest.skip(
+            "Checkout en main; la cobertura de rechazo en Node está garantizada"
+            " herméticamente por test_verificar_rama_main_node_hermetico"
+        )
 
     resultado = subprocess.run(
         ["node", "scripts/iniciar_stack_hot.mjs"],
         cwd=RAIZ_REPOSITORIO,
         capture_output=True,
         text=True,
+        timeout=10,
     )
 
-    # Como actualmente estamos en la rama del WP y no en main, debe rechazar
     assert resultado.returncode == 1
     assert "destinado exclusivamente al checkout coordinador de la rama `main`" in resultado.stderr
 
@@ -171,6 +280,7 @@ def test_script_node_rechaza_host_inseguro() -> None:
         cwd=RAIZ_REPOSITORIO,
         capture_output=True,
         text=True,
+        timeout=10,
     )
 
     assert resultado.returncode == 1
@@ -186,6 +296,7 @@ def test_script_node_muestra_ayuda() -> None:
         capture_output=True,
         text=True,
         check=True,
+        timeout=10,
     )
 
     assert "Uso: pnpm dev:stack:hot" in resultado.stdout
@@ -360,6 +471,7 @@ ejecutar().catch((error) => {
         capture_output=True,
         text=True,
         check=True,
+        timeout=20,
     )
 
     assert "OK_PROXY_PRUEBAS" in resultado.stdout
@@ -368,16 +480,12 @@ ejecutar().catch((error) => {
 def test_stack_hot_integrado_completo_con_procesos_reales() -> None:
     """Levanta el stack hot real con --allow-non-main y comprueba readiness, SSE, WS y teardown."""
 
-    import os
     import shutil
 
-    if (
-        os.environ.get("CI")
-        or not (RAIZ_REPOSITORIO / "node_modules").is_dir()
-        or not shutil.which("pnpm")
-    ):
+    if not (RAIZ_REPOSITORIO / "node_modules").is_dir() or not shutil.which("pnpm"):
         pytest.skip(
-            "Prueba E2E de procesos pesados Nuxt dev omitida en CI o sin dependencias completas"
+            "Requiere pnpm y dependencias frontend instaladas (node_modules) para"
+            " levantar los dev servers Nuxt"
         )
 
     codigo_test_e2e = """
@@ -545,7 +653,7 @@ correr().catch(err => {
         capture_output=True,
         text=True,
         check=True,
-        timeout=90,
+        timeout=120,
     )
 
     assert "OK_STACK_E2E_REAL" in resultado.stdout
