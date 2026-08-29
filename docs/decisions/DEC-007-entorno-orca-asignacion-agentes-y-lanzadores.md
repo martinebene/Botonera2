@@ -17,7 +17,7 @@ El 20 de agosto de 2026 se verificó empíricamente sobre el runtime Orca dispon
 - un worktree creado desde `origin/main` parte exactamente del SHA solicitado y queda registrado por Orca;
 - Orca genera una rama local propia derivada del nombre del workspace; en el entorno probado adoptó la forma `<git-username>/wp-NNN-descripcion`;
 - `orca worktree rm` elimina de forma normal el worktree Orca y su rama local cuando el árbol está limpio;
-- Antigravity/AGY, Codex y OpenCode están disponibles en el host; los hooks de estado de agentes están habilitados.
+- Antigravity/AGY, Codex, OpenCode y Claude Code están disponibles como arneses admitidos por el flujo Orca; los hooks/skills de integración se mantienen según las capacidades de cada agente.
 
 También se decidió administrar con mayor cuidado la capacidad/cuota de los agentes. La oferta de modelos, sus capacidades relativas, los límites de suscripciones y las cuotas disponibles cambian con suficiente frecuencia como para que una pareja fija implementador/revisor se vuelva obsoleta rápidamente. Por eso la selección debe resolverse para cada WP con información operativa vigente.
 
@@ -156,6 +156,8 @@ Los modelos y sus capacidades cambian durante la vida del proyecto. Por ello:
 El implementador finalmente autorizado se registra en `PLAN.md` según el flujo vigente. El revisor es una asignación operativa de revisión y no requiere agregar una columna fija al PLAN.
 
 El modelo efectivo utilizado por implementador y revisor debe registrarse en la PR/informe cuando sea relevante para trazabilidad e independencia.
+
+A agosto de 2026, Claude Code con Claude Opus 5 forma parte de las alternativas operativas disponibles del entorno. Esta mención registra capacidad actual para la selección del ORCHESTRATOR; no convierte a Opus 5 en modelo obligatorio ni reemplaza la evaluación dinámica por WP.
 
 ### 7. Revisión independiente
 
