@@ -174,7 +174,8 @@ WP-033 quedó integrado antes de continuar WP-026 y deja disponible el harness m
 |---|---|---|---|---|
 | WP-027 | Completar E2E críticos integrando backend, simulador y ambos frontends | INTEGRADO | WP-007, WP-022, WP-023, WP-024, WP-026, WP-033 | - |
 | WP-028 | Implementar empaquetado y despliegue productivo: SPA, Nginx, systemd, releases y rollback | INTEGRADO | WP-027 | - |
-| WP-029 | Validar bridge/hardware real, regresión funcional y candidato de producción | PENDIENTE | WP-019, WP-020, WP-027, WP-028 | - |
+| WP-034 | Crear simulador visual web de dispositivos lógicos para prueba humana y diagnóstico | PENDIENTE | WP-007, WP-018, WP-028, WP-033 | - |
+| WP-029 | Validar bridge/hardware real, regresión funcional y candidato de producción | PENDIENTE | WP-019, WP-020, WP-027, WP-028, WP-034 | - |
 
 ## Cobertura funcional esperada
 
@@ -212,7 +213,7 @@ WP-001, WP-002, WP-003, WP-004, WP-005, WP-006, WP-007, WP-008, WP-009, WP-010, 
 
 DEC-007, DEC-009, DEC-010, DEC-011, DEC-012, DEC-013, DEC-014, DEC-015, DEC-016 y DEC-017 están vigentes. Orca continúa como entorno operativo preferido mientras esté en uso y `martinebene/Botonera2-Control` es el bus operativo obligatorio de turnos/handoffs conforme DEC-017.
 
-WP-023, WP-024, WP-025, WP-026, WP-027, WP-028 y WP-033 están `INTEGRADO`. WP-028 se integró mediante PR #36 sobre el candidato final `9455752e58caff04852faadcd5ba510dee01abe9`, revisado independientemente por Antigravity/AGY + Gemini 3.7 Flash con 0 BLOQUEANTES, 0 IMPORTANTES y 0 MENORES. El squash `9705c57e93bdb67174f8fba27d5fa2a23c99f3eb` conserva exactamente el mismo tree SHA `f64edc75ce0631676980ca33960a529e6add4093`; CI candidata #256 y CI post-merge #257 terminaron success 8/8. El resultado incorpora empaquetado productivo reproducible por SHA, dos SPA estáticas, Nginx, systemd, releases inmutables, preparación/activación/rollback y un octavo gate CI que verifica dos construcciones completas byte a byte antes del smoke. WP-029 queda como siguiente WP funcional pendiente y no debe iniciarse hasta su planificación/aprobación específica y las consultas funcionales u operativas que correspondan.
+WP-023, WP-024, WP-025, WP-026, WP-027, WP-028 y WP-033 están `INTEGRADO`. WP-028 se integró mediante PR #36 sobre el candidato final `9455752e58caff04852faadcd5ba510dee01abe9`, revisado independientemente por Antigravity/AGY + Gemini 3.7 Flash con 0 BLOQUEANTES, 0 IMPORTANTES y 0 MENORES. El squash `9705c57e93bdb67174f8fba27d5fa2a23c99f3eb` conserva exactamente el mismo tree SHA `f64edc75ce0631676980ca33960a529e6add4093`; CI candidata #256 y CI post-merge #257 terminaron success 8/8. El resultado incorpora empaquetado productivo reproducible por SHA, dos SPA estáticas, Nginx, systemd, releases inmutables, preparación/activación/rollback y un octavo gate CI que verifica dos construcciones completas byte a byte antes del smoke. Antes de WP-029 se incorporó WP-034 para construir una tercera SPA `/simulador/` de dispositivos lógicos, orientada a prueba humana y diagnóstico. WP-034 está `PENDIENTE` y su contrato documental está en `BORRADOR` hasta resolver la política de exposición productiva. WP-029 permanece bloqueado detrás de WP-034 y de cualquier ajuste posterior de interfaz que surja de la campaña humana.
 
 La discrepancia preexistente `D-01..D-12` versus `dev01..dev12` quedó resuelta en WP-033: el fixture de padrón de desarrollo usa `dev01..dev12`, coherente con DEC-006, el simulador y el device-bridge.
 
