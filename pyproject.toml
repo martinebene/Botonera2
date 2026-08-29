@@ -12,7 +12,6 @@ dev = [
     "pyright>=1.1.404,<2",
     "pytest>=8.4,<9",
     "ruff>=0.14,<0.15",
-    "uvicorn>=0.41,<0.42",
 ]
 
 [tool.uv.workspace]
@@ -42,6 +41,7 @@ extraPaths = [
 ]
 include = [
     "apps/backend/src",
+    "deploy",
     "services/device-bridge/src",
     "scripts",
     "tests",

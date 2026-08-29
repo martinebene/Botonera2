@@ -51,7 +51,6 @@ dev = [
     { name = "pyright" },
     { name = "pytest" },
     { name = "ruff" },
-    { name = "uvicorn" },
 ]
 
 [package.metadata]
@@ -63,7 +62,6 @@ dev = [
     { name = "pyright", specifier = ">=1.1.404,<2" },
     { name = "pytest", specifier = ">=8.4,<9" },
     { name = "ruff", specifier = ">=0.14,<0.15" },
-    { name = "uvicorn", specifier = ">=0.41,<0.42" },
 ]
 
 [[package]]
@@ -73,12 +71,14 @@ source = { editable = "apps/backend" }
 dependencies = [
     { name = "fastapi" },
     { name = "python-multipart" },
+    { name = "uvicorn" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "fastapi", specifier = ">=0.116,<1" },
     { name = "python-multipart", specifier = ">=0.0.18,<1" },
+    { name = "uvicorn", specifier = ">=0.41,<0.42" },
 ]
 
 [[package]]
