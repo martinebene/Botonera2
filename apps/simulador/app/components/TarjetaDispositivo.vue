@@ -1,15 +1,18 @@
 <script setup lang="ts">
 /**
- * Tarjeta mínima para un dispositivo lógico individual (ej. dev01..dev12).
+ * Tarjeta mínima para un dispositivo lógico individual (ej. dev01..dev20).
  *
- * Invariantes estrictos de diseño:
+ * Invariantes estrictos de diseño (WP-034 y WP-035):
  * 1. Cada tarjeta contiene ÚNICAMENTE su identificador (devXX) y los seis botones funcionales.
  * 2. NO muestra concejal, banca, presencia, estado de test, estado de palabra, votos,
  *    latencia ni resultados persistentes.
- * 3. La etiqueta de presencia es deliberadamente neutra: "Pres. / Aus. (9)".
- * 4. La distinción entre Afirmativo, Abstención y Negativo utiliza símbolos textuales explícitos
+ * 3. Disposición exacta 2 filas × 3 columnas (WP-035):
+ *    - Fila superior: Presencia (9) / Test (8) / Palabra (7)
+ *    - Fila inferior: Afirmativo (1) / Abstención (2) / Negativo (3)
+ * 4. La etiqueta de presencia es deliberadamente neutra: "Pres. / Aus." (tecla 9).
+ * 5. La distinción entre Afirmativo, Abstención y Negativo utiliza símbolos textuales explícitos
  *    (✓, ○, ✗) además de contraste y color para garantizar accesibilidad.
- * 5. Bloqueo efímero del botón mientras su petición HTTP particular está en vuelo.
+ * 6. Bloqueo efímero del botón mientras su petición HTTP particular está en vuelo.
  */
 
 import { ACCIONES_SIMULADOR, type AccionSimulador } from '../types/simulador'
@@ -39,7 +42,7 @@ function manejarClick(accion: AccionSimulador): void {
 function obtenerClasesBoton(accion: AccionSimulador): string {
   const enVuelo = estaEnVuelo(accion.tecla)
   const base =
-    'relative flex items-center justify-between px-2.5 py-1.5 rounded text-xs font-medium border transition-all duration-100 select-none active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer'
+    'relative flex items-center justify-between px-1.5 py-1 sm:px-2 sm:py-1.5 rounded text-xs font-medium border transition-all duration-100 select-none active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer min-w-0'
 
   if (enVuelo) {
     return `${base} bg-slate-800 border-slate-700 text-slate-400 animate-pulse`
@@ -79,8 +82,8 @@ function obtenerClasesBoton(accion: AccionSimulador): string {
       <span class="text-[10px] text-slate-500 uppercase tracking-wider font-mono">lógico</span>
     </div>
 
-    <!-- Grilla de los seis botones (2 columnas x 3 filas) -->
-    <div class="grid grid-cols-2 gap-1.5">
+    <!-- Grilla de los seis botones: exactamente 2 filas x 3 columnas (WP-035) -->
+    <div class="grid grid-cols-3 gap-1.5">
       <button
         v-for="accion in ACCIONES_SIMULADOR"
         :key="accion.id"
@@ -91,7 +94,7 @@ function obtenerClasesBoton(accion: AccionSimulador): string {
         :title="`${accion.nombre} (Tecla ${accion.tecla})`"
         @click="manejarClick(accion)"
       >
-        <span class="flex items-center gap-1.5 truncate">
+        <span class="flex items-center gap-1 truncate min-w-0">
           <span class="font-bold text-[11px] opacity-80 shrink-0">{{ accion.simbolo }}</span>
           <span class="truncate">{{ accion.nombre }}</span>
         </span>

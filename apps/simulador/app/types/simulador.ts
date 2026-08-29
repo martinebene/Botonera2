@@ -53,35 +53,85 @@ export interface EntradaLogSimulador {
 export type EstadoConexion = 'INICIAL' | 'CONECTADO' | 'RECONECTANDO' | 'DESCONECTADO'
 
 /**
- * Lista canónica de los 12 dispositivos lógicos representados simultáneamente.
+ * Límites canónicos para la cantidad de dispositivos dinámicos en el simulador (WP-035).
+ *
+ * El usuario puede ajustar la cantidad visible entre 1 y 20 dispositivos.
+ * El valor inicial al cargar la SPA es 12.
  */
-export const DISPOSITIVOS_SIMULADOR: readonly string[] = [
-  'dev01',
-  'dev02',
-  'dev03',
-  'dev04',
-  'dev05',
-  'dev06',
-  'dev07',
-  'dev08',
-  'dev09',
-  'dev10',
-  'dev11',
-  'dev12',
-] as const
+export const CANTIDAD_DISPOSITIVOS_MINIMA = 1
+export const CANTIDAD_DISPOSITIVOS_MAXIMA = 20
+export const CANTIDAD_DISPOSITIVOS_POR_DEFECTO = 12
 
 /**
- * Las seis acciones funcionales disponibles en cada tarjeta.
+ * Genera la secuencia continua y ordenada de identificadores lógicos dev01..devNN.
  *
- * Mapeo canónico:
- * - Afirmativo -> '1'
- * - Abstención -> '2'
- * - Negativo   -> '3'
- * - Palabra    -> '7'
- * - Test       -> '8'
- * - Pres. / Aus. -> '9' (etiqueta neutra, sin indicar presencia/ausencia actual)
+ * Por ejemplo:
+ * - cantidad = 8  => ['dev01', 'dev02', ..., 'dev08']
+ * - cantidad = 12 => ['dev01', 'dev02', ..., 'dev12']
+ * - cantidad = 20 => ['dev01', 'dev02', ..., 'dev20']
+ *
+ * Si se solicita un valor fuera del rango 1..20, se ajusta automáticamente a los límites.
+ *
+ * @param cantidad Número de dispositivos deseados a representar.
+ * @returns Lista ordenada de cadenas con formato devXX con padding de 2 dígitos.
+ */
+export function generarIdentificadoresDispositivos(cantidad: number): string[] {
+  // Aseguramos que la cantidad esté acotada entre el mínimo (1) y el máximo (20)
+  const cantidadSaneada = Math.min(
+    Math.max(Math.floor(cantidad), CANTIDAD_DISPOSITIVOS_MINIMA),
+    CANTIDAD_DISPOSITIVOS_MAXIMA,
+  )
+
+  return Array.from({ length: cantidadSaneada }, (_, indice) => {
+    const numero = indice + 1
+    return `dev${String(numero).padStart(2, '0')}`
+  })
+}
+
+/**
+ * Lista canónica predeterminada de 12 dispositivos dev01..dev12.
+ * Mantenida para compatibilidad y como valor de referencia inicial.
+ */
+export const DISPOSITIVOS_SIMULADOR: readonly string[] = Object.freeze(
+  generarIdentificadoresDispositivos(CANTIDAD_DISPOSITIVOS_POR_DEFECTO),
+)
+
+/**
+ * Las seis acciones funcionales disponibles en cada tarjeta, ordenadas exactamente
+ * según la especificación de diseño de WP-035 (grilla de 2 filas x 3 columnas):
+ *
+ * |               | Columna 1              | Columna 2           | Columna 3          |
+ * |---------------|------------------------|---------------------|--------------------|
+ * | Fila superior | Presencia (tecla 9)    | Test (tecla 8)      | Palabra (tecla 7)  |
+ * | Fila inferior | Afirmativo (tecla 1)   | Abstención (tecla 2)| Negativo (tecla 3) |
+ *
+ * Al renderizar con CSS Grid (`grid-cols-3`), los primeros 3 elementos ocupan
+ * la fila superior y los siguientes 3 ocupan la fila inferior.
  */
 export const ACCIONES_SIMULADOR: readonly AccionSimulador[] = [
+  // Fila superior (Columna 1, 2, 3)
+  {
+    id: 'presencia',
+    nombre: 'Pres. / Aus.',
+    tecla: '9',
+    simbolo: '👤',
+    variante: 'presencia',
+  },
+  {
+    id: 'test',
+    nombre: 'Test',
+    tecla: '8',
+    simbolo: '⚡',
+    variante: 'test',
+  },
+  {
+    id: 'palabra',
+    nombre: 'Palabra',
+    tecla: '7',
+    simbolo: '🎤',
+    variante: 'palabra',
+  },
+  // Fila inferior (Columna 1, 2, 3)
   {
     id: 'afirmativo',
     nombre: 'Afirmativo',
@@ -102,26 +152,5 @@ export const ACCIONES_SIMULADOR: readonly AccionSimulador[] = [
     tecla: '3',
     simbolo: '✗',
     variante: 'negativo',
-  },
-  {
-    id: 'palabra',
-    nombre: 'Palabra',
-    tecla: '7',
-    simbolo: '🎤',
-    variante: 'palabra',
-  },
-  {
-    id: 'test',
-    nombre: 'Test',
-    tecla: '8',
-    simbolo: '⚡',
-    variante: 'test',
-  },
-  {
-    id: 'presencia',
-    nombre: 'Pres. / Aus.',
-    tecla: '9',
-    simbolo: '👤',
-    variante: 'presencia',
   },
 ] as const

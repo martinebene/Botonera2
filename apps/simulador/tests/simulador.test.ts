@@ -28,10 +28,17 @@ import {
 } from '@botonera2/api-client'
 import PanelGeneralSimulador from '../app/components/PanelGeneralSimulador.vue'
 import TarjetaDispositivo from '../app/components/TarjetaDispositivo.vue'
+import SelectorCantidad from '../app/components/SelectorCantidad.vue'
 import LogPulsaciones from '../app/components/LogPulsaciones.vue'
 import App from '../app/app.vue'
 import { useSimulador } from '../app/composables/useSimulador'
-import { DISPOSITIVOS_SIMULADOR } from '../app/types/simulador'
+import {
+  CANTIDAD_DISPOSITIVOS_MINIMA,
+  CANTIDAD_DISPOSITIVOS_MAXIMA,
+  CANTIDAD_DISPOSITIVOS_POR_DEFECTO,
+  DISPOSITIVOS_SIMULADOR,
+  generarIdentificadoresDispositivos,
+} from '../app/types/simulador'
 
 /**
  * Fabrica un EstadoModeracion mínimo para pruebas del panel general.
@@ -142,6 +149,43 @@ describe('Simulador Web de Dispositivos Lógicos (WP-034)', () => {
       expect(wrapper.get('[data-testid="btn-dev05-9"]').text()).not.toContain('Ausente')
     })
 
+    it('dispone los seis botones exactamente en grilla 2x3 con orden canónico (WP-035)', () => {
+      const wrapper = mount(TarjetaDispositivo, {
+        props: {
+          dispositivo: 'dev05',
+          peticionesEnVuelo: {},
+        },
+      })
+
+      // Grilla de 3 columnas (2 filas x 3 columnas)
+      const grilla = wrapper.find('.grid-cols-3')
+      expect(grilla.exists()).toBe(true)
+
+      const botones = wrapper.findAll('button')
+      expect(botones).toHaveLength(6)
+
+      // Verificación estricta de orden en el DOM (lectura fila por fila):
+      // Fila superior: Presencia (9), Test (8), Palabra (7)
+      // Fila inferior: Afirmativo (1), Abstención (2), Negativo (3)
+      const teclasEnOrden = botones.map((b) => b.element.getAttribute('data-testid'))
+      expect(teclasEnOrden).toEqual([
+        'btn-dev05-9',
+        'btn-dev05-8',
+        'btn-dev05-7',
+        'btn-dev05-1',
+        'btn-dev05-2',
+        'btn-dev05-3',
+      ])
+
+      // Verificación de símbolos accesibles en ese orden
+      expect(botones[0].text()).toContain('👤')
+      expect(botones[1].text()).toContain('⚡')
+      expect(botones[2].text()).toContain('🎤')
+      expect(botones[3].text()).toContain('✓')
+      expect(botones[4].text()).toContain('○')
+      expect(botones[5].text()).toContain('✗')
+    })
+
     it('no muestra datos individuales institucionales en la tarjeta', () => {
       const wrapper = mount(TarjetaDispositivo, {
         props: {
@@ -209,6 +253,95 @@ describe('Simulador Web de Dispositivos Lógicos (WP-034)', () => {
       expect(botonVotacion.element.disabled).toBe(true)
       // Los demás botones del mismo dispositivo siguen habilitados
       expect(botonPresencia.element.disabled).toBe(false)
+    })
+  })
+
+  describe('Generador y límites de identificadores lógicos (generarIdentificadoresDispositivos)', () => {
+    it('genera la lista continua de identificadores para cualquier cantidad en el rango 1..20', () => {
+      // Valor por defecto (12)
+      const devs12 = generarIdentificadoresDispositivos(12)
+      expect(devs12).toHaveLength(12)
+      expect(devs12[0]).toBe('dev01')
+      expect(devs12[11]).toBe('dev12')
+
+      // Reducción a 8
+      const devs8 = generarIdentificadoresDispositivos(8)
+      expect(devs8).toHaveLength(8)
+      expect(devs8).toEqual([
+        'dev01',
+        'dev02',
+        'dev03',
+        'dev04',
+        'dev05',
+        'dev06',
+        'dev07',
+        'dev08',
+      ])
+
+      // Aumento a 20
+      const devs20 = generarIdentificadoresDispositivos(20)
+      expect(devs20).toHaveLength(20)
+      expect(devs20[19]).toBe('dev20')
+    })
+
+    it('acota estrictamente a los límites 1..20 ante valores fuera de rango', () => {
+      // Por debajo del mínimo (0 o negativo)
+      const bajo = generarIdentificadoresDispositivos(0)
+      expect(bajo).toHaveLength(1)
+      expect(bajo[0]).toBe('dev01')
+
+      // Por encima del máximo (25)
+      const alto = generarIdentificadoresDispositivos(25)
+      expect(alto).toHaveLength(20)
+      expect(alto[19]).toBe('dev20')
+    })
+  })
+
+  describe('Selector compacto de cantidad de dispositivos (SelectorCantidad.vue)', () => {
+    it('muestra la cantidad y no ofrece campo de texto libre', () => {
+      const wrapper = mount(SelectorCantidad, {
+        props: { cantidad: 12, min: 1, max: 20 },
+      })
+
+      expect(wrapper.get('[data-testid="selector-cantidad"]').exists()).toBe(true)
+      expect(wrapper.get('[data-testid="valor-cantidad"]').text()).toBe('12')
+      expect(wrapper.find('input').exists()).toBe(false)
+    })
+
+    it('deshabilita el botón decrementar cuando se alcanza el mínimo 1', () => {
+      const wrapper = mount(SelectorCantidad, {
+        props: { cantidad: 1, min: 1, max: 20 },
+      })
+
+      const btnDisminuir = wrapper.get<HTMLButtonElement>('[data-testid="btn-disminuir-cantidad"]')
+      const btnAumentar = wrapper.get<HTMLButtonElement>('[data-testid="btn-aumentar-cantidad"]')
+
+      expect(btnDisminuir.element.disabled).toBe(true)
+      expect(btnAumentar.element.disabled).toBe(false)
+    })
+
+    it('deshabilita el botón incrementar cuando se alcanza el máximo 20', () => {
+      const wrapper = mount(SelectorCantidad, {
+        props: { cantidad: 20, min: 1, max: 20 },
+      })
+
+      const btnDisminuir = wrapper.get<HTMLButtonElement>('[data-testid="btn-disminuir-cantidad"]')
+      const btnAumentar = wrapper.get<HTMLButtonElement>('[data-testid="btn-aumentar-cantidad"]')
+
+      expect(btnDisminuir.element.disabled).toBe(false)
+      expect(btnAumentar.element.disabled).toBe(true)
+    })
+
+    it('emite eventos decrementar e incrementar al hacer click en los botones habilitados', async () => {
+      const wrapper = mount(SelectorCantidad, {
+        props: { cantidad: 12, min: 1, max: 20 },
+      })
+
+      await wrapper.get('[data-testid="btn-disminuir-cantidad"]').trigger('click')
+      expect(wrapper.emitted('decrementar')).toBeTruthy()
+
+      await wrapper.get('[data-testid="btn-aumentar-cantidad"]').trigger('click')
+      expect(wrapper.emitted('incrementar')).toBeTruthy()
     })
   })
 
@@ -505,15 +638,91 @@ describe('Simulador Web de Dispositivos Lógicos (WP-034)', () => {
       simulador.limpiarLog()
       expect(simulador.entradasLog.value).toHaveLength(0)
     })
+
+    it('administra la cantidad dinámica de dispositivos con valor inicial 12 y límites 1..20 (WP-035)', () => {
+      const simulador = useSimulador()
+
+      // Valor inicial 12
+      expect(simulador.cantidadDispositivos.value).toBe(CANTIDAD_DISPOSITIVOS_POR_DEFECTO)
+      expect(simulador.dispositivosVisibles.value).toHaveLength(12)
+      expect(simulador.dispositivosVisibles.value[0]).toBe('dev01')
+      expect(simulador.dispositivosVisibles.value[11]).toBe('dev12')
+
+      // Reducir de 12 a 8: deja exactamente dev01..dev08
+      for (let i = 0; i < 4; i++) {
+        simulador.decrementarCantidad()
+      }
+      expect(simulador.cantidadDispositivos.value).toBe(8)
+      expect(simulador.dispositivosVisibles.value).toEqual([
+        'dev01',
+        'dev02',
+        'dev03',
+        'dev04',
+        'dev05',
+        'dev06',
+        'dev07',
+        'dev08',
+      ])
+
+      // Reducir hasta el límite inferior (1): no desciende de 1
+      for (let i = 0; i < 15; i++) {
+        simulador.decrementarCantidad()
+      }
+      expect(simulador.cantidadDispositivos.value).toBe(CANTIDAD_DISPOSITIVOS_MINIMA)
+      expect(simulador.dispositivosVisibles.value).toEqual(['dev01'])
+
+      // Aumentar en orden continuo hasta el límite superior (20)
+      for (let i = 0; i < 25; i++) {
+        simulador.incrementarCantidad()
+      }
+      expect(simulador.cantidadDispositivos.value).toBe(CANTIDAD_DISPOSITIVOS_MAXIMA)
+      expect(simulador.dispositivosVisibles.value).toHaveLength(20)
+      expect(simulador.dispositivosVisibles.value[19]).toBe('dev20')
+    })
+
+    it('emite pulsaciones desde identificadores mayores a 12 (dev13..dev20) sin bloqueo frontend (WP-035)', async () => {
+      const respuestaDev13: RespuestaTecla = {
+        aceptada: false,
+        dispositivo: 'dev13',
+        tecla: '9',
+        motivo: 'DISPOSITIVO_NO_ASIGNADO',
+        concejal: null,
+        resultado: null,
+      }
+
+      const clienteMock = {
+        obtenerEstado: vi.fn(),
+        suscribirEstado: vi.fn().mockReturnValue({ cancelar: vi.fn() }),
+        enviarTecla: vi.fn().mockResolvedValue(respuestaDev13),
+      } as unknown as ClienteSimulador
+
+      const simulador = useSimulador({ cliente: clienteMock })
+
+      await simulador.enviarPulsacion('dev13', '9', 'Pres. / Aus.')
+
+      // La pulsación se envió directamente a FastAPI sin filtrado cliente
+      expect(clienteMock.enviarTecla).toHaveBeenCalledWith({
+        dispositivo: 'dev13',
+        tecla: '9',
+      })
+
+      // El rechazo válido se registra normalmente en el log
+      expect(simulador.entradasLog.value).toHaveLength(1)
+      expect(simulador.entradasLog.value[0].dispositivo).toBe('dev13')
+      expect(simulador.entradasLog.value[0].motivo).toBe('DISPOSITIVO_NO_ASIGNADO')
+      expect(simulador.entradasLog.value[0].aceptada).toBe(false)
+    })
   })
 
   describe('Aplicación y Shell completo (app.vue)', () => {
-    it('renderiza cabecera, panel general, los 12 dispositivos dev01..dev12 y el log en pantalla', async () => {
+    it('renderiza cabecera, selector de cantidad, panel general, los 12 dispositivos dev01..dev12 y el log en pantalla', async () => {
       const wrapper = mount(App)
 
-      // 1. Cabecera con distintivo de simulador
+      // 1. Cabecera con distintivo de simulador y selector en 12
       expect(wrapper.find('[data-testid="cabecera-simulador"]').exists()).toBe(true)
       expect(wrapper.find('[data-testid="badge-simulador"]').text()).toContain('Simulador')
+      expect(wrapper.find('[data-testid="selector-cantidad"]').exists()).toBe(true)
+      expect(wrapper.get('[data-testid="valor-cantidad"]').text()).toBe('12')
 
       // 2. Panel general
       expect(wrapper.find('[data-testid="panel-general"]').exists()).toBe(true)
@@ -526,6 +735,38 @@ describe('Simulador Web de Dispositivos Lógicos (WP-034)', () => {
 
       // 4. Log global
       expect(wrapper.find('[data-testid="seccion-log-pulsaciones"]').exists()).toBe(true)
+    })
+
+    it('actualiza dinámicamente las tarjetas visibles al modificar la cantidad en el selector (WP-035)', async () => {
+      const wrapper = mount(App)
+
+      // Inicialmente 12 tarjetas
+      expect(wrapper.get('[data-testid="valor-cantidad"]').text()).toBe('12')
+      expect(wrapper.findAllComponents(TarjetaDispositivo)).toHaveLength(12)
+
+      // Decrementar a 8
+      const btnMenos = wrapper.get('[data-testid="btn-disminuir-cantidad"]')
+      for (let i = 0; i < 4; i++) {
+        await btnMenos.trigger('click')
+      }
+      await wrapper.vm.$nextTick()
+
+      expect(wrapper.get('[data-testid="valor-cantidad"]').text()).toBe('8')
+      const tarjetas8 = wrapper.findAllComponents(TarjetaDispositivo)
+      expect(tarjetas8).toHaveLength(8)
+      expect(wrapper.find('[data-testid="tarjeta-dev08"]').exists()).toBe(true)
+      expect(wrapper.find('[data-testid="tarjeta-dev09"]').exists()).toBe(false)
+
+      // Incrementar hasta 20
+      const btnMas = wrapper.get('[data-testid="btn-aumentar-cantidad"]')
+      for (let i = 0; i < 12; i++) {
+        await btnMas.trigger('click')
+      }
+      await wrapper.vm.$nextTick()
+
+      expect(wrapper.get('[data-testid="valor-cantidad"]').text()).toBe('20')
+      expect(wrapper.findAllComponents(TarjetaDispositivo)).toHaveLength(20)
+      expect(wrapper.find('[data-testid="tarjeta-dev20"]').exists()).toBe(true)
     })
   })
 })
