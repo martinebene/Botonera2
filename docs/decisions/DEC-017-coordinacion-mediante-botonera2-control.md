@@ -16,7 +16,7 @@ Para eliminar ese trabajo mecánico sin convertir el flujo en autónomo, se cre�
 
 `martinebene/Botonera2-Control`
 
-Su protocolo v1.0 implementa un bus de mensajes persistente basado en Git, con un puntero mutable `CURRENT.json`, asignaciones e informes append-only y una compuerta humana obligatoria entre turnos.
+Su protocolo, evolucionado a v1.1, implementa un bus de mensajes persistente basado en Git, con estado mutable `CURRENT.json`, asignaciones e informes append-only y una compuerta humana obligatoria entre turnos. La versión 1.1 admite varias asignaciones activas en paralelo.
 
 ## Decisión
 
@@ -71,30 +71,19 @@ No se requiere una nueva confirmación humana para commits normales, push, tests
 Solo gates expresos —DT-038, aprobaciones humanas reservadas, contradicciones materiales, operaciones destructivas/no autorizadas, conflicto Git no trivial, merge/deploy/cambios persistentes de infraestructura no autorizados, credenciales faltantes o imposibilidad técnica— interrumpen legítimamente el turno antes del handoff.
 
 
-### 3. `CURRENT.json` como puntero operativo
+### 3. `CURRENT.json` como estado operativo
 
-`Botonera2-Control/CURRENT.json` es el puntero mutable que determina:
+`Botonera2-Control/CURRENT.json` es el estado mutable de coordinación y solo lo modifica el ORCHESTRATOR.
 
-- WP operativo;
-- iteración;
-- estado autorizado;
-- siguiente actor;
-- identificador de asignación;
-- ruta exacta de la asignación;
-- ruta exacta del resultado esperado;
-- PR y SHA cuando correspondan.
+Desde protocolo 1.1 puede contener `active_assignments` con cero, una o varias asignaciones activas. Cada entrada determina WP, iteración, siguiente actor, `assignment_id`, `assignment_path`, `expected_response_path`, agente/arnés/modelo cuando corresponda y PR/SHA si existen.
 
-Solo el ORCHESTRATOR modifica `CURRENT.json`.
+Cuando `active_assignments` está presente bajo protocolo 1.1, esa colección es la autoridad de elegibilidad. Los campos escalares históricos pueden conservarse como resumen, pero no autorizan trabajo.
 
-IMPLEMENTER y REVIEWER deben detenerse sin modificar nada si:
+El paralelismo solo se habilita para WPs independientes, con worktrees separados y selección inequívoca por rol/arnés. Cada HUMAN_GATE sigue iniciando manualmente cada turno.
 
-- `next_actor` no coincide con su rol;
-- la asignación indicada no existe;
-- sus metadatos no coinciden con `CURRENT.json`;
-- el resultado esperado ya existe;
-- existe cualquier ambigüedad que impida determinar de forma inequívoca el turno.
+La existencia del resultado esperado consume solo esa asignación. Cambios en otras entradas paralelas no invalidan un turno ya iniciado; solo una modificación/eliminación de la entrada propia o la aparición de su respuesta esperada alteran su elegibilidad.
 
-La existencia del resultado esperado prueba que ese turno ya fue consumido aunque `CURRENT.json` todavía no haya sido actualizado por el ORCHESTRATOR.
+IMPLEMENTER y REVIEWER deben detenerse si no pueden seleccionar exactamente una entrada compatible o si cualquier metadato de su asignación resulta ambiguo.
 
 ### 4. Descubrimiento del trabajo desde una sesión local
 
@@ -104,8 +93,8 @@ Todo agente local que participe como IMPLEMENTER o REVIEWER debe, antes de inter
 2. leer `AGENTS.md` del repositorio de control;
 3. leer `CURRENT.json`;
 4. leer el archivo de rol correspondiente;
-5. ejecutar la regla de elegibilidad del protocolo;
-6. leer exclusivamente la asignación vigente dirigida a su rol;
+5. ejecutar la regla de elegibilidad del protocolo y, en v1.1, seleccionar exactamente una entrada compatible de `active_assignments`;
+6. leer exclusivamente la asignación seleccionada;
 7. recién entonces cargar el WP y las fuentes canónicas necesarias de `martinebene/Botonera2`.
 
 La frase humana breve no contiene por sí misma la tarea. El trabajo autorizado se descubre desde `CURRENT.json` y la asignación indicada.
