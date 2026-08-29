@@ -368,6 +368,18 @@ ejecutar().catch((error) => {
 def test_stack_hot_integrado_completo_con_procesos_reales() -> None:
     """Levanta el stack hot real con --allow-non-main y comprueba readiness, SSE, WS y teardown."""
 
+    import os
+    import shutil
+
+    if (
+        os.environ.get("CI")
+        or not (RAIZ_REPOSITORIO / "node_modules").is_dir()
+        or not shutil.which("pnpm")
+    ):
+        pytest.skip(
+            "Prueba E2E de procesos pesados Nuxt dev omitida en CI o sin dependencias completas"
+        )
+
     codigo_test_e2e = """
 import net from 'node:net';
 import { spawn } from 'node:child_process';
