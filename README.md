@@ -146,11 +146,18 @@ Para desarrollo interactivo existen `pnpm dev:moderacion` y
 `pnpm dev:recinto`; cada servidor conserva su subruta canónica
 (`/moderacion/` y `/recinto/`, respectivamente).
 
-## Entorno integrado de desarrollo
+## Entornos integrados de desarrollo
 
-El harness no productivo permite recorrer el sistema real completo bajo un
-único origen. Desde un checkout limpio y actualizado de `main` dentro de
-`agent-dev`:
+Existen dos modos de desarrollo integrado bajo el mismo origen, según el objetivo de trabajo:
+
+```text
+pnpm dev:stack      -> build estático + FastAPI; harness reproducible sin hot reload
+pnpm dev:stack:hot  -> servidores de desarrollo Nuxt/Vite + HMR + autoreload backend
+```
+
+### 1. Modo estático reproducible (`pnpm dev:stack`)
+
+Construye las tres SPA y después mantiene en primer plano un único servidor Uvicorn con la aplicación FastAPI real. Es el harness reproducible que valida los artefactos estáticos tal como se servirán en producción:
 
 ```bash
 git pull --ff-only origin main
@@ -159,19 +166,39 @@ uv sync --frozen --all-packages
 pnpm dev:stack
 ```
 
-El comando construye ambas SPA y después mantiene en primer plano un único
-servidor Uvicorn con la aplicación FastAPI real. Escucha por defecto solamente
-en `127.0.0.1:8000` y expone:
+Escucha por defecto en `127.0.0.1:8000` y expone:
 
-- `http://127.0.0.1:8000/moderacion/`;
-- `http://127.0.0.1:8000/recinto/`;
-- `http://127.0.0.1:8000/api/v1/health`;
-- `http://127.0.0.1:8000/docs`.
+- `http://127.0.0.1:8000/moderacion/`
+- `http://127.0.0.1:8000/recinto/`
+- `http://127.0.0.1:8000/simulador/`
+- `http://127.0.0.1:8000/api/v1/health`
+- `http://127.0.0.1:8000/docs`
 
-No hay mocks, CORS, servidor Node persistente ni recuperación de estado: REST
-y SSE usan FastAPI, y cada arranque nuevo comienza en `SIN_PREPARAR`. El
-harness tampoco reemplaza el despliegue productivo con Nginx y systemd ni
-ofrece hot reload integrado.
+No hay mocks, CORS, servidor Node persistente ni recuperación de estado. Al no usar servidores de desarrollo, no ofrece recarga en caliente (HMR).
+
+### 2. Modo interactivo con hot reload sobre main (`pnpm dev:stack:hot`)
+
+Destinado al checkout coordinador de la rama `main`. Coordina en primer plano los servidores Nuxt/Vite en modo desarrollo con Hot Module Replacement (HMR) para Moderación, Recinto y Simulador, el backend FastAPI con recarga automática por Uvicorn, y un reverse proxy interno que preserva el contrato de mismo origen en un único puerto loopback:
+
+```bash
+git checkout main
+git pull --ff-only origin main
+pnpm dev:stack:hot
+```
+
+#### Flujo operativo tras un merge
+
+1. Iniciar `pnpm dev:stack:hot` una vez en el checkout coordinador de `main`.
+2. Mantener abierto el túnel SSH y las pestañas de Moderación, Recinto y Simulador.
+3. Al integrarse un nuevo Work Package en GitHub, ejecutar en otra terminal:
+   ```bash
+   git pull --ff-only origin main
+   ```
+4. Los watchers detectan los archivos actualizados y Vite propaga los cambios por HMR a las tres SPA sin necesidad de ejecutar `pnpm build`, sin recargar la página (`Ctrl+F5`) y sin reiniciar el stack.
+5. Si el cambio afectó código Python del backend (`apps/backend/src` o `config/`), Uvicorn reinicia automáticamente el proceso FastAPI. Como el estado institucional es deliberadamente volátil en memoria, el sistema vuelve a `SIN_PREPARAR`.
+6. Para detener todo el árbol de procesos y liberar los puertos auxiliares, presionar `Ctrl+C`.
+
+> **Nota para pruebas del WP**: El comando rechaza ejecutarse si el checkout no está en la rama `main`. Para validar el propio candidato en ramas de desarrollo se admite la excepción explícita `--allow-non-main` (ej. `pnpm dev:stack:hot --allow-non-main`). Esta opción no debe usarse como flujo habitual.
 
 ### Acceso desde Windows
 

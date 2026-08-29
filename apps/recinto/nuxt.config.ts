@@ -20,6 +20,9 @@ export default defineNuxtConfig({
   app: {
     // El build queda listo para que Nginx o el harness lo sirvan en la
     // subruta pública acordada, sin fijar un host absoluto.
+    // En desarrollo interactivo con `dev:stack:hot`, Vite HMR se conecta automáticamente
+    // al host y puerto de origen visible (@vite/client), atravesando el proxy unificado
+    // y los túneles SSH de forma transparente.
     baseURL: '/recinto/',
   },
   modules: ['@nuxt/eslint'],

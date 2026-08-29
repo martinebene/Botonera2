@@ -20,6 +20,10 @@ export default defineNuxtConfig({
   app: {
     // El prefijo forma parte del contrato de mismo origen. Nuxt lo incorpora
     // tanto a las rutas de la aplicación como a las URLs de sus assets.
+    // En desarrollo con `dev:stack:hot`, el cliente de Vite (@vite/client) deriva
+    // automáticamente la conexión WebSocket HMR desde la URL de origen (import.meta.url),
+    // permitiendo que el hot reload funcione a través del puerto único del reverse proxy
+    // y de túneles SSH sin hardcodear puertos internos.
     baseURL: '/moderacion/',
   },
   modules: ['@nuxt/eslint'],
