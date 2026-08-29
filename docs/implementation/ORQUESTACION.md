@@ -248,6 +248,16 @@ uv run python scripts/iniciar_wp.py NNN agente
 
 El agente sigue la misma regla de descubrimiento desde `Botonera2-Control`.
 
+## Paralelismo de WPs
+
+Cuando el PLAN permite WPs independientes, protocolo 1.1 de Botonera2-Control permite publicarlos simultáneamente mediante `CURRENT.json.active_assignments`.
+
+Cada entrada activa debe identificar WP, iteración, rol, `assignment_id`, `assignment_path`, `expected_response_path` y agente/arnés/modelo cuando corresponda. Los worktrees deben ser distintos y no puede existir superposición sustantiva no coordinada.
+
+Cada HUMAN_GATE inicia manualmente cada agente. Una sesión debe poder resolver exactamente una asignación compatible; si dos entradas fueran compatibles con la misma sesión, el ORCHESTRATOR no debe habilitarlas simultáneamente.
+
+Agregar o completar otro WP paralelo no revoca una asignación ya iniciada. Los campos escalares históricos de `CURRENT.json` quedan como resumen/compatibilidad y no autorizan trabajo cuando `active_assignments` existe.
+
 ## Turno de implementación
 
 IMPLEMENTER:
