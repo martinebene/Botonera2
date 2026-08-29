@@ -46,6 +46,23 @@ El orquestador debe indicar de forma expresa:
 
 Cuando el WP ya documenta alguno de estos puntos, el prompt puede referenciarlo, pero debe repetir explícitamente los pasos operativos críticos cuya omisión pueda romper el flujo.
 
+
+## Bloque obligatorio de autonomía del turno
+
+Toda asignación dirigida a IMPLEMENTER o REVIEWER debe dejar explícito que, una vez validada la elegibilidad desde Botonera2-Control, el turno ya está autorizado de punta a punta.
+
+El ORCHESTRATOR debe incluir o garantizar por referencia normativa estas instrucciones:
+
+- **no pedir permiso intermedio** para acciones rutinarias comprendidas en el rol/asignación;
+- continuar hasta publicar el handoff o hasta encontrar un gate real de escalamiento;
+- IMPLEMENTER: editar, probar, corregir, commit, sincronización Git permitida, push, PR, CI y handoff forman parte normal del mismo turno;
+- REVIEWER: inspección/tests/builds no destructivos y publicación del handoff forman parte normal del mismo turno; “solo lectura” aplica al producto/candidato, no al commit/push del informe en Botonera2-Control;
+- un fallo normal de test o un defecto encontrado debe diagnosticarse dentro del turno, no transformarse en una pregunta al humano;
+- pedir intervención únicamente por DT-038, aprobación humana expresamente reservada, contradicción material, conflicto Git no trivial, operación destructiva/force, merge/deploy/infraestructura persistente no autorizada, credenciales faltantes, pérdida de elegibilidad o imposibilidad técnica.
+
+Una asignación que deje abierta la pregunta “¿hago el commit/push?” está incompleta.
+
+
 ## Responsabilidad del orquestador
 
 Antes de lanzar un agente, ChatGPT Web/orquestador debe:
