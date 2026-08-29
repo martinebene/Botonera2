@@ -39,13 +39,15 @@ No reemplaza las reglas de negocio, decisiones técnicas ni documentos propietar
 |---|---|---|---|---|
 | WP-030 | Incorporar lanzador Orca y soporte multi-entorno para iniciar WPs preservando las validaciones del lanzador genérico | INTEGRADO | WP-001 | - |
 | WP-031 | Lanzamiento sin prompt automático y salida copiable de OpenCode bajo Orca | INTEGRADO | WP-030 | - |
-| WP-042 | Agregar stack interactivo de desarrollo con HMR sobre el checkout coordinador de main | EN_CURSO | WP-033, WP-034 | antigravity |
+| WP-042 | Agregar stack interactivo de desarrollo con HMR sobre el checkout coordinador de main | INTEGRADO | WP-033, WP-034 | - |
 
 WP-030 fue incorporado después de definir la numeración funcional WP-001..WP-029; su número no representa una nueva fase de producto. Fue el bootstrap operativo transversal aprobado por DEC-007 y quedó integrado mediante PR #12.
 
 WP-031 quedó integrado mediante PR #14 después de CI verde, revisión independiente con OpenCode + DeepSeek V4 Pro y validación manual exitosa del espejo de última respuesta en una terminal común de Orca. El lanzador Orca continúa abriendo el agente sin inyectar `--prompt`. Desde DEC-017, el trabajo no se transporta normalmente mediante copiado/pegado manual: el agente sincroniza `Botonera2-Control` y consume la asignación vigente indicada por `CURRENT.json`.
 
 WP-042 fue aprobado por HUMAN_GATE como mejora operativa independiente y, antes de iniciar el turno, el implementador fue reasignado de Claude a Antigravity/AGY por preferencia del operador al tratarse de una tarea de complejidad acotada: agrega un modo `pnpm dev:stack:hot` para observar cambios ya integrados en el checkout coordinador de `main` mediante Nuxt/Vite HMR y autoreload de FastAPI, preservando `pnpm dev:stack` como harness estático. No sincroniza Git automáticamente ni muestra cambios privados de worktrees antes del merge. Puede ejecutarse antes de continuar los WPs visuales porque no modifica reglas de producto ni bloquea WP-037..WP-041.
+
+WP-042 quedó integrado mediante squash merge de PR #41 sobre el candidato final `1201437f6e90c60a37295a9464aaa80711e7caf5`, después de CI candidata #293 verde 8/8 y re-revisión independiente final con OpenCode + DeepSeek V4 Pro. La re-revisión concluyó `LISTA PARA INTEGRAR` con 0 BLOQUEANTES, 0 IMPORTANTES y 5 MENORES no bloqueantes. El squash produjo `f992551c4ae59a468f3ab028500f28c6a8ae0661` en `main`, con tree SHA idéntico al candidato (`affa3f88c7724807c6d27c8185f7626a9a262c2c`), y la CI post-merge #294 terminó success 8/8.
 
 ## Fase 1 - Fundaciones reproducibles
 
