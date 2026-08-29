@@ -3,9 +3,37 @@
  * Cabecera superior del Simulador Web de Dispositivos Lógicos.
  *
  * Muestra el título institucional, el distintivo inequívoco de que se trata
- * de un SIMULADOR que emite pulsaciones reales al backend, y la aclaración
- * arquitectónica de que opera directamente con FastAPI sin pasar por el device-bridge.
+ * de un SIMULADOR que emite pulsaciones reales al backend, la aclaración
+ * arquitectónica de que opera directamente con FastAPI sin pasar por el device-bridge,
+ * y el control compacto de selección de cantidad de dispositivos (1..20, WP-035).
  */
+
+import {
+  CANTIDAD_DISPOSITIVOS_MINIMA,
+  CANTIDAD_DISPOSITIVOS_MAXIMA,
+  CANTIDAD_DISPOSITIVOS_POR_DEFECTO,
+} from '../types/simulador'
+import SelectorCantidad from './SelectorCantidad.vue'
+
+withDefaults(
+  defineProps<{
+    /** Cantidad actual de dispositivos configurada para mostrar en la interfaz */
+    cantidad?: number
+    /** Mínimo permitido (1) */
+    min?: number
+    /** Máximo permitido (20) */
+    max?: number
+  }>(),
+  {
+    cantidad: CANTIDAD_DISPOSITIVOS_POR_DEFECTO,
+    min: CANTIDAD_DISPOSITIVOS_MINIMA,
+    max: CANTIDAD_DISPOSITIVOS_MAXIMA,
+  },
+)
+
+const emit = defineEmits<{
+  (evento: 'incrementar' | 'decrementar'): void
+}>()
 </script>
 
 <template>
@@ -27,6 +55,16 @@
         <span>Simulador · Entradas reales a FastAPI</span>
       </span>
     </div>
+
+    <!-- Selector compacto de cantidad de dispositivos (WP-035) -->
+    <SelectorCantidad
+      :cantidad="cantidad"
+      :min="min"
+      :max="max"
+      @incrementar="emit('incrementar')"
+      @decrementar="emit('decrementar')"
+    />
+
     <div class="text-xs text-slate-400 font-mono flex items-center gap-2">
       <span class="hidden md:inline text-slate-500">Arquitectura:</span>
       <span class="bg-slate-950 px-2 py-0.5 rounded border border-slate-800 text-sky-300">
