@@ -29,11 +29,14 @@ con el cuerpo JSON:
 - Muestra el **codigo de estado HTTP** y el **cuerpo literal crudo devuelto por el servidor**, garantizando diagnostico fiel al depurar contratos y rechazos.
 - Evalua expectativas opcionales (`status_http`, `aceptada`, `motivo`) para integracion y pruebas automatizadas.
 
-### Que NO hace el simulador (autoridad exclusiva del backend)
+### Convivencia con el Simulador Web (WP-034)
 
-- **El simulador no decide reglas de negocio:** no valida si un dispositivo pertenece al padron ni si una tecla esta habilitada o produce un efecto.
-- **Trabaja exclusivamente con identificadores logicos:** utiliza nombres como `dev01`, `dev12`, nunca fingerprints USB/HID fisicos (esa frontera pertenece al `device-bridge`).
-- **No modifica ni simula el estado interno por fuera de HTTP:** toda interaccion pasa exclusivamente por la API REST del backend.
+Botonera2 dispone de dos herramientas complementarias de simulación que comparten el mismo principio arquitectónico (envío directo a `POST /api/v1/entradas/tecla` sin atravesar el `device-bridge`):
+
+1. **Simulador CLI (`tools/device-simulator/`)**: enfocado en terminal, CI, automatización de pruebas y ejecución reproducible de escenarios JSON con temporización y concurrencia controlada.
+2. **Simulador Web (`apps/simulador/` en `/simulador/`)**: SPA interactiva en Nuxt 4 para prueba humana y diagnóstico visual, que presenta los 12 dispositivos simultáneamente en pantalla con botones individuales, panel de estado y log en tiempo real.
+
+Ambas herramientas son clientes equivalentes y ninguna de las dos impone reglas de negocio locales: la autoridad absoluta de validación reside en FastAPI.
 
 ---
 

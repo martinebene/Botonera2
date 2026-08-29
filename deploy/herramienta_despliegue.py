@@ -35,6 +35,7 @@ URL_HEALTH = "http://127.0.0.1:8000/api/v1/health"
 URL_NGINX_HEALTH = "http://127.0.0.1/api/v1/health"
 URL_NGINX_MODERACION = "http://127.0.0.1/moderacion/"
 URL_NGINX_RECINTO = "http://127.0.0.1/recinto/"
+URL_NGINX_SIMULADOR = "http://127.0.0.1/simulador/"
 MAXIMO_ARCHIVOS_TAR = 20_000
 MAXIMO_BYTES_TAR = 2 * 1024 * 1024 * 1024
 MAXIMO_LONGITUD_RUTA = 512
@@ -192,8 +193,9 @@ def validar_manifest(
     if manifest.get("spas") != {
         "moderacion": "web/moderacion/index.html",
         "recinto": "web/recinto/index.html",
+        "simulador": "web/simulador/index.html",
     }:
-        raise ErrorDespliegue("release.json no declara las dos SPA canónicas.")
+        raise ErrorDespliegue("release.json no declara las tres SPA canónicas.")
     if manifest.get("paquetes_python") != [
         "botonera2-backend",
         "botonera2-device-bridge",
@@ -233,6 +235,7 @@ def validar_manifest(
         "app/services/device-bridge/pyproject.toml",
         "web/moderacion/index.html",
         "web/recinto/index.html",
+        "web/simulador/index.html",
         "deploy/systemd/botonera2-backend.service",
         "deploy/systemd/botonera2-device-bridge.service",
         "deploy/nginx/botonera2.conf",
@@ -591,6 +594,7 @@ class GestorDespliegue:
             release / ".venv/bin/botonera2-device-bridge",
             release / "web/moderacion/index.html",
             release / "web/recinto/index.html",
+            release / "web/simulador/index.html",
             release / "deploy/systemd/botonera2-backend.service",
             release / "deploy/systemd/botonera2-device-bridge.service",
             release / "deploy/nginx/botonera2.conf",
@@ -1011,7 +1015,7 @@ class GestorDespliegue:
         self.ejecutor.ejecutar(["systemctl", "reload", "nginx.service"])
         if self.consultor_json(URL_NGINX_HEALTH, 3.0).get("estado") != "ok":
             raise ErrorDespliegue("El health vía Nginx no devolvió estado=ok.")
-        for url in (URL_NGINX_MODERACION, URL_NGINX_RECINTO):
+        for url in (URL_NGINX_MODERACION, URL_NGINX_RECINTO, URL_NGINX_SIMULADOR):
             if "<!doctype html" not in self.consultor_texto(url, 3.0).lower():
                 raise ErrorDespliegue(f"La SPA no respondió HTML válido por Nginx: {url}")
 

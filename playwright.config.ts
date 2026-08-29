@@ -35,5 +35,11 @@ export default defineConfig({
       reuseExistingServer: !process.env.CI,
       timeout: 120 * 1000,
     },
+    {
+      command: 'pnpm --filter @botonera2/simulador dev --port 3002',
+      url: 'http://localhost:3002/simulador/',
+      reuseExistingServer: !process.env.CI,
+      timeout: 120 * 1000,
+    },
   ],
 })

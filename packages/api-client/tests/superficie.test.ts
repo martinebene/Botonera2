@@ -130,6 +130,8 @@ describe('Separación de superficies públicas de Moderación y Recinto', () => 
     expect(exportaciones.crearClienteModeracion).toBeDefined()
     expect(exportaciones.ClienteRecinto).toBeDefined()
     expect(exportaciones.crearClienteRecinto).toBeDefined()
+    expect(exportaciones.ClienteSimulador).toBeDefined()
+    expect(exportaciones.crearClienteSimulador).toBeDefined()
     expect(exportaciones.SincronizadorEstado).toBeDefined()
     expect(exportaciones.iniciarSincronizacionEstado).toBeDefined()
     expect(exportaciones.ErrorHttp).toBeDefined()
