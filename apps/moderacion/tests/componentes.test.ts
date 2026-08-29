@@ -6,10 +6,13 @@
  * esperados sin dependencias externas adicionales.
  *
  * Valida:
- * 1. Cabecera con estado inicial sin snapshot (guiones en estado y revisión).
- * 2. Cabecera con estado conectado y datos confirmados.
+ * 1. Cabecera compacta con estado inicial sin snapshot (guion en estado global).
+ * 2. Cabecera con estado conectado y estado global confirmado.
  * 3. Cabecera con advertencia de desactualizado durante reconexión.
  * 4. Los cuatro paneles y sus identidades visuales estables.
+ *
+ * Los datos globales condicionales de la cabecera (reloj, tiempo de sesión, quórum y
+ * autoridades) se prueban de forma dedicada y con reloj controlado en `cabecera.test.ts`.
  */
 
 import { describe, it, expect } from 'vitest'
@@ -126,7 +129,7 @@ function crearEstadoFixture(parcial: Partial<EstadoModeracion> = {}): EstadoMode
 
 describe('Componentes del Shell de Moderación', () => {
   describe('CabeceraModeracion', () => {
-    it('muestra estado inicial con guiones sin inventar estado global ni revisión', async () => {
+    it('muestra un guion en el estado global y no inventa datos antes del primer snapshot', async () => {
       const html = await renderizarComponente(CabeceraModeracion, {
         estadoConexion: 'INICIAL',
         estadoGlobal: null,
@@ -134,16 +137,18 @@ describe('Componentes del Shell de Moderación', () => {
         desactualizado: false,
       })
 
-      expect(html).toContain('Botonera2')
+      // WP-036: el distintivo del producto se retiró de la cabecera.
+      expect(html).not.toContain('Botonera2')
       expect(html).toContain('Moderación')
       expect(html).toContain('data-testid="estado-global"')
       expect(html).toContain('—')
-      expect(html).toContain('data-testid="revision-estado"')
-      expect(html).toContain('Iniciando conexión...')
+      // WP-036: la revisión ya no ocupa espacio permanente en la vista principal.
+      expect(html).not.toContain('data-testid="revision-estado"')
+      expect(html).toContain('Conectando')
       expect(html).not.toContain('data-testid="alerta-desactualizado"')
     })
 
-    it('muestra estado conectado con revisión y estado global confirmado', async () => {
+    it('muestra estado global confirmado y conserva la revisión como detalle emergente', async () => {
       const html = await renderizarComponente(CabeceraModeracion, {
         estadoConexion: 'CONECTADO',
         estadoGlobal: 'SESION_ABIERTA',
@@ -152,8 +157,9 @@ describe('Componentes del Shell de Moderación', () => {
       })
 
       expect(html).toContain('Sesión abierta')
-      expect(html).toContain('142')
       expect(html).toContain('Conectado')
+      // La revisión sigue disponible para diagnóstico sin ocupar densidad permanente.
+      expect(html).toContain('title="Conectado · revisión 142"')
       expect(html).not.toContain('data-testid="alerta-desactualizado"')
     })
 
@@ -166,7 +172,7 @@ describe('Componentes del Shell de Moderación', () => {
       })
 
       expect(html).toContain('data-testid="alerta-desactualizado"')
-      expect(html).toContain('Estado posiblemente desactualizado')
+      expect(html).toContain('Estado desactualizado')
       expect(html).toContain('Reconectando')
     })
   })
@@ -247,14 +253,16 @@ describe('Componentes del Shell de Moderación', () => {
   })
 
   describe('PanelRecintoPalabra', () => {
-    it('renderiza datos de quórum y orador de palabra', async () => {
+    it('renderiza bancas y orador sin repetir el quórum global de la cabecera', async () => {
       const estado = crearEstadoFixture()
       const html = await renderizarComponente(PanelRecintoPalabra, { estado })
 
       expect(html).toContain('data-testid="panel-recinto-palabra"')
       expect(html).toContain('Recinto y palabra')
-      expect(html).toContain('Quórum alcanzado')
       expect(html).toContain('Juan López')
+      // WP-036: el quórum es un dato global y sólo se presenta en la cabecera.
+      expect(html).not.toContain('Quórum alcanzado')
+      expect(html).not.toContain('presentes')
     })
   })
 

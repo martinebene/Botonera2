@@ -7,14 +7,17 @@
  *    - SIN_PREPARAR: Preparación de sala como acción principal.
  *    - PREPARANDO: Carga y edición de número de sesión, Presidencia y Secretaría Legislativa,
  *      apertura formal de sesión cuando se cumplan las capacidades, o cancelación de la preparación.
- *    - SESION_ABIERTA: Número inmutable, edición de autoridades durante la sesión, resumen de quórum
+ *    - SESION_ABIERTA: Número inmutable, edición de autoridades durante la sesión
  *      y cierre formal con advertencia confirmatoria ante palabra pendiente.
  * 2. Gestión robusta de borradores locales (H1): Los campos en edición activa (dirty) no son
  *    sobrescritos por snapshots SSE no relacionados (ej. pulsaciones de presencia o test de teclado).
  *    Al cambiar de estado global, los borradores se resincronizan con el nuevo estado institucional.
  * 3. Validación estricta del número de sesión (M3): Solo se envían enteros positivos (> 0);
  *    los valores inválidos no se transforman silenciosamente y muestran error claro conservando el input.
- * 4. Resumen de quórum en Q1 durante sesión abierta (M1): Presentación compacta del quórum reglamentario.
+ * 4. Quórum (WP-036): este cuadrante ya no repite el resumen global de quórum. Ese dato es único
+ *    y se presenta exclusivamente en la cabecera compacta del shell. Aquí se conservan sólo los
+ *    controles institucionales (número de sesión y autoridades), que no son información redundante
+ *    sino comandos.
  * 5. Gate de comandos mutantes: Solo permite emitir mutaciones cuando existe conexión plena (CONECTADO),
  *    la capacidad correspondiente está habilitada por el backend y no hay solicitudes en vuelo.
  * 6. Feedback de errores legibles sin optimismo ficticio ni alteración del estado confirmado.
@@ -725,31 +728,6 @@ const claseBadge = computed(() => {
             class="rounded bg-emerald-950 px-2.5 py-0.5 text-xs font-bold text-emerald-300 border border-emerald-700"
           >
             Sesión Nº {{ estado.sesion?.numero_sesion }}
-          </span>
-        </div>
-
-        <!-- Resumen compacto de Quórum en Q1 durante sesión abierta (M1) -->
-        <div
-          v-if="estado.quorum"
-          data-testid="quorum-resumen-sesion"
-          class="flex items-center justify-between rounded-lg bg-slate-900/80 px-3 py-2 border border-slate-800 text-xs"
-        >
-          <div class="flex items-center gap-2">
-            <span class="text-slate-400 font-semibold">Quórum en sala:</span>
-            <span class="font-bold text-slate-100">
-              {{ estado.quorum.cantidad_presentes }} / {{ estado.quorum.requerido }} presentes
-            </span>
-          </div>
-          <span
-            data-testid="badge-quorum-resumen-sesion"
-            :class="[
-              'rounded px-2 py-0.5 text-[11px] font-bold',
-              estado.quorum.alcanzado
-                ? 'bg-emerald-950 text-emerald-300 border border-emerald-700'
-                : 'bg-amber-950 text-amber-300 border border-amber-700',
-            ]"
-          >
-            {{ estado.quorum.alcanzado ? 'Quórum legal' : 'Sin quórum' }}
           </span>
         </div>
 

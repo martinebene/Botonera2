@@ -135,7 +135,8 @@ test.describe.serial('WP-034 · Simulador Web Integrado sobre stack real', () =>
 
       await expect(simulador.getByTestId('indicador-quorum')).toContainText('7 presentes')
       await expect(simulador.getByTestId('indicador-quorum')).toContainText('Quórum alcanzado')
-      await expect(moderacion.getByTestId('quorum-completo')).toBeVisible()
+      // WP-036: en Moderación el quórum es un dato global único de la cabecera compacta.
+      await expect(moderacion.getByTestId('cabecera-quorum')).toContainText('Quórum 7/12')
 
       // -----------------------------------------------------------------------
       // Paso 5 · Apertura reglamentaria de sesión desde Moderación
