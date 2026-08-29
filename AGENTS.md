@@ -16,7 +16,7 @@ Una instrucción humana breve como `Seguí` o `Revisá` **no contiene por sí mi
 2. leer `AGENTS.md` de ese repositorio;
 3. leer `CURRENT.json`;
 4. leer el archivo de rol que corresponda;
-5. verificar que `next_actor`, `assignment_id`, WP, iteración y destinatario coincidan con su rol;
+5. verificar que `next_actor`, `assignment_id`, WP, iteración y destinatario coincidan con su rol y, si la asignación fija agente/arnés o modelo, que esta sesión esté autorizada para ejecutarla;
 6. comprobar que el `expected_response_path` todavía no exista;
 7. leer únicamente la asignación vigente indicada por `assignment_path`;
 8. recién entonces leer el WP y las fuentes canónicas de Botonera2 necesarias para ejecutar esa asignación.
@@ -164,7 +164,7 @@ Ver `docs/14-gobernanza-agentes.md` y las DEC posteriores vigentes, especialment
 - `docs/decisions/DEC-XXX-*.md` se reserva para decisiones nuevas realmente transversales/relevantes.
 - `.github/pull_request_template.md` define el mínimo de entrega de cada PR.
 - No existe un implementador universal predeterminado: el agente se selecciona por WP según complejidad, riesgo, capacidad, disponibilidad/cuota e integración con el entorno, conforme a DEC-007.
-- Antigravity/AGY es una opción preferente para WPs sencillos o medios cuando resulte adecuado; Codex se reserva preferentemente para trabajos complejos/sensibles; OpenCode y otras capacidades aprobadas pueden implementar o revisar según el modelo efectivo.
+- Antigravity/AGY, Codex, OpenCode y Claude Code son opciones aprobadas de primera clase para implementar o revisar según el WP, el modelo efectivo, el riesgo, la disponibilidad y la cuota. Claude Code puede utilizar actualmente Claude Opus 5 cuando el ORCHESTRATOR lo seleccione; esta disponibilidad es operativa y no fija un modelo permanente.
 - Un WP tiene un único agente implementador.
 - Cada WP `EN_CURSO` usa rama, `git worktree` y sesión de agente propios.
 - Dos agentes solo pueden trabajar en paralelo sobre WPs independientes autorizados por PLAN.
@@ -233,7 +233,7 @@ Obliga a:
 - determinar o preguntar el entorno operativo antes de iniciar un WP;
 - usar el lanzador Orca cuando Orca sea el entorno activo y el lanzador genérico en otros entornos;
 - aceptar la rama nativa trazable administrada por Orca en lugar de renombrarla por detrás;
-- asignar implementador por complejidad/riesgo/capacidad/disponibilidad-cuota en lugar de un agente universal predeterminado;
+- asignar implementador por complejidad/riesgo/capacidad/disponibilidad-cuota en lugar de un agente universal predeterminado, incluyendo explícitamente Claude Code entre las alternativas soportadas;
 - mantener revisión independiente por sesión/agente/modelo efectivo;
 - limpiar worktree/rama usando el mecanismo correspondiente al entorno después del merge verificado.
 

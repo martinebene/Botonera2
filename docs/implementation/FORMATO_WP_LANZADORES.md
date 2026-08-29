@@ -136,6 +136,7 @@ Para una fila operativa:
 - columna 5 es el agente asignado utilizado por el lanzador;
 - para iniciar, el estado debe ser exactamente `EN_CURSO`;
 - el agente solicitado al lanzador debe coincidir con el agente de la columna 5 (la comparación es insensible a mayúsculas/minúsculas);
+- en el lanzador Orca vigente, los identificadores de agente admitidos son `antigravity`, `opencode`, `codex` y `claude`; usar `claude` en PLAN cuando Claude Code sea el implementador autorizado;
 - cada dependencia extraída del `WP-NNN.md` debe existir en PLAN y tener estado exactamente `INTEGRADO`.
 
 La columna `Depende de` de PLAN mantiene valor documental/humano, pero la validación efectiva de dependencias del lanzador se construye actualmente desde la sección `## Dependencias` del archivo del WP. Ambas representaciones deben ser coherentes.
