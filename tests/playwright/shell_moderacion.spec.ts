@@ -1343,7 +1343,8 @@ test.describe('WP-024 - Palabra, eventos y remapeo autoritativos', () => {
       await expect(page.locator('[data-testid="evento-reciente"]')).toHaveCount(2)
       await page.locator('[data-testid="filtro-eventos"]').selectOption('L1')
       await expect(page.locator('[data-testid="evento-reciente"]')).toHaveCount(3)
-      await expect(page.locator('[data-testid="nivel-evento"]')).toHaveText(['L1', 'L2', 'L3'])
+      // WP-041: el orden visual es descendente, así que el evento más nuevo encabeza.
+      await expect(page.locator('[data-testid="nivel-evento"]')).toHaveText(['L3', 'L2', 'L1'])
 
       // El objetivo se elige desde banca/persona/devXX; luego manda el snapshot.
       await page.locator('[data-testid="selector-banca-remapeo"]').selectOption('dev03')
@@ -1391,6 +1392,243 @@ test.describe('WP-024 - Palabra, eventos y remapeo autoritativos', () => {
         remapeoId: 'remapeo-e2e-wp024',
         persistencia: 'TEMPORAL',
       })
+      await verificarGeometriaShellCompleto(page, viewport)
+    }
+  })
+})
+
+/**
+ * WP-041 - Eventos recientes con nivel fijo y evento más nuevo primero.
+ *
+ * Este recorrido comprueba sobre el navegador real (no sobre clases CSS) que:
+ *
+ * 1. una cantidad suficiente de eventos produce scroll interno real en Q4;
+ * 2. el selector de nivel sigue visible antes y después de desplazar la lista;
+ * 3. los eventos se ordenan por `seq` descendente;
+ * 4. la llegada de un evento nuevo devuelve la lista al inicio;
+ * 5. el selector continúa siendo operable después del scroll;
+ * 6. el shell no genera scroll de página a 1366×768;
+ * 7. el comportamiento se verifica también a 1920×1080.
+ */
+test.describe('WP-041 - Eventos con selector fijo y evento más nuevo primero', () => {
+  /**
+   * Backend simulado que publica snapshots completos por SSE y expone
+   * `window.publicarEventoNuevo` para provocar la llegada de actividad nueva
+   * sin depender de tiempos ni de un backend real.
+   */
+  async function configurarBackendEventosMock(page: Page, estadoInicial: Record<string, unknown>) {
+    await page.addInitScript((inicial) => {
+      type EstadoPrueba = Record<string, unknown> & {
+        revision: number
+        eventos_recientes: Record<string, unknown>[]
+      }
+
+      let estadoActual = inicial as EstadoPrueba
+      const fuentes: MockEventSourceEventos[] = []
+
+      function publicar(nuevoEstado: EstadoPrueba): void {
+        estadoActual = nuevoEstado
+        const data = JSON.stringify(estadoActual)
+        for (const fuente of fuentes) {
+          for (const handler of fuente.listeners.estado ?? []) handler({ type: 'estado', data })
+        }
+      }
+
+      class MockEventSourceEventos {
+        readyState = 1
+        listeners: Record<string, ((evento: { type: string; data: string }) => void)[]> = {}
+        onopen: ((evento: { type: string }) => void) | null = null
+        onerror: ((evento: { type: string }) => void) | null = null
+        onmessage: ((evento: { type: string; data: string }) => void) | null = null
+
+        constructor(readonly url: string) {
+          fuentes.push(this)
+          setTimeout(() => {
+            this.onopen?.({ type: 'open' })
+            const data = JSON.stringify(estadoActual)
+            for (const handler of this.listeners.estado ?? []) handler({ type: 'estado', data })
+          }, 5)
+        }
+
+        addEventListener(
+          tipo: string,
+          handler: (evento: { type: string; data: string }) => void,
+        ): void {
+          this.listeners[tipo] = this.listeners[tipo] ?? []
+          this.listeners[tipo].push(handler)
+        }
+
+        removeEventListener(
+          tipo: string,
+          handler: (evento: { type: string; data: string }) => void,
+        ): void {
+          this.listeners[tipo] = (this.listeners[tipo] ?? []).filter(
+            (registrado) => registrado !== handler,
+          )
+        }
+
+        close(): void {
+          this.readyState = 2
+        }
+      }
+
+      // @ts-expect-error Mock inyectado en el runtime del navegador
+      window.EventSource = MockEventSourceEventos
+
+      const fetchOriginal = window.fetch.bind(window)
+      window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url =
+          typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+        if (url.includes('/api/v1/estado/moderacion')) {
+          return new Response(JSON.stringify(estadoActual), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          })
+        }
+        return fetchOriginal(input, init)
+      }
+
+      // El backend simulado agrega un evento con seq mayor y republica la baseline
+      // completa, tal como haría el backend real ante actividad institucional.
+      ;(window as Window & { publicarEventoNuevo?: (seq: number) => void }).publicarEventoNuevo = (
+        seq: number,
+      ) => {
+        publicar({
+          ...estadoActual,
+          revision: estadoActual.revision + 1,
+          eventos_recientes: [
+            ...estadoActual.eventos_recientes,
+            {
+              seq,
+              timestamp: '2026-08-27T11:00:00',
+              nivel: 'L3',
+              etiqueta: 'SESION',
+              codigo_evento: `EVENTO_NUEVO_${seq}`,
+              mensaje: `Actividad institucional número ${seq}`,
+            },
+          ],
+        })
+      }
+    }, estadoInicial)
+  }
+
+  test('ordena descendente, mantiene el selector fijo y vuelve al inicio ante un evento nuevo (1920×1080 y 1366×768)', async ({
+    page,
+  }) => {
+    // Cantidad deliberadamente alta: garantiza desbordamiento real del cuadrante.
+    const eventos = Array.from({ length: 60 }, (_, indice) => {
+      const seq = indice + 1
+      return {
+        seq,
+        timestamp: `2026-08-27T10:${String(indice).padStart(2, '0')}:00`,
+        nivel: 'L3',
+        etiqueta: 'SESION',
+        codigo_evento: `EVENTO_BASE_${seq}`,
+        mensaje: `Hecho institucional registrado número ${seq}`,
+      }
+    })
+
+    const estado = crearEstadoFixture({
+      estado_global: 'SESION_ABIERTA',
+      sesion: {
+        fecha_hora_inicio_preparacion: '2026-08-27T09:00:00Z',
+        fecha_hora_apertura: '2026-08-27T09:30:00Z',
+        numero_sesion: 41,
+        presidencia: 'Dra. Presidencia',
+        secretaria_legislativa: 'Sr. Secretaría',
+      },
+      quorum: { cantidad_presentes: 8, requerido: 7, alcanzado: true },
+      // El backend proyecta la baseline en orden ascendente de seq (doc 05, §14).
+      eventos_recientes: eventos,
+      auditoria: {
+        activa: true,
+        disponible: true,
+        fallado: false,
+        cerrado: false,
+        motivo: null,
+      },
+      remapeo: null,
+    })
+
+    await configurarBackendEventosMock(page, estado)
+
+    for (const viewport of [
+      { width: 1920, height: 1080 },
+      { width: 1366, height: 768 },
+    ]) {
+      await page.setViewportSize(viewport)
+      await page.goto('/moderacion/')
+      // El shell recién monta los cuadrantes cuando adopta el primer snapshot;
+      // el margen amplio cubre el arranque en frío del servidor de desarrollo.
+      await page
+        .locator('[data-testid="cabecera-moderacion"]')
+        .waitFor({ state: 'visible', timeout: 30000 })
+      await page
+        .locator('[data-testid="panel-eventos"]')
+        .waitFor({ state: 'visible', timeout: 30000 })
+
+      const lista = page.locator('[data-testid="lista-eventos"]')
+      const selector = page.locator('[data-testid="filtro-eventos"]')
+      await expect(lista).toBeVisible()
+      await expect(page.locator('[data-testid="evento-reciente"]')).toHaveCount(60)
+
+      // 1. Scroll interno real: el contenido desborda el contenedor del listado.
+      const desbordaAlInicio = await lista.evaluate(
+        (elemento) => elemento.scrollHeight > elemento.clientHeight,
+      )
+      expect(desbordaAlInicio).toBe(true)
+
+      // 2. El selector está en la cabecera del panel, fuera del área scrolleable.
+      await expect(selector).toBeVisible()
+      const selectorDentroDeLista = await lista.evaluate(
+        (elemento) => elemento.querySelector('[data-testid="filtro-eventos"]') !== null,
+      )
+      expect(selectorDentroDeLista).toBe(false)
+      const cajaSelectorInicial = await selector.boundingBox()
+
+      // 3. Orden descendente: el evento más nuevo encabeza el listado.
+      await expect(page.locator('[data-testid="evento-reciente"]').first()).toContainText(
+        'EVENTO_BASE_60',
+      )
+      await expect(page.locator('[data-testid="evento-reciente"]').last()).toContainText(
+        'EVENTO_BASE_1',
+      )
+
+      // 4. El operador desplaza la lista hacia eventos anteriores.
+      await lista.evaluate((elemento) => {
+        elemento.scrollTop = elemento.scrollHeight
+      })
+      const scrollDesplazado = await lista.evaluate((elemento) => elemento.scrollTop)
+      expect(scrollDesplazado).toBeGreaterThan(0)
+
+      // 5. El selector no se desplazó con la lista: sigue visible y en su lugar.
+      await expect(selector).toBeVisible()
+      const cajaSelectorDesplazado = await selector.boundingBox()
+      expect(cajaSelectorInicial).not.toBeNull()
+      expect(cajaSelectorDesplazado).not.toBeNull()
+      if (cajaSelectorInicial && cajaSelectorDesplazado) {
+        expect(Math.abs(cajaSelectorInicial.y - cajaSelectorDesplazado.y)).toBeLessThanOrEqual(1)
+      }
+
+      // 6. Llega un evento nuevo: la lista vuelve al inicio y lo deja visible.
+      await page.evaluate(() => {
+        ;(window as Window & { publicarEventoNuevo?: (seq: number) => void }).publicarEventoNuevo?.(
+          61,
+        )
+      })
+      await expect(page.locator('[data-testid="evento-reciente"]')).toHaveCount(61)
+      await expect(page.locator('[data-testid="evento-reciente"]').first()).toContainText(
+        'EVENTO_NUEVO_61',
+      )
+      await expect.poll(async () => await lista.evaluate((elemento) => elemento.scrollTop)).toBe(0)
+
+      // 7. El selector sigue operable después del scroll y del evento nuevo.
+      await selector.selectOption('L1')
+      await expect(page.locator('[data-testid="evento-reciente"]')).toHaveCount(61)
+      await selector.selectOption('L3')
+      await expect(selector).toHaveValue('L3')
+
+      // 8. Contrato de shell intacto: sin scroll de página en ninguna resolución.
       await verificarGeometriaShellCompleto(page, viewport)
     }
   })

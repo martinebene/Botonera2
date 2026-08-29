@@ -319,10 +319,12 @@ describe('Eventos recientes y baseline reemplazable', () => {
 
     await wrapper.get('[data-testid="filtro-eventos"]').setValue('L1')
     expect(wrapper.findAll('[data-testid="evento-reciente"]')).toHaveLength(3)
+    // WP-041: el orden visual es descendente por seq, así que el evento más
+    // nuevo (L3, seq 3) encabeza la lista y el más antiguo (L1, seq 1) la cierra.
     expect(wrapper.findAll('[data-testid="nivel-evento"]').map((nodo) => nodo.text())).toEqual([
-      'L1',
-      'L2',
       'L3',
+      'L2',
+      'L1',
     ])
   })
 
