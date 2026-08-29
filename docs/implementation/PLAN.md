@@ -174,7 +174,7 @@ WP-033 quedó integrado antes de continuar WP-026 y deja disponible el harness m
 |---|---|---|---|---|
 | WP-027 | Completar E2E críticos integrando backend, simulador y ambos frontends | INTEGRADO | WP-007, WP-022, WP-023, WP-024, WP-026, WP-033 | - |
 | WP-028 | Implementar empaquetado y despliegue productivo: SPA, Nginx, systemd, releases y rollback | INTEGRADO | WP-027 | - |
-| WP-034 | Crear simulador visual web de dispositivos lógicos para prueba humana y diagnóstico | PENDIENTE | WP-007, WP-018, WP-028, WP-033 | - |
+| WP-034 | Crear simulador visual web de dispositivos lógicos para prueba humana y diagnóstico | EN_CURSO | WP-007, WP-018, WP-028, WP-033 | antigravity |
 | WP-029 | Validar bridge/hardware real, regresión funcional y candidato de producción | PENDIENTE | WP-019, WP-020, WP-027, WP-028, WP-034 | - |
 
 ## Cobertura funcional esperada
