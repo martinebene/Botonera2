@@ -1,29 +1,81 @@
 <script setup lang="ts">
 /**
- * Cabecera principal del Shell de Moderación.
+ * Cabecera compacta del Shell de Moderación (WP-036).
  *
- * Muestra permanentemente:
- * 1. Identificación del sistema: Botonera2 · Moderación.
- * 2. Estado de la conexión técnica (INICIAL, CONECTADO, RECONECTANDO, DESCONECTADO).
- * 3. Estado global del backend (SIN_PREPARAR, PREPARANDO, SESION_ABIERTA o "—" antes del primer snapshot).
- * 4. Número de revisión del último estado adoptado (o "—" si no existe).
- * 5. Indicador visible cuando el estado mostrado puede encontrarse desactualizado.
+ * Esta barra concentra en una sola línea todos los datos globales de la pantalla,
+ * para que ningún cuadrante tenga que repetirlos y para que la grilla 2×2 disponga
+ * de la mayor superficie útil posible incluso a 1366×768.
+ *
+ * Muestra, en este orden y de forma condicional:
+ * 1. Identidad de la pantalla: `Moderación`.
+ * 2. Estado global del backend (SIN_PREPARAR, PREPARANDO, SESION_ABIERTA o `—`).
+ * 3. Quórum global, en cuanto existe contexto preparado que lo calcule.
+ * 4. Presidencia y Secretaría Legislativa, desde que fueron cargadas (también en PREPARANDO).
+ * 5. Fecha y hora local, calculada en el propio equipo.
+ * 6. Tiempo transcurrido desde la apertura formal, sólo cuando hay sesión abierta.
+ * 7. Advertencia de estado posiblemente desactualizado.
+ * 8. Estado técnico de la conexión.
+ *
+ * Decisiones de densidad:
+ * - Se retiró el distintivo `BOTONERA2`: la identidad del producto no aporta información
+ *   operativa y consumía altura y ancho permanentes.
+ * - La revisión monotónica dejó de ocupar espacio permanente. Sigue formando parte del
+ *   contrato y de la sincronización, y se conserva accesible como texto emergente
+ *   (`title`) del indicador de conexión para diagnóstico.
+ * - Todos los datos globales se muestran con `v-if`: la cabecera nunca inventa valores
+ *   ni reserva huecos vacíos para información que el backend todavía no proyectó.
  */
 
 import { computed } from 'vue'
 import type { EstadoConexion } from '../composables/useEstadoModeracion'
-import type { EstadoGlobal } from '@botonera2/api-client'
+import type { EstadoGlobal, EstadoQuorum } from '@botonera2/api-client'
+import { useRelojLocal } from '../composables/useRelojLocal'
+import { formatearFechaHoraLocal, calcularTiempoTranscurrido } from '../utils/tiempo'
 
-const props = defineProps<{
-  /** Estado técnico de la conexión */
-  estadoConexion: EstadoConexion
-  /** Estado global del backend */
-  estadoGlobal: EstadoGlobal | null
-  /** Número de revisión monotónica recibida */
-  revision: number | null
-  /** Indica si la conexión se interrumpió y los datos mostrados pueden estar desactualizados */
-  desactualizado: boolean
-}>()
+const props = withDefaults(
+  defineProps<{
+    /** Estado técnico de la conexión */
+    estadoConexion: EstadoConexion
+    /** Estado global del backend */
+    estadoGlobal: EstadoGlobal | null
+    /** Número de revisión monotónica recibida; no se muestra de forma permanente */
+    revision: number | null
+    /** Indica si la conexión se interrumpió y los datos mostrados pueden estar desactualizados */
+    desactualizado: boolean
+    /** Estado de quórum proyectado por el backend, o null si aún no hay contexto preparado */
+    quorum?: EstadoQuorum | null
+    /** Cantidad de bancas del padrón activo, usada como total de referencia del quórum */
+    totalConcejales?: number
+    /** Presidencia ya cargada en preparación o sesión, o null si todavía no fue definida */
+    presidencia?: string | null
+    /** Secretaría Legislativa ya cargada, o null si todavía no fue definida */
+    secretariaLegislativa?: string | null
+    /** Marca ISO de la apertura formal de la sesión (`sesion.fecha_hora_apertura`) */
+    fechaHoraApertura?: string | null
+  }>(),
+  {
+    quorum: null,
+    totalConcejales: 0,
+    presidencia: null,
+    secretariaLegislativa: null,
+    fechaHoraApertura: null,
+  },
+)
+
+// Reloj local del puesto de Moderación: no genera tráfico ni estado institucional.
+const { ahora } = useRelojLocal()
+
+/** Fecha y hora local en formato compacto `dd/mm/aaaa hh:mm:ss`. */
+const fechaHoraLocal = computed(() => formatearFechaHoraLocal(ahora.value))
+
+/**
+ * Tiempo transcurrido desde la apertura formal de la sesión.
+ * Es `null` mientras no exista `sesion.fecha_hora_apertura`, y en ese caso el dato
+ * directamente no se renderiza.
+ */
+const tiempoSesion = computed(() =>
+  calcularTiempoTranscurrido(props.fechaHoraApertura, ahora.value),
+)
 
 // Mapeo amigable de textos y clases CSS para el estado de conexión
 const etiquetaConexion = computed(() => {
@@ -33,7 +85,7 @@ const etiquetaConexion = computed(() => {
     case 'RECONECTANDO':
       return 'Reconectando'
     case 'INICIAL':
-      return 'Iniciando conexión...'
+      return 'Conectando'
     case 'DESCONECTADO':
       return 'Sin conexión'
     default:
@@ -56,6 +108,16 @@ const claseConexion = computed(() => {
   }
 })
 
+/**
+ * Texto emergente del indicador de conexión.
+ * Conserva visible bajo demanda la revisión monotónica que ya no ocupa espacio fijo.
+ */
+const detalleConexion = computed(() =>
+  props.revision !== null
+    ? `${etiquetaConexion.value} · revisión ${props.revision}`
+    : `${etiquetaConexion.value} · sin revisión adoptada`,
+)
+
 // Mapeo legible del estado global
 const etiquetaEstadoGlobal = computed(() => {
   if (!props.estadoGlobal) {
@@ -75,72 +137,123 @@ const etiquetaEstadoGlobal = computed(() => {
 
 const claseEstadoGlobal = computed(() => {
   if (!props.estadoGlobal) {
-    return 'text-slate-400'
+    return 'bg-slate-800 text-slate-400 border-slate-700'
   }
   switch (props.estadoGlobal) {
     case 'SESION_ABIERTA':
-      return 'text-emerald-400 font-semibold'
+      return 'bg-emerald-950 text-emerald-300 border-emerald-700'
     case 'PREPARANDO':
-      return 'text-cyan-400 font-semibold'
+      return 'bg-cyan-950 text-cyan-300 border-cyan-700'
     case 'SIN_PREPARAR':
-      return 'text-slate-300 font-medium'
+      return 'bg-slate-800 text-slate-300 border-slate-700'
     default:
-      return 'text-slate-300'
+      return 'bg-slate-800 text-slate-300 border-slate-700'
   }
 })
+
+/**
+ * Resumen textual del quórum en una sola línea.
+ * Combina condición reglamentaria, presentes sobre el padrón y mínimo requerido,
+ * que es exactamente la información que antes se repetía en Q1 y en Q3.
+ */
+const textoQuorum = computed(() => {
+  if (!props.quorum) {
+    return ''
+  }
+  const condicion = props.quorum.alcanzado ? 'Quórum' : 'Sin quórum'
+  return `${condicion} ${props.quorum.cantidad_presentes}/${props.totalConcejales} · mín ${props.quorum.requerido}`
+})
+
+const claseQuorum = computed(() =>
+  props.quorum?.alcanzado
+    ? 'bg-emerald-950 text-emerald-300 border-emerald-700'
+    : 'bg-amber-950 text-amber-300 border-amber-700',
+)
 </script>
 
 <template>
   <header
     data-testid="cabecera-moderacion"
-    class="flex shrink-0 flex-wrap items-center justify-between border-b border-slate-800 bg-slate-900/95 px-4 py-2.5 shadow-md backdrop-blur-sm lg:px-6"
+    class="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-slate-800 bg-slate-900/95 px-3 py-1.5 text-xs shadow-md backdrop-blur-sm lg:px-4"
   >
-    <!-- Identificación de la aplicación -->
-    <div class="flex items-center gap-3">
-      <span
-        class="rounded bg-cyan-950 px-2 py-0.5 text-xs font-bold uppercase tracking-wider text-cyan-400 border border-cyan-800"
-      >
-        Botonera2
-      </span>
-      <h1 class="text-lg font-bold text-slate-100 lg:text-xl">Moderación</h1>
-    </div>
+    <!-- Identidad de la pantalla: única marca conservada tras WP-036 -->
+    <h1 class="shrink-0 text-sm font-bold tracking-tight text-slate-100">Moderación</h1>
 
-    <!-- Información de estado técnico e institucional -->
-    <div class="flex items-center gap-3 lg:gap-5 text-sm">
+    <!-- Estado global del backend -->
+    <span
+      data-testid="estado-global"
+      class="shrink-0 rounded-full border px-2 py-0.5 font-semibold"
+      :class="claseEstadoGlobal"
+    >
+      {{ etiquetaEstadoGlobal }}
+    </span>
+
+    <!-- Quórum global: única presentación de este dato en toda la pantalla -->
+    <span
+      v-if="quorum"
+      data-testid="cabecera-quorum"
+      class="shrink-0 rounded-full border px-2 py-0.5 font-semibold"
+      :class="claseQuorum"
+    >
+      {{ textoQuorum }}
+    </span>
+
+    <!-- Autoridades institucionales, visibles desde que fueron cargadas -->
+    <span
+      v-if="presidencia"
+      data-testid="cabecera-presidencia"
+      class="min-w-0 truncate text-slate-300"
+    >
+      <span class="text-slate-500">Presidencia:&nbsp;</span>
+      <span class="font-medium text-slate-200">{{ presidencia }}</span>
+    </span>
+
+    <span
+      v-if="secretariaLegislativa"
+      data-testid="cabecera-secretaria"
+      class="min-w-0 truncate text-slate-300"
+    >
+      <span class="text-slate-500">Secretaría:&nbsp;</span>
+      <span class="font-medium text-slate-200">{{ secretariaLegislativa }}</span>
+    </span>
+
+    <!-- Bloque técnico/temporal alineado al extremo opuesto -->
+    <div class="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-x-3 gap-y-1">
       <!-- Alerta de estado potencialmente desactualizado -->
-      <div
+      <span
         v-if="desactualizado"
         data-testid="alerta-desactualizado"
-        class="hidden sm:inline-flex items-center gap-1.5 rounded-md bg-amber-950/80 px-2.5 py-1 text-xs font-medium text-amber-200 border border-amber-700"
+        class="inline-flex items-center gap-1.5 rounded-full border border-amber-700 bg-amber-950/80 px-2 py-0.5 font-medium text-amber-200"
       >
-        <span class="inline-block h-2 w-2 rounded-full bg-amber-400 animate-ping" />
-        <span>Estado posiblemente desactualizado</span>
-      </div>
+        <span class="inline-block h-1.5 w-1.5 rounded-full bg-amber-400 animate-ping" />
+        <span>Estado desactualizado</span>
+      </span>
 
-      <!-- Estado global del backend -->
-      <div class="flex items-center gap-1.5">
-        <span class="text-xs text-slate-400 uppercase tracking-wider">Estado:</span>
-        <span data-testid="estado-global" :class="claseEstadoGlobal">
-          {{ etiquetaEstadoGlobal }}
-        </span>
-      </div>
+      <!-- Tiempo transcurrido desde la apertura formal de la sesión -->
+      <span
+        v-if="tiempoSesion"
+        data-testid="cabecera-tiempo-sesion"
+        class="font-mono text-slate-200"
+        title="Tiempo transcurrido desde la apertura formal de la sesión"
+      >
+        <span class="font-sans text-slate-500">Sesión&nbsp;</span>
+        {{ tiempoSesion }}
+      </span>
 
-      <!-- Revisión monotónica -->
-      <div class="flex items-center gap-1.5">
-        <span class="text-xs text-slate-400 uppercase tracking-wider">Revisión:</span>
-        <span data-testid="revision-estado" class="font-mono text-xs font-semibold text-slate-200">
-          {{ revision !== null ? revision : '—' }}
-        </span>
-      </div>
+      <!-- Fecha y hora local del puesto de Moderación -->
+      <span data-testid="cabecera-fecha-hora" class="font-mono text-slate-300">
+        {{ fechaHoraLocal }}
+      </span>
 
       <!-- Indicador de conexión técnica -->
-      <div
+      <span
         data-testid="estado-conexion"
-        class="inline-flex items-center gap-1.5 rounded-full border px-3 py-0.5 text-xs font-semibold"
+        class="inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 font-semibold"
         :class="claseConexion"
+        :title="detalleConexion"
       >
         <span
-          class="h-2 w-2 rounded-full"
+          class="h-1.5 w-1.5 rounded-full"
           :class="{
             'bg-emerald-400': estadoConexion === 'CONECTADO',
             'bg-amber-400': estadoConexion === 'RECONECTANDO',
@@ -149,7 +262,7 @@ const claseEstadoGlobal = computed(() => {
           }"
         />
         <span>{{ etiquetaConexion }}</span>
-      </div>
+      </span>
     </div>
   </header>
 </template>

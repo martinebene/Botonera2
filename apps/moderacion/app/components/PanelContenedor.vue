@@ -6,6 +6,11 @@
  * 1. Altura y dimensiones acotadas que impiden que el contenido crezca empujando a otros paneles.
  * 2. Encabezado fijo con título accesible, subtítulo opcional y badges de estado.
  * 3. Área de contenido con scroll interno independiente (overflow-y-auto + min-h-0).
+ *
+ * Densidad (WP-036): el encabezado y el cuerpo usan tipografía y espaciados reducidos.
+ * Cada cuadrante ahorra así altura de chrome, que es la que necesita la grilla 2×2 para
+ * entrar completa a 1366×768. El componente nunca fija su altura en píxeles: siempre
+ * ocupa el 100 % de la celda de grilla que le asigna el shell.
  */
 
 defineProps<{
@@ -29,13 +34,13 @@ defineProps<{
   >
     <!-- Encabezado del panel -->
     <header
-      class="flex shrink-0 items-center justify-between border-b border-slate-800 px-4 py-3 bg-slate-900"
+      class="flex shrink-0 items-center justify-between gap-2 border-b border-slate-800 px-3 py-1.5 bg-slate-900"
     >
       <div class="min-w-0 flex-1">
-        <h2 class="truncate text-base font-semibold text-slate-100">
+        <h2 class="truncate text-sm font-semibold text-slate-100">
           {{ titulo }}
         </h2>
-        <p v-if="subtitulo" class="truncate text-xs text-slate-400">
+        <p v-if="subtitulo" class="truncate text-[11px] leading-tight text-slate-400">
           {{ subtitulo }}
         </p>
       </div>
@@ -54,7 +59,7 @@ defineProps<{
     </header>
 
     <!-- Cuerpo del panel con scroll vertical interno aislado -->
-    <div class="flex-1 min-h-0 overflow-y-auto p-4">
+    <div class="flex-1 min-h-0 overflow-y-auto p-3">
       <slot />
     </div>
   </section>

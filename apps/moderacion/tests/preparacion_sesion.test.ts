@@ -6,9 +6,8 @@
  * 1. H1 — Gestión de borradores locales (draft/dirty) ante snapshots SSE y transiciones institucionales.
  * 2. H2 — Pruebas interactivas con componentes reales montados ejercitando estado reactivo y llamadas a métodos de API.
  * 3. H4 — Modalidad accesible, atajo Escape y gestión de foco en DialogoConfirmacionCierre.
- * 4. M1 — Resumen de quórum y presentes en Q1 durante SESION_ABIERTA.
- * 5. M2 — Ausencia de falso quórum 0/0 en SIN_PREPARAR cuando quorum es null.
- * 6. M3 — Validación estricta del número de sesión (enteros positivos > 0 sin truncado ni conversión silenciosa).
+ * 4. WP-036 — Ausencia de todo resumen global de quórum en Q1 y Q3: ese dato vive sólo en la cabecera.
+ * 5. M3 — Validación estricta del número de sesión (enteros positivos > 0 sin truncado ni conversión silenciosa).
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
@@ -22,7 +21,6 @@ import fuentePanelContenedor from '../app/components/PanelContenedor.vue?raw'
 import PanelRecintoPalabra from '../app/components/PanelRecintoPalabra.vue'
 import BancaConcejal from '../app/components/BancaConcejal.vue'
 import GrillaRecinto from '../app/components/GrillaRecinto.vue'
-import IndicadorQuorum from '../app/components/IndicadorQuorum.vue'
 import DialogoConfirmacionCierre from '../app/components/DialogoConfirmacionCierre.vue'
 import fuenteDialogoConfirmacionCierre from '../app/components/DialogoConfirmacionCierre.vue?raw'
 import { resolverRutaAsset } from '../app/utils/rutas'
@@ -234,7 +232,7 @@ describe('WP-022: Preparación, presencia, autoridades, sesión y advertencia de
   // 1. ESTADO SIN_PREPARAR (SSR Y COMPONENTES)
   // ===========================================================================
   describe('1. Estado SIN_PREPARAR', () => {
-    it('muestra vista de sala sin preparar con botón de Preparar sala y sin falso quórum 0/0 (M2)', async () => {
+    it('muestra vista de sala sin preparar con botón de Preparar sala y sin resumen de quórum en Q3', async () => {
       const estado = crearEstadoBase({ estado_global: 'SIN_PREPARAR', quorum: null })
       const htmlSesion = await renderizarSSR(PanelSesionVotacion, { estado })
 
@@ -245,9 +243,9 @@ describe('WP-022: Preparación, presencia, autoridades, sesión y advertencia de
       expect(htmlSesion).not.toContain('data-testid="vista-sesion-abierta"')
 
       const htmlRecinto = await renderizarSSR(PanelRecintoPalabra, { estado })
-      // M2: En SIN_PREPARAR (sin quorum), no debe mostrarse el falso "Falta quórum 0 de 0 presentes"
+      // WP-036: Q3 ya no presenta ningún resumen de quórum ni conteo global de presentes.
       expect(htmlRecinto).not.toContain('data-testid="indicador-quorum"')
-      expect(htmlRecinto).not.toContain('0 de 0 presentes')
+      expect(htmlRecinto).not.toContain('presentes')
     })
   })
 
@@ -334,46 +332,26 @@ describe('WP-022: Preparación, presencia, autoridades, sesión y advertencia de
       expect(html).toContain('Banca 12')
     })
 
-    it('IndicadorQuorum: no renderiza cuando quorum es null (M2) y calcula faltantes asistenciales cuando falta quórum', async () => {
-      // 1. Quorum null -> no se renderiza nada (M2)
-      const htmlNull = await renderizarSSR(IndicadorQuorum, {
-        quorum: null,
-        totalConcejales: 12,
-      })
-      expect(htmlNull).not.toContain('data-testid="indicador-quorum"')
-      expect(htmlNull).not.toContain('0 de 0 presentes')
-
-      // 2. Falta quórum
+    it('Q3 no repite el quórum global ni siquiera cuando el backend lo proyecta', async () => {
+      // WP-036: aunque exista contexto de quórum, el cuadrante de Recinto no lo presenta;
+      // la única sede de ese dato global es la cabecera compacta del shell.
       const quorumFaltante: EstadoQuorum = {
         cantidad_presentes: 5,
         requerido: 7,
         alcanzado: false,
       }
-      const htmlFalta = await renderizarSSR(IndicadorQuorum, {
-        quorum: quorumFaltante,
-        totalConcejales: 12,
+      const html = await renderizarSSR(PanelRecintoPalabra, {
+        estado: crearEstadoBase({ estado_global: 'PREPARANDO', quorum: quorumFaltante }),
       })
 
-      expect(htmlFalta).toContain('Falta quórum')
-      expect(htmlFalta).toContain('5 de 12 presentes')
-      expect(htmlFalta).toContain('data-testid="quorum-faltantes"')
-      expect(htmlFalta).toContain('Faltan 2 presentes para quórum')
-
-      // 3. Quórum alcanzado
-      const quorumAlcanzado: EstadoQuorum = {
-        cantidad_presentes: 8,
-        requerido: 7,
-        alcanzado: true,
-      }
-      const htmlOk = await renderizarSSR(IndicadorQuorum, {
-        quorum: quorumAlcanzado,
-        totalConcejales: 12,
-      })
-
-      expect(htmlOk).toContain('Quórum alcanzado')
-      expect(htmlOk).toContain('8 de 12 presentes')
-      expect(htmlOk).toContain('data-testid="quorum-completo"')
-      expect(htmlOk).toContain('Quórum suficiente para operar')
+      expect(html).toContain('data-testid="panel-recinto-palabra"')
+      expect(html).not.toContain('data-testid="indicador-quorum"')
+      expect(html).not.toContain('data-testid="quorum-faltantes"')
+      expect(html).not.toContain('data-testid="quorum-completo"')
+      expect(html).not.toContain('Falta quórum')
+      expect(html).not.toContain('presentes')
+      // Las bancas individuales conservan su propia señal de presencia física.
+      expect(html).toContain('data-testid="grilla-recinto"')
     })
   })
 
@@ -381,7 +359,7 @@ describe('WP-022: Preparación, presencia, autoridades, sesión y advertencia de
   // 4. SESION_ABIERTA Y AUTORIDADES (SSR Y M1)
   // ===========================================================================
   describe('4. Estado SESION_ABIERTA (Estructura y M1)', () => {
-    it('muestra número inmutable, resumen de quórum en Q1 (M1) y autoridades en sesión', async () => {
+    it('muestra número inmutable y autoridades en sesión sin repetir el quórum global (WP-036)', async () => {
       const estado = crearEstadoBase({
         estado_global: 'SESION_ABIERTA',
         sesion: {
@@ -408,10 +386,12 @@ describe('WP-022: Preparación, presencia, autoridades, sesión y advertencia de
       expect(html).toContain('data-testid="vista-sesion-abierta"')
       expect(html).toContain('data-testid="numero-sesion-inmutable"')
       expect(html).toContain('Sesión Nº 8')
-      // M1: Quórum en Q1
-      expect(html).toContain('data-testid="quorum-resumen-sesion"')
-      expect(html).toContain('9 / 7 presentes')
-      expect(html).toContain('Quórum legal')
+      // WP-036: Q1 ya no repite el resumen global de quórum.
+      expect(html).not.toContain('data-testid="quorum-resumen-sesion"')
+      expect(html).not.toContain('data-testid="badge-quorum-resumen-sesion"')
+      expect(html).not.toContain('Quórum legal')
+      expect(html).not.toContain('9 / 7 presentes')
+      // Los controles de autoridades siguen siendo comandos y se conservan.
       expect(html).toContain('data-testid="input-presidencia-sesion"')
       expect(html).toContain('data-testid="input-secretaria-sesion"')
       expect(html).toContain('data-testid="btn-actualizar-autoridades"')

@@ -1,23 +1,24 @@
 /**
  * Pruebas Playwright para el Shell y la UI de Moderación de Botonera2 (WP-021 a WP-023).
  *
- * Cobertura de pruebas E2E deterministas (H3, N1):
+ * Cobertura de pruebas E2E deterministas (H3, N1, WP-036):
  * 1. Contrato de Shell 2×2 completo en 1920×1080 y 1366×768:
- *    - Cabecera operacional permanente.
+ *    - Cabecera compacta permanente, sin el distintivo BOTONERA2.
  *    - Cuatro cuadrantes simultáneos (Q1 Sesión, Q2 Orden del Día, Q3 Recinto, Q4 Eventos).
  *    - Cuatro títulos visibles y bounding boxes válidos.
  *    - Alineación precisa por filas y columnas sin solapamientos horizontales ni verticales.
- *    - Ausencia de desborde global en la ventana.
+ *    - Ausencia de scroll de página en ambas resoluciones.
  * 2. Estado SIN_PREPARAR (1920×1080 y 1366×768):
  *    - Vista de sala sin preparar con botón 'Preparar sala'.
- *    - Ausencia de falso quórum 0/0 (M2).
+ *    - Ausencia de todo indicador de quórum mientras el backend no lo proyecta.
  * 3. Estado PREPARANDO (1920×1080 y 1366×768):
  *    - Inputs de número de sesión y autoridades institucionales.
  *    - Botones de guardar preparación, abrir sesión y cancelar preparación.
  *    - 12 bancas en recinto con fotos, nombres, presencia y señal de test activo.
- *    - Indicador de quórum con cálculo de faltantes asistenciales.
+ *    - Quórum y autoridades ya cargadas visibles en la cabecera, y no repetidos en los cuadrantes.
  * 4. Estado SESION_ABIERTA y Diálogo de Advertencia de Cierre (1920×1080 y 1366×768):
- *    - Número de sesión inmutable y resumen de quórum en Q1 (M1).
+ *    - Número de sesión inmutable y ausencia de resumen de quórum en Q1.
+ *    - Quórum, autoridades, reloj local y tiempo de sesión en cabecera.
  *    - Edición de autoridades en sesión.
  *    - Apertura de diálogo modal de confirmación ante orador/cola de palabra activa (H4).
  *    - Accesibilidad del diálogo (role="dialog", aria-modal="true") y cancelación segura.
@@ -568,9 +569,13 @@ async function verificarGeometriaShellCompleto(
   page: Page,
   viewport: { width: number; height: number },
 ) {
-  // 1. Cabecera operacional permanente visible
+  // 1. Cabecera compacta permanente visible, con `Moderación` como única identidad (WP-036)
   const cabecera = page.locator('[data-testid="cabecera-moderacion"]')
   await expect(cabecera).toBeVisible()
+  await expect(cabecera).toContainText('Moderación')
+  await expect(cabecera).not.toContainText('BOTONERA2')
+  await expect(cabecera).not.toContainText('Botonera2')
+  await expect(cabecera).not.toContainText('Revisión')
 
   // 2. Los cuatro cuadrantes simultáneamente visibles con sus cuatro títulos institucionales
   const paneles = obtenerPaneles(page)
@@ -617,18 +622,26 @@ async function verificarGeometriaShellCompleto(
     expect(boxQ2.y + boxQ2.height).toBeLessThanOrEqual(boxQ4.y + 2)
   }
 
-  // 4. Ausencia de overflow global en la ventana
+  // 4. Ausencia de scroll de página: la grilla 2×2 completa entra en el viewport (CA 11 y 12)
   const scrollW = await page.evaluate(() => document.documentElement.scrollWidth)
   const scrollH = await page.evaluate(() => document.documentElement.scrollHeight)
   expect(scrollW).toBeLessThanOrEqual(viewport.width + 2)
   expect(scrollH).toBeLessThanOrEqual(viewport.height + 2)
+
+  // El documento tampoco debe poder desplazarse: ningún elemento del shell excede el viewport.
+  const desplazamiento = await page.evaluate(() => {
+    window.scrollTo(0, 10_000)
+    return { x: window.scrollX, y: window.scrollY }
+  })
+  expect(desplazamiento.y).toBe(0)
+  expect(desplazamiento.x).toBe(0)
 }
 
 test.describe('UI de Moderación - Estados Institucionales y Contrato de Shell (WP-022)', () => {
   // ===========================================================================
   // 1. ESTADO SIN_PREPARAR (1920×1080 y 1366×768)
   // ===========================================================================
-  test('Estado SIN_PREPARAR: verifica contrato 2×2, sala sin preparar y ausencia de falso quórum 0/0 (1920×1080 y 1366×768)', async ({
+  test('Estado SIN_PREPARAR: verifica contrato 2×2, sala sin preparar y ausencia total de indicadores de quórum (1920×1080 y 1366×768)', async ({
     page,
   }) => {
     const estado = crearEstadoFixture({
@@ -661,16 +674,24 @@ test.describe('UI de Moderación - Estados Institucionales y Contrato de Shell (
       await expect(page.locator('[data-testid="vista-preparando"]')).toHaveCount(0)
       await expect(page.locator('[data-testid="vista-sesion-abierta"]')).toHaveCount(0)
 
-      // Cuadrante 3: Recinto y palabra (M2: sin falso quórum 0/0)
+      // WP-036: sin contexto de quórum no se muestra ningún indicador, tampoco en cabecera
+      await expect(page.locator('[data-testid="cabecera-quorum"]')).toHaveCount(0)
       await expect(page.locator('[data-testid="indicador-quorum"]')).toHaveCount(0)
+      await expect(page.locator('[data-testid="quorum-resumen-sesion"]')).toHaveCount(0)
       await expect(page.locator('text=0 de 0 presentes')).toHaveCount(0)
+
+      // Sin sesión abierta tampoco hay tiempo transcurrido, pero el reloj local sí está presente
+      await expect(page.locator('[data-testid="cabecera-tiempo-sesion"]')).toHaveCount(0)
+      await expect(page.locator('[data-testid="cabecera-fecha-hora"]')).toHaveText(
+        /^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}:\d{2}$/,
+      )
     }
   })
 
   // ===========================================================================
   // 2. ESTADO PREPARANDO (1920×1080 y 1366×768)
   // ===========================================================================
-  test('Estado PREPARANDO: verifica contrato 2×2, inputs de preparación, quórum con faltantes y 12 bancas (1920×1080 y 1366×768)', async ({
+  test('Estado PREPARANDO: verifica contrato 2×2, inputs de preparación, quórum y autoridades en cabecera y 12 bancas (1920×1080 y 1366×768)', async ({
     page,
   }) => {
     const estado = crearEstadoFixture({
@@ -741,13 +762,19 @@ test.describe('UI de Moderación - Estados Institucionales y Contrato de Shell (
         'Quórum insuficiente',
       )
 
-      // Cuadrante 3: Quórum con faltantes asistenciales
-      const indicadorQuorum = page.locator('[data-testid="indicador-quorum"]')
-      await expect(indicadorQuorum).toBeVisible()
-      await expect(indicadorQuorum).toContainText('Falta quórum')
-      await expect(indicadorQuorum).toContainText('5 de 12 presentes')
-      await expect(page.locator('[data-testid="quorum-faltantes"]')).toContainText(
-        'Faltan 2 presentes',
+      // WP-036: el quórum es global y se muestra únicamente en la cabecera
+      const quorumCabecera = page.locator('[data-testid="cabecera-quorum"]')
+      await expect(quorumCabecera).toBeVisible()
+      await expect(quorumCabecera).toContainText('Sin quórum 5/12 · mín 7')
+      await expect(page.locator('[data-testid="indicador-quorum"]')).toHaveCount(0)
+      await expect(page.locator('[data-testid="quorum-faltantes"]')).toHaveCount(0)
+
+      // WP-036: las autoridades ya cargadas se ven en cabecera desde PREPARANDO
+      await expect(page.locator('[data-testid="cabecera-presidencia"]')).toContainText(
+        'Dr. René Favaloro',
+      )
+      await expect(page.locator('[data-testid="cabecera-secretaria"]')).toContainText(
+        'Lic. Alicia Moreau',
       )
 
       // 12 Bancas renderizadas
@@ -762,7 +789,7 @@ test.describe('UI de Moderación - Estados Institucionales y Contrato de Shell (
   // ===========================================================================
   // 3. ESTADO SESION_ABIERTA Y DIÁLOGO DE ADVERTENCIA DE CIERRE (1920×1080 y 1366×768)
   // ===========================================================================
-  test('Estado SESION_ABIERTA: verifica contrato 2×2, número inmutable, quórum en Q1 y diálogo modal accesible (1920×1080 y 1366×768)', async ({
+  test('Estado SESION_ABIERTA: verifica contrato 2×2, número inmutable, datos globales en cabecera y diálogo modal accesible (1920×1080 y 1366×768)', async ({
     page,
   }) => {
     const estado = crearEstadoFixture({
@@ -819,15 +846,33 @@ test.describe('UI de Moderación - Estados Institucionales y Contrato de Shell (
       // Verificamos el contrato geométrico 2×2 completo del shell (N1)
       await verificarGeometriaShellCompleto(page, viewport)
 
-      // Cuadrante 1: Número inmutable y Quórum en Q1 (M1)
+      // Cuadrante 1: número inmutable y, tras WP-036, ningún resumen global de quórum
       await expect(page.locator('[data-testid="vista-sesion-abierta"]')).toBeVisible()
       await expect(page.locator('[data-testid="numero-sesion-inmutable"]')).toContainText(
         'Sesión Nº 8',
       )
-      const quorumResumen = page.locator('[data-testid="quorum-resumen-sesion"]')
-      await expect(quorumResumen).toBeVisible()
-      await expect(quorumResumen).toContainText('9 / 7 presentes')
-      await expect(quorumResumen).toContainText('Quórum legal')
+      await expect(page.locator('[data-testid="quorum-resumen-sesion"]')).toHaveCount(0)
+      await expect(page.locator('[data-testid="badge-quorum-resumen-sesion"]')).toHaveCount(0)
+      await expect(page.locator('[data-testid="indicador-quorum"]')).toHaveCount(0)
+
+      // Cabecera: única sede del quórum y de las autoridades vigentes
+      await expect(page.locator('[data-testid="cabecera-quorum"]')).toContainText(
+        'Quórum 9/12 · mín 7',
+      )
+      await expect(page.locator('[data-testid="cabecera-presidencia"]')).toContainText(
+        'Dra. María Elena Walsh',
+      )
+      await expect(page.locator('[data-testid="cabecera-secretaria"]')).toContainText(
+        'Lic. Juan Gómez',
+      )
+
+      // Cabecera: reloj local y tiempo transcurrido desde la apertura formal de la sesión
+      await expect(page.locator('[data-testid="cabecera-fecha-hora"]')).toHaveText(
+        /^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}:\d{2}$/,
+      )
+      await expect(page.locator('[data-testid="cabecera-tiempo-sesion"]')).toHaveText(
+        /Sesión\s+\d{2,}:\d{2}:\d{2}/,
+      )
 
       // Autoridades actualizables
       await expect(page.locator('[data-testid="input-presidencia-sesion"]')).toHaveValue(
@@ -967,6 +1012,83 @@ test.describe('UI de Moderación - Estados Institucionales y Contrato de Shell (
       expect(scrollH).toBeLessThanOrEqual(viewport.height + 2)
       expect(scrollW).toBeLessThanOrEqual(viewport.width + 2)
     }
+  })
+})
+
+test.describe('WP-036 - Cabecera compacta y redistribución del shell', () => {
+  /** Estado con sesión abierta, quórum alcanzado y autoridades cargadas. */
+  function crearEstadoSesionAbierta() {
+    return crearEstadoFixture({
+      estado_global: 'SESION_ABIERTA',
+      sesion: {
+        fecha_hora_inicio_preparacion: '2026-08-25T10:00:00Z',
+        fecha_hora_apertura: '2026-08-25T10:30:00Z',
+        numero_sesion: 8,
+        presidencia: 'Dra. María Elena Walsh',
+        secretaria_legislativa: 'Lic. Juan Gómez',
+      },
+      quorum: { cantidad_presentes: 9, requerido: 7, alcanzado: true },
+    })
+  }
+
+  test('el reloj local de la cabecera avanza sin intervención ni recarga', async ({ page }) => {
+    await configurarRutasMock(page, crearEstadoSesionAbierta())
+    await page.setViewportSize({ width: 1366, height: 768 })
+    await page.goto('/moderacion/')
+
+    const reloj = page.locator('[data-testid="cabecera-fecha-hora"]')
+    await expect(reloj).toBeVisible()
+
+    // El primer valor sirve de referencia: al segundo siguiente el reloj debe haber cambiado.
+    const primerValor = await reloj.textContent()
+    expect(primerValor).toMatch(/^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}:\d{2}$/)
+    await expect(reloj).not.toHaveText(primerValor ?? '')
+
+    // El tiempo de sesión se deriva de la misma marca autoritativa y también avanza.
+    const tiempoSesion = page.locator('[data-testid="cabecera-tiempo-sesion"]')
+    const primerTiempo = await tiempoSesion.textContent()
+    await expect(tiempoSesion).not.toHaveText(primerTiempo ?? '')
+  })
+
+  test('la grilla 2×2 escala con el viewport en lugar de depender de alturas fijas', async ({
+    page,
+  }) => {
+    await configurarRutasMock(page, crearEstadoSesionAbierta())
+
+    const alturas: Record<string, number> = {}
+
+    for (const viewport of [
+      { width: 1920, height: 1080 },
+      { width: 1366, height: 768 },
+    ]) {
+      await page.setViewportSize(viewport)
+      await page.goto('/moderacion/')
+      await page
+        .locator('[data-testid="cabecera-moderacion"]')
+        .waitFor({ state: 'visible', timeout: 30000 })
+
+      await verificarGeometriaShellCompleto(page, viewport)
+
+      const cajaQ1 = await obtenerPaneles(page).sesion.boundingBox()
+      const cajaCabecera = await page.locator('[data-testid="cabecera-moderacion"]').boundingBox()
+      expect(cajaQ1).not.toBeNull()
+      expect(cajaCabecera).not.toBeNull()
+
+      if (cajaQ1 && cajaCabecera) {
+        alturas[`${viewport.height}`] = cajaQ1.height
+
+        // La cabecera compacta no debe consumir más del 10 % de la altura del viewport.
+        expect(cajaCabecera.height).toBeLessThanOrEqual(viewport.height * 0.1)
+
+        // Cada fila de la grilla ocupa una fracción sustancial del alto restante:
+        // eso sólo es posible si el shell reparte el espacio en unidades fraccionarias.
+        expect(cajaQ1.height).toBeGreaterThan(viewport.height * 0.35)
+      }
+    }
+
+    // Si el layout dependiera de alturas absolutas en píxeles, el cuadrante mediría igual
+    // en ambas resoluciones. Debe crecer junto con el viewport.
+    expect(alturas['1080']).toBeGreaterThan(alturas['768'] + 50)
   })
 })
 

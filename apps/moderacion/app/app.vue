@@ -4,14 +4,21 @@
  *
  * Responsabilidades:
  * 1. Inicializar y consumir la frontera reactiva de sincronización (useEstadoModeracion).
- * 2. Renderizar la cabecera operacional permanente con estado de conexión, estado global y revisión.
- * 3. Disponer los cuatro cuadrantes funcionales en una grilla 2×2 para resoluciones Full HD (1920×1080)
- *    y 1366×768, con adaptación fluida para resoluciones menores.
- * 4. Garantizar que el crecimiento interno de cualquier panel quede confinado a su propio scroll
- *    sin deformar ni empujar la altura de los demás paneles.
+ * 2. Alimentar la cabecera compacta con todos los datos globales de la pantalla:
+ *    estado global, conexión, quórum, autoridades y apertura formal de la sesión.
+ * 3. Disponer los cuatro cuadrantes funcionales en una grilla 2×2 que entra completa
+ *    en el viewport a 1366×768 y a 1920×1080, sin scroll de página.
+ * 4. Garantizar que el crecimiento interno de cualquier panel quede confinado a su propio
+ *    scroll sin deformar ni empujar la altura de los demás paneles.
+ *
+ * Sobre el dimensionado (WP-036): el shell no fija alturas ni anchos absolutos en píxeles.
+ * La altura total la aporta `h-dvh`, el reparto vertical lo resuelve Flexbox con `flex-1`
+ * y `min-h-0`, y los cuadrantes se reparten el espacio restante con filas y columnas
+ * fraccionarias de CSS Grid. Así la grilla escala con el viewport en lugar de depender
+ * de una resolución concreta.
  */
 
-import { shallowRef } from 'vue'
+import { computed, shallowRef } from 'vue'
 import type { PuntoOrdenDelDiaProyectado } from '@botonera2/api-client'
 import { useEstadoModeracion } from './composables/useEstadoModeracion'
 import CabeceraModeracion from './components/CabeceraModeracion.vue'
@@ -23,6 +30,32 @@ import PanelEventos from './components/PanelEventos.vue'
 // Conectamos con el composable reactivo de moderación
 const { estado, estadoConexion, estadoGlobal, revision, desactualizado, conectado, cliente } =
   useEstadoModeracion()
+
+/** Cantidad de bancas del padrón activo; sirve de total de referencia del quórum en cabecera. */
+const totalConcejales = computed(() => estado.value?.concejales?.length ?? 0)
+
+/**
+ * Presidencia vigente, tomada de la sesión abierta o, si todavía no hay sesión,
+ * de la preparación en curso. De este modo la autoridad aparece en cabecera desde
+ * el mismo momento en que fue cargada, incluso durante PREPARANDO.
+ */
+const presidencia = computed(
+  () => estado.value?.sesion?.presidencia ?? estado.value?.preparacion?.presidencia ?? null,
+)
+
+/** Secretaría Legislativa vigente, con el mismo criterio que la Presidencia. */
+const secretariaLegislativa = computed(
+  () =>
+    estado.value?.sesion?.secretaria_legislativa ??
+    estado.value?.preparacion?.secretaria_legislativa ??
+    null,
+)
+
+/**
+ * Marca autoritativa de apertura formal de la sesión.
+ * Sólo existe con sesión abierta; la cabecera deriva de ella el tiempo transcurrido.
+ */
+const fechaHoraApertura = computed(() => estado.value?.sesion?.fecha_hora_apertura ?? null)
 
 /**
  * Conserva únicamente el punto elegido como borrador visual entre los cuadrantes.
@@ -39,41 +72,38 @@ function seleccionarPuntoOrdenDelDia(punto: PuntoOrdenDelDiaProyectado): void {
 
 <template>
   <div
-    class="flex h-screen w-screen min-w-0 flex-col overflow-hidden bg-slate-950 text-slate-100 antialiased select-none"
+    class="flex h-dvh w-full min-w-0 flex-col overflow-hidden bg-slate-950 text-slate-100 antialiased select-none"
   >
-    <!-- Cabecera de estado técnico e institucional -->
+    <!-- Cabecera compacta: única sede de los datos globales de la pantalla -->
     <CabeceraModeracion
       :estado-conexion="estadoConexion"
       :estado-global="estadoGlobal"
       :revision="revision"
       :desactualizado="desactualizado"
+      :quorum="estado?.quorum ?? null"
+      :total-concejales="totalConcejales"
+      :presidencia="presidencia"
+      :secretaria-legislativa="secretariaLegislativa"
+      :fecha-hora-apertura="fechaHoraApertura"
     />
 
-    <!-- Área de trabajo principal con grilla 2×2 en desktop (1920×1080 y 1366×768) -->
-    <main class="flex flex-1 min-h-0 min-w-0 flex-col p-3 lg:p-4 overflow-hidden">
+    <!-- Área de trabajo principal con grilla 2×2 en desktop (1366×768 y 1920×1080) -->
+    <main class="flex flex-1 min-h-0 min-w-0 flex-col overflow-hidden p-2 lg:p-3">
       <div
         data-testid="grilla-paneles"
-        class="grid flex-1 min-h-0 min-w-0 grid-cols-1 lg:grid-cols-2 grid-rows-none lg:grid-rows-2 gap-3 lg:gap-4 overflow-y-auto lg:overflow-hidden"
+        class="grid flex-1 min-h-0 min-w-0 grid-cols-1 auto-rows-[minmax(45dvh,auto)] gap-2 overflow-y-auto lg:grid-cols-2 lg:grid-rows-2 lg:gap-3 lg:overflow-hidden"
       >
         <!-- Cuadrante 1 (arriba izquierda): Sesión y votación -->
-        <div class="h-[360px] lg:h-auto min-h-0 min-w-0">
-          <PanelSesionVotacion :estado="estado" :punto-preseleccionado="puntoSeleccionado" />
-        </div>
+        <PanelSesionVotacion :estado="estado" :punto-preseleccionado="puntoSeleccionado" />
 
         <!-- Cuadrante 2 (arriba derecha): Orden del Día -->
-        <div class="h-[360px] lg:h-auto min-h-0 min-w-0">
-          <PanelOrdenDelDia :estado="estado" @seleccionar="seleccionarPuntoOrdenDelDia" />
-        </div>
+        <PanelOrdenDelDia :estado="estado" @seleccionar="seleccionarPuntoOrdenDelDia" />
 
         <!-- Cuadrante 3 (abajo izquierda): Recinto y palabra -->
-        <div class="h-[360px] lg:h-auto min-h-0 min-w-0">
-          <PanelRecintoPalabra :estado="estado" :cliente="cliente" :conectado="conectado" />
-        </div>
+        <PanelRecintoPalabra :estado="estado" :cliente="cliente" :conectado="conectado" />
 
         <!-- Cuadrante 4 (abajo derecha): Eventos -->
-        <div class="h-[360px] lg:h-auto min-h-0 min-w-0">
-          <PanelEventos :estado="estado" />
-        </div>
+        <PanelEventos :estado="estado" />
       </div>
     </main>
   </div>

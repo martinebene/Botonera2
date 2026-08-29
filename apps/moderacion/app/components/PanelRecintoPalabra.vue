@@ -3,11 +3,14 @@
  * Panel de Recinto y Palabra (Cuadrante 3 de Moderación).
  *
  * Responsabilidades:
- * 1. Mostrar el estado y condición del quórum reglamentario (presentes, requerido, faltantes).
- *    M2: En SIN_PREPARAR (donde quorum es null), no renderiza un falso indicador 0/0.
- * 2. Disponer las bancas del recinto según la configuración de filas (filas_bancas) y padrón activo.
- * 3. Reflejar presencia física y test temporal de teclado en modo solo lectura.
- * 4. Integrar los controles autoritativos de palabra y el flujo de remapeo físico.
+ * 1. Disponer las bancas del recinto según la configuración de filas (filas_bancas) y padrón activo.
+ * 2. Reflejar presencia física y test temporal de teclado en modo solo lectura.
+ * 3. Integrar los controles autoritativos de palabra y el flujo de remapeo físico.
+ *
+ * Quórum (WP-036): este cuadrante ya no presenta el resumen global de quórum ni el conteo
+ * de presentes. Ese dato es único y global, y vive exclusivamente en la cabecera compacta,
+ * de modo que no se repita en dos lugares que podrían llegar a divergir visualmente.
+ * La presencia individual de cada concejal se sigue viendo en su propia banca.
  *
  * Invariantes respetados:
  * - NO incluye controles de presencia manual ni atajos de teclado para marcar presencia.
@@ -15,14 +18,12 @@
  * - Resuelve imágenes exclusivamente desde ruta_imagen sin hardcodeo de nombres de archivo.
  */
 
-import { computed } from 'vue'
 import {
   crearClienteModeracion,
   type ClienteModeracion,
   type EstadoModeracion,
 } from '@botonera2/api-client'
 import PanelContenedor from './PanelContenedor.vue'
-import IndicadorQuorum from './IndicadorQuorum.vue'
 import GrillaRecinto from './GrillaRecinto.vue'
 import GestionPalabra from './GestionPalabra.vue'
 import GestionRemapeo from './GestionRemapeo.vue'
@@ -39,31 +40,6 @@ const props = defineProps<{
 // El fallback permite renderizar el componente aislado en SSR sin abrir una
 // suscripción ni duplicar la frontera de sincronización de la aplicación.
 const clienteEfectivo = props.cliente ?? crearClienteModeracion()
-
-// Cantidad de concejales registrados en el padrón activo
-const totalConcejales = computed(() => props.estado?.concejales?.length ?? 0)
-
-// Cantidad de concejales presentes según el estado de quórum o el padrón
-const cantidadPresentes = computed(() => {
-  if (props.estado?.quorum) {
-    return props.estado.quorum.cantidad_presentes
-  }
-  return props.estado?.concejales?.filter((c) => c.presente).length ?? 0
-})
-
-// Texto para el badge superior del panel
-const textoBadge = computed(() => {
-  if (!props.estado) return 'Esperando datos...'
-  return `${cantidadPresentes.value}/${totalConcejales.value} presentes`
-})
-
-// Estilo del badge según quórum alcanzado
-const claseBadge = computed(() => {
-  if (props.estado?.quorum?.alcanzado) {
-    return 'bg-emerald-950 text-emerald-300 border border-emerald-700'
-  }
-  return 'bg-slate-800 text-slate-300 border border-slate-700'
-})
 </script>
 
 <template>
@@ -71,17 +47,8 @@ const claseBadge = computed(() => {
     titulo="Recinto y palabra"
     subtitulo="Bancas, palabra y coordinación de dispositivos"
     data-testid="panel-recinto-palabra"
-    :badge="textoBadge"
-    :clase-badge="claseBadge"
   >
-    <div class="space-y-4 text-sm text-slate-300">
-      <!-- Indicador principal de quórum reglamentario (solo cuando existe contexto de quórum) (M2) -->
-      <IndicadorQuorum
-        v-if="estado && estado.quorum"
-        :quorum="estado.quorum"
-        :total-concejales="totalConcejales"
-      />
-
+    <div class="space-y-3 text-sm text-slate-300">
       <!-- Cola/orador y comandos: toda transición llega luego desde REST/SSE. -->
       <GestionPalabra :estado="estado" :cliente="clienteEfectivo" :conectado="conectado ?? false" />
 

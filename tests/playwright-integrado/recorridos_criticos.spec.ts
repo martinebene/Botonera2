@@ -118,7 +118,8 @@ test.describe.serial('WP-027 · recorridos críticos sobre el stack real', () =>
         ])
 
         await pulsarSecuencia(['1-9', '2-9', '3-9', '4-9', '5-9', '6-9', '7-9'])
-        await expect(moderacion.getByTestId('quorum-completo')).toBeVisible()
+        // WP-036: el quórum de Moderación es un dato único de la cabecera compacta.
+        await expect(moderacion.getByTestId('cabecera-quorum')).toContainText('Quórum 7/12')
         await expect(recinto.getByTestId('cantidad-presentes')).toHaveText('7')
         await expect(recinto.getByTestId('estado-quorum')).toContainText('Quórum alcanzado')
 
