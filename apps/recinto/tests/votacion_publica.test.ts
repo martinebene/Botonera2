@@ -120,7 +120,8 @@ describe('Experiencia pública de votación', () => {
       ),
     )
     expect(wrapper.find('[data-testid="countdown-votacion"]').exists()).toBe(false)
-    expect(vi.getTimerCount()).toBe(0)
+    // La única tarea restante es el reloj permanente de la cabecera pública.
+    expect(vi.getTimerCount()).toBe(1)
     wrapper.unmount()
   })
 
@@ -166,7 +167,7 @@ describe('Experiencia pública de votación', () => {
     expect(wrapper.get('[data-testid="conteos-votacion"]').text()).toContain('Positivos8')
     expect(wrapper.get('[data-testid="conteos-votacion"]').text()).toContain('Total11')
     expect(wrapper.get('[data-testid="estado-quorum"]').text()).toBe('Quórum alcanzado')
-    expect(wrapper.get('[data-testid="orador-actual"]').text()).toContain('Nombre1 Apellido1')
+    expect(wrapper.get('[data-testid="panel-palabra"]').text()).not.toContain('Nombre1 Apellido1')
     wrapper.unmount()
   })
 
@@ -213,7 +214,7 @@ describe('Experiencia pública de votación', () => {
 
     expect(wrapper.get('[data-testid="estado-votacion"]').text()).toBe('Empatada')
     expect(wrapper.get('[data-testid="espera-desempate"]').text()).toContain('Presidencia')
-    expect(vi.getTimerCount()).toBe(0)
+    expect(vi.getTimerCount()).toBe(1)
     vi.advanceTimersByTime(60_000)
     await wrapper.vm.$nextTick()
     expect(wrapper.get('[data-testid="estado-votacion"]').text()).toBe('Empatada')
@@ -292,7 +293,7 @@ describe('Experiencia pública de votación', () => {
       estado: crearEstadoRecintoPrueba({ revision: 0, estado_global: 'SIN_PREPARAR' }),
     })
     expect(wrapper.get('[data-testid="estado-sin-preparar"]').exists()).toBe(true)
-    expect(vi.getTimerCount()).toBe(0)
+    expect(vi.getTimerCount()).toBe(1)
     wrapper.unmount()
   })
 
@@ -316,7 +317,8 @@ describe('Experiencia pública de votación', () => {
         crearVotacionPublicaPrueba({ cuenta_regresiva_hasta: '2026-08-28T10:00:04Z' }),
       ),
     )
-    expect(vi.getTimerCount()).toBe(1)
+    // Cabecera + presentación temporal de votación.
+    expect(vi.getTimerCount()).toBe(2)
     conTimer.unmount()
     expect(vi.getTimerCount()).toBe(0)
   })

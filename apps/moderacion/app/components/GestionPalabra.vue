@@ -115,12 +115,12 @@ async function quitarPalabra(): Promise<void> {
 <template>
   <section
     data-testid="gestion-palabra"
-    class="space-y-3 rounded-lg border border-slate-800 bg-slate-950/60 p-3"
+    class="flex h-full min-h-0 flex-col gap-2 overflow-hidden rounded-lg border border-slate-800 bg-slate-950/60 p-2.5"
   >
-    <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2">
+    <div class="flex shrink-0 items-center justify-between gap-2 border-b border-slate-800 pb-1.5">
       <div>
         <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300">Uso de la palabra</h3>
-        <p class="text-[10px] text-slate-500">Cola FIFO confirmada por el backend</p>
+        <p class="text-[9px] text-slate-500">Cola FIFO autoritativa</p>
       </div>
       <span
         data-testid="badge-cola-palabra"
@@ -135,49 +135,43 @@ async function quitarPalabra(): Promise<void> {
       </span>
     </div>
 
-    <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
-      <article class="rounded border border-slate-800/80 bg-slate-900/50 p-2 text-xs">
-        <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Orador actual</p>
-        <p
-          data-testid="orador-actual-texto"
-          class="mt-1 font-semibold"
-          :class="orador ? 'text-cyan-300' : 'italic text-slate-400'"
-        >
-          <template v-if="orador">
-            Banca {{ orador.banca }} · {{ orador.nombre }} {{ orador.apellido }}
-          </template>
-          <template v-else>Sin orador activo</template>
-        </p>
-      </article>
+    <!-- El texto es una ayuda operativa compacta; la señal principal vive en la banca resaltada. -->
+    <p
+      data-testid="orador-actual-texto"
+      class="shrink-0 truncate rounded border border-slate-800/80 bg-slate-900/50 px-2 py-1 text-[10px] font-semibold"
+      :class="orador ? 'text-cyan-300' : 'italic text-slate-400'"
+      :title="orador ? `${orador.nombre} ${orador.apellido}` : undefined"
+    >
+      <template v-if="orador">
+        En uso: Banca {{ orador.banca }} · {{ orador.nombre }} {{ orador.apellido }}
+      </template>
+      <template v-else>Sin orador activo</template>
+    </p>
 
-      <article class="min-h-0 rounded border border-slate-800/80 bg-slate-900/50 p-2 text-xs">
-        <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-          Pedidos en espera
-        </p>
-        <ol
-          v-if="cola.length > 0"
-          data-testid="cola-palabra"
-          class="mt-1 max-h-32 space-y-1 overflow-y-auto pr-1"
+    <!-- Esta lista es la única frontera de scroll de la columna de palabra. -->
+    <div
+      data-testid="contenedor-scroll-cola-palabra"
+      class="min-h-0 flex-1 overflow-y-auto rounded border border-slate-800/80 bg-slate-900/50 p-1.5 text-xs"
+    >
+      <ol v-if="cola.length > 0" data-testid="cola-palabra" class="space-y-1 pr-1">
+        <li
+          v-for="(persona, indice) in cola"
+          :key="persona.dni"
+          :data-testid="`pedido-palabra-${indice + 1}`"
+          class="rounded bg-slate-950/70 px-2 py-1 text-slate-200"
         >
-          <li
-            v-for="(persona, indice) in cola"
-            :key="persona.dni"
-            :data-testid="`pedido-palabra-${indice + 1}`"
-            class="rounded bg-slate-950/70 px-2 py-1 text-slate-200"
-          >
-            <span class="font-mono text-cyan-400">{{ indice + 1 }}.</span>
-            Banca {{ persona.banca }} · {{ persona.nombre }} {{ persona.apellido }}
-          </li>
-        </ol>
-        <p v-else class="mt-1 italic text-slate-400">Sin pedidos en espera</p>
-      </article>
+          <span class="font-mono text-cyan-400">{{ indice + 1 }}.</span>
+          Banca {{ persona.banca }} · {{ persona.nombre }} {{ persona.apellido }}
+        </li>
+      </ol>
+      <p v-else class="m-0 italic text-slate-400">Sin pedidos en espera</p>
     </div>
 
-    <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+    <div data-testid="controles-palabra" class="grid shrink-0 grid-cols-2 gap-2">
       <button
         type="button"
         data-testid="btn-otorgar-palabra"
-        class="rounded-lg border border-cyan-700 bg-cyan-950 px-3 py-2 text-xs font-bold text-cyan-200 disabled:cursor-not-allowed disabled:opacity-40"
+        class="rounded-lg border border-cyan-700 bg-cyan-950 px-2 py-1.5 text-[11px] font-bold text-cyan-200 disabled:cursor-not-allowed disabled:opacity-40"
         :disabled="!puedeOtorgar"
         @click="otorgarPalabra"
       >
@@ -186,7 +180,7 @@ async function quitarPalabra(): Promise<void> {
       <button
         type="button"
         data-testid="btn-quitar-palabra"
-        class="rounded-lg border border-amber-700 bg-amber-950 px-3 py-2 text-xs font-bold text-amber-200 disabled:cursor-not-allowed disabled:opacity-40"
+        class="rounded-lg border border-amber-700 bg-amber-950 px-2 py-1.5 text-[11px] font-bold text-amber-200 disabled:cursor-not-allowed disabled:opacity-40"
         :disabled="!puedeQuitar"
         @click="quitarPalabra"
       >
@@ -197,14 +191,14 @@ async function quitarPalabra(): Promise<void> {
     <div
       v-if="!conectado"
       data-testid="motivo-palabra-sin-conexion"
-      class="rounded border border-amber-800 bg-amber-950/40 p-2 text-xs text-amber-200"
+      class="shrink-0 rounded border border-amber-800 bg-amber-950/40 px-2 py-1 text-[10px] text-amber-200"
     >
       Los comandos de palabra requieren conexión confirmada.
     </div>
     <ul
       v-else-if="!capacidadOtorgar?.habilitada || !capacidadQuitar?.habilitada"
       data-testid="motivos-palabra"
-      class="space-y-1 text-[11px] text-slate-400"
+      class="max-h-12 shrink-0 space-y-0.5 overflow-y-auto text-[9px] text-slate-400"
     >
       <li v-for="motivo in motivosPalabra" :key="motivo">
         {{ motivo }}
@@ -214,7 +208,7 @@ async function quitarPalabra(): Promise<void> {
     <p
       v-if="mensajeError"
       data-testid="error-palabra"
-      class="rounded border border-rose-700 bg-rose-950/60 p-2 text-xs text-rose-200"
+      class="max-h-12 shrink-0 overflow-y-auto rounded border border-rose-700 bg-rose-950/60 px-2 py-1 text-[10px] text-rose-200"
       role="alert"
     >
       {{ mensajeError }}
@@ -222,7 +216,7 @@ async function quitarPalabra(): Promise<void> {
     <p
       v-if="mensajeInformativo"
       data-testid="aviso-palabra"
-      class="rounded border border-cyan-800 bg-cyan-950/40 p-2 text-xs text-cyan-200"
+      class="max-h-12 shrink-0 overflow-y-auto rounded border border-cyan-800 bg-cyan-950/40 px-2 py-1 text-[10px] text-cyan-200"
       role="status"
     >
       {{ mensajeInformativo }}

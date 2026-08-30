@@ -207,6 +207,9 @@ for (const viewport of [
     await publicar(page, preparando)
 
     await expect(page.getByTestId('estado-global-visible')).toContainText('preparación')
+    await expect(page.getByTestId('cabecera-fecha-hora')).toBeVisible()
+    await expect(page.getByTestId('cabecera-sesion')).toContainText('Preparando')
+    await expect(page.getByTestId('cabecera-tiempo-sesion')).toHaveCount(0)
     await expect(page.getByTestId('estado-quorum')).toHaveText('Sin quórum')
     await expect(page.locator('[data-banca="2"] [data-testid="estado-presencia"]')).toHaveText(
       'Ausente',
@@ -267,7 +270,7 @@ for (const viewport of [
       estado_global: 'SESION_ABIERTA',
       sesion: {
         fecha_hora_inicio_preparacion: '2026-08-27T10:00:00Z',
-        fecha_hora_apertura: '2026-08-27T10:15:00Z',
+        fecha_hora_apertura: '2026-08-28T09:45:00Z',
         numero_sesion: 59,
         presidencia: 'Ana Presidencia',
         secretaria_legislativa: 'Luis Secretaría',
@@ -280,6 +283,11 @@ for (const viewport of [
         cola: [
           { nombre: 'Nombre7', apellido: 'Apellido7', banca: 7 },
           { nombre: 'Nombre1', apellido: 'Apellido1', banca: 1 },
+          ...Array.from({ length: 30 }, (_, indice) => ({
+            nombre: `Pedido${indice + 3}`,
+            apellido: 'En espera',
+            banca: (indice % 12) + 1,
+          })),
         ],
       },
       votacion: null,
@@ -287,18 +295,46 @@ for (const viewport of [
     await publicar(page, sesion)
 
     await expect(page.getByTestId('titulo-contexto')).toContainText('59')
+    await expect(page.getByTestId('cabecera-sesion')).toContainText('59')
+    await expect(page.getByTestId('cabecera-tiempo-sesion')).toContainText('00:15:00')
     await expect(page.getByTestId('autoridades')).toContainText('Ana Presidencia')
     await expect(page.getByTestId('autoridades')).toContainText('Luis Secretaría')
     await expect(page.getByTestId('estado-quorum')).toHaveText('Quórum alcanzado')
-    await expect(page.getByTestId('orador-actual')).toContainText('Nombre4 Apellido4')
     await expect(page.locator('[data-banca="4"] [data-testid="estado-orador"]')).toBeVisible()
-    await expect(page.getByTestId('cola-palabra').locator('li')).toHaveCount(2)
+    await expect(page.getByTestId('panel-palabra')).not.toContainText('Nombre4 Apellido4')
+    await expect(page.getByTestId('cola-palabra').locator('li')).toHaveCount(32)
     await expect(page.getByTestId('cola-palabra').locator('li').nth(0)).toContainText(
       'Nombre7 Apellido7',
     )
     await expect(page.getByTestId('cola-palabra').locator('li').nth(1)).toContainText(
       'Nombre1 Apellido1',
     )
+    const scrollCola = await page.getByTestId('cola-palabra').evaluate((cola) => ({
+      altoVisible: cola.clientHeight,
+      altoContenido: cola.scrollHeight,
+    }))
+    expect(scrollCola.altoContenido).toBeGreaterThan(scrollCola.altoVisible)
+
+    const horaAntes = await page.getByTestId('cabecera-fecha-hora').textContent()
+    await page.clock.runFor(1000)
+    await expect(page.getByTestId('cabecera-tiempo-sesion')).toContainText('00:15:01')
+    expect(await page.getByTestId('cabecera-fecha-hora').textContent()).not.toBe(horaAntes)
+
+    const cajaCabecera = await page.getByTestId('cabecera-recinto').boundingBox()
+    const cajaFranja = await page.getByTestId('franja-contexto-publico').boundingBox()
+    const cajaQuorum = await page.getByTestId('panel-quorum').boundingBox()
+    expect(cajaCabecera).not.toBeNull()
+    expect(cajaFranja).not.toBeNull()
+    expect(cajaQuorum).not.toBeNull()
+    expect(cajaCabecera!.height).toBeLessThan(80)
+    expect(cajaFranja!.height).toBeLessThan(150)
+    expect(cajaQuorum!.height).toBeLessThan(80)
+
+    const cajaBancasSesion = await page.getByTestId('area-bancas-publica').boundingBox()
+    const cajaPalabraSesion = await page.getByTestId('columna-palabra-publica').boundingBox()
+    expect(cajaBancasSesion).not.toBeNull()
+    expect(cajaPalabraSesion).not.toBeNull()
+    expect(cajaBancasSesion!.x + cajaBancasSesion!.width).toBeLessThanOrEqual(cajaPalabraSesion!.x)
 
     // La votación nueva reemplaza la sesión sin votación. Aun si el mock
     // incluyera datos prohibidos, EN_CURSO no revela voto ni conteos en DOM.
@@ -323,10 +359,16 @@ for (const viewport of [
     await expect(page.getByTestId('tema-votacion')).toContainText('Expediente público')
     await expect(page.getByTestId('countdown-votacion')).toBeVisible()
     await expect(page.getByTestId('panel-quorum')).toBeVisible()
-    await expect(page.getByTestId('orador-actual')).toContainText('Nombre4 Apellido4')
+    await expect(page.getByTestId('panel-palabra')).not.toContainText('Nombre4 Apellido4')
     await expect(page.getByTestId('voto-banca')).toHaveCount(0)
     await expect(page.getByTestId('conteos-votacion')).toHaveCount(0)
     await expect(page.getByText('Positivo', { exact: true })).toHaveCount(0)
+
+    const cajaCountdown = await page.getByTestId('countdown-votacion').boundingBox()
+    const cajaPalabraCountdown = await page.getByTestId('columna-palabra-publica').boundingBox()
+    expect(cajaCountdown).not.toBeNull()
+    expect(cajaPalabraCountdown).not.toBeNull()
+    expect(cajaCountdown!.x + cajaCountdown!.width).toBeLessThanOrEqual(cajaPalabraCountdown!.x)
 
     await page.clock.runFor(1500)
     await expect(page.getByTestId('countdown-votacion')).toHaveCount(0)
@@ -444,11 +486,12 @@ for (const viewport of [
     await expect(page.getByTestId('estado-votacion')).toHaveText('Inconclusa')
     await expect(page.getByTestId('voto-banca')).toHaveCount(1)
     await expect(page.locator('[data-banca="4"] [data-testid="voto-banca"]')).toHaveCount(0)
-    await expect(page.getByTestId('orador-actual')).toContainText('Nombre4 Apellido4')
+    await expect(page.locator('[data-banca="4"] [data-testid="estado-orador"]')).toBeVisible()
+    await expect(page.getByTestId('panel-palabra')).not.toContainText('Nombre4 Apellido4')
 
     const cajas = await Promise.all([
-      page.locator('.escenario-bancas').boundingBox(),
-      page.locator('.paneles-publicos').boundingBox(),
+      page.getByTestId('area-bancas-publica').boundingBox(),
+      page.getByTestId('columna-palabra-publica').boundingBox(),
     ])
     expect(cajas[0]).not.toBeNull()
     expect(cajas[1]).not.toBeNull()
@@ -463,7 +506,7 @@ for (const viewport of [
     await page.clock.resume()
     await cortarYRecuperar(page, reinicio)
     await expect(page.getByTestId('estado-conexion')).toContainText('desactualizada')
-    await expect(page.getByTestId('orador-actual')).toContainText('Nombre4 Apellido4')
+    await expect(page.locator('[data-banca="4"] [data-testid="estado-orador"]')).toBeVisible()
     await expect(page.getByTestId('estado-sin-preparar')).toBeVisible({ timeout: 5000 })
     await expect(page.getByTestId('estado-conexion')).toContainText('En línea')
     await expect(page.getByTestId('grilla-bancas')).toHaveCount(0)

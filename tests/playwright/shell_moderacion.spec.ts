@@ -1126,13 +1126,11 @@ test.describe('UI de Moderación - Estados Institucionales y Contrato de Shell (
       expect(ausencia.opacidad).toBeLessThan(1)
       expect(ausencia.filtroFoto).not.toBe('none')
 
-      // Palabra y remapeo siguen en el mismo Q3. Si el panel necesita scroll interno,
-      // ambos controles y la grilla pueden traerse a la vista sin mover el documento.
-      await page.locator('[data-testid="gestion-palabra"]').scrollIntoViewIfNeeded()
+      // WP-039: palabra comparte horizontalmente Q3 y el remapeo inactivo ocupa
+      // solamente una acción compacta, sin obligar a desplazar el cuadrante.
       await expect(page.locator('[data-testid="gestion-palabra"]')).toBeVisible()
-      await page.locator('[data-testid="gestion-remapeo"]').scrollIntoViewIfNeeded()
-      await expect(page.locator('[data-testid="gestion-remapeo"]')).toBeVisible()
-      await bancaUno.scrollIntoViewIfNeeded()
+      await expect(page.locator('[data-testid="btn-desplegar-remapeo"]')).toBeVisible()
+      await expect(page.locator('[data-testid="gestion-remapeo"]')).toHaveCount(0)
       await expect(bancaUno).toBeVisible()
       await verificarGeometriaShellCompleto(page, viewport)
     }
@@ -1944,6 +1942,7 @@ test.describe('WP-024 - Palabra, eventos y remapeo autoritativos', () => {
       await expect(page.locator('[data-testid="nivel-evento"]')).toHaveText(['L3', 'L2', 'L1'])
 
       // El objetivo se elige desde banca/persona/devXX; luego manda el snapshot.
+      await page.locator('[data-testid="btn-desplegar-remapeo"]').click()
       await page.locator('[data-testid="selector-banca-remapeo"]').selectOption('dev03')
       await expect(page.locator('[data-testid="resumen-inicio-remapeo"]')).toContainText('Banca 3')
       await page.locator('[data-testid="btn-iniciar-remapeo"]').evaluate((boton) => {
@@ -1973,6 +1972,7 @@ test.describe('WP-024 - Palabra, eventos y remapeo autoritativos', () => {
         ;(boton as HTMLButtonElement).click()
       })
       await expect(page.locator('[data-testid="remapeo-activo"]')).toHaveCount(0)
+      await expect(page.locator('[data-testid="btn-desplegar-remapeo"]')).toBeVisible()
 
       const control = await page.evaluate(() =>
         (
@@ -1989,6 +1989,97 @@ test.describe('WP-024 - Palabra, eventos y remapeo autoritativos', () => {
         remapeoId: 'remapeo-e2e-wp024',
         persistencia: 'TEMPORAL',
       })
+      await verificarGeometriaShellCompleto(page, viewport)
+    }
+  })
+})
+
+test.describe('WP-039 - Q3 horizontal, scroll de cola y remapeo compacto', () => {
+  test('mantiene bancas, palabra y controles dentro del cuadrante en ambas resoluciones', async ({
+    page,
+  }) => {
+    const estado = crearEstadoFixture({
+      estado_global: 'SESION_ABIERTA',
+      sesion: {
+        fecha_hora_inicio_preparacion: '2026-08-30T09:00:00Z',
+        fecha_hora_apertura: '2026-08-30T09:30:00Z',
+        numero_sesion: 39,
+        presidencia: 'Presidencia de prueba',
+        secretaria_legislativa: 'Secretaría de prueba',
+      },
+      configuracion: { filas_bancas: [3, 4, 5] },
+      concejales: crearConcejalesFixture(12),
+      quorum: { cantidad_presentes: 8, requerido: 7, alcanzado: true },
+      palabra: {
+        orador: {
+          dni: '30000001',
+          nombre: 'Concejal01',
+          apellido: 'Apellido01',
+          banca: 1,
+        },
+        cola: Array.from({ length: 11 }, (_, indice) => {
+          const banca = indice + 2
+          return {
+            dni: `300000${String(banca).padStart(2, '0')}`,
+            nombre: `Concejal${String(banca).padStart(2, '0')}`,
+            apellido: `Apellido${String(banca).padStart(2, '0')}`,
+            banca,
+          }
+        }),
+      },
+      remapeo: null,
+    })
+    await configurarRutasMock(page, estado)
+
+    for (const viewport of [
+      { width: 1366, height: 768 },
+      { width: 1920, height: 1080 },
+    ]) {
+      await page.setViewportSize(viewport)
+      await page.goto('/moderacion/')
+
+      const bancas = page.locator('[data-testid="area-bancas-moderacion"]')
+      const palabra = page.locator('[data-testid="columna-palabra-moderacion"]')
+      const cajaBancas = await bancas.boundingBox()
+      const cajaPalabra = await palabra.boundingBox()
+      expect(cajaBancas).not.toBeNull()
+      expect(cajaPalabra).not.toBeNull()
+      expect(cajaBancas!.x + cajaBancas!.width).toBeLessThanOrEqual(cajaPalabra!.x)
+
+      const medidasCola = await page
+        .locator('[data-testid="contenedor-scroll-cola-palabra"]')
+        .evaluate((cola) => ({ altoVisible: cola.clientHeight, altoContenido: cola.scrollHeight }))
+      expect(medidasCola.altoContenido).toBeGreaterThan(medidasCola.altoVisible)
+      await expect(page.locator('[data-testid="btn-otorgar-palabra"]')).toBeVisible()
+      await expect(page.locator('[data-testid="btn-quitar-palabra"]')).toBeVisible()
+      expect(
+        await page
+          .locator('[data-testid="contenedor-scroll-cola-palabra"]')
+          .locator('button')
+          .count(),
+      ).toBe(0)
+
+      const bancaOrador = page.locator('[data-banca="1"]')
+      await expect(bancaOrador.locator('[data-testid="estado-orador"]')).toBeVisible()
+      await expect(bancaOrador.locator('[data-testid="badge-test-activo"]')).toBeVisible()
+      expect(await bancaOrador.evaluate((banca) => getComputedStyle(banca).outlineStyle)).not.toBe(
+        'none',
+      )
+
+      await expect(page.locator('[data-testid="btn-desplegar-remapeo"]')).toBeVisible()
+      await expect(page.locator('[data-testid="gestion-remapeo"]')).toHaveCount(0)
+      await page.locator('[data-testid="btn-desplegar-remapeo"]').click()
+      await expect(page.locator('[data-testid="gestion-remapeo"]')).toBeVisible()
+      await page.locator('[data-testid="btn-cerrar-remapeo"]').click()
+      await expect(page.locator('[data-testid="gestion-remapeo"]')).toHaveCount(0)
+
+      const medidasGrilla = await page
+        .locator('[data-testid="grilla-recinto"]')
+        .evaluate((nodo) => ({
+          altoVisible: nodo.clientHeight,
+          altoContenido: nodo.scrollHeight,
+        }))
+      expect(medidasGrilla.altoContenido).toBeLessThanOrEqual(medidasGrilla.altoVisible + 1)
       await verificarGeometriaShellCompleto(page, viewport)
     }
   })
