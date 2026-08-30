@@ -1,78 +1,86 @@
 <script setup lang="ts">
 /**
- * Componente que dispone el mapa de bancas del recinto según la configuración del sistema.
+ * Construye en Moderación la misma geometría física que ve el Recinto público.
  *
- * Responsabilidades:
- * 1. Ordenar los concejales proyectados por número de banca.
- * 2. Agrupar las bancas en filas dinámicas según el parámetro de configuración `filas_bancas`.
- * 3. Adaptarse flexiblemente a distintas cantidades y disposiciones de bancas sin asumir
- *    un número rígido de 12 concejales ni una estructura fija de 3/4/5 en el código.
- * 4. Renderizar cada banca delegando en el componente `BancaConcejal`.
+ * `filas_bancas` enumera filas desde abajo hacia arriba. Como el DOM se dibuja
+ * de arriba hacia abajo, se invierte solamente la colección de filas. Dentro de
+ * cada fila se conserva la numeración creciente y cada persona se busca por banca.
  */
 
 import { computed } from 'vue'
 import type { ConcejalModeracion } from '@botonera2/api-client'
 import BancaConcejal from './BancaConcejal.vue'
 
+interface BancaFisica {
+  numero: number
+  concejal: ConcejalModeracion | null
+}
+
+interface FilaFisica {
+  numero: number
+  bancas: BancaFisica[]
+}
+
 const props = defineProps<{
-  /** Lista completa de concejales proyectados */
+  /** Lista proyectada; su orden no expresa la ubicación física. */
   concejales: ConcejalModeracion[]
-  /** Distribución de bancas por fila configurada en el backend (ej: [3, 4, 5]) */
+  /** Cantidad de posiciones por fila, enumeradas desde la fila inferior. */
   filasBancas?: number[] | null
 }>()
 
-// Ordenamos la lista de concejales de menor a mayor por su número de banca
-const concejalesOrdenados = computed(() => {
-  return [...props.concejales].sort((a, b) => a.banca - b.banca)
-})
-
-// Agrupamos los concejales en filas según el esquema proyectado
-const filasCalculadas = computed(() => {
-  const lista = concejalesOrdenados.value
-  if (!props.filasBancas || props.filasBancas.length === 0) {
-    // Si no hay configuración explícita de filas, se disponen en una única colección flexible
-    return [lista]
+const filasVisuales = computed<FilaFisica[]>(() => {
+  if (!props.filasBancas?.length) {
+    // SIN_PREPARAR puede no incluir configuración. Para un uso aislado del componente,
+    // el fallback conserva una única fila ordenada sin inventar una geometría adicional.
+    const bancas = [...props.concejales]
+      .sort((primero, segundo) => primero.banca - segundo.banca)
+      .map((concejal) => ({ numero: concejal.banca, concejal }))
+    return bancas.length > 0 ? [{ numero: 1, bancas }] : []
   }
 
-  const filas: ConcejalModeracion[][] = []
-  let indiceActual = 0
+  const concejalesPorBanca = new Map(props.concejales.map((concejal) => [concejal.banca, concejal]))
+  let primeraBanca = 1
+  const filasInferiorASuperior = props.filasBancas.map((cantidad, indice) => {
+    const bancas = Array.from({ length: cantidad }, (_, desplazamiento) => {
+      const numero = primeraBanca + desplazamiento
+      return { numero, concejal: concejalesPorBanca.get(numero) ?? null }
+    })
+    primeraBanca += cantidad
+    return { numero: indice + 1, bancas }
+  })
 
-  for (const cantidadFila of props.filasBancas) {
-    if (indiceActual >= lista.length) {
-      break
-    }
-    const concejalesDeFila = lista.slice(indiceActual, indiceActual + cantidadFila)
-    if (concejalesDeFila.length > 0) {
-      filas.push(concejalesDeFila)
-    }
-    indiceActual += cantidadFila
-  }
-
-  // Si quedaron concejales fuera de la partición declarada, los agregamos en una fila adicional
-  if (indiceActual < lista.length) {
-    filas.push(lista.slice(indiceActual))
-  }
-
-  return filas
+  // Nunca se invierte `bancas`: banca 1 debe continuar abajo a la izquierda.
+  return filasInferiorASuperior.reverse()
 })
 </script>
 
 <template>
-  <div data-testid="grilla-recinto" class="flex flex-col gap-3 w-full py-1">
+  <div data-testid="grilla-recinto" class="flex w-full flex-col justify-end gap-1.5 py-1">
     <div
-      v-for="(fila, indiceFila) in filasCalculadas"
-      :key="indiceFila"
-      :data-testid="`fila-bancas-${indiceFila + 1}`"
-      class="flex flex-wrap items-stretch justify-center gap-2 lg:gap-3 w-full"
+      v-for="fila in filasVisuales"
+      :key="fila.numero"
+      :data-testid="`fila-bancas-${fila.numero}`"
+      :data-fila-fisica="fila.numero"
+      class="grid w-full items-stretch gap-1.5 xl:gap-2"
+      :style="{ gridTemplateColumns: `repeat(${fila.bancas.length}, minmax(0, 1fr))` }"
     >
-      <BancaConcejal v-for="concejal in fila" :key="concejal.banca" :concejal="concejal" />
+      <template v-for="banca in fila.bancas" :key="banca.numero">
+        <BancaConcejal v-if="banca.concejal" :concejal="banca.concejal" />
+        <div
+          v-else
+          data-testid="banca-sin-datos"
+          :data-banca="banca.numero"
+          class="grid min-h-20 place-items-center rounded-lg border border-dashed border-slate-700 bg-slate-950/40 p-1 text-center text-[8px] text-slate-500"
+        >
+          Banca {{ banca.numero }} sin datos
+        </div>
+      </template>
     </div>
 
-    <!-- Mensaje informativo si no hay concejales en la proyección -->
     <div
-      v-if="concejales.length === 0"
+      v-if="filasVisuales.length === 0"
       data-testid="sin-concejales"
-      class="p-4 text-center text-xs text-slate-400 border border-dashed border-slate-800 rounded-lg"
+      class="rounded-lg border border-dashed border-slate-800 p-4 text-center text-xs text-slate-400"
     >
       No hay concejales registrados en el padrón activo.
     </div>

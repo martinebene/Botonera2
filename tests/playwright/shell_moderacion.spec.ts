@@ -1052,6 +1052,92 @@ test.describe('UI de Moderación - Estados Institucionales y Contrato de Shell (
     }
   })
 
+  test('WP-038: Q3 usa geometría física [5,7], preserva huecos y ausencia en ambas resoluciones', async ({
+    page,
+  }) => {
+    const concejales = crearConcejalesFixture(12)
+      .map((concejal) => ({ ...concejal, presente: concejal.banca !== 2 }))
+      .filter((concejal) => concejal.banca !== 4)
+      .reverse()
+    const estado = crearEstadoFixture({
+      estado_global: 'PREPARANDO',
+      preparacion: {
+        fecha_hora_inicio: '2026-08-25T10:00:00Z',
+        numero_sesion: 38,
+        presidencia: 'Presidencia de prueba',
+        secretaria_legislativa: 'Secretaría de prueba',
+      },
+      configuracion: { filas_bancas: [5, 7] },
+      concejales,
+      quorum: { cantidad_presentes: 10, requerido: 7, alcanzado: true },
+    })
+    await configurarRutasMock(page, estado)
+
+    for (const viewport of [
+      { width: 1366, height: 768 },
+      { width: 1920, height: 1080 },
+    ]) {
+      await page.setViewportSize(viewport)
+      await page.goto('/moderacion/')
+      await expect(page.locator('[data-testid="grilla-recinto"]')).toBeAttached()
+
+      const filaSuperior = page.locator('[data-fila-fisica="2"]')
+      const filaInferior = page.locator('[data-fila-fisica="1"]')
+      const bancaUno = filaInferior.locator('[data-banca="1"]')
+      const bancaSeis = filaSuperior.locator('[data-banca="6"]')
+      const cajaUno = await bancaUno.boundingBox()
+      const cajaSeis = await bancaSeis.boundingBox()
+      expect(cajaUno).not.toBeNull()
+      expect(cajaSeis).not.toBeNull()
+      expect(cajaUno!.y).toBeGreaterThan(cajaSeis!.y)
+
+      for (const [fila, numeros] of [
+        [filaInferior, [1, 2, 3, 4, 5]],
+        [filaSuperior, [6, 7, 8, 9, 10, 11, 12]],
+      ] as const) {
+        const cajas = await Promise.all(
+          numeros.map((numero) => fila.locator(`[data-banca="${numero}"]`).boundingBox()),
+        )
+        expect(cajas.every((caja) => caja !== null)).toBe(true)
+        for (let indice = 1; indice < cajas.length; indice += 1) {
+          expect(cajas[indice - 1]!.x + cajas[indice - 1]!.width).toBeLessThanOrEqual(
+            cajas[indice]!.x + 1,
+          )
+        }
+      }
+
+      await expect(filaInferior.locator('[data-banca="4"]')).toContainText('sin datos')
+      await expect(filaInferior.locator('[data-banca="5"]')).toContainText('Concejal05')
+      await expect(bancaUno.locator('[data-testid="numero-banca"]')).toHaveText('Banca 1')
+      await expect(bancaUno.locator('[data-testid="nombre-concejal"]')).toContainText(
+        'Concejal01 Apellido01',
+      )
+      await expect(bancaUno.locator('[data-testid="bloque-concejal"]')).toBeVisible()
+      await expect(bancaUno.locator('[data-testid="estado-presencia"]')).toHaveText('Presente')
+      await expect(page.locator('[data-banca="2"] [data-testid="estado-presencia"]')).toHaveText(
+        'Ausente',
+      )
+      const ausencia = await page.locator('[data-banca="2"]').evaluate((banca) => ({
+        opacidad: Number.parseFloat(getComputedStyle(banca).opacity),
+        filtroFoto: getComputedStyle(
+          banca.querySelector('[data-testid="imagen-concejal"]') as HTMLElement,
+        ).filter,
+      }))
+      expect(ausencia.opacidad).toBeLessThan(1)
+      expect(ausencia.filtroFoto).not.toBe('none')
+
+      // Palabra y remapeo siguen en el mismo Q3. Si el panel necesita scroll interno,
+      // ambos controles y la grilla pueden traerse a la vista sin mover el documento.
+      await page.locator('[data-testid="gestion-palabra"]').scrollIntoViewIfNeeded()
+      await expect(page.locator('[data-testid="gestion-palabra"]')).toBeVisible()
+      await page.locator('[data-testid="gestion-remapeo"]').scrollIntoViewIfNeeded()
+      await expect(page.locator('[data-testid="gestion-remapeo"]')).toBeVisible()
+      await bancaUno.scrollIntoViewIfNeeded()
+      await expect(bancaUno).toBeVisible()
+      await verificarGeometriaShellCompleto(page, viewport)
+    }
+  })
+
   // ===========================================================================
   // 3. ESTADO SESION_ABIERTA Y DIÁLOGO DE ADVERTENCIA DE CIERRE (1920×1080 y 1366×768)
   // ===========================================================================
