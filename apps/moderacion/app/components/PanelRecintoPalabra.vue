@@ -18,6 +18,7 @@
  * - Resuelve imágenes exclusivamente desde ruta_imagen sin hardcodeo de nombres de archivo.
  */
 
+import { computed, ref, watch } from 'vue'
 import {
   crearClienteModeracion,
   type ClienteModeracion,
@@ -40,6 +41,36 @@ const props = defineProps<{
 // El fallback permite renderizar el componente aislado en SSR sin abrir una
 // suscripción ni duplicar la frontera de sincronización de la aplicación.
 const clienteEfectivo = props.cliente ?? crearClienteModeracion()
+
+/**
+ * Controla únicamente si el operador abrió el cajón visual de remapeo.
+ *
+ * La operación física no se representa con esta referencia: cuando el backend
+ * proyecta `estado.remapeo`, el flujo completo se vuelve visible aunque el
+ * operador nunca haya abierto el cajón local.
+ */
+const remapeoDesplegado = ref(false)
+const remapeoActivo = computed(
+  () => props.estado?.remapeo !== null && props.estado?.remapeo !== undefined,
+)
+const mostrarRemapeo = computed(() => remapeoActivo.value || remapeoDesplegado.value)
+
+/** Al terminar una operación autoritativa se recupera automáticamente el modo compacto. */
+watch(
+  () => props.estado?.remapeo ?? null,
+  (remapeoNuevo, remapeoAnterior) => {
+    if (remapeoAnterior !== null && remapeoNuevo === null) remapeoDesplegado.value = false
+  },
+)
+
+function abrirRemapeo(): void {
+  remapeoDesplegado.value = true
+}
+
+/** Cerrar el cajón nunca cancela ni modifica una operación de backend. */
+function cerrarRemapeo(): void {
+  if (!remapeoActivo.value) remapeoDesplegado.value = false
+}
 </script>
 
 <template>
@@ -47,47 +78,103 @@ const clienteEfectivo = props.cliente ?? crearClienteModeracion()
     titulo="Recinto y palabra"
     subtitulo="Bancas, palabra y coordinación de dispositivos"
     data-testid="panel-recinto-palabra"
+    contenido-con-scroll-propio
   >
-    <div class="space-y-3 text-sm text-slate-300">
-      <!-- Cola/orador y comandos: toda transición llega luego desde REST/SSE. -->
-      <GestionPalabra :estado="estado" :cliente="clienteEfectivo" :conectado="conectado ?? false" />
-
-      <!-- Flujo físico coordinado por FastAPI, nunca por acceso directo al bridge. -->
-      <GestionRemapeo
-        v-if="estado && estado.estado_global !== 'SIN_PREPARAR'"
-        :estado="estado"
-        :cliente="clienteEfectivo"
-        :conectado="conectado ?? false"
-      />
-
-      <!-- Mapa y disposición de bancas del recinto -->
+    <div
+      v-if="estado"
+      data-testid="composicion-recinto-palabra"
+      class="flex h-full min-h-0 min-w-0 gap-2 text-sm text-slate-300"
+    >
+      <!-- Las bancas conservan el área flexible principal y nunca generan scroll normal. -->
       <div
-        v-if="estado && estado.concejales && estado.concejales.length > 0"
-        class="rounded-xl border border-slate-800 bg-slate-950/50 p-2.5"
+        data-testid="area-bancas-moderacion"
+        class="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-slate-800 bg-slate-950/50 p-2"
       >
         <div
-          class="flex items-center justify-between border-b border-slate-800/80 pb-1.5 mb-2 px-1 text-xs"
+          class="mb-1.5 flex shrink-0 items-center justify-between gap-2 border-b border-slate-800/80 px-1 pb-1.5 text-xs"
         >
           <span class="font-bold text-slate-300 uppercase tracking-wider text-[11px]"
             >Distribución de bancas</span
           >
-          <span class="text-[11px] text-slate-400 font-mono"
-            >Solo lectura · Acreditación física</span
+          <button
+            v-if="estado.estado_global !== 'SIN_PREPARAR' && !mostrarRemapeo"
+            type="button"
+            data-testid="btn-desplegar-remapeo"
+            class="rounded border border-violet-700 bg-violet-950/70 px-2 py-1 text-[10px] font-bold text-violet-200"
+            @click="abrirRemapeo"
           >
+            Remapear dispositivo
+          </button>
         </div>
         <GrillaRecinto
+          v-if="estado.concejales && estado.concejales.length > 0"
           :concejales="estado.concejales"
           :filas-bancas="estado.configuracion?.filas_bancas"
+          :banca-orador="estado.palabra?.orador?.banca ?? null"
         />
+
+        <div
+          v-else
+          class="grid min-h-0 flex-1 place-items-center rounded-lg border border-dashed border-slate-800 p-4 text-center text-xs text-slate-400"
+        >
+          No hay bancas proyectadas en el contexto actual.
+        </div>
+
+        <!--
+          El flujo completo se superpone dentro del área izquierda. Así no empuja
+          la cola ni altera la geometría normal de bancas; si su contenido crece,
+          el scroll queda confinado a este cajón excepcional de operación.
+        -->
+        <div
+          v-if="estado.estado_global !== 'SIN_PREPARAR' && mostrarRemapeo"
+          data-testid="panel-remapeo-desplegado"
+          class="absolute inset-1.5 z-20 flex min-h-0 flex-col overflow-hidden rounded-lg border border-violet-700 bg-slate-950/98 shadow-2xl"
+        >
+          <div
+            class="flex shrink-0 items-center justify-between border-b border-violet-900 px-2 py-1"
+          >
+            <span class="text-[10px] font-bold uppercase tracking-wider text-violet-300">
+              {{ remapeoActivo ? 'Remapeo activo' : 'Remapear dispositivo' }}
+            </span>
+            <button
+              v-if="!remapeoActivo"
+              type="button"
+              data-testid="btn-cerrar-remapeo"
+              class="rounded border border-slate-700 px-2 py-0.5 text-[10px] text-slate-300"
+              @click="cerrarRemapeo"
+            >
+              Cerrar
+            </button>
+          </div>
+          <div class="min-h-0 flex-1 overflow-y-auto p-1.5">
+            <GestionRemapeo
+              :estado="estado"
+              :cliente="clienteEfectivo"
+              :conectado="conectado ?? false"
+            />
+          </div>
+        </div>
       </div>
 
-      <!-- Estado inicial mientras no hay datos -->
+      <!-- Cola/orador y comandos: toda transición llega luego desde REST/SSE. -->
       <div
-        v-if="!estado"
-        class="p-6 text-center text-xs text-slate-400 border border-dashed border-slate-800 rounded-lg"
+        data-testid="columna-palabra-moderacion"
+        class="h-full min-h-0 w-[clamp(15rem,31%,21rem)] shrink-0"
       >
-        Conectando y esperando estado autoritativo del backend...
+        <GestionPalabra
+          :estado="estado"
+          :cliente="clienteEfectivo"
+          :conectado="conectado ?? false"
+        />
       </div>
+    </div>
+
+    <!-- Estado inicial mientras no hay datos -->
+    <div
+      v-else
+      class="grid h-full place-items-center rounded-lg border border-dashed border-slate-800 p-6 text-center text-xs text-slate-400"
+    >
+      Conectando y esperando estado autoritativo del backend...
     </div>
   </PanelContenedor>
 </template>

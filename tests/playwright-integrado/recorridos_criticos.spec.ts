@@ -144,7 +144,10 @@ test.describe.serial('WP-027 · recorridos críticos sobre el stack real', () =>
         await expect(recinto.getByTestId('cola-palabra')).toContainText('Ana Garcia')
         await moderacion.getByTestId('btn-otorgar-palabra').click()
         await expect(moderacion.getByTestId('orador-actual-texto')).toContainText('Banca 1')
-        await expect(recinto.getByTestId('orador-actual')).toContainText('Ana Garcia')
+        await expect(
+          recinto.locator('[data-banca="1"] [data-testid="estado-orador"]'),
+        ).toBeVisible()
+        await expect(recinto.getByTestId('panel-palabra')).not.toContainText('Ana Garcia')
 
         await moderacion.getByTestId('input-numero-votacion').fill('1')
         await moderacion.getByTestId('select-tipo-votacion').selectOption({ label: 'Otro' })
@@ -161,7 +164,10 @@ test.describe.serial('WP-027 · recorridos críticos sobre el stack real', () =>
         await expect(moderacion.getByTestId('estado-votacion')).toHaveText('EN_CURSO')
         await expect(recinto.getByTestId('estado-votacion')).toHaveText('En curso')
         await expect(recinto.getByTestId('countdown-votacion')).toBeVisible()
-        await expect(recinto.getByTestId('orador-actual')).toContainText('Ana Garcia')
+        await expect(
+          recinto.locator('[data-banca="1"] [data-testid="estado-orador"]'),
+        ).toBeVisible()
+        await expect(recinto.getByTestId('panel-palabra')).not.toContainText('Ana Garcia')
       })
 
       await test.step('C · mantiene secreto, revela y autocierra una votación real', async () => {

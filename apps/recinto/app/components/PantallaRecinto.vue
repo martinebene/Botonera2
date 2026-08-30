@@ -1,5 +1,5 @@
 <script setup lang="ts">
-/** Vista pública completa; representa sus props y nunca emite comandos. */
+/** Vista pública compacta; representa sus props y nunca emite comandos. */
 
 import { computed, toRefs } from 'vue'
 import type { EstadoRecinto } from '@botonera2/api-client'
@@ -33,7 +33,11 @@ const votosIndividualesVisibles = computed(() => {
 
 <template>
   <div class="aplicacion-recinto">
-    <CabeceraRecinto :estado-conexion="estadoConexion" :desactualizado="desactualizado" />
+    <CabeceraRecinto
+      :estado="estado"
+      :estado-conexion="estadoConexion"
+      :desactualizado="desactualizado"
+    />
 
     <main v-if="!estado" class="estado-inicial" data-testid="estado-inicial">
       <div class="pulso-carga" aria-hidden="true" />
@@ -57,8 +61,9 @@ const votosIndividualesVisibles = computed(() => {
     </main>
 
     <main v-else class="contenido-recinto" :class="{ 'contenido-preparando': !sesionAbierta }">
-      <section class="escenario-bancas">
-        <header class="contexto-sesion">
+      <!-- Contexto, autoridades, quórum y votación comparten una franja de baja altura. -->
+      <section data-testid="franja-contexto-publico" class="franja-contexto-publico">
+        <div class="contexto-sesion-compacto">
           <div>
             <p data-testid="estado-global-visible" class="sobrelinea">
               {{ sesionAbierta ? 'Sesión abierta' : 'Sala en preparación' }}
@@ -80,38 +85,42 @@ const votosIndividualesVisibles = computed(() => {
               <dd>{{ contextoInstitucional.presidencia }}</dd>
             </div>
             <div v-if="contextoInstitucional.secretaria_legislativa">
-              <dt>Secretaría Legislativa</dt>
+              <dt>Secretaría</dt>
               <dd>{{ contextoInstitucional.secretaria_legislativa }}</dd>
             </div>
           </dl>
-        </header>
-
-        <PanelVotacionPublica v-if="votacionPresentada" :votacion="votacionPresentada" />
-
-        <div class="envoltura-grilla">
-          <GrillaBancas
-            :filas-bancas="estado.filas_bancas"
-            :concejales="estado.concejales"
-            :banca-orador="bancaOrador"
-            :votos-individuales="votosIndividualesVisibles"
-          />
-          <div
-            v-if="segundosCuentaRegresiva !== null"
-            data-testid="countdown-votacion"
-            class="countdown-votacion"
-            role="status"
-            aria-live="polite"
-          >
-            <span>Comienza en</span>
-            <strong>{{ segundosCuentaRegresiva }}</strong>
-          </div>
         </div>
+
+        <IndicadorQuorumPublico :quorum="estado.quorum" />
+        <PanelVotacionPublica v-if="votacionPresentada" :votacion="votacionPresentada" />
       </section>
 
-      <aside class="paneles-publicos">
-        <IndicadorQuorumPublico :quorum="estado.quorum" />
-        <PanelPalabraPublico :palabra="estado.palabra" />
-      </aside>
+      <div data-testid="zona-principal-recinto" class="zona-principal-recinto">
+        <section data-testid="area-bancas-publica" class="escenario-bancas">
+          <div class="envoltura-grilla">
+            <GrillaBancas
+              :filas-bancas="estado.filas_bancas"
+              :concejales="estado.concejales"
+              :banca-orador="bancaOrador"
+              :votos-individuales="votosIndividualesVisibles"
+            />
+            <div
+              v-if="segundosCuentaRegresiva !== null"
+              data-testid="countdown-votacion"
+              class="countdown-votacion"
+              role="status"
+              aria-live="polite"
+            >
+              <span>Comienza en</span>
+              <strong>{{ segundosCuentaRegresiva }}</strong>
+            </div>
+          </div>
+        </section>
+
+        <aside data-testid="columna-palabra-publica" class="columna-palabra-publica">
+          <PanelPalabraPublico :palabra="estado.palabra" />
+        </aside>
+      </div>
     </main>
   </div>
 </template>
@@ -173,21 +182,92 @@ const votosIndividualesVisibles = computed(() => {
 }
 
 .sobrelinea {
-  margin: 0 0 0.32rem;
+  margin: 0 0 0.16rem;
   color: #38bdf8;
-  font-size: clamp(0.62rem, 0.85vw, 0.76rem);
+  font-size: clamp(0.52rem, 0.68vw, 0.65rem);
   font-weight: 900;
-  letter-spacing: 0.17em;
+  letter-spacing: 0.13em;
   text-transform: uppercase;
 }
 
 .contenido-recinto {
   min-height: 0;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) clamp(250px, 20vw, 360px);
+  display: flex;
   flex: 1;
-  gap: clamp(0.8rem, 1.4vw, 1.4rem);
-  padding: clamp(0.8rem, 1.4vw, 1.4rem);
+  flex-direction: column;
+  gap: clamp(0.45rem, 0.75vw, 0.75rem);
+  padding: clamp(0.45rem, 0.75vw, 0.75rem);
+  overflow: hidden;
+}
+
+.franja-contexto-publico {
+  min-width: 0;
+  display: flex;
+  flex: 0 0 auto;
+  align-items: stretch;
+  gap: clamp(0.45rem, 0.7vw, 0.7rem);
+}
+
+.contexto-sesion-compacto {
+  min-width: min(30vw, 25rem);
+  display: flex;
+  align-items: center;
+  gap: clamp(0.6rem, 1vw, 1rem);
+  padding: 0.38rem 0.58rem;
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 12px;
+  background: rgba(7, 17, 31, 0.58);
+}
+
+.contenido-preparando .contexto-sesion-compacto {
+  border-color: rgba(251, 191, 36, 0.32);
+}
+
+.contexto-sesion-compacto h2 {
+  margin: 0;
+  font-size: clamp(0.74rem, 1.05vw, 0.95rem);
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.autoridades {
+  min-width: 0;
+  display: flex;
+  gap: 0.55rem;
+  margin: 0;
+}
+
+.autoridades div {
+  min-width: 0;
+}
+
+.autoridades dt {
+  color: #64748b;
+  font-size: 0.5rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.autoridades dd {
+  max-width: 11rem;
+  margin: 0.08rem 0 0;
+  overflow: hidden;
+  color: #e2e8f0;
+  font-size: clamp(0.6rem, 0.72vw, 0.68rem);
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.zona-principal-recinto {
+  min-height: 0;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(230px, 19vw, 320px);
+  flex: 1;
+  gap: clamp(0.5rem, 0.8vw, 0.8rem);
   overflow: hidden;
 }
 
@@ -196,57 +276,15 @@ const votosIndividualesVisibles = computed(() => {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  padding: clamp(0.85rem, 1.4vw, 1.35rem);
+  padding: clamp(0.55rem, 0.8vw, 0.8rem);
   overflow: hidden;
   border: 1px solid rgba(148, 163, 184, 0.18);
-  border-radius: 22px;
+  border-radius: 18px;
   background: rgba(7, 17, 31, 0.58);
 }
 
 .contenido-preparando .escenario-bancas {
   border-color: rgba(251, 191, 36, 0.32);
-}
-
-.contexto-sesion {
-  display: flex;
-  align-items: start;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: clamp(0.65rem, 1.2vh, 1rem);
-}
-
-.contexto-sesion h2 {
-  margin: 0;
-  font-size: clamp(1.25rem, 2.3vw, 2rem);
-  line-height: 1;
-}
-
-.autoridades {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 0.6rem 1.4rem;
-  margin: 0;
-  text-align: right;
-}
-
-.autoridades dt {
-  color: #64748b;
-  font-size: 0.58rem;
-  font-weight: 900;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
-.autoridades dd {
-  max-width: 22rem;
-  margin: 0.15rem 0 0;
-  overflow: hidden;
-  color: #e2e8f0;
-  font-size: clamp(0.7rem, 1vw, 0.9rem);
-  font-weight: 700;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .envoltura-grilla {
@@ -255,7 +293,7 @@ const votosIndividualesVisibles = computed(() => {
   min-height: 0;
   display: flex;
   flex: 1;
-  overflow: auto;
+  overflow: hidden;
 }
 
 .countdown-votacion {
@@ -266,7 +304,7 @@ const votosIndividualesVisibles = computed(() => {
   place-content: center;
   justify-items: center;
   border: 1px solid rgba(125, 211, 252, 0.5);
-  border-radius: 18px;
+  border-radius: 16px;
   color: #f8fafc;
   background: rgba(2, 8, 23, 0.78);
   backdrop-filter: blur(3px);
@@ -288,11 +326,9 @@ const votosIndividualesVisibles = computed(() => {
   text-shadow: 0 0 32px rgba(56, 189, 248, 0.45);
 }
 
-.paneles-publicos {
+.columna-palabra-publica {
   min-height: 0;
   display: flex;
-  flex-direction: column;
-  gap: clamp(0.8rem, 1.4vw, 1.3rem);
 }
 
 @keyframes pulso {
@@ -303,31 +339,21 @@ const votosIndividualesVisibles = computed(() => {
 
 @media (max-width: 900px) {
   .contenido-recinto {
-    grid-template-columns: 1fr;
     overflow-y: auto;
   }
 
-  .escenario-bancas {
+  .franja-contexto-publico {
+    flex-wrap: wrap;
+  }
+
+  .zona-principal-recinto {
     min-height: 620px;
+    grid-template-columns: 1fr;
+    overflow: visible;
   }
 
-  .paneles-publicos {
-    display: grid;
-    grid-template-columns: minmax(220px, 0.4fr) minmax(320px, 1fr);
-    min-height: 260px;
-  }
-}
-
-@media (max-width: 620px) {
-  .contexto-sesion,
-  .autoridades {
-    align-items: flex-start;
-    flex-direction: column;
-    text-align: left;
-  }
-
-  .paneles-publicos {
-    display: flex;
+  .columna-palabra-publica {
+    min-height: 220px;
   }
 }
 </style>

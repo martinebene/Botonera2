@@ -14,6 +14,8 @@ import { resolverRutaAsset } from '../utils/rutas'
 const props = defineProps<{
   /** Datos completos de la banca y concejal proyectados por el backend. */
   concejal: ConcejalModeracion
+  /** Señal derivada de `palabra.orador.banca`; nunca se conserva localmente. */
+  esOrador?: boolean
 }>()
 
 const errorCargaImagen = ref(false)
@@ -51,18 +53,22 @@ watch(claveImagen, () => {
     data-testid="banca-concejal"
     :data-banca="concejal.banca"
     :data-presente="concejal.presente"
-    class="relative flex min-w-0 flex-col items-center rounded-lg border p-1.5 text-center transition-all duration-200 select-none xl:p-2"
+    :data-orador="esOrador"
+    class="banca-concejal-moderacion relative flex h-full min-h-0 min-w-0 flex-col items-center overflow-hidden rounded-lg border p-1.5 text-center transition-all duration-200 select-none xl:p-2"
     :class="[
       concejal.presente
         ? 'border-emerald-700/80 bg-emerald-950/30 text-slate-100 shadow-sm shadow-emerald-950/40'
         : 'border-slate-700 bg-slate-950/70 text-slate-300 opacity-75',
       concejal.test_activo ? 'ring-2 ring-amber-400 ring-inset' : '',
+      esOrador
+        ? 'outline-2 outline-offset-[-2px] outline-cyan-300 shadow-lg shadow-cyan-900/60'
+        : '',
     ]"
     :aria-label="`Banca ${concejal.banca}, ${concejal.nombre} ${concejal.apellido}, ${concejal.presente ? 'presente' : 'ausente'}`"
   >
     <!-- La foto encabeza la jerarquía común; la banca se superpone sin ocupar otra fila. -->
     <div
-      class="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-700 bg-slate-900 shadow-inner xl:h-12 xl:w-12"
+      class="foto-banca-moderacion relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-700 bg-slate-900 shadow-inner xl:h-12 xl:w-12"
     >
       <img
         v-if="!errorCargaImagen && urlImagen"
@@ -99,9 +105,17 @@ watch(claveImagen, () => {
       >
         !
       </span>
+
+      <span
+        v-if="esOrador"
+        data-testid="estado-orador"
+        class="absolute top-0 left-0 rounded-br bg-cyan-300 px-1 py-px text-[6px] font-black uppercase text-slate-950"
+      >
+        Orador
+      </span>
     </div>
 
-    <div class="mt-1 min-w-0 w-full">
+    <div class="identidad-banca-moderacion mt-1 min-w-0 w-full">
       <p
         data-testid="nombre-concejal"
         class="truncate text-[9px] font-semibold leading-tight xl:text-[10px]"
@@ -121,7 +135,7 @@ watch(claveImagen, () => {
     </div>
 
     <!-- Presencia textual común: nunca depende solamente del color. -->
-    <div class="mt-1 flex w-full flex-col items-center gap-1">
+    <div class="estados-banca-moderacion mt-1 flex w-full flex-col items-center gap-1">
       <div
         data-testid="estado-presencia"
         class="inline-flex w-full items-center justify-center gap-1 rounded-full border px-1 py-px text-[7px] font-bold uppercase tracking-wide xl:text-[8px]"
@@ -156,3 +170,43 @@ watch(claveImagen, () => {
     </div>
   </article>
 </template>
+
+<style scoped>
+/*
+ * En las pantallas de menor altura Q3 comparte una fila del shell con otros
+ * cuadrantes. La tarjeta pasa a dos columnas para conservar foto, identidad,
+ * presencia, dispositivo y test sin imponer una altura mayor que la fila física.
+ */
+@media (max-height: 850px) {
+  .banca-concejal-moderacion {
+    display: grid;
+    grid-template-columns: 2rem minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 0.15rem 0.35rem;
+    padding: 0.25rem;
+  }
+
+  .foto-banca-moderacion {
+    grid-row: 1 / -1;
+    width: 2rem;
+    height: 2rem;
+  }
+
+  .identidad-banca-moderacion,
+  .estados-banca-moderacion {
+    margin-top: 0;
+  }
+
+  .estados-banca-moderacion {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-content: start;
+    gap: 0.15rem;
+  }
+
+  .estados-banca-moderacion [data-testid='indicador-test'] {
+    grid-column: 1 / -1;
+  }
+}
+</style>

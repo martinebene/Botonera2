@@ -92,12 +92,14 @@ function etiquetaSentido(sentido: string): string {
 
 <style scoped>
 .panel-votacion {
+  min-width: 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
+  flex: 1;
   align-items: stretch;
   gap: clamp(0.65rem, 1vw, 1rem);
-  margin-bottom: clamp(0.55rem, 1vh, 0.85rem);
-  padding: clamp(0.65rem, 1vw, 0.9rem);
+  margin: 0;
+  padding: clamp(0.45rem, 0.65vw, 0.65rem);
   border: 1px solid rgba(56, 189, 248, 0.36);
   border-radius: 16px;
   background: linear-gradient(135deg, rgba(8, 47, 73, 0.82), rgba(15, 23, 42, 0.92));
@@ -252,7 +254,7 @@ function etiquetaSentido(sentido: string): string {
   font-size: 0.8rem;
 }
 
-@media (max-width: 1450px), (max-height: 820px) {
+@media (max-width: 1180px) {
   .panel-votacion {
     grid-template-columns: minmax(0, 1fr) auto;
   }

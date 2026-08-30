@@ -78,6 +78,7 @@ const filasVisuales = computed<FilaFisica[]>(() => {
 
 <style scoped>
 .grilla-bancas {
+  height: 100%;
   min-height: 0;
   display: flex;
   flex: 1;
@@ -87,7 +88,9 @@ const filasVisuales = computed<FilaFisica[]>(() => {
 }
 
 .fila-bancas {
+  min-height: 0;
   display: grid;
+  flex: 1;
   gap: clamp(0.4rem, 0.75vw, 0.8rem);
   width: 100%;
 }

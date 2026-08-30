@@ -26,6 +26,8 @@ const props = defineProps<{
   concejales: ConcejalModeracion[]
   /** Cantidad de posiciones por fila, enumeradas desde la fila inferior. */
   filasBancas?: number[] | null
+  /** Banca del orador proyectado; null retira inmediatamente el resaltado. */
+  bancaOrador?: number | null
 }>()
 
 const filasVisuales = computed<FilaFisica[]>(() => {
@@ -55,17 +57,24 @@ const filasVisuales = computed<FilaFisica[]>(() => {
 </script>
 
 <template>
-  <div data-testid="grilla-recinto" class="flex w-full flex-col justify-end gap-1.5 py-1">
+  <div
+    data-testid="grilla-recinto"
+    class="flex h-full min-h-0 w-full flex-1 flex-col justify-end gap-1.5 py-1"
+  >
     <div
       v-for="fila in filasVisuales"
       :key="fila.numero"
       :data-testid="`fila-bancas-${fila.numero}`"
       :data-fila-fisica="fila.numero"
-      class="grid w-full items-stretch gap-1.5 xl:gap-2"
+      class="grid min-h-0 w-full flex-1 items-stretch gap-1.5 xl:gap-2"
       :style="{ gridTemplateColumns: `repeat(${fila.bancas.length}, minmax(0, 1fr))` }"
     >
       <template v-for="banca in fila.bancas" :key="banca.numero">
-        <BancaConcejal v-if="banca.concejal" :concejal="banca.concejal" />
+        <BancaConcejal
+          v-if="banca.concejal"
+          :concejal="banca.concejal"
+          :es-orador="bancaOrador === banca.numero"
+        />
         <div
           v-else
           data-testid="banca-sin-datos"

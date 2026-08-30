@@ -5,23 +5,32 @@
  * Utils. El transporte se prueba por separado en la frontera del composable.
  */
 
-import { mount } from '@vue/test-utils'
-import { describe, expect, it } from 'vitest'
+import { mount, type VueWrapper } from '@vue/test-utils'
+import { afterEach, describe, expect, it } from 'vitest'
 import BancaPublica from '../app/components/BancaPublica.vue'
 import PantallaRecinto from '../app/components/PantallaRecinto.vue'
 import { crearConcejalesPublicos, crearEstadoRecintoPrueba } from './datos_prueba'
 
+const montados: VueWrapper[] = []
+
 async function montarPantalla(estado = crearEstadoRecintoPrueba()) {
-  return mount(PantallaRecinto, {
+  const wrapper = mount(PantallaRecinto, {
     props: { estado, estadoConexion: 'CONECTADO', desactualizado: false },
   })
+  montados.push(wrapper)
+  return wrapper
 }
+
+afterEach(() => {
+  while (montados.length > 0) montados.pop()?.unmount()
+})
 
 describe('Shell público del Recinto', () => {
   it('distingue ausencia de snapshot y SIN_PREPARAR sin conservar datos funcionales', async () => {
     const wrapper = mount(PantallaRecinto, {
       props: { estado: null, estadoConexion: 'INICIAL', desactualizado: false },
     })
+    montados.push(wrapper)
     expect(wrapper.get('[data-testid="estado-inicial"]').text()).toContain('Conectando')
 
     await wrapper.setProps({
@@ -128,8 +137,10 @@ describe('Shell público del Recinto', () => {
     expect(wrapper.get('[data-testid="autoridades"]').text()).toContain('Ana Presidencia')
     expect(wrapper.get('[data-testid="autoridades"]').text()).toContain('Luis Secretaría')
     expect(wrapper.get('[data-testid="estado-quorum"]').text()).toBe('Quórum alcanzado')
-    expect(wrapper.get('[data-testid="orador-actual"]').text()).toContain('Nombre4 Apellido4')
     expect(wrapper.get('[data-banca="4"] [data-testid="estado-orador"]').exists()).toBe(true)
+    expect(wrapper.get('[data-testid="panel-palabra"]').text()).not.toContain('Nombre4 Apellido4')
+    expect(wrapper.get('[data-testid="cabecera-sesion"]').text()).toContain('59')
+    expect(wrapper.get('[data-testid="cabecera-tiempo-sesion"]').exists()).toBe(true)
 
     const pedidos = wrapper.findAll('[data-testid="cola-palabra"] li')
     expect(pedidos.map((pedido) => pedido.text())).toEqual([
@@ -140,6 +151,56 @@ describe('Shell público del Recinto', () => {
       'Tema reservado para WP-026',
     )
     expect(wrapper.findAll('button, input, select, textarea, form')).toHaveLength(0)
+  })
+
+  it('mueve y limpia el resaltado del orador con cada baseline', async () => {
+    const estadoBase = crearEstadoRecintoPrueba({
+      estado_global: 'SESION_ABIERTA',
+      sesion: {
+        fecha_hora_inicio_preparacion: '2026-08-27T10:00:00Z',
+        fecha_hora_apertura: '2026-08-27T10:15:00Z',
+        numero_sesion: 59,
+        presidencia: 'Presidencia',
+        secretaria_legislativa: 'Secretaría',
+      },
+      filas_bancas: [2],
+      concejales: crearConcejalesPublicos(2),
+      quorum: { cantidad_presentes: 1, requerido: 1, alcanzado: true },
+      palabra: {
+        orador: { nombre: 'Nombre1', apellido: 'Apellido1', banca: 1 },
+        cola: [],
+      },
+    })
+    const wrapper = await montarPantalla(estadoBase)
+
+    expect(wrapper.get('[data-banca="1"]').find('[data-testid="estado-orador"]').exists()).toBe(
+      true,
+    )
+    expect(wrapper.get('[data-banca="2"]').find('[data-testid="estado-orador"]').exists()).toBe(
+      false,
+    )
+
+    await wrapper.setProps({
+      estado: {
+        ...estadoBase,
+        revision: 2,
+        palabra: {
+          orador: { nombre: 'Nombre2', apellido: 'Apellido2', banca: 2 },
+          cola: [],
+        },
+      },
+    })
+    expect(wrapper.get('[data-banca="1"]').find('[data-testid="estado-orador"]').exists()).toBe(
+      false,
+    )
+    expect(wrapper.get('[data-banca="2"]').find('[data-testid="estado-orador"]').exists()).toBe(
+      true,
+    )
+
+    await wrapper.setProps({
+      estado: { ...estadoBase, revision: 3, palabra: { orador: null, cola: [] } },
+    })
+    expect(wrapper.find('[data-testid="estado-orador"]').exists()).toBe(false)
   })
 
   it('conserva la vista al reconectar, adopta SIN_PREPARAR y degrada imagen rota', async () => {

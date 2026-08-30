@@ -41,6 +41,7 @@ watch(claveImagen, () => {
     data-testid="banca-publica"
     :data-banca="concejal.banca"
     :data-presente="concejal.presente"
+    :data-orador="esOrador"
     class="banca-publica"
     :class="{
       'banca-ausente': !concejal.presente,
@@ -128,10 +129,17 @@ watch(claveImagen, () => {
 }
 
 .banca-orador {
-  border-color: #38bdf8;
+  border-color: #7dd3fc;
+  outline: 3px solid rgba(125, 211, 252, 0.92);
+  outline-offset: -1px;
   box-shadow:
     0 0 0 4px rgba(56, 189, 248, 0.22),
     0 0 32px rgba(14, 165, 233, 0.18);
+}
+
+/* Test y orador pueden coexistir: el test se conserva alrededor de la fotografía. */
+.banca-test .foto-concejal {
+  box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.95);
 }
 
 .foto-concejal {

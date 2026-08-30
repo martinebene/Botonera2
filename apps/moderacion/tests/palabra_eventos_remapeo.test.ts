@@ -13,6 +13,12 @@ import GestionPalabra from '../app/components/GestionPalabra.vue'
 import fuenteGestionPalabra from '../app/components/GestionPalabra.vue?raw'
 import GestionRemapeo from '../app/components/GestionRemapeo.vue'
 import fuenteGestionRemapeo from '../app/components/GestionRemapeo.vue?raw'
+import PanelRecintoPalabra from '../app/components/PanelRecintoPalabra.vue'
+import fuentePanelRecintoPalabra from '../app/components/PanelRecintoPalabra.vue?raw'
+import GrillaRecinto from '../app/components/GrillaRecinto.vue'
+import fuenteGrillaRecinto from '../app/components/GrillaRecinto.vue?raw'
+import BancaConcejal from '../app/components/BancaConcejal.vue'
+import fuenteBancaConcejal from '../app/components/BancaConcejal.vue?raw'
 import PanelContenedor from '../app/components/PanelContenedor.vue'
 import fuentePanelContenedor from '../app/components/PanelContenedor.vue?raw'
 import PanelEventos from '../app/components/PanelEventos.vue'
@@ -51,6 +57,14 @@ habilitarRenderCliente(GestionPalabra, fuenteGestionPalabra)
 habilitarRenderCliente(GestionRemapeo, fuenteGestionRemapeo)
 habilitarRenderCliente(PanelContenedor, fuentePanelContenedor)
 habilitarRenderCliente(PanelEventos, fuentePanelEventos, { PanelContenedor })
+habilitarRenderCliente(BancaConcejal, fuenteBancaConcejal)
+habilitarRenderCliente(GrillaRecinto, fuenteGrillaRecinto, { BancaConcejal })
+habilitarRenderCliente(PanelRecintoPalabra, fuentePanelRecintoPalabra, {
+  PanelContenedor,
+  GestionPalabra,
+  GestionRemapeo,
+  GrillaRecinto,
+})
 
 const wrappers: VueWrapper[] = []
 
@@ -517,5 +531,108 @@ describe('Remapeo coordinado y persistencia explícita', () => {
       (wrapper.get('[data-testid="btn-cancelar-remapeo"]').element as HTMLButtonElement).disabled,
     ).toBe(true)
     expect(wrapper.find('[data-testid="btn-confirmar-remapeo"]').exists()).toBe(false)
+  })
+})
+
+describe('Q3 horizontal, orador derivado y remapeo colapsable', () => {
+  it('compone bancas a la izquierda, palabra a la derecha y deja controles fuera del scroll', () => {
+    const wrapper = montar(PanelRecintoPalabra, {
+      estado: crearEstado({ configuracion: { filas_bancas: [3] } }),
+      cliente: crearCliente(),
+      conectado: true,
+    })
+
+    const composicion = wrapper.get('[data-testid="composicion-recinto-palabra"]')
+    expect(composicion.get('[data-testid="area-bancas-moderacion"]').exists()).toBe(true)
+    expect(composicion.get('[data-testid="columna-palabra-moderacion"]').exists()).toBe(true)
+    const scrollCola = wrapper.get('[data-testid="contenedor-scroll-cola-palabra"]')
+    expect(scrollCola.find('[data-testid="btn-otorgar-palabra"]').exists()).toBe(false)
+    expect(wrapper.get('[data-testid="controles-palabra"]').exists()).toBe(true)
+  })
+
+  it('mueve y limpia el resaltado cuando cambia la banca del orador', async () => {
+    const estadoInicial = crearEstado({ configuracion: { filas_bancas: [3] } })
+    const wrapper = montar(PanelRecintoPalabra, {
+      estado: estadoInicial,
+      cliente: crearCliente(),
+      conectado: true,
+    })
+
+    expect(wrapper.get('[data-banca="1"]').find('[data-testid="estado-orador"]').exists()).toBe(
+      true,
+    )
+    expect(wrapper.get('[data-banca="2"]').find('[data-testid="estado-orador"]').exists()).toBe(
+      false,
+    )
+
+    await wrapper.setProps({
+      estado: crearEstado({
+        revision: 11,
+        configuracion: { filas_bancas: [3] },
+        palabra: {
+          orador: { dni: '2', nombre: 'Grace', apellido: 'Hopper', banca: 2 },
+          cola: [],
+        },
+      }),
+    })
+    expect(wrapper.get('[data-banca="1"]').find('[data-testid="estado-orador"]').exists()).toBe(
+      false,
+    )
+    expect(wrapper.get('[data-banca="2"]').find('[data-testid="estado-orador"]').exists()).toBe(
+      true,
+    )
+
+    await wrapper.setProps({
+      estado: crearEstado({
+        revision: 12,
+        configuracion: { filas_bancas: [3] },
+        palabra: { orador: null, cola: [] },
+      }),
+    })
+    expect(wrapper.find('[data-testid="estado-orador"]').exists()).toBe(false)
+  })
+
+  it('abre y cierra el remapeo inactivo sin REST y fuerza la operación backend activa', async () => {
+    const cliente = crearCliente()
+    const estadoInicial = crearEstado({ configuracion: { filas_bancas: [3] } })
+    const wrapper = montar(PanelRecintoPalabra, {
+      estado: estadoInicial,
+      cliente,
+      conectado: true,
+    })
+
+    expect(wrapper.get('[data-testid="btn-desplegar-remapeo"]').text()).toContain(
+      'Remapear dispositivo',
+    )
+    expect(wrapper.find('[data-testid="gestion-remapeo"]').exists()).toBe(false)
+    await wrapper.get('[data-testid="btn-desplegar-remapeo"]').trigger('click')
+    expect(wrapper.get('[data-testid="gestion-remapeo"]').exists()).toBe(true)
+    await wrapper.get('[data-testid="btn-cerrar-remapeo"]').trigger('click')
+    expect(wrapper.find('[data-testid="gestion-remapeo"]').exists()).toBe(false)
+    expect(cliente.iniciarRemapeo).not.toHaveBeenCalled()
+    expect(cliente.cancelarRemapeo).not.toHaveBeenCalled()
+
+    await wrapper.setProps({
+      estado: crearEstado({
+        revision: 11,
+        configuracion: { filas_bancas: [3] },
+        remapeo: {
+          remapeo_id: 'remapeo-activo',
+          dispositivo: 'dev01',
+          estado: 'CAPTURANDO',
+          fingerprint_anterior: 'fp-anterior',
+          candidato: null,
+          diagnostico: null,
+        },
+      }),
+    })
+    expect(wrapper.get('[data-testid="gestion-remapeo"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="btn-cerrar-remapeo"]').exists()).toBe(false)
+
+    await wrapper.setProps({
+      estado: crearEstado({ revision: 12, configuracion: { filas_bancas: [3] }, remapeo: null }),
+    })
+    expect(wrapper.find('[data-testid="gestion-remapeo"]').exists()).toBe(false)
+    expect(wrapper.get('[data-testid="btn-desplegar-remapeo"]').exists()).toBe(true)
   })
 })
