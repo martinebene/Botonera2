@@ -6,6 +6,8 @@
  * finalización, advertencia CA-062 y comandos en vuelo. La votación visible, sus votos,
  * conteos y resultado siempre se leen desde `EstadoModeracion`; por eso una recarga o
  * reconexión reconstruye la pantalla sin timers ni cálculos institucionales locales.
+ * WP-037 decide además que Q1 nunca renderice la lista individual, aunque el DTO la
+ * incluya: este componente presenta solamente resultado y conteos agregados.
  */
 
 import { computed, ref, watch } from 'vue'
@@ -373,11 +375,11 @@ async function desempatar(sentido: 'POSITIVO' | 'NEGATIVO'): Promise<void> {
 </script>
 
 <template>
-  <section data-testid="gestion-votacion" class="space-y-3 border-t border-slate-800 pt-3">
+  <section data-testid="gestion-votacion" class="min-h-0 space-y-2">
     <div
       v-if="mensajeError"
       data-testid="alerta-error-votacion"
-      class="rounded-lg border border-rose-700 bg-rose-950/70 p-2 text-xs text-rose-200"
+      class="fixed top-16 right-4 z-40 max-w-md rounded-lg border border-rose-700 bg-rose-950/95 p-2 text-xs text-rose-200 shadow-xl"
       role="alert"
     >
       {{ mensajeError }}
@@ -385,7 +387,7 @@ async function desempatar(sentido: 'POSITIVO' | 'NEGATIVO'): Promise<void> {
     <div
       v-if="mensajeInformativo"
       data-testid="aviso-votacion"
-      class="rounded-lg border border-cyan-800 bg-cyan-950/50 p-2 text-xs text-cyan-200"
+      class="fixed top-16 right-4 z-40 max-w-md rounded-lg border border-cyan-800 bg-cyan-950/95 p-2 text-xs text-cyan-200 shadow-xl"
       role="status"
     >
       {{ mensajeInformativo }}
@@ -395,30 +397,33 @@ async function desempatar(sentido: 'POSITIVO' | 'NEGATIVO'): Promise<void> {
     <article
       v-if="votacion"
       data-testid="vista-votacion-proyectada"
-      class="space-y-3 rounded-xl border border-slate-700 bg-slate-950/70 p-3"
+      class="space-y-2 rounded-lg border border-slate-700 bg-slate-950/70 p-2"
     >
       <div class="flex flex-wrap items-start justify-between gap-2">
         <div>
           <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">
             Votación Nº {{ votacion.numero_votacion }} · {{ votacion.tipo }}
           </p>
-          <h4 class="mt-1 font-semibold text-slate-100">{{ votacion.tema }}</h4>
+          <h4 class="font-semibold leading-tight text-slate-100">{{ votacion.tema }}</h4>
         </div>
         <span
           data-testid="estado-votacion"
-          class="rounded border px-2 py-1 text-[11px] font-bold"
+          class="rounded border px-2 py-0.5 text-[11px] font-bold"
           :class="resultadoClase"
         >
           {{ votacion.resultado ?? votacion.estado_recepcion }}
         </span>
       </div>
 
-      <dl class="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
-        <div class="rounded bg-slate-900 p-2">
+      <dl
+        v-if="votacion.estado_recepcion === 'EN_CURSO'"
+        class="grid grid-cols-3 gap-1.5 text-[11px]"
+      >
+        <div class="rounded bg-slate-900 px-2 py-1">
           <dt class="text-slate-500">Mayoría</dt>
           <dd class="font-semibold text-slate-200">{{ votacion.tipo_mayoria }}</dd>
         </div>
-        <div class="rounded bg-slate-900 p-2">
+        <div class="rounded bg-slate-900 px-2 py-1">
           <dt class="text-slate-500">Regla</dt>
           <dd class="font-semibold text-slate-200">
             <template v-if="votacion.tipo_mayoria === 'ESPECIAL'">
@@ -427,13 +432,7 @@ async function desempatar(sentido: 'POSITIVO' | 'NEGATIVO'): Promise<void> {
             <template v-else>Positivos &gt; negativos</template>
           </dd>
         </div>
-        <div class="rounded bg-slate-900 p-2">
-          <dt class="text-slate-500">Quórum actual</dt>
-          <dd class="font-semibold text-slate-200">
-            {{ estado.quorum?.cantidad_presentes ?? '—' }} / {{ estado.quorum?.requerido ?? '—' }}
-          </dd>
-        </div>
-        <div class="rounded bg-slate-900 p-2">
+        <div class="rounded bg-slate-900 px-2 py-1">
           <dt class="text-slate-500">Votos recibidos</dt>
           <dd data-testid="cantidad-votos-recibidos" class="font-semibold text-slate-200">
             {{ votacion.cantidad_votos_recibidos }}
@@ -444,7 +443,7 @@ async function desempatar(sentido: 'POSITIVO' | 'NEGATIVO'): Promise<void> {
       <div
         v-if="estado.palabra && (estado.palabra.orador || estado.palabra.cola.length > 0)"
         data-testid="palabra-durante-votacion"
-        class="rounded border border-cyan-900 bg-cyan-950/30 p-2 text-xs text-cyan-200"
+        class="rounded border border-cyan-900 bg-cyan-950/30 px-2 py-1 text-[11px] text-cyan-200"
       >
         <span v-if="estado.palabra.orador">
           Orador: {{ estado.palabra.orador.nombre }} {{ estado.palabra.orador.apellido }}.
@@ -452,71 +451,49 @@ async function desempatar(sentido: 'POSITIVO' | 'NEGATIVO'): Promise<void> {
         <span> {{ estado.palabra.cola.length }} pedido(s) en cola.</span>
       </div>
 
-      <div v-if="votacion.conteos" data-testid="conteos-votacion" class="grid grid-cols-4 gap-2">
-        <div class="rounded bg-emerald-950/60 p-2 text-center text-xs text-emerald-200">
+      <div v-if="votacion.conteos" data-testid="conteos-votacion" class="grid grid-cols-4 gap-1">
+        <div class="rounded bg-emerald-950/60 px-1 py-1 text-center text-[11px] text-emerald-200">
           <strong>{{ votacion.conteos.positivos }}</strong
           ><br />Positivos
         </div>
-        <div class="rounded bg-rose-950/60 p-2 text-center text-xs text-rose-200">
+        <div class="rounded bg-rose-950/60 px-1 py-1 text-center text-[11px] text-rose-200">
           <strong>{{ votacion.conteos.negativos }}</strong
           ><br />Negativos
         </div>
-        <div class="rounded bg-slate-800 p-2 text-center text-xs text-slate-200">
+        <div class="rounded bg-slate-800 px-1 py-1 text-center text-[11px] text-slate-200">
           <strong>{{ votacion.conteos.abstenciones }}</strong
           ><br />Abstenciones
         </div>
-        <div class="rounded bg-cyan-950/60 p-2 text-center text-xs text-cyan-200">
+        <div class="rounded bg-cyan-950/60 px-1 py-1 text-center text-[11px] text-cyan-200">
           <strong>{{ votacion.conteos.total }}</strong
           ><br />Total
         </div>
       </div>
 
-      <div
-        v-if="votacion.votos_individuales !== null"
-        data-testid="votos-individuales"
-        class="space-y-1 rounded border border-slate-800 bg-slate-900/60 p-2 text-xs"
-      >
-        <p class="font-bold uppercase tracking-wider text-slate-400">
-          Votos individuales revelados
-        </p>
-        <div
-          v-for="voto in votacion.votos_individuales"
-          :key="voto.dni"
-          class="flex justify-between gap-2 border-t border-slate-800 pt-1 text-slate-200"
-        >
-          <span>Banca {{ voto.banca }} · {{ voto.nombre }} {{ voto.apellido }}</span>
-          <strong>{{ voto.valor }}</strong>
-        </div>
-      </div>
       <p
-        v-else-if="votacion.estado_recepcion === 'EN_CURSO'"
+        v-if="votacion.estado_recepcion === 'EN_CURSO'"
         data-testid="votos-ocultos"
-        class="text-xs italic text-slate-400"
+        class="text-[11px] italic leading-tight text-slate-400"
       >
-        Los valores individuales todavía no fueron proyectados por el backend.
+        Los votos individuales permanecen ocultos en este cuadrante.
       </p>
 
-      <div
-        v-if="votacion.estado_recepcion === 'EN_CURSO'"
-        class="space-y-2 border-t border-slate-800 pt-3"
-      >
-        <label for="motivo-finalizacion" class="block text-xs font-semibold text-slate-300">
-          Motivo para finalizar manualmente
-        </label>
+      <div v-if="votacion.estado_recepcion === 'EN_CURSO'" class="border-t border-slate-800 pt-2">
         <div class="flex flex-col gap-2 sm:flex-row">
           <input
             id="motivo-finalizacion"
             v-model="motivoFinalizacion"
             data-testid="input-motivo-finalizacion"
             type="text"
-            class="min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-100"
-            placeholder="Motivo obligatorio"
+            class="min-w-0 flex-1 rounded border border-slate-700 bg-slate-900 px-2 py-1.5 text-xs text-slate-100"
+            placeholder="Motivo obligatorio para finalizar"
+            aria-label="Motivo para finalizar manualmente"
             :disabled="finalizando"
           />
           <button
             type="button"
             data-testid="btn-finalizar-votacion"
-            class="rounded-lg border border-rose-700 bg-rose-950 px-3 py-2 text-xs font-bold text-rose-200 disabled:opacity-40"
+            class="rounded border border-rose-700 bg-rose-950 px-3 py-1.5 text-[11px] font-bold text-rose-200 disabled:opacity-40"
             :disabled="!puedeFinalizar"
             @click="finalizarVotacion"
           >
@@ -535,16 +512,16 @@ async function desempatar(sentido: 'POSITIVO' | 'NEGATIVO'): Promise<void> {
           votacion.tipo_mayoria === 'SIMPLE'
         "
         data-testid="controles-desempate"
-        class="space-y-2 rounded-lg border border-amber-700 bg-amber-950/30 p-3"
+        class="flex flex-wrap items-center gap-2 rounded border border-amber-700 bg-amber-950/30 p-2"
       >
-        <p class="text-xs text-amber-200">
+        <p class="min-w-0 flex-1 text-[11px] text-amber-200">
           Presidencia vigente: <strong>{{ estado.sesion?.presidencia }}</strong>
         </p>
-        <div class="flex gap-2">
+        <div class="flex gap-1.5">
           <button
             type="button"
             data-testid="btn-desempate-positivo"
-            class="flex-1 rounded bg-emerald-600 px-3 py-2 text-xs font-bold text-slate-950 disabled:opacity-40"
+            class="rounded bg-emerald-600 px-3 py-1.5 text-[11px] font-bold text-slate-950 disabled:opacity-40"
             :disabled="!puedeDesempatar"
             @click="desempatar('POSITIVO')"
           >
@@ -553,14 +530,18 @@ async function desempatar(sentido: 'POSITIVO' | 'NEGATIVO'): Promise<void> {
           <button
             type="button"
             data-testid="btn-desempate-negativo"
-            class="flex-1 rounded bg-rose-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-40"
+            class="rounded bg-rose-600 px-3 py-1.5 text-[11px] font-bold text-white disabled:opacity-40"
             :disabled="!puedeDesempatar"
             @click="desempatar('NEGATIVO')"
           >
             NEGATIVO
           </button>
         </div>
-        <p v-for="motivo in motivosDesempatar" :key="motivo" class="text-[11px] text-amber-300">
+        <p
+          v-for="motivo in motivosDesempatar"
+          :key="motivo"
+          class="w-full text-[11px] text-amber-300"
+        >
           {{ motivo }}
         </p>
       </div>
@@ -570,7 +551,7 @@ async function desempatar(sentido: 'POSITIVO' | 'NEGATIVO'): Promise<void> {
     <form
       v-if="mostrarFormulario"
       data-testid="formulario-votacion"
-      class="space-y-3 rounded-xl border border-cyan-900/60 bg-slate-950/60 p-3"
+      class="space-y-2 rounded-lg border border-cyan-900/60 bg-slate-950/60 p-2"
       @submit.prevent="solicitarApertura"
     >
       <div class="flex items-center justify-between">
@@ -585,7 +566,7 @@ async function desempatar(sentido: 'POSITIVO' | 'NEGATIVO'): Promise<void> {
         </button>
       </div>
 
-      <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+      <div class="grid grid-cols-1 gap-2 sm:grid-cols-[0.55fr_1fr_1.3fr]">
         <label class="text-xs text-slate-300">
           Número
           <input
@@ -593,7 +574,7 @@ async function desempatar(sentido: 'POSITIVO' | 'NEGATIVO'): Promise<void> {
             data-testid="input-numero-votacion"
             type="text"
             inputmode="numeric"
-            class="mt-1 w-full rounded border border-slate-700 bg-slate-900 px-2 py-1.5 text-slate-100"
+            class="mt-0.5 w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-slate-100"
           />
         </label>
         <label class="text-xs text-slate-300">
@@ -601,7 +582,7 @@ async function desempatar(sentido: 'POSITIVO' | 'NEGATIVO'): Promise<void> {
           <select
             v-model="borrador.tipo"
             data-testid="select-tipo-votacion"
-            class="mt-1 w-full rounded border border-slate-700 bg-slate-900 px-2 py-1.5 text-slate-100"
+            class="mt-0.5 w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-slate-100"
           >
             <option
               v-if="borrador.tipo && !tiposConfigurados.includes(borrador.tipo)"
@@ -613,43 +594,32 @@ async function desempatar(sentido: 'POSITIVO' | 'NEGATIVO'): Promise<void> {
             <option v-for="tipo in tiposConfigurados" :key="tipo" :value="tipo">{{ tipo }}</option>
           </select>
         </label>
+        <fieldset>
+          <legend class="text-xs text-slate-300">Mayoría</legend>
+          <div class="mt-1 flex gap-3 text-xs">
+            <label class="flex items-center gap-1">
+              <input
+                v-model="borrador.tipoMayoria"
+                data-testid="radio-mayoria-simple"
+                type="radio"
+                value="SIMPLE"
+                @change="manejarCambioTipoMayoria"
+              />
+              SIMPLE
+            </label>
+            <label class="flex items-center gap-1">
+              <input
+                v-model="borrador.tipoMayoria"
+                data-testid="radio-mayoria-especial"
+                type="radio"
+                value="ESPECIAL"
+                @change="manejarCambioTipoMayoria"
+              />
+              ESPECIAL
+            </label>
+          </div>
+        </fieldset>
       </div>
-
-      <label class="block text-xs text-slate-300">
-        Tema
-        <textarea
-          v-model="borrador.tema"
-          data-testid="input-tema-votacion"
-          rows="2"
-          class="mt-1 w-full resize-y rounded border border-slate-700 bg-slate-900 px-2 py-1.5 text-slate-100"
-        />
-      </label>
-
-      <fieldset class="space-y-2">
-        <legend class="text-xs font-semibold text-slate-300">Tipo de mayoría</legend>
-        <div class="flex gap-4 text-xs">
-          <label class="flex items-center gap-1">
-            <input
-              v-model="borrador.tipoMayoria"
-              data-testid="radio-mayoria-simple"
-              type="radio"
-              value="SIMPLE"
-              @change="manejarCambioTipoMayoria"
-            />
-            SIMPLE
-          </label>
-          <label class="flex items-center gap-1">
-            <input
-              v-model="borrador.tipoMayoria"
-              data-testid="radio-mayoria-especial"
-              type="radio"
-              value="ESPECIAL"
-              @change="manejarCambioTipoMayoria"
-            />
-            ESPECIAL
-          </label>
-        </div>
-      </fieldset>
 
       <div
         v-if="borrador.tipoMayoria === 'ESPECIAL'"
@@ -663,7 +633,7 @@ async function desempatar(sentido: 'POSITIVO' | 'NEGATIVO'): Promise<void> {
             data-testid="input-factor-mayoria"
             type="text"
             inputmode="decimal"
-            class="mt-1 w-full rounded border border-slate-700 bg-slate-900 px-2 py-1.5 text-slate-100"
+            class="mt-0.5 w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-slate-100"
           />
         </label>
         <label class="text-xs text-slate-300">
@@ -671,7 +641,7 @@ async function desempatar(sentido: 'POSITIVO' | 'NEGATIVO'): Promise<void> {
           <select
             v-model="borrador.base"
             data-testid="select-base-mayoria"
-            class="mt-1 w-full rounded border border-slate-700 bg-slate-900 px-2 py-1.5 text-slate-100"
+            class="mt-0.5 w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-slate-100"
           >
             <option value="VOTOS_COMPUTABLES">VOTOS_COMPUTABLES</option>
             <option value="PRESENTES">PRESENTES</option>
@@ -680,15 +650,26 @@ async function desempatar(sentido: 'POSITIVO' | 'NEGATIVO'): Promise<void> {
         </label>
       </div>
 
-      <button
-        type="button"
-        data-testid="btn-abrir-votacion"
-        class="w-full rounded-lg bg-cyan-600 px-4 py-2 text-xs font-bold uppercase tracking-wider text-slate-950 disabled:opacity-40"
-        :disabled="!puedeEnviarApertura"
-        @click="solicitarApertura"
-      >
-        {{ abriendo ? 'Abriendo votación...' : 'Abrir votación' }}
-      </button>
+      <div class="flex flex-col gap-2 sm:flex-row">
+        <label class="min-w-0 flex-1 text-xs text-slate-300">
+          Tema
+          <input
+            v-model="borrador.tema"
+            data-testid="input-tema-votacion"
+            type="text"
+            class="mt-0.5 w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-slate-100"
+          />
+        </label>
+        <button
+          type="button"
+          data-testid="btn-abrir-votacion"
+          class="self-end rounded bg-cyan-600 px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-950 disabled:opacity-40"
+          :disabled="!puedeEnviarApertura"
+          @click="solicitarApertura"
+        >
+          {{ abriendo ? 'Abriendo...' : 'Abrir votación' }}
+        </button>
+      </div>
       <p v-if="!conectado" class="text-[11px] text-amber-300">
         Reconectá el estado en tiempo real para habilitar comandos.
       </p>

@@ -178,7 +178,9 @@ test.describe.serial('WP-027 · recorridos críticos sobre el stack real', () =>
         expect(JSON.stringify(publicoEnCurso)).not.toContain('POSITIVO')
         expect(JSON.stringify(publicoEnCurso)).not.toContain('30000001')
 
-        await expect(moderacion.getByTestId('votos-individuales')).toBeVisible({ timeout: 7_000 })
+        // WP-037 reserva Q1 para conducción: aun cuando la proyección privada tenga el
+        // detalle nominal, la interfaz compacta sólo muestra el progreso agregado.
+        await expect(moderacion.getByTestId('votos-individuales')).toHaveCount(0)
         await pulsarSecuencia(['4-1', '5-1', '6-1', '7-1'])
         await expect(moderacion.getByTestId('estado-votacion')).toHaveText('APROBADA')
         await expect(recinto.getByTestId('estado-votacion')).toHaveText('Aprobada')
@@ -250,8 +252,9 @@ test.describe.serial('WP-027 · recorridos críticos sobre el stack real', () =>
         await abrirVotacion(moderacion, 4, 'Finalización manual')
         await pulsar('1-3')
         await finalizarManualmente(moderacion, 'Cierre manual E2E con votos faltantes')
-        await expect(moderacion.getByTestId('cantidad-votos-recibidos')).toHaveText('1')
-        await expect(moderacion.getByTestId('votos-individuales')).toContainText('NEGATIVO')
+        await expect(moderacion.getByTestId('votos-individuales')).toHaveCount(0)
+        await expect(moderacion.getByTestId('conteos-votacion')).toContainText('Negativos')
+        await expect(moderacion.getByTestId('conteos-votacion')).toContainText('1')
         await expect(recinto.locator('[data-banca="1"] [data-testid="voto-banca"]')).toHaveText(
           'Negativo',
         )
