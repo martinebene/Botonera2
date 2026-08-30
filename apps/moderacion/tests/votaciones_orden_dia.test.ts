@@ -357,7 +357,7 @@ describe('WP-023: Orden del Día y ciclo visual de votaciones', () => {
     await flushPromises()
   })
 
-  it('representa EN_CURSO antes/después del revelado y finaliza solo con motivo', async () => {
+  it('representa EN_CURSO sin lista individual y finaliza solo con motivo', async () => {
     let resolverFinalizacion: (() => void) | undefined
     const finalizar = vi.fn(
       () =>
@@ -421,7 +421,10 @@ describe('WP-023: Orden del Día y ciclo visual de votaciones', () => {
         capacidades: estadoEnCurso.capacidades,
       }),
     })
-    expect(wrapper.get('[data-testid="votos-individuales"]').text()).toContain('Ada Lovelace')
+    // WP-037: aunque el DTO proyecte individuales, Q1 conserva solamente agregados.
+    expect(wrapper.find('[data-testid="votos-individuales"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('Ada Lovelace')
+    expect(wrapper.get('[data-testid="votos-ocultos"]').exists()).toBe(true)
     expect(wrapper.get('[data-testid="conteos-votacion"]').text()).toContain('Abstenciones')
   })
 
@@ -458,6 +461,7 @@ describe('WP-023: Orden del Día y ciclo visual de votaciones', () => {
     }
 
     expect(wrapper.get('[data-testid="controles-desempate"]').text()).not.toContain('ABSTENCION')
+    expect(wrapper.find('[data-testid="votos-individuales"]').exists()).toBe(false)
     await wrapper.get('[data-testid="btn-desempate-positivo"]').trigger('click')
     await wrapper.get('[data-testid="btn-desempate-negativo"]').trigger('click')
     expect(desempatar).toHaveBeenCalledTimes(1)

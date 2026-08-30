@@ -19,7 +19,7 @@
  * 4. Estado SESION_ABIERTA y Diálogo de Advertencia de Cierre (1920×1080 y 1366×768):
  *    - Número de sesión inmutable y ausencia de resumen de quórum en Q1.
  *    - Quórum, autoridades, reloj local y tiempo de sesión en cabecera.
- *    - Edición de autoridades en sesión.
+ *    - Edición de autoridades mediante modal, sin inputs permanentes en Q1.
  *    - Apertura de diálogo modal de confirmación ante orador/cola de palabra activa (H4).
  *    - Accesibilidad del diálogo (role="dialog", aria-modal="true") y cancelación segura.
  * 5. Aislamiento de scroll interno:
@@ -637,6 +637,111 @@ async function verificarGeometriaShellCompleto(
   expect(desplazamiento.x).toBe(0)
 }
 
+/**
+ * Verifica la frontera específica de WP-037 con medidas reales del DOM.
+ *
+ * No alcanza con buscar una clase Tailwind: el cuerpo debe tener overflow no
+ * desplazable y, al mismo tiempo, todo su contenido debe entrar sin recorte. La
+ * comparación entre scrollHeight y clientHeight detecta justamente un `hidden`
+ * usado para esconder controles que en realidad quedaron fuera del cuadrante.
+ */
+async function verificarQ1SinScroll(page: Page): Promise<void> {
+  const cuerpo = page.locator('[data-testid="panel-sesion-votacion"] [data-testid="cuerpo-panel"]')
+  await expect(cuerpo).toBeVisible()
+  const medicion = await cuerpo.evaluate((elemento) => {
+    const estilo = getComputedStyle(elemento)
+    return {
+      overflowY: estilo.overflowY,
+      altoVisible: elemento.clientHeight,
+      altoContenido: elemento.scrollHeight,
+      desplazamiento: elemento.scrollTop,
+    }
+  })
+
+  expect(['auto', 'scroll']).not.toContain(medicion.overflowY)
+  expect(medicion.altoContenido).toBeLessThanOrEqual(medicion.altoVisible + 1)
+  expect(medicion.desplazamiento).toBe(0)
+}
+
+function crearCapacidadesSesionCompacta() {
+  return {
+    preparar_sala: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
+    actualizar_preparacion: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
+    cancelar_preparacion: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
+    abrir_sesion: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
+    actualizar_sesion: { habilitada: true, motivos: [] },
+    cerrar_sesion: { habilitada: true, motivos: [] },
+    cargar_orden_del_dia: { habilitada: true, motivos: [] },
+    descartar_orden_del_dia: { habilitada: true, motivos: [] },
+    abrir_votacion: { habilitada: true, motivos: [] },
+    finalizar_votacion: { habilitada: false, motivos: ['VOTACION_NO_EN_CURSO'] },
+    desempatar: { habilitada: false, motivos: ['VOTACION_NO_EMPATADA'] },
+    otorgar_palabra: { habilitada: true, motivos: [] },
+    quitar_palabra: { habilitada: true, motivos: [] },
+  }
+}
+
+function crearEstadoSesionCompacta(parcial: Record<string, unknown> = {}) {
+  return crearEstadoFixture({
+    estado_global: 'SESION_ABIERTA',
+    sesion: {
+      fecha_hora_inicio_preparacion: '2026-08-29T09:30:00Z',
+      fecha_hora_apertura: '2026-08-29T09:45:00Z',
+      numero_sesion: 42,
+      presidencia: 'Dra. Presidencia',
+      secretaria_legislativa: 'Lic. Secretaría',
+    },
+    configuracion: {
+      quorum: 7,
+      filas_bancas: [3, 4, 5],
+      tipos_votacion: ['Proyecto', 'Moción'],
+      duracion_test_segundos: 3,
+      revelado_votos_moderacion_segundos: 4,
+      cuenta_regresiva_recinto_segundos: 3,
+      resultado_publico_recinto_segundos: 6,
+    },
+    quorum: { cantidad_presentes: 8, requerido: 7, alcanzado: true },
+    palabra: { orador: null, cola: [] },
+    orden_del_dia: [],
+    eventos_recientes: [],
+    capacidades: crearCapacidadesSesionCompacta(),
+    ...parcial,
+  })
+}
+
+function crearVotacionCompacta(parcial: Record<string, unknown> = {}) {
+  return {
+    id: 'votacion-wp037',
+    numero_votacion: 12,
+    tipo: 'Proyecto',
+    tema: 'Tratamiento de presupuesto anual',
+    tipo_mayoria: 'SIMPLE',
+    factor: 0,
+    base: 'VOTOS_COMPUTABLES',
+    estado_recepcion: 'EN_CURSO',
+    resultado: null,
+    fecha_hora_apertura: '2026-08-29T10:00:00Z',
+    fecha_hora_cierre: null,
+    fecha_hora_resultado: null,
+    motivo_finalizacion_manual: null,
+    cantidad_votos_recibidos: 8,
+    revelado_individual_desde: '2026-08-29T10:00:04Z',
+    votos_individuales_revelados: true,
+    votos_individuales: [
+      {
+        dni: '30000001',
+        nombre: 'No debe',
+        apellido: 'renderizarse',
+        banca: 1,
+        valor: 'POSITIVO',
+      },
+    ],
+    conteos: { positivos: 4, negativos: 3, abstenciones: 1, total: 8 },
+    voto_presidencial: null,
+    ...parcial,
+  }
+}
+
 test.describe('UI de Moderación - Estados Institucionales y Contrato de Shell (WP-022)', () => {
   // ===========================================================================
   // 1. ESTADO SIN_PREPARAR (1920×1080 y 1366×768)
@@ -874,14 +979,20 @@ test.describe('UI de Moderación - Estados Institucionales y Contrato de Shell (
         /Sesión\s+\d{2,}:\d{2}:\d{2}/,
       )
 
-      // Autoridades actualizables
-      await expect(page.locator('[data-testid="input-presidencia-sesion"]')).toHaveValue(
+      // WP-037: Q1 no conserva inputs permanentes; la edición se abre en un modal.
+      await expect(page.locator('[data-testid="input-presidencia-sesion"]')).toHaveCount(0)
+      await expect(page.locator('[data-testid="input-secretaria-sesion"]')).toHaveCount(0)
+      await page.locator('[data-testid="btn-editar-autoridades"]').click()
+      const modalAutoridades = page.locator('[data-testid="dialogo-edicion-autoridades"]')
+      await expect(modalAutoridades).toBeVisible()
+      await expect(page.locator('[data-testid="input-presidencia-modal"]')).toHaveValue(
         'Dra. María Elena Walsh',
       )
-      await expect(page.locator('[data-testid="input-secretaria-sesion"]')).toHaveValue(
+      await expect(page.locator('[data-testid="input-secretaria-modal"]')).toHaveValue(
         'Lic. Juan Gómez',
       )
-      await expect(page.locator('[data-testid="btn-actualizar-autoridades"]')).toBeVisible()
+      await page.locator('[data-testid="btn-cancelar-autoridades"]').click()
+      await expect(modalAutoridades).toHaveCount(0)
 
       // Intentar cerrar la sesión teniendo un orador activo -> debe abrir el diálogo modal (H4)
       const botonCerrar = page.locator('[data-testid="btn-cerrar-sesion"]')
@@ -1092,6 +1203,146 @@ test.describe('WP-036 - Cabecera compacta y redistribución del shell', () => {
   })
 })
 
+test.describe('WP-037 - Q1 compacto sin scroll interno', () => {
+  const escenarios = [
+    {
+      nombre: 'SIN_PREPARAR',
+      estado: crearEstadoFixture({ estado_global: 'SIN_PREPARAR', quorum: null }),
+      selectorVisible: '[data-testid="btn-preparar-sala"]',
+    },
+    {
+      nombre: 'PREPARANDO',
+      estado: crearEstadoFixture({
+        estado_global: 'PREPARANDO',
+        preparacion: {
+          fecha_hora_inicio: '2026-08-29T09:30:00Z',
+          numero_sesion: 42,
+          presidencia: 'Dra. Presidencia',
+          secretaria_legislativa: 'Lic. Secretaría',
+        },
+        quorum: { cantidad_presentes: 8, requerido: 7, alcanzado: true },
+        capacidades: {
+          ...crearEstadoFixture().capacidades,
+          preparar_sala: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
+          actualizar_preparacion: { habilitada: true, motivos: [] },
+          cancelar_preparacion: { habilitada: true, motivos: [] },
+          abrir_sesion: { habilitada: true, motivos: [] },
+        },
+      }),
+      selectorVisible: '[data-testid="btn-abrir-sesion"]',
+    },
+    {
+      nombre: 'SESION_ABIERTA lista para votar',
+      estado: crearEstadoSesionCompacta(),
+      selectorVisible: '[data-testid="formulario-votacion"]',
+    },
+    {
+      nombre: 'votación EN_CURSO',
+      estado: crearEstadoSesionCompacta({
+        votacion: crearVotacionCompacta(),
+        capacidades: {
+          ...crearCapacidadesSesionCompacta(),
+          abrir_votacion: { habilitada: false, motivos: ['VOTACION_PENDIENTE'] },
+          finalizar_votacion: { habilitada: true, motivos: [] },
+        },
+      }),
+      selectorVisible: '[data-testid="btn-finalizar-votacion"]',
+    },
+    {
+      nombre: 'resultado cerrado con conteos',
+      estado: crearEstadoSesionCompacta({
+        votacion: crearVotacionCompacta({
+          estado_recepcion: 'CERRADA',
+          resultado: 'APROBADA',
+          fecha_hora_cierre: '2026-08-29T10:00:10Z',
+          fecha_hora_resultado: '2026-08-29T10:00:10Z',
+        }),
+      }),
+      selectorVisible: '[data-testid="conteos-votacion"]',
+    },
+    {
+      nombre: 'empate pendiente',
+      estado: crearEstadoSesionCompacta({
+        votacion: crearVotacionCompacta({
+          estado_recepcion: 'CERRADA',
+          resultado: 'EMPATADA',
+          fecha_hora_cierre: '2026-08-29T10:00:10Z',
+          fecha_hora_resultado: '2026-08-29T10:00:10Z',
+          conteos: { positivos: 4, negativos: 4, abstenciones: 0, total: 8 },
+        }),
+        capacidades: {
+          ...crearCapacidadesSesionCompacta(),
+          abrir_votacion: { habilitada: false, motivos: ['VOTACION_PENDIENTE'] },
+          desempatar: { habilitada: true, motivos: [] },
+        },
+      }),
+      selectorVisible: '[data-testid="controles-desempate"]',
+    },
+  ]
+
+  for (const escenario of escenarios) {
+    test(`${escenario.nombre}: el contenido real entra completo a 1366×768`, async ({ page }) => {
+      await configurarRutasMock(page, escenario.estado)
+      await page.setViewportSize({ width: 1366, height: 768 })
+      await page.goto('/moderacion/')
+
+      await expect(page.locator(escenario.selectorVisible)).toBeVisible()
+      await verificarQ1SinScroll(page)
+      await expect(page.locator('[data-testid="votos-individuales"]')).toHaveCount(0)
+      await expect(page.locator('[data-testid="panel-sesion-votacion"]')).not.toContainText(
+        'No debe renderizarse',
+      )
+    })
+  }
+
+  test('el modal de autoridades no deforma Q1 ni el shell a 1366×768', async ({ page }) => {
+    await configurarRutasMock(page, crearEstadoSesionCompacta())
+    await page.setViewportSize({ width: 1366, height: 768 })
+    await page.goto('/moderacion/')
+
+    const panel = page.locator('[data-testid="panel-sesion-votacion"]')
+    const cajaAntes = await panel.boundingBox()
+    await verificarQ1SinScroll(page)
+
+    await page.locator('[data-testid="btn-editar-autoridades"]').click()
+    const modal = page.locator('[data-testid="dialogo-edicion-autoridades"]')
+    await expect(modal).toBeVisible()
+    await expect(modal).toHaveAttribute('role', 'dialog')
+    await expect(page.locator('[data-testid="input-presidencia-modal"]')).toBeVisible()
+    await expect(page.locator('[data-testid="input-secretaria-modal"]')).toBeVisible()
+
+    const cajaDurante = await panel.boundingBox()
+    expect(cajaAntes).not.toBeNull()
+    expect(cajaDurante).not.toBeNull()
+    if (cajaAntes && cajaDurante) {
+      expect(Math.abs(cajaDurante.height - cajaAntes.height)).toBeLessThanOrEqual(1)
+      expect(Math.abs(cajaDurante.width - cajaAntes.width)).toBeLessThanOrEqual(1)
+    }
+    await verificarQ1SinScroll(page)
+  })
+
+  test('resultado y siguiente formulario entran completos a 1920×1080', async ({ page }) => {
+    await configurarRutasMock(
+      page,
+      crearEstadoSesionCompacta({
+        votacion: crearVotacionCompacta({
+          estado_recepcion: 'CERRADA',
+          resultado: 'RECHAZADA',
+          fecha_hora_cierre: '2026-08-29T10:00:10Z',
+          fecha_hora_resultado: '2026-08-29T10:00:10Z',
+        }),
+      }),
+    )
+    await page.setViewportSize({ width: 1920, height: 1080 })
+    await page.goto('/moderacion/')
+
+    await expect(page.locator('[data-testid="conteos-votacion"]')).toBeVisible()
+    await expect(page.locator('[data-testid="formulario-votacion"]')).toBeVisible()
+    await verificarQ1SinScroll(page)
+    await verificarGeometriaShellCompleto(page, { width: 1920, height: 1080 })
+  })
+})
+
 test.describe('WP-023 - Recorrido de votación y Orden del Día', () => {
   test('selecciona un punto, confirma CA-062 y adopta EN_CURSO, EMPATADA y desempate desde SSE', async ({
     page,
@@ -1195,7 +1446,9 @@ test.describe('WP-023 - Recorrido de votación y Orden del Día', () => {
       ;(window as Window & { cerrarComoEmpatada?: () => void }).cerrarComoEmpatada?.()
     })
     await expect(page.locator('[data-testid="estado-votacion"]')).toContainText('EMPATADA')
-    await expect(page.locator('[data-testid="votos-individuales"]')).toContainText('Concejal01')
+    await expect(page.locator('[data-testid="conteos-votacion"]')).toContainText('4')
+    await expect(page.locator('[data-testid="votos-individuales"]')).toHaveCount(0)
+    await expect(vista).not.toContainText('Concejal01')
     const controles = page.locator('[data-testid="controles-desempate"]')
     await expect(controles).toContainText('Dra. Presidencia')
     await expect(controles).not.toContainText('ABSTENCION')
