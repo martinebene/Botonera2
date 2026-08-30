@@ -20,7 +20,9 @@ import PanelContenedor from '../app/components/PanelContenedor.vue'
 import fuentePanelContenedor from '../app/components/PanelContenedor.vue?raw'
 import PanelRecintoPalabra from '../app/components/PanelRecintoPalabra.vue'
 import BancaConcejal from '../app/components/BancaConcejal.vue'
+import fuenteBancaConcejal from '../app/components/BancaConcejal.vue?raw'
 import GrillaRecinto from '../app/components/GrillaRecinto.vue'
+import fuenteGrillaRecinto from '../app/components/GrillaRecinto.vue?raw'
 import DialogoConfirmacionCierre from '../app/components/DialogoConfirmacionCierre.vue'
 import fuenteDialogoConfirmacionCierre from '../app/components/DialogoConfirmacionCierre.vue?raw'
 import DialogoEdicionAutoridades from '../app/components/DialogoEdicionAutoridades.vue'
@@ -82,6 +84,8 @@ function habilitarRenderCliente(
 habilitarRenderCliente(PanelContenedor, fuentePanelContenedor)
 habilitarRenderCliente(DialogoConfirmacionCierre, fuenteDialogoConfirmacionCierre)
 habilitarRenderCliente(DialogoEdicionAutoridades, fuenteDialogoEdicionAutoridades)
+habilitarRenderCliente(BancaConcejal, fuenteBancaConcejal)
+habilitarRenderCliente(GrillaRecinto, fuenteGrillaRecinto, { BancaConcejal })
 habilitarRenderCliente(PanelSesionVotacion, fuentePanelSesionVotacion, {
   PanelContenedor,
   DialogoConfirmacionCierre,
@@ -322,18 +326,105 @@ describe('WP-022: Preparación, presencia, autoridades, sesión y advertencia de
       expect(html).toContain('data-testid="badge-test-activo"')
     })
 
-    it('GrillaRecinto: distribuye las bancas respetando filas_bancas', async () => {
+    it('GrillaRecinto: dibuja [3,4,5] desde arriba sin invertir el orden horizontal', () => {
       const concejales = crearConcejalesPrueba(12)
-      const html = await renderizarSSR(GrillaRecinto, {
-        concejales,
-        filasBancas: [3, 4, 5],
+      const wrapper = montarComponenteAislado(GrillaRecinto, {
+        props: { concejales: concejales.reverse(), filasBancas: [3, 4, 5] },
       })
 
-      expect(html).toContain('data-testid="fila-bancas-1"')
-      expect(html).toContain('data-testid="fila-bancas-2"')
-      expect(html).toContain('data-testid="fila-bancas-3"')
-      expect(html).toContain('Banca 1')
-      expect(html).toContain('Banca 12')
+      // El primer nodo visual es la fila física superior, pero cada fila mantiene
+      // sus bancas crecientes de izquierda a derecha.
+      const filas = wrapper.findAll('[data-fila-fisica]')
+      expect(filas).toHaveLength(3)
+      expect(filas[0]?.text()).toContain('Banca 8')
+      expect(filas[1]?.text()).toContain('Banca 4')
+      expect(filas[2]?.text()).toContain('Banca 1')
+      expect(
+        wrapper
+          .get('[data-fila-fisica="1"]')
+          .findAll('[data-banca]')
+          .map((banca) => banca.text().match(/Banca (\d+)/)?.[1]),
+      ).toEqual(['1', '2', '3'])
+      expect(
+        wrapper
+          .get('[data-fila-fisica="2"]')
+          .findAll('[data-banca]')
+          .map((banca) => banca.text().match(/Banca (\d+)/)?.[1]),
+      ).toEqual(['4', '5', '6', '7'])
+      expect(
+        wrapper
+          .get('[data-fila-fisica="3"]')
+          .findAll('[data-banca]')
+          .map((banca) => banca.text().match(/Banca (\d+)/)?.[1]),
+      ).toEqual(['8', '9', '10', '11', '12'])
+    })
+
+    it('GrillaRecinto: soporta [5,7], asociación desordenada y hueco físico', () => {
+      const concejales = crearConcejalesPrueba(12)
+        .filter((concejal) => concejal.banca !== 4)
+        .sort((primero, segundo) => segundo.banca - primero.banca)
+      const wrapper = montarComponenteAislado(GrillaRecinto, {
+        props: { concejales, filasBancas: [5, 7] },
+      })
+
+      expect(
+        wrapper
+          .get('[data-fila-fisica="2"]')
+          .findAll('[data-banca]')
+          .map((banca) => banca.text().match(/Banca (\d+)/)?.[1]),
+      ).toEqual(['6', '7', '8', '9', '10', '11', '12'])
+      expect(
+        wrapper
+          .get('[data-fila-fisica="1"]')
+          .findAll('[data-banca]')
+          .map((banca) => banca.text().match(/Banca (\d+)/)?.[1]),
+      ).toEqual(['1', '2', '3', '4', '5'])
+      expect(wrapper.get('[data-banca="4"]').text()).toContain('sin datos')
+      expect(wrapper.get('[data-banca="5"] [data-testid="nombre-concejal"]').text()).toContain(
+        'Concejal05',
+      )
+    })
+
+    it('BancaConcejal: ausencia, fallback y baseline nueva no mutan presencia', async () => {
+      const concejalAusente = {
+        ...crearConcejalesPrueba(1)[0]!,
+        presente: false,
+        test_activo: true,
+      }
+      const wrapper = montarComponenteAislado(BancaConcejal, {
+        props: { concejal: concejalAusente },
+      })
+
+      expect(wrapper.get('[data-testid="estado-presencia"]').text()).toContain('Ausente')
+      const htmlAusente = await renderizarSSR(BancaConcejal, { concejal: concejalAusente })
+      expect(htmlAusente).toContain('grayscale')
+      expect(htmlAusente).toContain('opacity-75')
+      expect(wrapper.get('[data-testid="indicador-test"]').text()).toContain('Test de teclado')
+      expect(wrapper.get('[data-testid="dispositivo-banca"]').text()).toContain('dev01')
+      expect(wrapper.findAll('button, input, select, textarea')).toHaveLength(0)
+
+      await wrapper.get('[data-testid="imagen-concejal"]').trigger('error')
+      expect(wrapper.get('[data-testid="fallback-imagen"]').text()).toBe('CA')
+
+      const concejalNuevo = {
+        ...concejalAusente,
+        dni: '39999999',
+        nombre: 'Nueva',
+        apellido: 'Persona',
+        ruta_imagen: 'assets/bancas/persona-nueva.png',
+        presente: true,
+        test_activo: false,
+      }
+      await wrapper.setProps({ concejal: concejalNuevo })
+      await nextTick()
+
+      expect(wrapper.find('[data-ruta-imagen="assets/bancas/persona-nueva.png"]').exists()).toBe(
+        true,
+      )
+      expect(wrapper.get('[data-testid="estado-presencia"]').text()).toContain('Presente')
+      const htmlPresente = await renderizarSSR(BancaConcejal, { concejal: concejalNuevo })
+      expect(htmlPresente).not.toContain('grayscale')
+      expect(concejalAusente.presente).toBe(false)
     })
 
     it('Q3 no repite el quórum global ni siquiera cuando el backend lo proyecta', async () => {

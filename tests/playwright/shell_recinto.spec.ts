@@ -199,7 +199,9 @@ for (const viewport of [
         secretaria_legislativa: 'Luis Secretaría',
       },
       filas_bancas: [5, 7],
-      concejales: crearConcejales(12),
+      concejales: crearConcejales(12)
+        .filter((concejal) => concejal.banca !== 4)
+        .reverse(),
       quorum: { cantidad_presentes: 6, requerido: 7, alcanzado: false },
     })
     await publicar(page, preparando)
@@ -215,6 +217,50 @@ for (const viewport of [
     await expect(
       page.getByTestId('fila-fisica-1').getByTestId('banca-publica').first(),
     ).toHaveAttribute('data-banca', '1')
+
+    const filaInferior = page.getByTestId('fila-fisica-1')
+    const filaSuperior = page.getByTestId('fila-fisica-2')
+    const cajaBancaUno = await filaInferior.locator('[data-banca="1"]').boundingBox()
+    const cajaBancaSeis = await filaSuperior.locator('[data-banca="6"]').boundingBox()
+    expect(cajaBancaUno).not.toBeNull()
+    expect(cajaBancaSeis).not.toBeNull()
+    expect(cajaBancaUno!.y).toBeGreaterThan(cajaBancaSeis!.y)
+
+    for (const [fila, numeros] of [
+      [filaInferior, [1, 2, 3, 4, 5]],
+      [filaSuperior, [6, 7, 8, 9, 10, 11, 12]],
+    ] as const) {
+      const cajas = await Promise.all(
+        numeros.map((numero) => fila.locator(`[data-banca="${numero}"]`).boundingBox()),
+      )
+      expect(cajas.every((caja) => caja !== null)).toBe(true)
+      for (let indice = 1; indice < cajas.length; indice += 1) {
+        expect(cajas[indice - 1]!.x + cajas[indice - 1]!.width).toBeLessThanOrEqual(
+          cajas[indice]!.x + 1,
+        )
+      }
+    }
+
+    await expect(filaInferior.locator('[data-banca="4"]')).toContainText('sin datos públicos')
+    await expect(filaInferior.locator('[data-banca="5"]')).toContainText('Nombre5')
+    const bancaUnoPublica = filaInferior.locator('[data-banca="1"]')
+    await expect(bancaUnoPublica.locator('[data-testid="numero-banca"]')).toHaveText('Banca 1')
+    await expect(bancaUnoPublica.locator('.identidad-concejal strong')).toContainText(
+      'Nombre1 Apellido1',
+    )
+    await expect(bancaUnoPublica.locator('.identidad-concejal small')).toBeVisible()
+    await expect(bancaUnoPublica.locator('[data-testid="estado-presencia"]')).toHaveText('Presente')
+    const ausencia = await page.locator('[data-banca="2"]').evaluate((banca) => ({
+      opacidad: Number.parseFloat(getComputedStyle(banca).opacity),
+      filtroFoto: getComputedStyle(
+        banca.querySelector('[data-testid="imagen-concejal"]') as HTMLElement,
+      ).filter,
+    }))
+    expect(ausencia.opacidad).toBeLessThan(1)
+    expect(ausencia.filtroFoto).not.toBe('none')
+    expect(
+      await page.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight + 1),
+    ).toBe(true)
 
     const sesion = crearEstado({
       revision: 2,

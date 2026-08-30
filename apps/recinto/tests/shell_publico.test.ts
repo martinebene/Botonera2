@@ -41,7 +41,9 @@ describe('Shell público del Recinto', () => {
   })
 
   it('renderiza PREPARANDO con filas [5,7], asociación por banca y estados inequívocos', async () => {
-    const concejales = crearConcejalesPublicos(12).reverse()
+    const concejales = crearConcejalesPublicos(12)
+      .filter((concejal) => concejal.banca !== 4)
+      .reverse()
     const wrapper = await montarPantalla(
       crearEstadoRecintoPrueba({
         estado_global: 'PREPARANDO',
@@ -69,8 +71,10 @@ describe('Shell público del Recinto', () => {
     expect(filaSuperior.find('[data-banca="6"]').exists()).toBe(true)
     expect(filaSuperior.find('[data-banca="12"]').exists()).toBe(true)
     const filaInferior = wrapper.get('[data-testid="fila-fisica-1"]')
-    expect(filaInferior.findAll('[data-testid="banca-publica"]')).toHaveLength(5)
+    expect(filaInferior.findAll('[data-banca]')).toHaveLength(5)
     expect(filaInferior.findAll('[data-testid="banca-publica"]')[0]?.text()).toContain('Nombre1')
+    expect(filaInferior.get('[data-banca="4"]').text()).toContain('sin datos públicos')
+    expect(filaInferior.get('[data-banca="5"]').text()).toContain('Nombre5')
 
     const bancaDos = wrapper.get('[data-banca="2"]')
     expect(bancaDos.get('[data-testid="estado-presencia"]').text()).toBe('Ausente')
@@ -169,5 +173,40 @@ describe('Shell público del Recinto', () => {
     })
     await banca.get('img').trigger('error')
     expect(banca.get('[data-testid="imagen-fallback"]').text()).toBe('NA')
+  })
+
+  it('unifica ausencia y reinicia una imagen fallida al cambiar persona o ruta', async () => {
+    const concejalAusente = {
+      ...crearConcejalesPublicos(1)[0]!,
+      presente: false,
+      test_activo: true,
+    }
+    const banca = mount(BancaPublica, {
+      props: { concejal: concejalAusente, esOrador: true, voto: null },
+    })
+
+    expect(banca.element.classList.contains('banca-ausente')).toBe(true)
+    expect(banca.get('[data-testid="numero-banca"]').text()).toBe('Banca 1')
+    expect(banca.get('[data-testid="estado-presencia"]').text()).toBe('Ausente')
+    expect(banca.get('[data-testid="estado-test"]').text()).toBe('Test activo')
+    expect(banca.get('[data-testid="estado-orador"]').exists()).toBe(true)
+
+    await banca.get('[data-testid="imagen-concejal"]').trigger('error')
+    expect(banca.get('[data-testid="imagen-fallback"]').text()).toBe('NA')
+
+    // Se reutiliza deliberadamente la misma ruta: el cambio de persona también
+    // debe invalidar el error visual perteneciente a la baseline anterior.
+    await banca.setProps({
+      concejal: {
+        ...concejalAusente,
+        nombre: 'Otra',
+        apellido: 'Persona',
+        presente: true,
+      },
+    })
+    expect(banca.find('[data-testid="imagen-concejal"]').exists()).toBe(true)
+    expect(banca.find('[data-testid="imagen-fallback"]').exists()).toBe(false)
+    expect(banca.get('[data-testid="estado-presencia"]').text()).toBe('Presente')
+    expect(concejalAusente.presente).toBe(false)
   })
 })

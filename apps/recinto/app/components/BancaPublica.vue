@@ -13,6 +13,10 @@ const props = defineProps<{
 
 const imagenFallida = ref(false)
 const urlImagen = computed(() => resolverRutaAsset(props.concejal.ruta_imagen))
+const claveImagen = computed(
+  () =>
+    `${props.concejal.nombre}|${props.concejal.apellido}|${props.concejal.banca}|${props.concejal.ruta_imagen}`,
+)
 const iniciales = computed(() =>
   `${props.concejal.nombre.charAt(0)}${props.concejal.apellido.charAt(0)}`.toUpperCase(),
 )
@@ -25,8 +29,9 @@ const presentacionVoto = computed(() => {
   return props.voto ? (presentaciones[props.voto.valor] ?? null) : null
 })
 
-// Si una baseline cambia la persona o su ruta, se permite intentar la nueva imagen.
-watch(urlImagen, () => {
+// Una baseline puede cambiar ruta o persona aun reutilizando la misma banca.
+// La clave completa evita conservar un error local que ya no pertenece al snapshot.
+watch(claveImagen, () => {
   imagenFallida.value = false
 })
 </script>
@@ -35,6 +40,7 @@ watch(urlImagen, () => {
   <article
     data-testid="banca-publica"
     :data-banca="concejal.banca"
+    :data-presente="concejal.presente"
     class="banca-publica"
     :class="{
       'banca-ausente': !concejal.presente,
@@ -55,7 +61,7 @@ watch(urlImagen, () => {
       <div v-else data-testid="imagen-fallback" class="imagen-fallback" aria-hidden="true">
         {{ iniciales || '?' }}
       </div>
-      <span class="numero-banca">{{ concejal.banca }}</span>
+      <span data-testid="numero-banca" class="numero-banca">Banca {{ concejal.banca }}</span>
     </div>
 
     <div class="identidad-concejal">
@@ -109,6 +115,7 @@ watch(urlImagen, () => {
 }
 
 .banca-ausente {
+  opacity: 0.78;
   border-color: rgba(100, 116, 139, 0.46);
   background: linear-gradient(145deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.96));
 }
@@ -164,12 +171,12 @@ watch(urlImagen, () => {
   display: grid;
   place-items: center;
   min-width: 1.7rem;
-  height: 1.7rem;
-  padding: 0 0.3rem;
+  min-height: 1.35rem;
+  padding: 0.18rem 0.38rem;
   border-radius: 999px;
   color: #e0f2fe;
   background: rgba(2, 8, 23, 0.86);
-  font-size: 0.72rem;
+  font-size: 0.58rem;
   font-weight: 900;
 }
 
