@@ -182,7 +182,7 @@ WP-033 quedó integrado antes de continuar WP-026 y deja disponible el harness m
 | WP-034 | Crear simulador visual web de dispositivos lógicos para prueba humana y diagnóstico | INTEGRADO | WP-007, WP-018, WP-028, WP-033 | - |
 | WP-035 | Ajustar layout y cantidad dinámica de dispositivos del simulador visual | INTEGRADO | WP-034 | - |
 | WP-036 | Compactar shell/cabecera de Moderación y centralizar estado, reloj, sesión, quórum y autoridades | INTEGRADO | WP-022, WP-024 | - |
-| WP-037 | Rediseñar estados del cuadrante Sesión y votación sin scroll interno | EN_CURSO | WP-036 | codex |
+| WP-037 | Rediseñar estados del cuadrante Sesión y votación sin scroll interno | INTEGRADO | WP-036 | - |
 | WP-038 | Unificar representación y disposición de bancas/concejales entre Moderación y Recinto | PENDIENTE | WP-036 | - |
 | WP-039 | Reorganizar Recinto y palabra y compactar la pantalla pública tomando producción como referencia | PENDIENTE | WP-038 | - |
 | WP-040 | Simplificar estados y tarjetas del Orden del Día | PENDIENTE | WP-036 | - |
@@ -240,3 +240,5 @@ WP-037 fue definido y aprobado por HUMAN_GATE con las decisiones UX 1A/2A/3A/4A/
 La discrepancia preexistente `D-01..D-12` versus `dev01..dev12` quedó resuelta en WP-033: el fixture de padrón de desarrollo usa `dev01..dev12`, coherente con DEC-006, el simulador y el device-bridge.
 
 La flake temporal de `tests/backend/test_api_estado.py` detectada durante WP-026 quedó estabilizada en WP-027: la prueba observa `test_activo` inmediatamente después de la tecla 8 y antes de las mutaciones posteriores, sin modificar `device_test_seconds = 0.6`, sin retries y sin cambios semánticos en backend.
+
+WP-037 quedó integrado mediante PR #43 sobre el candidato `4464e1b6d42c46240abbd160abf4edf7b4a3c1ee`, revisado independientemente por Antigravity/AGY + Gemini 3.7 Flash (High) con 0 BLOQUEANTES, 0 IMPORTANTES y 3 MENORES no bloqueantes. El squash `f8ce87f219dbc1a1c98f148770fee106350a2826` conserva exactamente el mismo tree SHA `2b9ec52eff02f1f0292778982b0c72d90fe3158c`; CI candidata #304 y CI post-merge #305 terminaron success 8/8. Los menores aceptados fueron: avisos flotantes de votación sin descarte manual explícito, trampa de foco del modal de autoridades sin ciclo estricto Tab/Shift+Tab y reemplazo de label visual por aria-label en el motivo de finalización manual.
