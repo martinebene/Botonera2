@@ -16,8 +16,12 @@
  * cuerpo a `overflow-hidden` desde el breakpoint desktop. El panel de Sesión y
  * votación debe componer todos sus estados dentro del alto disponible y sus pruebas
  * verifican además que el contenido no quede recortado (`scrollHeight <= clientHeight`).
- * En pantallas menores vuelve el scroll defensivo para preservar la adaptación; los
- * demás cuadrantes siempre conservan el scroll aislado que necesitan para colecciones.
+ * En pantallas menores vuelve el scroll defensivo para preservar la adaptación.
+ *
+ * WP-040 suma `contenidoConScrollPropio` para paneles que necesitan mantener controles
+ * fijos y desplazar solamente una colección interna. En ese modo el contenedor exterior
+ * nunca scrollea: el componente hijo debe declarar de forma explícita cuál de sus áreas
+ * usa `overflow-y-auto`. Esto permite que Q2 mantenga accesible la acción de quitar.
  */
 
 defineProps<{
@@ -33,6 +37,8 @@ defineProps<{
   dataTestid?: string
   /** Desactiva el scroll interno en desktop cuando el contenido debe caber completo. */
   contenidoSinScroll?: boolean
+  /** Delega el scroll a una colección interna para conservar fijos los controles del cuerpo. */
+  contenidoConScrollPropio?: boolean
 }>()
 </script>
 
@@ -71,7 +77,13 @@ defineProps<{
     <div
       data-testid="cuerpo-panel"
       class="flex-1 min-h-0"
-      :class="contenidoSinScroll ? 'overflow-y-auto p-2 lg:overflow-hidden' : 'overflow-y-auto p-3'"
+      :class="
+        contenidoConScrollPropio
+          ? 'overflow-hidden p-2'
+          : contenidoSinScroll
+            ? 'overflow-y-auto p-2 lg:overflow-hidden'
+            : 'overflow-y-auto p-3'
+      "
     >
       <slot />
     </div>

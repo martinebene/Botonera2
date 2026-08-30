@@ -213,7 +213,7 @@ describe('Componentes del Shell de Moderación', () => {
   })
 
   describe('PanelOrdenDelDia', () => {
-    it('renderiza los puntos del Orden del Día', async () => {
+    it('renderiza los puntos confirmados sin ofrecer carga o reemplazo', async () => {
       const estado = crearEstadoFixture()
       const html = await renderizarComponente(PanelOrdenDelDia, { estado })
 
@@ -221,6 +221,21 @@ describe('Componentes del Shell de Moderación', () => {
       expect(html).toContain('Orden del Día')
       expect(html).toContain('Presupuesto Anual')
       expect(html).toContain('1 puntos')
+      expect(html).toContain('Quitar Orden del Día')
+      expect(html).not.toContain('input-archivo-orden-dia')
+      expect(html).not.toContain('Reemplazar')
+      expect(html).not.toContain('Seleccionar y copiar al borrador')
+    })
+
+    it('renderiza únicamente la carga compacta cuando el snapshot no contiene puntos', async () => {
+      const estado = crearEstadoFixture({ orden_del_dia: [] })
+      const html = await renderizarComponente(PanelOrdenDelDia, { estado })
+
+      expect(html).toContain('data-testid="carga-orden-dia"')
+      expect(html).toContain('data-testid="input-archivo-orden-dia"')
+      expect(html).toContain('data-testid="btn-cargar-orden-dia"')
+      expect(html).not.toContain('Orden del Día opcional')
+      expect(html).not.toContain('btn-quitar-orden-dia')
     })
 
     it('tolera y renderiza puntos con números de votación duplicados o no correlativos (M-2)', async () => {
@@ -249,6 +264,7 @@ describe('Componentes del Shell de Moderación', () => {
       expect(html).toContain('Primer tema con nro 1')
       expect(html).toContain('Segundo tema con nro 1 repetido')
       expect(html).toContain('2 puntos')
+      expect(html).toContain('Factor 0.66 · Base PRESENTES')
     })
   })
 

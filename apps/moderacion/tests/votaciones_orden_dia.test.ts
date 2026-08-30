@@ -191,6 +191,24 @@ async function completarFormularioSimple(wrapper: VueWrapper): Promise<void> {
   await wrapper.get('[data-testid="input-tema-votacion"]').setValue('Tema manual')
 }
 
+/**
+ * Reproduce la elección real de un archivo sobre el input nativo. JSDOM no abre el
+ * selector del sistema operativo, por eso la prueba instala la lista y dispara el
+ * mismo evento `change` que recibe el componente en el navegador.
+ */
+async function seleccionarArchivoOrdenDelDia(
+  wrapper: VueWrapper,
+  nombre = 'orden.csv',
+): Promise<File> {
+  const archivo = new File(['nro_votacion,tipo,tema,tipo_mayoria,factor,base'], nombre, {
+    type: 'text/csv',
+  })
+  const entrada = wrapper.get('[data-testid="input-archivo-orden-dia"]')
+  Object.defineProperty(entrada.element, 'files', { configurable: true, value: [archivo] })
+  await entrada.trigger('change')
+  return archivo
+}
+
 describe('WP-023: Orden del Día y ciclo visual de votaciones', () => {
   beforeEach(() => reiniciarInstanciaCompartidaParaPruebas())
 
@@ -199,53 +217,166 @@ describe('WP-023: Orden del Día y ciclo visual de votaciones', () => {
     document.body.textContent = ''
   })
 
-  it('carga, preserva la colección ante error y adopta descarte solo desde un snapshot', async () => {
-    const estado = crearEstado({ orden_del_dia: [puntoSimple, puntoEspecial] })
+  it('muestra una carga CSV compacta y habilita Cargar al elegir un archivo', async () => {
     const cargar = vi.fn().mockResolvedValue({ puntos: [] })
-    const descartar = vi.fn().mockResolvedValue(undefined)
-    const cliente = crearCliente({ cargarOrdenDelDia: cargar, descartarOrdenDelDia: descartar })
-    const wrapper = montar(PanelOrdenDelDia, { estado, clienteInyectado: cliente })
-
-    const archivo = new File(['nro_votacion,tipo,tema,tipo_mayoria,factor,base'], 'orden.csv', {
-      type: 'text/csv',
+    const wrapper = montar(PanelOrdenDelDia, {
+      estado: crearEstado({ orden_del_dia: [] }),
+      clienteInyectado: crearCliente({ cargarOrdenDelDia: cargar }),
     })
-    const entrada = wrapper.get('[data-testid="input-archivo-orden-dia"]')
-    Object.defineProperty(entrada.element, 'files', { configurable: true, value: [archivo] })
-    await entrada.trigger('change')
+
+    expect(wrapper.get('[data-testid="carga-orden-dia"]').exists()).toBe(true)
+    expect(wrapper.get('[data-testid="input-archivo-orden-dia"]').exists()).toBe(true)
+    expect(wrapper.get('[data-testid="btn-cargar-orden-dia"]').text()).toBe('Cargar')
+    expect(
+      (wrapper.get('[data-testid="btn-cargar-orden-dia"]').element as HTMLButtonElement).disabled,
+    ).toBe(true)
+    expect(wrapper.find('[data-testid="btn-quitar-orden-dia"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('Orden del Día opcional')
+    expect(wrapper.text()).not.toContain('Podés cargar un CSV')
+
+    await seleccionarArchivoOrdenDelDia(wrapper, 'sesion-42.csv')
+
+    expect(wrapper.text()).toContain('Seleccionado: sesion-42.csv')
+    expect(
+      (wrapper.get('[data-testid="btn-cargar-orden-dia"]').element as HTMLButtonElement).disabled,
+    ).toBe(false)
+  })
+
+  it('carga sin optimismo, muestra errores y adopta los puntos solo desde un snapshot', async () => {
+    const cargar = vi.fn().mockResolvedValueOnce({ puntos: [puntoSimple] })
+    const wrapper = montar(PanelOrdenDelDia, {
+      estado: crearEstado({ orden_del_dia: [] }),
+      clienteInyectado: crearCliente({ cargarOrdenDelDia: cargar }),
+    })
+
+    const archivo = await seleccionarArchivoOrdenDelDia(wrapper)
     await wrapper.get('[data-testid="btn-cargar-orden-dia"]').trigger('click')
     await flushPromises()
 
     expect(cargar).toHaveBeenCalledWith(archivo)
-    expect(wrapper.findAll('[data-testid="punto-orden-dia"]')).toHaveLength(2)
+    expect(wrapper.findAll('[data-testid="punto-orden-dia"]')).toHaveLength(0)
+    expect(wrapper.get('[data-testid="carga-orden-dia"]').exists()).toBe(true)
+    expect(wrapper.get('[data-testid="aviso-orden-dia"]').text()).toContain(
+      'backend proyecte la colección confirmada',
+    )
 
     cargar.mockRejectedValueOnce({ mensaje: 'CSV inválido' })
-    Object.defineProperty(entrada.element, 'files', { configurable: true, value: [archivo] })
-    await entrada.trigger('change')
+    await seleccionarArchivoOrdenDelDia(wrapper, 'invalido.csv')
     await wrapper.get('[data-testid="btn-cargar-orden-dia"]').trigger('click')
     await flushPromises()
     expect(wrapper.get('[data-testid="alerta-error-orden-dia"]').text()).toContain('CSV inválido')
-    expect(wrapper.findAll('[data-testid="punto-orden-dia"]')).toHaveLength(2)
-
-    await wrapper.get('[data-testid="btn-descartar-orden-dia"]').trigger('click')
-    await flushPromises()
-    expect(descartar).toHaveBeenCalledTimes(1)
-    expect(wrapper.findAll('[data-testid="punto-orden-dia"]')).toHaveLength(2)
-
-    await wrapper.setProps({ estado: crearEstado({ revision: 2, orden_del_dia: [] }) })
     expect(wrapper.findAll('[data-testid="punto-orden-dia"]')).toHaveLength(0)
+
+    await wrapper.setProps({
+      estado: crearEstado({ revision: 2, orden_del_dia: [puntoSimple, puntoEspecial] }),
+    })
+    expect(wrapper.find('[data-testid="input-archivo-orden-dia"]').exists()).toBe(false)
+    expect(wrapper.findAll('[data-testid="punto-orden-dia"]')).toHaveLength(2)
   })
 
-  it('tolera números repetidos y emite una copia seleccionable sin consumir puntos', async () => {
+  it('muestra solo puntos y Quitar Orden del Día, con tarjetas informativas clickeables', async () => {
     const wrapper = montar(PanelOrdenDelDia, {
       estado: crearEstado({ orden_del_dia: [puntoSimple, puntoEspecial] }),
       clienteInyectado: crearCliente(),
     })
 
+    expect(wrapper.find('[data-testid="input-archivo-orden-dia"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="btn-cargar-orden-dia"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('Reemplazar')
+    expect(wrapper.findAll('[data-testid="btn-quitar-orden-dia"]')).toHaveLength(1)
+    expect(wrapper.get('[data-testid="btn-quitar-orden-dia"]').text()).toBe('Quitar Orden del Día')
+
     const puntos = wrapper.findAll('[data-testid="punto-orden-dia"]')
     expect(puntos).toHaveLength(2)
+    expect(puntos[1]?.text()).toContain('Factor 0.66 · Base CUERPO')
+    expect(wrapper.text()).not.toContain('Seleccionar y copiar al borrador')
     await puntos[1]?.trigger('click')
     expect(wrapper.emitted('seleccionar')?.[0]?.[0]).toEqual(puntoEspecial)
     expect(wrapper.findAll('[data-testid="punto-orden-dia"]')).toHaveLength(2)
+  })
+
+  it('bloquea doble descarte, conserva puntos ante error y vuelve a carga por snapshot vacío', async () => {
+    let rechazarDescarte: ((motivo: unknown) => void) | undefined
+    const descartar = vi.fn(
+      () =>
+        new Promise<void>((_resolver, rechazar) => {
+          rechazarDescarte = rechazar
+        }),
+    )
+    const wrapper = montar(PanelOrdenDelDia, {
+      estado: crearEstado({ orden_del_dia: [puntoSimple, puntoEspecial] }),
+      clienteInyectado: crearCliente({ descartarOrdenDelDia: descartar }),
+    })
+
+    const boton = wrapper.get('[data-testid="btn-quitar-orden-dia"]')
+    await boton.trigger('click')
+    await boton.trigger('click')
+
+    expect(descartar).toHaveBeenCalledTimes(1)
+    expect((boton.element as HTMLButtonElement).disabled).toBe(true)
+    expect(boton.text()).toBe('Quitando...')
+    expect(wrapper.findAll('[data-testid="punto-orden-dia"]')).toHaveLength(2)
+
+    rechazarDescarte?.({ mensaje: 'Descarte rechazado' })
+    await flushPromises()
+    expect(wrapper.get('[data-testid="alerta-error-orden-dia"]').text()).toContain(
+      'Descarte rechazado',
+    )
+    expect(wrapper.findAll('[data-testid="punto-orden-dia"]')).toHaveLength(2)
+
+    descartar.mockResolvedValueOnce(undefined)
+    await wrapper.get('[data-testid="btn-quitar-orden-dia"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.findAll('[data-testid="punto-orden-dia"]')).toHaveLength(2)
+
+    await wrapper.setProps({ estado: crearEstado({ revision: 2, orden_del_dia: [] }) })
+    expect(wrapper.get('[data-testid="carga-orden-dia"]').exists()).toBe(true)
+    expect(wrapper.get('[data-testid="input-archivo-orden-dia"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="btn-quitar-orden-dia"]').exists()).toBe(false)
+  })
+
+  it('reemplaza por completo la colección al reconectar y respeta conexión y capacidades', async () => {
+    const clienteDesconectado = crearCliente({
+      suscribirEstado: vi.fn(() => ({ activa: true, cancelar: vi.fn() })),
+    })
+    const capacidadesBloqueadas = {
+      ...crearEstado().capacidades,
+      cargar_orden_del_dia: { habilitada: false, motivos: ['AUDITORIA_NO_DISPONIBLE'] },
+      descartar_orden_del_dia: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
+    }
+    const wrapper = montar(PanelOrdenDelDia, {
+      estado: crearEstado({ orden_del_dia: [], capacidades: capacidadesBloqueadas }),
+      clienteInyectado: clienteDesconectado,
+    })
+
+    await seleccionarArchivoOrdenDelDia(wrapper)
+    expect(wrapper.text()).toContain('recuperar la conexión confirmada')
+    expect(wrapper.text()).toContain('auditoría institucional no está disponible')
+    expect(
+      (wrapper.get('[data-testid="btn-cargar-orden-dia"]').element as HTMLButtonElement).disabled,
+    ).toBe(true)
+
+    await wrapper.setProps({
+      estado: crearEstado({
+        revision: 2,
+        orden_del_dia: [puntoSimple],
+        capacidades: capacidadesBloqueadas,
+      }),
+    })
+    expect(wrapper.text()).toContain('Presupuesto anual')
+    expect(wrapper.text()).toContain('estado actual del sistema no permite')
+    expect(
+      (wrapper.get('[data-testid="btn-quitar-orden-dia"]').element as HTMLButtonElement).disabled,
+    ).toBe(true)
+
+    await wrapper.setProps({
+      estado: crearEstado({ revision: 3, orden_del_dia: [puntoEspecial] }),
+    })
+    expect(wrapper.text()).not.toContain('Presupuesto anual')
+    expect(wrapper.text()).toContain('Modificación del reglamento')
+
+    await wrapper.setProps({ estado: crearEstado({ revision: 4, orden_del_dia: [] }) })
+    expect(wrapper.get('[data-testid="carga-orden-dia"]').exists()).toBe(true)
   })
 
   it('abre una votación manual SIMPLE sin Orden del Día y valida el número estrictamente', async () => {
