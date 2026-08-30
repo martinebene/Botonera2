@@ -3,13 +3,27 @@
  * Panel de Eventos Recientes (Cuadrante 4).
  *
  * Consume directamente la baseline autoritativa `eventos_recientes` y aplica
- * únicamente un filtro visual local por nivel acumulativo L1/L2/L3.
+ * únicamente presentación local: un filtro visual por nivel acumulativo
+ * L1/L2/L3 y un orden descendente por `seq`.
  *
- * CRÍTICO: El crecimiento del listado de eventos no debe aumentar la altura de los demás paneles.
- * Por eso, utiliza scroll interno vertical independiente dentro del contenedor.
+ * WP-041 introduce tres comportamientos de presentación:
+ *
+ * 1. El evento más nuevo (mayor `seq`) se muestra primero. El backend sigue
+ *    siendo la única autoridad y puede proyectar el arreglo en cualquier
+ *    orden: el orden visual se deriva sobre una copia, nunca mutando props.
+ * 2. El selector `Nivel visible` vive en la cabecera del panel (slot
+ *    `acciones` de `PanelContenedor`), fuera del área scrolleable, para que
+ *    siga accesible aunque la lista esté desplazada.
+ * 3. Cuando llega un snapshot con un `seq` mayor al máximo observado hasta
+ *    ese momento, la lista vuelve al inicio de su scroll para que el evento
+ *    recién ocurrido quede visible sin intervención del operador.
+ *
+ * CRÍTICO: el crecimiento del listado no debe aumentar la altura de los demás
+ * paneles. Por eso el listado tiene scroll interno propio y ocupa exactamente
+ * la altura disponible del cuerpo del panel.
  */
 
-import { computed, ref } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import type { EstadoModeracion } from '@botonera2/api-client'
 import PanelContenedor from './PanelContenedor.vue'
 
@@ -30,11 +44,76 @@ const nivelesPorFiltro: Record<FiltroEventos, readonly string[]> = {
   L1: ['L1', 'L2', 'L3'],
 }
 
-const eventosFiltrados = computed(() => {
+/**
+ * Referencia DOM al único contenedor con scroll del panel.
+ *
+ * Se necesita explícitamente porque, ante la llegada de un evento nuevo, hay
+ * que reposicionar el scroll al inicio (`scrollTop = 0`) sin recurrir a
+ * selectores globales ni a temporizadores.
+ */
+const contenedorLista = ref<HTMLElement | null>(null)
+
+/**
+ * Colección visual derivada: primero filtra por nivel y después ordena por
+ * `seq` descendente.
+ *
+ * `filter` ya devuelve un arreglo nuevo, así que el `sort` posterior opera
+ * sobre esa copia y jamás reordena `props.estado.eventos_recientes`. Esto
+ * mantiene la invariante de WP-041: el frontend no muta ni acumula la
+ * baseline autoritativa, solo la proyecta.
+ *
+ * Al derivarse siempre del snapshot vigente, el resultado es determinista
+ * aunque el backend envíe los eventos en orden ascendente, descendente o
+ * reemplace por completo la colección tras una reconexión.
+ */
+const eventosVisibles = computed(() => {
   const permitidos = nivelesPorFiltro[filtroSeleccionado.value]
-  return (props.estado?.eventos_recientes ?? []).filter((evento) =>
-    permitidos.includes(evento.nivel),
-  )
+  return (props.estado?.eventos_recientes ?? [])
+    .filter((evento) => permitidos.includes(evento.nivel))
+    .sort((primero, segundo) => segundo.seq - primero.seq)
+})
+
+/**
+ * Mayor `seq` presente en el snapshot completo, sin aplicar el filtro visual.
+ *
+ * Se calcula sobre la colección sin filtrar a propósito: cambiar el nivel
+ * visible no debe interpretarse como la llegada de un evento nuevo, porque
+ * eso movería el scroll del operador sin que haya ocurrido nada en la sala.
+ */
+const seqMaximoSnapshot = computed(() => {
+  const eventos = props.estado?.eventos_recientes ?? []
+  let maximo: number | null = null
+  for (const evento of eventos) {
+    if (maximo === null || evento.seq > maximo) maximo = evento.seq
+  }
+  return maximo
+})
+
+/**
+ * Último `seq` máximo efectivamente observado por este panel.
+ *
+ * No es historia local de eventos (eso está prohibido): es un único número
+ * que permite distinguir "llegó actividad nueva" de "el snapshot cambió por
+ * otro motivo", por ejemplo un reinicio de contexto donde la secuencia vuelve
+ * a valores menores.
+ */
+// Se inicializa con el snapshot de montaje porque en ese momento la lista ya
+// está arriba: el primer render no es "actividad nueva" y no debe mover nada.
+const seqMaximoObservado = ref<number | null>(seqMaximoSnapshot.value)
+
+watch(seqMaximoSnapshot, async (maximoActual) => {
+  const maximoPrevio = seqMaximoObservado.value
+  // Se adopta siempre el snapshot vigente, incluso si la secuencia se reinició
+  // hacia valores menores: nunca se mezcla con el anterior.
+  seqMaximoObservado.value = maximoActual
+
+  if (maximoActual === null) return
+  if (maximoPrevio !== null && maximoActual <= maximoPrevio) return
+
+  // `nextTick` espera a que Vue haya renderizado la colección derivada; solo
+  // entonces el contenedor contiene ya el evento nuevo en su primera fila.
+  await nextTick()
+  if (contenedorLista.value) contenedorLista.value.scrollTop = 0
 })
 
 function claseNivel(nivel: string): string {
@@ -56,74 +135,90 @@ function claseNivel(nivel: string): string {
     titulo="Eventos"
     subtitulo="Registro de actividad y eventos institucionales recientes"
     data-testid="panel-eventos"
-    :badge="`${eventosFiltrados.length} de ${estado?.eventos_recientes?.length ?? 0}`"
+    :badge="`${eventosVisibles.length} de ${estado?.eventos_recientes?.length ?? 0}`"
   >
-    <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
-      <label for="filtro-eventos" class="text-xs font-semibold text-slate-300">
+    <!--
+      Selector de nivel en la cabecera del panel: al vivir en el slot de
+      acciones queda fuera del cuerpo scrolleable y permanece visible aunque
+      el operador desplace la lista.
+    -->
+    <template #acciones>
+      <label
+        for="filtro-eventos"
+        data-testid="etiqueta-filtro-eventos"
+        class="text-[11px] font-semibold text-slate-400"
+      >
         Nivel visible
       </label>
       <select
         id="filtro-eventos"
         v-model="filtroSeleccionado"
         data-testid="filtro-eventos"
-        class="rounded-lg border border-slate-700 bg-slate-950 px-3 py-1.5 text-xs text-slate-100"
+        class="rounded border border-slate-700 bg-slate-950 px-2 py-0.5 text-[11px] text-slate-100"
       >
         <option value="L3">Principales (L3)</option>
         <option value="L2">Intermedios (L2+L3)</option>
         <option value="L1">Sistema (L1+L2+L3)</option>
       </select>
-    </div>
+    </template>
 
-    <!-- Listado de eventos con scroll interno aislado -->
-    <div
-      v-if="eventosFiltrados.length"
-      data-testid="lista-eventos"
-      class="space-y-2 font-mono text-xs"
-    >
-      <div
-        v-for="evento in eventosFiltrados"
-        :key="evento.seq"
-        data-testid="evento-reciente"
-        class="rounded border border-slate-800 bg-slate-950/70 p-2 text-slate-300 transition-colors hover:border-slate-700"
-      >
-        <div class="flex flex-wrap items-center justify-between gap-1 text-[11px] text-slate-400">
-          <span class="font-semibold text-cyan-400">#{{ evento.seq }}</span>
-          <span>{{ evento.timestamp }}</span>
-        </div>
-        <div class="mt-1 flex flex-wrap items-center gap-2">
-          <span
-            data-testid="nivel-evento"
-            class="rounded border px-1.5 py-0.5 text-[10px] font-bold"
-            :class="claseNivel(evento.nivel)"
+    <!--
+      Único contenedor con scroll del panel. `h-full` lo ajusta exactamente a
+      la altura disponible del cuerpo, de modo que el desborde se resuelve acá
+      dentro y el cuadrante nunca crece ni provoca scroll de página.
+    -->
+    <div ref="contenedorLista" data-testid="lista-eventos" class="h-full overflow-y-auto">
+      <div v-if="eventosVisibles.length" class="space-y-1 font-mono text-[11px]">
+        <div
+          v-for="evento in eventosVisibles"
+          :key="evento.seq"
+          data-testid="evento-reciente"
+          class="rounded border border-slate-800 bg-slate-950/70 px-2 py-1 text-slate-300 transition-colors hover:border-slate-700"
+        >
+          <!--
+            Cabecera compacta de la tarjeta: mantiene visibles seq, nivel,
+            etiqueta, código y timestamp en una sola línea que puede envolver.
+          -->
+          <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 leading-tight">
+            <span class="font-semibold text-cyan-400">#{{ evento.seq }}</span>
+            <span
+              data-testid="nivel-evento"
+              class="rounded border px-1 text-[10px] font-bold leading-tight"
+              :class="claseNivel(evento.nivel)"
+            >
+              {{ evento.nivel }}
+            </span>
+            <span data-testid="etiqueta-evento" class="text-slate-400"
+              >[{{ evento.etiqueta }}]</span
+            >
+            <span data-testid="codigo-evento" class="font-semibold text-slate-200">
+              {{ evento.codigo_evento }}
+            </span>
+            <span class="ml-auto text-[10px] text-slate-500">{{ evento.timestamp }}</span>
+          </div>
+          <p
+            data-testid="mensaje-evento"
+            class="mt-0.5 whitespace-pre-wrap break-words leading-tight text-slate-300"
           >
-            {{ evento.nivel }}
-          </span>
-          <span data-testid="etiqueta-evento" class="text-slate-400">[{{ evento.etiqueta }}]</span>
-          <span data-testid="codigo-evento" class="font-semibold text-slate-200">
-            {{ evento.codigo_evento }}
-          </span>
+            {{ evento.mensaje }}
+          </p>
         </div>
-        <p data-testid="mensaje-evento" class="mt-1 whitespace-pre-wrap break-words text-slate-300">
-          {{ evento.mensaje }}
-        </p>
       </div>
-    </div>
 
-    <!-- Mensaje cuando no hay eventos registrados -->
-    <div
-      v-else
-      class="rounded-lg border border-dashed border-slate-800 p-4 text-center text-sm text-slate-400"
-    >
-      <p class="font-medium text-slate-300">
+      <!--
+        Estados vacíos compactos: no reservan altura innecesaria y distinguen
+        "todavía no hay eventos" de "el filtro vigente no coincide con ninguno".
+      -->
+      <p
+        v-else
+        data-testid="eventos-vacio"
+        class="rounded border border-dashed border-slate-800 px-2 py-2 text-center text-xs text-slate-400"
+      >
         {{
           estado?.eventos_recientes?.length
-            ? 'No hay eventos para el filtro seleccionado'
+            ? 'No hay eventos para el nivel seleccionado'
             : 'Sin eventos en la sesión activa'
         }}
-      </p>
-      <p class="mt-1 text-xs">
-        Los eventos de auditoría (L1, L2 y L3) emitidos por el backend aparecerán automáticamente
-        aquí a medida que ocurran.
       </p>
     </div>
   </PanelContenedor>
