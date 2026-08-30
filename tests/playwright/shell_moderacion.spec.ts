@@ -336,6 +336,144 @@ async function configurarCicloVotacionMock(page: Page, estadoInicial: Record<str
 }
 
 /**
+ * Instala un backend determinista para el recorrido específico de WP-040.
+ *
+ * Tanto la carga como el descarte publican un snapshot completo por el EventSource
+ * simulado. El componente nunca recibe instrucciones para ocultar o crear puntos por
+ * su cuenta: la prueba reproduce la misma autoridad backend que existe en producción.
+ */
+async function configurarOrdenDelDiaMock(page: Page, estadoInicial: Record<string, unknown>) {
+  await page.addInitScript((inicial) => {
+    type PuntoOrdenPrueba = {
+      nro_votacion: number
+      tipo: string
+      tema: string
+      tipo_mayoria: 'SIMPLE' | 'ESPECIAL'
+      factor: number
+      base: 'VOTOS_COMPUTABLES' | 'PRESENTES' | 'CUERPO'
+    }
+    type EstadoOrdenPrueba = Record<string, unknown> & {
+      revision: number
+      orden_del_dia: PuntoOrdenPrueba[]
+    }
+
+    let estadoActual = inicial as EstadoOrdenPrueba
+    const fuentes: MockEventSourceOrden[] = []
+
+    function publicar(puntos: PuntoOrdenPrueba[]): void {
+      estadoActual = {
+        ...estadoActual,
+        revision: estadoActual.revision + 1,
+        orden_del_dia: puntos,
+      }
+      const data = JSON.stringify(estadoActual)
+      for (const fuente of fuentes) {
+        for (const handler of fuente.listeners.estado ?? []) {
+          handler({ type: 'estado', data })
+        }
+      }
+    }
+
+    function crearPuntos(cantidad: number): PuntoOrdenPrueba[] {
+      return Array.from({ length: cantidad }, (_, indice) => {
+        const numero = indice + 1
+        if (numero % 3 === 0) {
+          return {
+            nro_votacion: numero,
+            tipo: 'Moción',
+            tema: `Tema especial ${numero} con información suficiente para comprobar densidad`,
+            tipo_mayoria: 'ESPECIAL',
+            factor: 0.66,
+            base: 'CUERPO',
+          }
+        }
+        return {
+          nro_votacion: numero,
+          tipo: 'Proyecto',
+          tema: `Tema ordinario ${numero} del Orden del Día`,
+          tipo_mayoria: 'SIMPLE',
+          factor: 0,
+          base: 'VOTOS_COMPUTABLES',
+        }
+      })
+    }
+
+    class MockEventSourceOrden {
+      readyState = 1
+      listeners: Record<string, ((evento: { type: string; data: string }) => void)[]> = {}
+      onopen: ((evento: { type: string }) => void) | null = null
+      onerror: ((evento: { type: string }) => void) | null = null
+      onmessage: ((evento: { type: string; data: string }) => void) | null = null
+
+      constructor(readonly url: string) {
+        fuentes.push(this)
+        setTimeout(() => {
+          this.onopen?.({ type: 'open' })
+          const data = JSON.stringify(estadoActual)
+          for (const handler of this.listeners.estado ?? []) handler({ type: 'estado', data })
+        }, 5)
+      }
+
+      addEventListener(
+        tipo: string,
+        handler: (evento: { type: string; data: string }) => void,
+      ): void {
+        this.listeners[tipo] = this.listeners[tipo] ?? []
+        this.listeners[tipo]?.push(handler)
+      }
+
+      removeEventListener(
+        tipo: string,
+        handler: (evento: { type: string; data: string }) => void,
+      ): void {
+        this.listeners[tipo] = (this.listeners[tipo] ?? []).filter(
+          (registrado) => registrado !== handler,
+        )
+      }
+
+      close(): void {
+        this.readyState = 2
+      }
+    }
+
+    // @ts-expect-error EventSource controlado para el recorrido de WP-040.
+    window.EventSource = MockEventSourceOrden
+
+    const ventanaPrueba = window as Window & { publicarOrdenDelDiaLargo?: () => void }
+    ventanaPrueba.publicarOrdenDelDiaLargo = () => publicar(crearPuntos(24))
+
+    const fetchOriginal = window.fetch.bind(window)
+    window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+      const metodo = init?.method?.toUpperCase() ?? 'GET'
+
+      if (url.includes('/api/v1/estado/moderacion')) {
+        return new Response(JSON.stringify(estadoActual), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      }
+
+      if (url.endsWith('/api/v1/orden-del-dia') && metodo === 'POST') {
+        const puntos = crearPuntos(2)
+        publicar(puntos)
+        return new Response(JSON.stringify({ puntos }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      }
+
+      if (url.endsWith('/api/v1/orden-del-dia') && metodo === 'DELETE') {
+        publicar([])
+        return new Response(null, { status: 204 })
+      }
+
+      return fetchOriginal(input, init)
+    }
+  }, estadoInicial)
+}
+
+/**
  * Simula el ciclo coordinado de WP-024 conservando una única fuente de estado.
  * Cada comando publica luego un snapshot completo: la página no conoce ni
  * calcula por su cuenta el avance de palabra, los eventos o el remapeo físico.
@@ -647,6 +785,29 @@ async function verificarGeometriaShellCompleto(
  */
 async function verificarQ1SinScroll(page: Page): Promise<void> {
   const cuerpo = page.locator('[data-testid="panel-sesion-votacion"] [data-testid="cuerpo-panel"]')
+  await expect(cuerpo).toBeVisible()
+  const medicion = await cuerpo.evaluate((elemento) => {
+    const estilo = getComputedStyle(elemento)
+    return {
+      overflowY: estilo.overflowY,
+      altoVisible: elemento.clientHeight,
+      altoContenido: elemento.scrollHeight,
+      desplazamiento: elemento.scrollTop,
+    }
+  })
+
+  expect(['auto', 'scroll']).not.toContain(medicion.overflowY)
+  expect(medicion.altoContenido).toBeLessThanOrEqual(medicion.altoVisible + 1)
+  expect(medicion.desplazamiento).toBe(0)
+}
+
+/**
+ * Comprueba que el estado vacío de Q2 no crea una zona desplazable innecesaria.
+ * Se mide el DOM real porque declarar `overflow-hidden` no alcanza si el contenido
+ * quedó recortado: `scrollHeight` también debe entrar dentro del alto disponible.
+ */
+async function verificarOrdenVacioSinScroll(page: Page): Promise<void> {
+  const cuerpo = page.locator('[data-testid="panel-orden-del-dia"] [data-testid="cuerpo-panel"]')
   await expect(cuerpo).toBeVisible()
   const medicion = await cuerpo.evaluate((elemento) => {
     const estilo = getComputedStyle(elemento)
@@ -1340,6 +1501,103 @@ test.describe('WP-037 - Q1 compacto sin scroll interno', () => {
     await expect(page.locator('[data-testid="formulario-votacion"]')).toBeVisible()
     await verificarQ1SinScroll(page)
     await verificarGeometriaShellCompleto(page, { width: 1920, height: 1080 })
+  })
+})
+
+test.describe('WP-040 - Dos estados del Orden del Día', () => {
+  test('recorre carga, puntos, precarga Q1, descarte y retorno autoritativo a 1366×768', async ({
+    page,
+  }) => {
+    await configurarOrdenDelDiaMock(page, crearEstadoSesionCompacta())
+    await page.setViewportSize({ width: 1366, height: 768 })
+    await page.goto('/moderacion/')
+
+    const panel = page.locator('[data-testid="panel-orden-del-dia"]')
+    const entrada = panel.locator('[data-testid="input-archivo-orden-dia"]')
+    await expect(entrada).toBeVisible()
+    await expect(panel.locator('[data-testid="btn-cargar-orden-dia"]')).toBeVisible()
+    await expect(panel.locator('[data-testid="btn-quitar-orden-dia"]')).toHaveCount(0)
+    await expect(panel).not.toContainText('Orden del Día opcional')
+    await verificarOrdenVacioSinScroll(page)
+
+    await entrada.setInputFiles({
+      name: 'orden-sesion-42.csv',
+      mimeType: 'text/csv',
+      buffer: Buffer.from(
+        'nro_votacion,tipo,tema,tipo_mayoria,factor,base\n1,Proyecto,Tema,SIMPLE,0,VOTOS_COMPUTABLES',
+      ),
+    })
+    await expect(panel).toContainText('Seleccionado: orden-sesion-42.csv')
+    await panel.locator('[data-testid="btn-cargar-orden-dia"]').click()
+
+    await expect(panel.locator('[data-testid="punto-orden-dia"]')).toHaveCount(2)
+    await expect(panel.locator('[data-testid="input-archivo-orden-dia"]')).toHaveCount(0)
+    await expect(panel).not.toContainText('Reemplazar')
+    await expect(panel.locator('[data-testid="btn-quitar-orden-dia"]')).toHaveCount(1)
+
+    // La tarjeta continúa copiando sus datos al borrador editable de Q1.
+    await panel.locator('[data-testid="punto-orden-dia"]').first().click()
+    await expect(page.locator('[data-testid="input-numero-votacion"]')).toHaveValue('1')
+    await expect(page.locator('[data-testid="select-tipo-votacion"]')).toHaveValue('Proyecto')
+    await expect(page.locator('[data-testid="input-tema-votacion"]')).toHaveValue(
+      'Tema ordinario 1 del Orden del Día',
+    )
+    await expect(panel.locator('[data-testid="punto-orden-dia"]')).toHaveCount(2)
+
+    await panel.locator('[data-testid="btn-quitar-orden-dia"]').click()
+    await expect(panel.locator('[data-testid="punto-orden-dia"]')).toHaveCount(0)
+    await expect(panel.locator('[data-testid="input-archivo-orden-dia"]')).toBeVisible()
+    await expect(panel.locator('[data-testid="btn-quitar-orden-dia"]')).toHaveCount(0)
+    await verificarOrdenVacioSinScroll(page)
+    await verificarGeometriaShellCompleto(page, { width: 1366, height: 768 })
+  })
+
+  test('confina un listado largo y conserva accesible Quitar en 1366×768 y 1920×1080', async ({
+    page,
+  }) => {
+    await configurarOrdenDelDiaMock(page, crearEstadoSesionCompacta())
+
+    for (const viewport of [
+      { width: 1366, height: 768 },
+      { width: 1920, height: 1080 },
+    ]) {
+      await page.setViewportSize(viewport)
+      await page.goto('/moderacion/')
+      await page.evaluate(() => {
+        ;(window as Window & { publicarOrdenDelDiaLargo?: () => void }).publicarOrdenDelDiaLargo?.()
+      })
+
+      const panel = page.locator('[data-testid="panel-orden-del-dia"]')
+      const cuerpo = panel.locator('[data-testid="cuerpo-panel"]')
+      const lista = panel.locator('[data-testid="lista-orden-dia"]')
+      const botonQuitar = panel.locator('[data-testid="btn-quitar-orden-dia"]')
+      await expect(panel.locator('[data-testid="punto-orden-dia"]')).toHaveCount(24)
+      await expect(botonQuitar).toBeVisible()
+
+      const medicion = await lista.evaluate((elemento) => ({
+        altoVisible: elemento.clientHeight,
+        altoContenido: elemento.scrollHeight,
+        overflowY: getComputedStyle(elemento).overflowY,
+      }))
+      expect(['auto', 'scroll']).toContain(medicion.overflowY)
+      expect(medicion.altoContenido).toBeGreaterThan(medicion.altoVisible)
+
+      const medicionExterior = await cuerpo.evaluate((elemento) => ({
+        altoVisible: elemento.clientHeight,
+        altoContenido: elemento.scrollHeight,
+        overflowY: getComputedStyle(elemento).overflowY,
+      }))
+      expect(['auto', 'scroll']).not.toContain(medicionExterior.overflowY)
+      expect(medicionExterior.altoContenido).toBeLessThanOrEqual(medicionExterior.altoVisible + 1)
+
+      const cajaPanel = await panel.boundingBox()
+      const cajaBoton = await botonQuitar.boundingBox()
+      expect(cajaPanel).not.toBeNull()
+      expect(cajaBoton).not.toBeNull()
+      expect(cajaBoton!.y).toBeGreaterThanOrEqual(cajaPanel!.y)
+      expect(cajaBoton!.y + cajaBoton!.height).toBeLessThanOrEqual(cajaPanel!.y + cajaPanel!.height)
+      await verificarGeometriaShellCompleto(page, viewport)
+    }
   })
 })
 
