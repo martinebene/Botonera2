@@ -189,7 +189,7 @@ WP-033 quedó integrado antes de continuar WP-026 y deja disponible el harness m
 | WP-041 | Ajustar Eventos con nivel visible fijo y orden/autoscroll hacia el evento más reciente | INTEGRADO | WP-036 | - |
 | WP-043 | Alinear padrón de instalación con concejales reales de producción | INTEGRADO | WP-003 | - |
 | WP-044 | Corregir UX de Moderación tras segunda prueba humana | INTEGRADO | WP-037, WP-039, WP-040, WP-041 | - |
-| WP-045 | Unificar estados visuales de bancas y exponer participación de voto sin sentido | EN_CURSO | WP-026, WP-038, WP-039, WP-043, WP-044 | claude |
+| WP-045 | Unificar estados visuales de bancas y exponer participación de voto sin sentido | INTEGRADO | WP-026, WP-038, WP-039, WP-043, WP-044 | - |
 | WP-046 | Restaurar geometría probada de Pantalla del Recinto y corregir reloj de sesión | PENDIENTE | WP-004, WP-039, WP-045 | - |
 | WP-029 | Validar bridge/hardware real, regresión funcional y candidato de producción | PENDIENTE | WP-019, WP-020, WP-027, WP-028, WP-034, WP-035, WP-036, WP-037, WP-038, WP-039, WP-040, WP-041, WP-043, WP-044, WP-045, WP-046 | - |
 
@@ -272,3 +272,5 @@ WP-044 fue activado por HUMAN_GATE con Claude Code como implementador y Antigrav
 WP-044 quedó integrado mediante PR #48 sobre el candidato `a36998fdde39c02faa65f7f3ab4fb9800750d9cd`, revisado independientemente por Antigravity/AGY + Gemini 3.7 Flash (High) con 0 BLOQUEANTES, 0 IMPORTANTES y 0 MENORES. El squash `25742f2781a21e230959cecc533f84da85e2e4bc` conserva exactamente el mismo tree SHA `972d17584406fe3dd3190983cd5feb7175c4ecdb`; CI candidata #337 y CI post-merge #338 terminaron success 8/8.
 
 WP-045 fue activado por HUMAN_GATE con Claude Code como implementador y Codex como revisor independiente. Este WP incluye backend, contrato OpenAPI/api-client y ambos frontends exclusivamente para exponer participación por banca sin sentido durante `EN_CURSO` y unificar la semántica visual de las tarjetas. El secreto de voto sigue siendo invariante: ningún sentido individual puede aparecer ni inferirse antes del cierre. WP-046 continúa `PENDIENTE`.
+
+WP-045 quedó integrado mediante PR #49 sobre el candidato `80fcc8fd55246a07ff6a46461b18cccbc7c7d4b5`, revisado independientemente por Codex + GPT-5 con 0 BLOQUEANTES, 0 IMPORTANTES y 2 MENORES no bloqueantes. El squash `cc74e13fc0897d15cb4f51422e50fc82fc132715` conserva exactamente el mismo tree SHA `f5ce8de981c8662b1a83850f7e5a94c86ef5aa6a`; CI candidata #341 y CI post-merge #342 terminaron success 8/8. Los menores aceptados fueron: (1) cuando test y palabra quedan simultáneamente subordinados a un estado principal superior, el único halo visible prioriza test y la señal secundaria de palabra no queda pintada; (2) la suite específica WP-045 no consume un evento SSE real ni afirma directamente la pérdida de quórum, aunque la arquitectura y suites existentes cubren el comportamiento funcional.
