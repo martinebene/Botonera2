@@ -181,8 +181,9 @@ watch(
       factor: tipoMayoria === 'ESPECIAL' ? String(punto.factor) : '',
       base: tipoMayoria === 'ESPECIAL' ? base : 'VOTOS_COMPUTABLES',
     }
+    // WP-044: el acuse de la copia vive exclusivamente en el toast de Q2. Repetirlo acá
+    // producía dos avisos simultáneos para un mismo gesto del operador.
     limpiarMensajes()
-    mensajeInformativo.value = 'Punto copiado al borrador. Todos los campos siguen editables.'
   },
 )
 
@@ -406,10 +407,23 @@ async function desempatar(sentido: 'POSITIVO' | 'NEGATIVO'): Promise<void> {
           </p>
           <h4 class="font-semibold leading-tight text-slate-100">{{ votacion.tema }}</h4>
         </div>
+        <!--
+          WP-044: con la votación cerrada, el resultado deja de ser un badge más y pasa a
+          ser la señal dominante del cuadrante. `data-jerarquia` expresa esa decisión de
+          forma verificable, sin depender de comparar clases de Tailwind en las pruebas.
+          Mientras la recepción sigue EN_CURSO conserva el tamaño compacto: allí el dato
+          relevante son los controles, no un estado todavía provisorio.
+        -->
         <span
           data-testid="estado-votacion"
-          class="rounded border px-2 py-0.5 text-[11px] font-bold"
-          :class="resultadoClase"
+          :data-jerarquia="votacion.resultado ? 'principal' : 'secundaria'"
+          class="rounded border text-center leading-none"
+          :class="[
+            resultadoClase,
+            votacion.resultado
+              ? 'px-3 py-1.5 text-2xl font-black uppercase tracking-wide xl:text-3xl'
+              : 'px-2 py-0.5 text-[11px] font-bold',
+          ]"
         >
           {{ votacion.resultado ?? votacion.estado_recepcion }}
         </span>
@@ -452,15 +466,24 @@ async function desempatar(sentido: 'POSITIVO' | 'NEGATIVO'): Promise<void> {
       </div>
 
       <div v-if="votacion.conteos" data-testid="conteos-votacion" class="grid grid-cols-4 gap-1">
-        <div class="rounded bg-emerald-950/60 px-1 py-1 text-center text-[11px] text-emerald-200">
+        <div
+          data-testid="conteo-positivos"
+          class="rounded bg-emerald-950/60 px-1 py-1 text-center text-[11px] text-emerald-200"
+        >
           <strong>{{ votacion.conteos.positivos }}</strong
           ><br />Positivos
         </div>
-        <div class="rounded bg-rose-950/60 px-1 py-1 text-center text-[11px] text-rose-200">
+        <div
+          data-testid="conteo-negativos"
+          class="rounded bg-rose-950/60 px-1 py-1 text-center text-[11px] text-rose-200"
+        >
           <strong>{{ votacion.conteos.negativos }}</strong
           ><br />Negativos
         </div>
-        <div class="rounded bg-slate-800 px-1 py-1 text-center text-[11px] text-slate-200">
+        <div
+          data-testid="conteo-abstenciones"
+          class="rounded bg-amber-950/60 px-1 py-1 text-center text-[11px] text-amber-200"
+        >
           <strong>{{ votacion.conteos.abstenciones }}</strong
           ><br />Abstenciones
         </div>

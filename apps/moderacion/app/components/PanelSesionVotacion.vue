@@ -607,13 +607,25 @@ const claseBadge = computed(() => {
           />
           {{ enviando ? 'Preparando sala...' : 'Preparar sala' }}
         </button>
-        <p
+        <!--
+          WP-044: cada requisito pendiente ocupa su propia línea. Concatenarlos con
+          separadores obligaba al operador a leer un párrafo corrido para descubrir
+          cuántas condiciones faltaban realmente. Los motivos siguen viniendo tal cual
+          de `capacidades.preparar_sala.motivos`: el frontend no inventa requisitos.
+        -->
+        <ul
           v-if="!puedePrepararSala && motivosPrepararSala.length > 0"
           data-testid="motivos-preparar-sala"
-          class="text-[11px] text-amber-300"
+          class="space-y-0.5 text-[11px] leading-tight text-amber-300"
         >
-          {{ motivosPrepararSala.join(' · ') }}
-        </p>
+          <li
+            v-for="motivo in motivosPrepararSala"
+            :key="motivo"
+            data-testid="motivo-preparar-sala"
+          >
+            {{ motivo }}
+          </li>
+        </ul>
       </div>
 
       <div

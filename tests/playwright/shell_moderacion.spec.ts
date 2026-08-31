@@ -1611,7 +1611,8 @@ test.describe('WP-040 - Dos estados del Orden del Día', () => {
         'nro_votacion,tipo,tema,tipo_mayoria,factor,base\n1,Proyecto,Tema,SIMPLE,0,VOTOS_COMPUTABLES',
       ),
     })
-    await expect(panel).toContainText('Seleccionado: orden-sesion-42.csv')
+    // WP-044: el input nativo ya muestra el nombre; el panel no lo repite.
+    await expect(panel).not.toContainText('Seleccionado:')
     await panel.locator('[data-testid="btn-cargar-orden-dia"]').click()
 
     await expect(panel.locator('[data-testid="punto-orden-dia"]')).toHaveCount(2)
@@ -1781,7 +1782,8 @@ test.describe('WP-023 - Recorrido de votación y Orden del Día', () => {
     await expect(page.locator('[data-testid="palabra-durante-votacion"]')).toContainText(
       'Ada Lovelace',
     )
-    await expect(page.locator('[data-testid="orador-actual-texto"]')).toContainText('Ada Lovelace')
+    // WP-044: Q3 dejó de repetir al orador; su señal vive en la banca resaltada.
+    await expect(page.locator('[data-testid="orador-actual-texto"]')).toHaveCount(0)
 
     // El backend controlado simula el cierre normal empatado y lo publica como snapshot completo.
     await page.evaluate(() => {
@@ -1904,9 +1906,9 @@ test.describe('WP-024 - Palabra, eventos y remapeo autoritativos', () => {
       await verificarGeometriaShellCompleto(page, viewport)
 
       // La cola completa conserva FIFO y quitar no promueve implícitamente.
-      await expect(page.locator('[data-testid="orador-actual-texto"]')).toContainText(
-        'Concejal01 Apellido01',
-      )
+      // WP-044: el orador se lee en su banca, no en un texto repetido dentro de la columna.
+      await expect(page.locator('[data-testid="orador-actual-texto"]')).toHaveCount(0)
+      await expect(page.locator('[data-banca="1"] [data-testid="estado-orador"]')).toBeVisible()
       await expect(page.locator('[data-testid="pedido-palabra-1"]')).toContainText(
         'Concejal02 Apellido02',
       )
@@ -1917,18 +1919,14 @@ test.describe('WP-024 - Palabra, eventos y remapeo autoritativos', () => {
         ;(boton as HTMLButtonElement).click()
         ;(boton as HTMLButtonElement).click()
       })
-      await expect(page.locator('[data-testid="orador-actual-texto"]')).toContainText(
-        'Sin orador activo',
-      )
+      await expect(page.locator('[data-testid="estado-orador"]')).toHaveCount(0)
       await expect(page.locator('[data-testid="badge-cola-palabra"]')).toContainText('2 en cola')
 
       await page.locator('[data-testid="btn-otorgar-palabra"]').evaluate((boton) => {
         ;(boton as HTMLButtonElement).click()
         ;(boton as HTMLButtonElement).click()
       })
-      await expect(page.locator('[data-testid="orador-actual-texto"]')).toContainText(
-        'Concejal02 Apellido02',
-      )
+      await expect(page.locator('[data-banca="2"] [data-testid="estado-orador"]')).toBeVisible()
       await expect(page.locator('[data-testid="badge-cola-palabra"]')).toContainText('1 en cola')
 
       // L3 es inicial; L2 y L1 incluyen acumulativamente los niveles inferiores.
@@ -2046,10 +2044,28 @@ test.describe('WP-039 - Q3 horizontal, scroll de cola y remapeo compacto', () =>
       expect(cajaPalabra).not.toBeNull()
       expect(cajaBancas!.x + cajaBancas!.width).toBeLessThanOrEqual(cajaPalabra!.x)
 
+      // WP-044 devolvió altura a la columna al quitar el texto del orador y el subtítulo
+      // FIFO, así que una cola de 11 pedidos puede entrar completa. Lo que WP-039 exige
+      // sigue verificándose: la cola es la única región desplazable y nada desborda la
+      // columna ni el cuadrante.
       const medidasCola = await page
         .locator('[data-testid="contenedor-scroll-cola-palabra"]')
-        .evaluate((cola) => ({ altoVisible: cola.clientHeight, altoContenido: cola.scrollHeight }))
-      expect(medidasCola.altoContenido).toBeGreaterThan(medidasCola.altoVisible)
+        .evaluate((cola) => ({
+          altoVisible: cola.clientHeight,
+          altoContenido: cola.scrollHeight,
+          overflowY: getComputedStyle(cola).overflowY,
+        }))
+      expect(['auto', 'scroll']).toContain(medidasCola.overflowY)
+      expect(medidasCola.altoVisible).toBeGreaterThan(0)
+      const medidasColumnaPalabra = await page
+        .locator('[data-testid="columna-palabra-moderacion"]')
+        .evaluate((columna) => ({
+          altoVisible: columna.clientHeight,
+          altoContenido: columna.scrollHeight,
+        }))
+      expect(medidasColumnaPalabra.altoContenido).toBeLessThanOrEqual(
+        medidasColumnaPalabra.altoVisible + 1,
+      )
       await expect(page.locator('[data-testid="btn-otorgar-palabra"]')).toBeVisible()
       await expect(page.locator('[data-testid="btn-quitar-palabra"]')).toBeVisible()
       expect(
@@ -2317,6 +2333,306 @@ test.describe('WP-041 - Eventos con selector fijo y evento más nuevo primero', 
       await expect(selector).toHaveValue('L3')
 
       // 8. Contrato de shell intacto: sin scroll de página en ninguna resolución.
+      await verificarGeometriaShellCompleto(page, viewport)
+    }
+  })
+})
+
+/**
+ * WP-044 - Correcciones UX de Moderación tras la segunda prueba humana.
+ *
+ * Todo se mide sobre el navegador real y en las dos resoluciones de referencia:
+ *
+ * 1. ningún cuadrante conserva una segunda línea descriptiva bajo su título;
+ * 2. Q1/SIN_PREPARAR separa los motivos en líneas propias sin ganar scroll;
+ * 3. el resultado cerrado domina visualmente y la abstención usa amarillo;
+ * 4. Q2 muestra el nombre del archivo una sola vez;
+ * 5. el toast de copia se superpone, desaparece y no altera la geometría;
+ * 6. Q3 pierde el subencabezado interior, gana altura útil para las bancas y
+ *    ofrece `Remapear dispositivo` alineado con el título del cuadrante.
+ */
+test.describe('WP-044 - Correcciones UX de Moderación', () => {
+  const resoluciones = [
+    { width: 1366, height: 768 },
+    { width: 1920, height: 1080 },
+  ]
+
+  /** Devuelve el alto del encabezado y la cantidad de líneas de texto que contiene. */
+  async function medirEncabezado(page: Page, testidPanel: string) {
+    return page.locator(`[data-testid="${testidPanel}"] > header`).evaluate((encabezado) => ({
+      alto: encabezado.getBoundingClientRect().height,
+      parrafos: encabezado.querySelectorAll('p').length,
+      texto: encabezado.textContent ?? '',
+    }))
+  }
+
+  test('ningún cuadrante muestra subtítulo bajo su título principal', async ({ page }) => {
+    await configurarRutasMock(
+      page,
+      crearEstadoSesionCompacta({
+        orden_del_dia: [],
+        eventos_recientes: [],
+      }),
+    )
+
+    for (const viewport of resoluciones) {
+      await page.setViewportSize(viewport)
+      await page.goto('/moderacion/')
+      await expect(page.locator('[data-testid="panel-sesion-votacion"]')).toBeVisible()
+
+      for (const testid of [
+        'panel-sesion-votacion',
+        'panel-orden-del-dia',
+        'panel-recinto-palabra',
+        'panel-eventos',
+      ]) {
+        const medicion = await medirEncabezado(page, testid)
+        expect(medicion.parrafos).toBe(0)
+      }
+
+      const q2 = await medirEncabezado(page, 'panel-orden-del-dia')
+      expect(q2.texto).not.toContain('Carga CSV compacta')
+      expect(q2.texto).not.toContain('Puntos confirmados por backend')
+
+      const q3 = await medirEncabezado(page, 'panel-recinto-palabra')
+      expect(q3.texto).not.toContain('coordinación de dispositivos')
+
+      const q4 = await medirEncabezado(page, 'panel-eventos')
+      expect(q4.texto).not.toContain('Registro de actividad')
+
+      await expect(page.locator('[data-testid="panel-recinto-palabra"]')).not.toContainText(
+        'Distribución de bancas',
+      )
+      await expect(page.locator('[data-testid="gestion-palabra"]')).not.toContainText(
+        'Cola FIFO autoritativa',
+      )
+      await verificarGeometriaShellCompleto(page, viewport)
+    }
+  })
+
+  test('Q1 SIN_PREPARAR muestra un requisito por línea y sigue sin scroll', async ({ page }) => {
+    await configurarRutasMock(
+      page,
+      crearEstadoFixture({
+        capacidades: {
+          ...crearEstadoFixture().capacidades,
+          preparar_sala: {
+            habilitada: false,
+            motivos: ['AUDITORIA_NO_DISPONIBLE', 'PADRON_NO_DISPONIBLE'],
+          },
+        },
+      }),
+    )
+
+    for (const viewport of resoluciones) {
+      await page.setViewportSize(viewport)
+      await page.goto('/moderacion/')
+
+      const motivos = page.locator('[data-testid="motivo-preparar-sala"]')
+      await expect(motivos).toHaveCount(2)
+
+      // Dos líneas distintas implican dos coordenadas verticales distintas.
+      const cajaPrimera = await motivos.nth(0).boundingBox()
+      const cajaSegunda = await motivos.nth(1).boundingBox()
+      expect(cajaPrimera).not.toBeNull()
+      expect(cajaSegunda).not.toBeNull()
+      expect(cajaSegunda!.y).toBeGreaterThan(cajaPrimera!.y + cajaPrimera!.height - 1)
+
+      await verificarQ1SinScroll(page)
+      await verificarGeometriaShellCompleto(page, viewport)
+    }
+  })
+
+  test('Q1 jerarquiza el resultado cerrado y pinta la abstención de amarillo', async ({ page }) => {
+    await configurarRutasMock(
+      page,
+      crearEstadoSesionCompacta({
+        votacion: crearVotacionCompacta({
+          estado_recepcion: 'CERRADA',
+          resultado: 'APROBADA',
+          fecha_hora_cierre: '2026-08-30T10:00:10Z',
+          fecha_hora_resultado: '2026-08-30T10:00:10Z',
+        }),
+      }),
+    )
+
+    for (const viewport of resoluciones) {
+      await page.setViewportSize(viewport)
+      await page.goto('/moderacion/')
+
+      const resultado = page.locator('[data-testid="estado-votacion"]')
+      await expect(resultado).toContainText('APROBADA')
+      await expect(resultado).toHaveAttribute('data-jerarquia', 'principal')
+
+      const tamanos = await page.evaluate(() => {
+        const leer = (selector: string) => {
+          const nodo = document.querySelector(selector)
+          return nodo ? parseFloat(getComputedStyle(nodo).fontSize) : 0
+        }
+        return {
+          resultado: leer('[data-testid="estado-votacion"]'),
+          conteo: leer('[data-testid="conteo-abstenciones"]'),
+        }
+      })
+      expect(tamanos.resultado).toBeGreaterThan(tamanos.conteo)
+
+      // La familia amarilla se comprueba sobre el color realmente pintado, no sobre la
+      // clase: Tailwind v4 expresa los colores en oklch, así que se resuelven a RGB
+      // dibujándolos en un canvas.
+      const componentes = await page
+        .locator('[data-testid="conteo-abstenciones"]')
+        .evaluate((nodo) => {
+          const contexto = document.createElement('canvas').getContext('2d')
+          if (!contexto) return null
+          contexto.fillStyle = getComputedStyle(nodo).color
+          contexto.fillRect(0, 0, 1, 1)
+          const datos = contexto.getImageData(0, 0, 1, 1).data
+          return { rojo: datos[0] ?? 0, verde: datos[1] ?? 0, azul: datos[2] ?? 0 }
+        })
+      expect(componentes).not.toBeNull()
+      // Amarillo institucional: rojo y verde altos, azul claramente menor.
+      expect(componentes!.rojo).toBeGreaterThan(componentes!.azul + 40)
+      expect(componentes!.verde).toBeGreaterThan(componentes!.azul + 40)
+
+      await verificarQ1SinScroll(page)
+      await verificarGeometriaShellCompleto(page, viewport)
+    }
+  })
+
+  test('Q2 acusa la copia con un toast superpuesto que no mueve la lista', async ({ page }) => {
+    await configurarOrdenDelDiaMock(page, crearEstadoSesionCompacta())
+
+    for (const viewport of resoluciones) {
+      await page.setViewportSize(viewport)
+      await page.goto('/moderacion/')
+
+      const panel = page.locator('[data-testid="panel-orden-del-dia"]')
+      await panel.locator('[data-testid="input-archivo-orden-dia"]').setInputFiles({
+        name: 'orden-sesion-44.csv',
+        mimeType: 'text/csv',
+        buffer: Buffer.from('nro_votacion,tipo,tema,tipo_mayoria,factor,base'),
+      })
+      await expect(panel).not.toContainText('Seleccionado:')
+      await expect(panel).not.toContainText('orden-sesion-44.csv')
+      await panel.locator('[data-testid="btn-cargar-orden-dia"]').click()
+      await expect(panel.locator('[data-testid="punto-orden-dia"]')).toHaveCount(2)
+
+      const lista = panel.locator('[data-testid="lista-orden-dia"]')
+      const cuerpo = panel.locator('[data-testid="cuerpo-panel"]')
+      const cajaListaAntes = await lista.boundingBox()
+      const alturaCuerpoAntes = await cuerpo.evaluate((nodo) => nodo.scrollHeight)
+
+      await panel.locator('[data-testid="punto-orden-dia"]').first().click()
+      const toast = panel.locator('[data-testid="toast-punto-copiado"]')
+      await expect(toast).toHaveCount(1)
+      await expect(toast).toContainText('copiado al borrador')
+
+      // El precargado de Q1 sigue funcionando exactamente igual que antes.
+      await expect(page.locator('[data-testid="input-numero-votacion"]')).toHaveValue('1')
+      // Q1 no repite el aviso: el único acuse vive en Q2.
+      await expect(page.locator('[data-testid="aviso-votacion"]')).toHaveCount(0)
+
+      const cajaListaDurante = await lista.boundingBox()
+      const alturaCuerpoDurante = await cuerpo.evaluate((nodo) => nodo.scrollHeight)
+      expect(Math.abs(cajaListaDurante!.y - cajaListaAntes!.y)).toBeLessThanOrEqual(1)
+      expect(Math.abs(cajaListaDurante!.height - cajaListaAntes!.height)).toBeLessThanOrEqual(1)
+      expect(Math.abs(alturaCuerpoDurante - alturaCuerpoAntes)).toBeLessThanOrEqual(1)
+
+      // El acuse es efímero: aproximadamente un segundo después ya no existe.
+      await expect(toast).toHaveCount(0, { timeout: 4000 })
+      const cajaListaDespues = await lista.boundingBox()
+      expect(Math.abs(cajaListaDespues!.y - cajaListaAntes!.y)).toBeLessThanOrEqual(1)
+      await verificarGeometriaShellCompleto(page, viewport)
+    }
+  })
+
+  test('Q3 mueve Remapear al encabezado y devuelve altura a las bancas', async ({ page }) => {
+    const estado = crearEstadoFixture({
+      estado_global: 'SESION_ABIERTA',
+      sesion: {
+        fecha_hora_inicio_preparacion: '2026-08-30T09:00:00Z',
+        fecha_hora_apertura: '2026-08-30T09:30:00Z',
+        numero_sesion: 44,
+        presidencia: 'Presidencia de prueba',
+        secretaria_legislativa: 'Secretaría de prueba',
+      },
+      configuracion: { filas_bancas: [3, 4, 5] },
+      quorum: { cantidad_presentes: 8, requerido: 7, alcanzado: true },
+      palabra: {
+        orador: { dni: '30000001', nombre: 'Concejal01', apellido: 'Apellido01', banca: 1 },
+        cola: Array.from({ length: 11 }, (_, indice) => {
+          const banca = indice + 2
+          const pad = String(banca).padStart(2, '0')
+          return {
+            dni: `300000${pad}`,
+            nombre: `Concejal${pad}`,
+            apellido: `Apellido${pad}`,
+            banca,
+          }
+        }),
+      },
+    })
+    await configurarRutasMock(page, estado)
+
+    for (const viewport of resoluciones) {
+      await page.setViewportSize(viewport)
+      await page.goto('/moderacion/')
+
+      const panel = page.locator('[data-testid="panel-recinto-palabra"]')
+      const encabezado = panel.locator('> header')
+      const boton = page.locator('[data-testid="btn-desplegar-remapeo"]')
+      await expect(boton).toBeVisible()
+
+      // El botón comparte la franja del título y queda alineado a la derecha.
+      const cajaEncabezado = await encabezado.boundingBox()
+      const cajaBoton = await boton.boundingBox()
+      const cajaTitulo = await encabezado.locator('h2').boundingBox()
+      expect(cajaBoton!.y).toBeGreaterThanOrEqual(cajaEncabezado!.y - 1)
+      expect(cajaBoton!.y + cajaBoton!.height).toBeLessThanOrEqual(
+        cajaEncabezado!.y + cajaEncabezado!.height + 1,
+      )
+      expect(cajaBoton!.x).toBeGreaterThan(cajaTitulo!.x + cajaTitulo!.width)
+      expect(cajaBoton!.x + cajaBoton!.width).toBeLessThanOrEqual(
+        cajaEncabezado!.x + cajaEncabezado!.width + 1,
+      )
+
+      // El área de bancas ya no gasta altura en un subencabezado propio.
+      const areaBancas = page.locator('[data-testid="area-bancas-moderacion"]')
+      const grilla = page.locator('[data-testid="grilla-recinto"]')
+      const cajaArea = await areaBancas.boundingBox()
+      const cajaGrilla = await grilla.boundingBox()
+      expect(cajaGrilla!.height / cajaArea!.height).toBeGreaterThan(0.9)
+      await expect(panel).not.toContainText('Distribución de bancas')
+      await expect(page.locator('[data-testid="orador-actual-texto"]')).toHaveCount(0)
+
+      // La cola sigue siendo la única región desplazable de la columna de palabra.
+      // Ya no se exige desbordamiento: con la altura recuperada la cola puede entrar
+      // completa, y eso es una mejora, no una regresión.
+      const medidasCola = await page
+        .locator('[data-testid="contenedor-scroll-cola-palabra"]')
+        .evaluate((cola) => ({
+          altoVisible: cola.clientHeight,
+          altoContenido: cola.scrollHeight,
+          overflowY: getComputedStyle(cola).overflowY,
+        }))
+      expect(['auto', 'scroll']).toContain(medidasCola.overflowY)
+      expect(medidasCola.altoVisible).toBeGreaterThan(0)
+      const medidasColumna = await page
+        .locator('[data-testid="columna-palabra-moderacion"]')
+        .evaluate((columna) => ({
+          altoVisible: columna.clientHeight,
+          altoContenido: columna.scrollHeight,
+        }))
+      expect(medidasColumna.altoContenido).toBeLessThanOrEqual(medidasColumna.altoVisible + 1)
+      await expect(page.locator('[data-testid="btn-otorgar-palabra"]')).toBeVisible()
+      await expect(page.locator('[data-testid="btn-quitar-palabra"]')).toBeVisible()
+
+      // Abrir el flujo desde el encabezado sigue mostrando el remapeo completo.
+      await boton.click()
+      await expect(page.locator('[data-testid="gestion-remapeo"]')).toBeVisible()
+      await page.locator('[data-testid="btn-cerrar-remapeo"]').click()
+      await expect(page.locator('[data-testid="gestion-remapeo"]')).toHaveCount(0)
+
       await verificarGeometriaShellCompleto(page, viewport)
     }
   })

@@ -236,7 +236,9 @@ describe('WP-023: Orden del Día y ciclo visual de votaciones', () => {
 
     await seleccionarArchivoOrdenDelDia(wrapper, 'sesion-42.csv')
 
-    expect(wrapper.text()).toContain('Seleccionado: sesion-42.csv')
+    // WP-044: el nombre del archivo se ve una sola vez, en el input nativo.
+    expect(wrapper.text()).not.toContain('Seleccionado: sesion-42.csv')
+    expect(wrapper.text()).not.toContain('sesion-42.csv')
     expect(
       (wrapper.get('[data-testid="btn-cargar-orden-dia"]').element as HTMLButtonElement).disabled,
     ).toBe(false)

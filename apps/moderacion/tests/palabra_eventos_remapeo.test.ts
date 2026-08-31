@@ -213,7 +213,7 @@ function crearCliente(parcial: Partial<ClienteModeracion> = {}): ClienteModeraci
 }
 
 describe('Palabra autoritativa y CA-061', () => {
-  it('muestra orador, cola FIFO completa y conserva operación durante una votación', () => {
+  it('muestra la cola FIFO completa sin repetir el orador como texto durante una votación', () => {
     const estado = crearEstado({
       votacion: {
         id: 'voto-activo',
@@ -243,7 +243,11 @@ describe('Palabra autoritativa y CA-061', () => {
       conectado: true,
     })
 
-    expect(wrapper.get('[data-testid="orador-actual-texto"]').text()).toContain('Ada Lovelace')
+    // WP-044: el orador ya no se replica acá; su señal vive en la banca del recinto.
+    expect(wrapper.find('[data-testid="orador-actual-texto"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('Ada Lovelace')
+    expect(wrapper.text()).not.toContain('Sin orador activo')
+    expect(wrapper.text()).not.toContain('Cola FIFO autoritativa')
     expect(wrapper.get('[data-testid="pedido-palabra-1"]').text()).toContain('Grace Hopper')
     expect(wrapper.get('[data-testid="pedido-palabra-2"]').text()).toContain('Edsger Dijkstra')
     expect(
@@ -266,19 +270,21 @@ describe('Palabra autoritativa y CA-061', () => {
     await wrapper.get('[data-testid="btn-quitar-palabra"]').trigger('click')
     await wrapper.get('[data-testid="btn-quitar-palabra"]').trigger('click')
     expect(quitar).toHaveBeenCalledTimes(1)
-    expect(wrapper.text()).toContain('Ada Lovelace')
     expect(wrapper.text()).toContain('Grace Hopper')
+    expect(wrapper.get('[data-testid="badge-cola-palabra"]').text()).toContain('2 en cola')
 
     resolverQuitar?.()
     await flushPromises()
-    expect(wrapper.text()).toContain('Ada Lovelace')
+    // El 204 no produce acuse ni renglón de estado: la cola sigue exactamente igual (WP-044).
+    expect(wrapper.find('[data-testid="aviso-palabra"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('Comando enviado')
+    expect(wrapper.get('[data-testid="badge-cola-palabra"]').text()).toContain('2 en cola')
 
     const sinOrador = crearEstado({
       revision: 11,
       palabra: { orador: null, cola: estadoInicial.palabra?.cola ?? [] },
     })
     await wrapper.setProps({ estado: sinOrador })
-    expect(wrapper.get('[data-testid="orador-actual-texto"]').text()).toContain('Sin orador')
     expect(wrapper.get('[data-testid="badge-cola-palabra"]').text()).toContain('2 en cola')
 
     await wrapper.get('[data-testid="btn-otorgar-palabra"]').trigger('click')
@@ -294,7 +300,6 @@ describe('Palabra autoritativa y CA-061', () => {
         },
       }),
     })
-    expect(wrapper.get('[data-testid="orador-actual-texto"]').text()).toContain('Grace Hopper')
     expect(wrapper.get('[data-testid="badge-cola-palabra"]').text()).toContain('1 en cola')
   })
 
@@ -314,7 +319,7 @@ describe('Palabra autoritativa y CA-061', () => {
     await wrapper.get('[data-testid="btn-otorgar-palabra"]').trigger('click')
     await flushPromises()
     expect(wrapper.get('[data-testid="error-palabra"]').text()).toContain('Auditoría no disponible')
-    expect(wrapper.text()).toContain('Ada Lovelace')
+    expect(wrapper.text()).toContain('Grace Hopper')
     expect(wrapper.get('[data-testid="badge-cola-palabra"]').text()).toContain('2 en cola')
   })
 })
