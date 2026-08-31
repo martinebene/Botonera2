@@ -8,6 +8,7 @@ padrón/disposición (RN-CON-04) y el congelamiento del snapshot.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -20,10 +21,13 @@ from conftest import (
     filas_padron_valido,
 )
 
-# Ruta del padrón canónico versionado en el repositorio, para el test de
-# coherencia entre los archivos de ejemplo y el contrato del WP.
-RUTA_PADRON_REPO = Path(__file__).parents[1] / "config" / "concejales.csv"
-RUTA_TOML_REPO = Path(__file__).parents[1] / "config" / "system.toml"
+# Rutas de instalación versionadas que deben permanecer coherentes entre sí.
+# Se resuelven desde la raíz del repositorio para que los tests no dependan
+# del directorio desde el que se invoca pytest.
+RAIZ_REPOSITORIO = Path(__file__).parents[1]
+RUTA_PADRON_REPO = RAIZ_REPOSITORIO / "config" / "concejales.csv"
+RUTA_TOML_REPO = RAIZ_REPOSITORIO / "config" / "system.toml"
+RUTA_DISPOSITIVOS_REPO = RAIZ_REPOSITORIO / "services" / "device-bridge" / "config" / "devices.json"
 
 
 def test_carga_el_padron_valido_con_sus_asociaciones(ruta_padron_valido: Path) -> None:
@@ -243,11 +247,12 @@ def test_cambiar_el_padron_en_disco_no_modifica_el_snapshot_cargado(tmp_path: Pa
 
 
 def test_los_archivos_canonicos_del_repositorio_cargan_juntos() -> None:
-    """Los ejemplos versionados cumplen el contrato completo de WP-003.
+    """La configuración y el padrón de instalación cumplen su contrato.
 
     Este test integra las dos cargas: la configuración real de
     ``config/system.toml`` y el padrón real de ``config/concejales.csv``
-    deben ser compatibles entre sí (12 bancas, 12 concejales, sin duplicados).
+    deben ser compatibles entre sí y conservar exactamente las identidades,
+    bancas y asociaciones lógicas recuperadas de producción para WP-043.
     """
     from botonera2_backend.configuracion.cargar_configuracion import cargar_configuracion_sistema
 
@@ -256,7 +261,159 @@ def test_los_archivos_canonicos_del_repositorio_cargan_juntos() -> None:
 
     assert configuracion.capacidad_total == 12
     assert len(padron.concejales) == 12
-    assert {concejal.banca for concejal in padron.concejales} == set(range(1, 13))
-    assert [concejal.dispositivo_votacion for concejal in padron.concejales] == [
-        f"dev{numero:02d}" for numero in range(1, 13)
+    assert [
+        (
+            concejal.dni,
+            concejal.nombre,
+            concejal.apellido,
+            concejal.bloque,
+            concejal.banca,
+            concejal.dispositivo_votacion,
+            concejal.ruta_imagen,
+        )
+        for concejal in padron.concejales
+    ] == [
+        (
+            "10000008",
+            "Lorena",
+            "Moreno",
+            "Despierta Madryn",
+            1,
+            "dev01",
+            "assets/bancas/banca-01.png",
+        ),
+        (
+            "10000011",
+            "Samuel",
+            "Alarcón",
+            "Partido Independiente de Chubut (PICH)",
+            2,
+            "dev02",
+            "assets/bancas/banca-02.png",
+        ),
+        (
+            "10000012",
+            "Andrea",
+            "Rueda",
+            "Unidos y Organizados",
+            3,
+            "dev03",
+            "assets/bancas/banca-03.png",
+        ),
+        (
+            "10000010",
+            "Gastón",
+            "Cuis Taccari",
+            "Despierta Madryn",
+            4,
+            "dev04",
+            "assets/bancas/banca-04.png",
+        ),
+        (
+            "10000009",
+            "Andrea",
+            "Garachico",
+            "Despierta Madryn",
+            5,
+            "dev05",
+            "assets/bancas/banca-05.png",
+        ),
+        (
+            "10000007",
+            "Hernán",
+            "Pereira",
+            "Despierta Madryn",
+            6,
+            "dev06",
+            "assets/bancas/banca-06.png",
+        ),
+        (
+            "10000003",
+            "Federico",
+            "Garitano",
+            "Arriba Chubut",
+            7,
+            "dev07",
+            "assets/bancas/banca-07.png",
+        ),
+        (
+            "10000006",
+            "Lucila",
+            "González",
+            "Arriba Chubut",
+            8,
+            "dev08",
+            "assets/bancas/banca-08.png",
+        ),
+        (
+            "10000001",
+            "Dardo",
+            "Petroli",
+            "Arriba Chubut",
+            9,
+            "dev09",
+            "assets/bancas/banca-09.png",
+        ),
+        (
+            "10000002",
+            "Roxana",
+            "Barrera",
+            "Arriba Chubut",
+            10,
+            "dev10",
+            "assets/bancas/banca-10.png",
+        ),
+        (
+            "10000005",
+            "Walter",
+            "Herrero",
+            "Arriba Chubut",
+            11,
+            "dev11",
+            "assets/bancas/banca-11.png",
+        ),
+        (
+            "10000004",
+            "Nadia",
+            "Garay",
+            "Arriba Chubut",
+            12,
+            "dev12",
+            "assets/bancas/banca-12.png",
+        ),
     ]
+
+
+def test_las_imagenes_del_padron_existen_en_ambos_frontends() -> None:
+    """Cada ruta interna del padrón tiene su PNG en Moderación y Recinto.
+
+    ``ruta_imagen`` es autoritativa: el test usa literalmente el valor del
+    CSV en vez de reconstruir un nombre de archivo a partir de la banca.
+    """
+    from botonera2_backend.configuracion.cargar_configuracion import cargar_configuracion_sistema
+
+    configuracion = cargar_configuracion_sistema(RUTA_TOML_REPO)
+    padron = cargar_padron_concejales(RUTA_PADRON_REPO, configuracion)
+
+    for concejal in padron.concejales:
+        ruta_relativa = Path(concejal.ruta_imagen)
+        for aplicacion in ("moderacion", "recinto"):
+            ruta_publica = RAIZ_REPOSITORIO / "apps" / aplicacion / "public" / ruta_relativa
+            assert ruta_publica.is_file(), f"Falta el asset declarado: {ruta_publica}"
+
+
+def test_los_dispositivos_logicos_del_padron_coinciden_con_el_bridge() -> None:
+    """El padrón y el bridge exponen exactamente los mismos ``dev01..dev12``.
+
+    La comparación solo verifica la frontera lógica: los fingerprints físicos
+    continúan siendo responsabilidad exclusiva de ``devices.json``.
+    """
+    from botonera2_backend.configuracion.cargar_configuracion import cargar_configuracion_sistema
+
+    configuracion = cargar_configuracion_sistema(RUTA_TOML_REPO)
+    padron = cargar_padron_concejales(RUTA_PADRON_REPO, configuracion)
+    dispositivos_bridge = json.loads(RUTA_DISPOSITIVOS_REPO.read_text(encoding="utf-8"))
+
+    assert set(dispositivos_bridge.values()) == {
+        concejal.dispositivo_votacion for concejal in padron.concejales
+    }
