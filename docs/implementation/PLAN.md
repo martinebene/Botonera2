@@ -188,7 +188,7 @@ WP-033 quedó integrado antes de continuar WP-026 y deja disponible el harness m
 | WP-040 | Simplificar estados y tarjetas del Orden del Día | INTEGRADO | WP-036 | - |
 | WP-041 | Ajustar Eventos con nivel visible fijo y orden/autoscroll hacia el evento más reciente | INTEGRADO | WP-036 | - |
 | WP-043 | Alinear padrón de instalación con concejales reales de producción | INTEGRADO | WP-003 | - |
-| WP-044 | Corregir UX de Moderación tras segunda prueba humana | PENDIENTE | WP-037, WP-039, WP-040, WP-041 | - |
+| WP-044 | Corregir UX de Moderación tras segunda prueba humana | EN_CURSO | WP-037, WP-039, WP-040, WP-041 | claude |
 | WP-045 | Unificar estados visuales de bancas y exponer participación de voto sin sentido | PENDIENTE | WP-026, WP-038, WP-039, WP-043, WP-044 | - |
 | WP-046 | Restaurar geometría probada de Pantalla del Recinto y corregir reloj de sesión | PENDIENTE | WP-004, WP-039, WP-045 | - |
 | WP-029 | Validar bridge/hardware real, regresión funcional y candidato de producción | PENDIENTE | WP-019, WP-020, WP-027, WP-028, WP-034, WP-035, WP-036, WP-037, WP-038, WP-039, WP-040, WP-041, WP-043, WP-044, WP-045, WP-046 | - |
@@ -266,3 +266,5 @@ WP-044 y WP-045 quedaron documentalmente `APROBADO` por HUMAN_GATE durante la ej
 WP-046 quedó documentalmente `APROBADO` por HUMAN_GATE y permanece `PENDIENTE` sin agente asignado. HUMAN_GATE eligió una franja inferior fija de eventos públicos sin selector, limitada por allowlist a eventos principales de sesión, presencia, palabra y apertura/cierre/resultado de votación. El DTO público deberá sanitizar por código y nunca reutilizar el mensaje crudo de auditoría; eventos individuales de voto y datos técnicos permanecen excluidos. WP-046 además restaura la geometría productiva, fija el tema a una línea con elipsis y corrige la duración de sesión usando como ancla la diferencia `generado_en - fecha_hora_apertura`, evitando dependencia de zona horaria del navegador/VPS.
 
 WP-043 quedó integrado mediante PR #47 sobre el candidato final `4db91091f55bb59a06e0182d3b746964cb6d9f1f`, revisado independientemente por Antigravity/AGY + Gemini 3.7 Flash (High) con 0 BLOQUEANTES, 0 IMPORTANTES y 0 MENORES. El squash `86d455472205f3499c895ca496f5ee15b20df2d5` conserva exactamente el mismo tree SHA `1e35111f53c9917e7ae9477882830522bf7e5510`; CI candidata final #333 y CI post-merge #334 terminaron success 8/8. El padrón canónico de instalación usa ahora los 12 concejales reales de producción, preservando el contrato Botonera2 sin campo `presente`, con assets y dispositivos lógicos verificados.
+
+WP-044 fue activado por HUMAN_GATE con Claude Code como implementador y Antigravity/AGY como revisor independiente. El alcance permanece estrictamente limitado a correcciones UX de Moderación definidas en `docs/work-packages/WP-044.md`; WP-045 y WP-046 siguen `PENDIENTE`.
