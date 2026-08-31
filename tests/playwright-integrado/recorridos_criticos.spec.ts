@@ -141,13 +141,13 @@ test.describe.serial('WP-027 · recorridos críticos sobre el stack real', () =>
       await test.step('B · palabra y advertencia CA-062 conservan el estado autoritativo', async () => {
         await pulsar('1-7')
         await expect(moderacion.getByTestId('cola-palabra')).toContainText('Banca 1')
-        await expect(recinto.getByTestId('cola-palabra')).toContainText('Ana Garcia')
+        await expect(recinto.getByTestId('cola-palabra')).toContainText('Lorena Moreno')
         await moderacion.getByTestId('btn-otorgar-palabra').click()
         await expect(moderacion.getByTestId('orador-actual-texto')).toContainText('Banca 1')
         await expect(
           recinto.locator('[data-banca="1"] [data-testid="estado-orador"]'),
         ).toBeVisible()
-        await expect(recinto.getByTestId('panel-palabra')).not.toContainText('Ana Garcia')
+        await expect(recinto.getByTestId('panel-palabra')).not.toContainText('Lorena Moreno')
 
         await moderacion.getByTestId('input-numero-votacion').fill('1')
         await moderacion.getByTestId('select-tipo-votacion').selectOption({ label: 'Otro' })
@@ -167,7 +167,7 @@ test.describe.serial('WP-027 · recorridos críticos sobre el stack real', () =>
         await expect(
           recinto.locator('[data-banca="1"] [data-testid="estado-orador"]'),
         ).toBeVisible()
-        await expect(recinto.getByTestId('panel-palabra')).not.toContainText('Ana Garcia')
+        await expect(recinto.getByTestId('panel-palabra')).not.toContainText('Lorena Moreno')
       })
 
       await test.step('C · mantiene secreto, revela y autocierra una votación real', async () => {
@@ -182,7 +182,7 @@ test.describe.serial('WP-027 · recorridos críticos sobre el stack real', () =>
         expect(publicoEnCurso.votacion?.votos_individuales).toBeNull()
         expect(publicoEnCurso.votacion?.conteos).toBeNull()
         expect(JSON.stringify(publicoEnCurso)).not.toContain('POSITIVO')
-        expect(JSON.stringify(publicoEnCurso)).not.toContain('30000001')
+        expect(JSON.stringify(publicoEnCurso)).not.toContain('10000008')
 
         // WP-037 reserva Q1 para conducción: aun cuando la proyección privada tenga el
         // detalle nominal, la interfaz compacta sólo muestra el progreso agregado.

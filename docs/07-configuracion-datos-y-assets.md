@@ -70,6 +70,8 @@ Reglas:
 
 La presencia **no forma parte del archivo de padrón**: es un dato operativo dinámico y toda preparación comienza con todos los concejales ausentes.
 
+El padrón actualmente versionado contiene los datos de instalación tomados del sistema histórico en producción (`martinebene/Botonera`, SHA `537823b4a0045853c74a388058fa3739cf7457a5`). Esa procedencia determina las identidades, bloques, bancas y dispositivos lógicos instalados, pero no modifica el contrato estable de Botonera2: las filas se ordenan por banca, `ruta_imagen` permanece explícita y la columna histórica `presente` se omite porque la presencia sigue siendo estado dinámico.
+
 La cantidad de filas del padrón debe coincidir exactamente con la cantidad total de bancas definida por la disposición configurada en `system.toml` (suma de `room.rows`). Las bancas deben ser únicas, estar dentro de esa capacidad y cubrir completamente la disposición configurada.
 
 Un padrón inválido bloquea `Preparar sala`.
