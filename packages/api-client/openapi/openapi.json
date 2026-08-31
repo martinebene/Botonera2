@@ -2020,6 +2020,13 @@
                 "type": "null"
               }
             ]
+          },
+          "eventos_publicos": {
+            "items": {
+              "$ref": "#/components/schemas/EventoPublicoProyectado"
+            },
+            "type": "array",
+            "title": "Eventos Publicos"
           }
         },
         "type": "object",
@@ -2033,10 +2040,11 @@
           "concejales",
           "quorum",
           "votacion",
-          "palabra"
+          "palabra",
+          "eventos_publicos"
         ],
         "title": "EstadoRecinto",
-        "description": "Snapshot público por allowlist, sin capacidades ni eventos de auditoría."
+        "description": "Snapshot público por allowlist, sin capacidades ni auditoría cruda."
       },
       "EstadoRemapeoModeracion": {
         "properties": {
@@ -2166,6 +2174,40 @@
         ],
         "title": "EstadoVotacion",
         "description": "Indica exclusivamente si la recepción todavía admite votos."
+      },
+      "EventoPublicoProyectado": {
+        "properties": {
+          "seq": {
+            "type": "integer",
+            "title": "Seq"
+          },
+          "timestamp": {
+            "type": "string",
+            "title": "Timestamp"
+          },
+          "categoria": {
+            "type": "string",
+            "title": "Categoria"
+          },
+          "codigo_evento": {
+            "type": "string",
+            "title": "Codigo Evento"
+          },
+          "texto": {
+            "type": "string",
+            "title": "Texto"
+          }
+        },
+        "type": "object",
+        "required": [
+          "seq",
+          "timestamp",
+          "categoria",
+          "codigo_evento",
+          "texto"
+        ],
+        "title": "EventoPublicoProyectado",
+        "description": "Hecho público seguro derivado de un evento L3 ya confirmado.\n\nEl DTO omite deliberadamente nivel, etiqueta y mensaje de auditoría. Su\ntexto nace de :data:`MAPEO_EVENTOS_PUBLICOS`, por lo que agregar un código\nfuturo al registro institucional no lo publica de manera accidental."
       },
       "EventoRecienteProyectado": {
         "properties": {

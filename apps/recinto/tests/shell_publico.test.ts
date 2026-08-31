@@ -68,9 +68,10 @@ describe('Shell público del Recinto', () => {
       }),
     )
 
-    expect(wrapper.get('[data-testid="estado-global-visible"]').text()).toContain('preparación')
-    expect(wrapper.get('[data-testid="titulo-contexto"]').text()).toContain('25')
-    expect(wrapper.get('[data-testid="autoridades"]').text()).toContain('María Presidencia')
+    expect(wrapper.get('[data-testid="cabecera-sesion"]').text()).toContain('25')
+    expect(wrapper.get('[data-testid="cabecera-autoridades"]').text()).toContain(
+      'María Presidencia',
+    )
     expect(wrapper.get('[data-testid="estado-quorum"]').text()).toBe('Sin quórum')
 
     const filas = wrapper.findAll('.fila-bancas')
@@ -143,9 +144,9 @@ describe('Shell público del Recinto', () => {
       }),
     )
 
-    expect(wrapper.get('[data-testid="titulo-contexto"]').text()).toContain('59')
-    expect(wrapper.get('[data-testid="autoridades"]').text()).toContain('Ana Presidencia')
-    expect(wrapper.get('[data-testid="autoridades"]').text()).toContain('Luis Secretaría')
+    expect(wrapper.get('[data-testid="cabecera-sesion"]').text()).toContain('59')
+    expect(wrapper.get('[data-testid="cabecera-autoridades"]').text()).toContain('Ana Presidencia')
+    expect(wrapper.get('[data-testid="cabecera-autoridades"]').text()).toContain('Luis Secretaría')
     expect(wrapper.get('[data-testid="estado-quorum"]').text()).toBe('Quórum alcanzado')
     expect(wrapper.get('[data-banca="4"]').element.getAttribute('data-estado-banca')).toBe(
       'PALABRA',

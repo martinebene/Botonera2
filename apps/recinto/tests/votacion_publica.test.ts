@@ -69,7 +69,7 @@ describe('Experiencia pública de votación', () => {
     vi.useFakeTimers()
     vi.setSystemTime(HORA_BASE)
     const wrapper = montar(crearSesionConVotacion(null))
-    expect(wrapper.find('[data-testid="votacion-publica"]').exists()).toBe(false)
+    expect(wrapper.get('[data-testid="estado-votacion"]').text()).toBe('Sin votación')
 
     await wrapper.setProps({
       estado: crearSesionConVotacion(
@@ -187,8 +187,8 @@ describe('Experiencia pública de votación', () => {
     expect(wrapper.get('[data-banca="4"]').element.getAttribute('data-estado-banca')).toBe('NORMAL')
     expect(wrapper.find('[data-banca="4"] [data-testid="etiqueta-banca"]').exists()).toBe(false)
     expect(wrapper.get('[data-banca="2"]').element.getAttribute('data-presente')).toBe('false')
-    expect(wrapper.get('[data-testid="conteos-votacion"]').text()).toContain('Positivos8')
-    expect(wrapper.get('[data-testid="conteos-votacion"]').text()).toContain('Total11')
+    expect(wrapper.get('[data-testid="conteos-votacion"]').text()).toContain('Positivos 8')
+    expect(wrapper.get('[data-testid="conteos-votacion"]').text()).toContain('Total 11')
     expect(wrapper.get('[data-testid="estado-quorum"]').text()).toBe('Quórum alcanzado')
     expect(wrapper.get('[data-testid="panel-palabra"]').text()).not.toContain('Nombre1 Apellido1')
     wrapper.unmount()
@@ -269,7 +269,7 @@ describe('Experiencia pública de votación', () => {
     expect(presidencial.text()).toContain('Ana Presidencia')
     expect(presidencial.text()).toContain('Negativo')
     expect(contarBancasConResultado(wrapper)).toBe(2)
-    expect(wrapper.get('[data-testid="conteos-votacion"]').text()).toContain('Total2')
+    expect(wrapper.get('[data-testid="conteos-votacion"]').text()).toContain('Total 2')
     expect(wrapper.get('[data-banca="3"]').element.getAttribute('data-estado-banca')).not.toContain(
       'RESULTADO_',
     )
@@ -296,7 +296,7 @@ describe('Experiencia pública de votación', () => {
     expect(wrapper.get('[data-testid="estado-votacion"]').text()).toBe('Aprobada')
     vi.advanceTimersByTime(2250)
     await wrapper.vm.$nextTick()
-    expect(wrapper.find('[data-testid="votacion-publica"]').exists()).toBe(false)
+    expect(wrapper.get('[data-testid="estado-votacion"]').text()).toBe('Sin votación')
     expect(wrapper.find('[data-estado-banca^="RESULTADO_"]').exists()).toBe(false)
     expect(wrapper.get('[data-testid="panel-quorum"]').exists()).toBe(true)
 
@@ -334,7 +334,7 @@ describe('Experiencia pública de votación', () => {
         }),
       ),
     )
-    expect(vencido.find('[data-testid="votacion-publica"]').exists()).toBe(false)
+    expect(vencido.get('[data-testid="estado-votacion"]').text()).toBe('Sin votación')
     vencido.unmount()
 
     const conTimer = montar(

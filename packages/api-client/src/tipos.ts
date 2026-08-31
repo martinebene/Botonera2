@@ -81,6 +81,9 @@ export type RespuestaOrdenDelDia = components['schemas']['CargaOrdenDelDiaRespue
 /** Evento reciente auditado confirmado */
 export type EventoRecienteProyectado = components['schemas']['EventoRecienteProyectado']
 
+/** Evento principal sanitizado para la franja pública del Recinto */
+export type EventoPublicoProyectado = components['schemas']['EventoPublicoProyectado']
+
 /** Estado técnico del escritor institucional de auditoría */
 export type EstadoAuditoriaProyectado = components['schemas']['EstadoAuditoriaProyectado']
 

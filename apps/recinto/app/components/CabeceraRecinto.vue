@@ -6,11 +6,11 @@
  * contexto de sesión continúan llegando exclusivamente en EstadoRecinto.
  */
 
-import { computed } from 'vue'
+import { computed, toRef } from 'vue'
 import type { EstadoRecinto } from '@botonera2/api-client'
 import type { EstadoConexionRecinto } from '../composables/useEstadoRecinto'
 import { useRelojLocal } from '../composables/useRelojLocal'
-import { calcularTiempoSesion, formatearFechaHoraLocal } from '../utils/tiempo'
+import { formatearFechaHoraLocal } from '../utils/tiempo'
 
 const props = defineProps<{
   /** Snapshot público vigente, usado solo para el contexto central. */
@@ -19,14 +19,11 @@ const props = defineProps<{
   desactualizado: boolean
 }>()
 
-const { ahora } = useRelojLocal()
+const { ahora, tiempoSesion } = useRelojLocal(toRef(props, 'estado'))
 const fechaHoraLocal = computed(() => formatearFechaHoraLocal(ahora.value))
 const sesionAbierta = computed(() => props.estado?.estado_global === 'SESION_ABIERTA')
-const tiempoSesion = computed(() =>
-  calcularTiempoSesion(
-    sesionAbierta.value ? (props.estado?.sesion?.fecha_hora_apertura ?? null) : null,
-    ahora.value,
-  ),
+const contextoInstitucional = computed(
+  () => props.estado?.sesion ?? props.estado?.preparacion ?? null,
 )
 
 const contextoCentral = computed(() => {
@@ -39,6 +36,17 @@ const contextoCentral = computed(() => {
       : 'Sala en preparación'
   }
   return 'Sala sin preparar'
+})
+
+const textoAutoridades = computed(() => {
+  const contexto = contextoInstitucional.value
+  if (!contexto) return ''
+  return [
+    contexto.presidencia ? `Presidencia: ${contexto.presidencia}` : '',
+    contexto.secretaria_legislativa ? `Secretaría: ${contexto.secretaria_legislativa}` : '',
+  ]
+    .filter(Boolean)
+    .join(' · ')
 })
 
 const textoConexion = computed(() => {
@@ -67,6 +75,9 @@ const textoConexion = computed(() => {
           · {{ tiempoSesion }}
         </span>
       </p>
+      <p data-testid="cabecera-autoridades" class="autoridades-cabecera" :title="textoAutoridades">
+        {{ textoAutoridades || '\u00a0' }}
+      </p>
     </div>
 
     <div
@@ -83,12 +94,14 @@ const textoConexion = computed(() => {
 
 <style scoped>
 .cabecera-recinto {
-  min-height: 54px;
+  height: clamp(62px, 7.2vh, 76px);
   display: grid;
+  flex: 0 0 auto;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   gap: 1rem;
   padding: 0.45rem clamp(0.75rem, 1.4vw, 1.4rem);
+  overflow: hidden;
   border-bottom: 1px solid rgba(148, 163, 184, 0.2);
   background: rgba(7, 17, 31, 0.94);
 }
@@ -121,6 +134,18 @@ const textoConexion = computed(() => {
   color: #7dd3fc;
   font-size: clamp(0.62rem, 0.82vw, 0.76rem);
   font-weight: 800;
+}
+
+.marca-institucional .autoridades-cabecera {
+  max-width: min(54vw, 64rem);
+  margin-top: 0.1rem;
+  overflow: hidden;
+  color: #94a3b8;
+  font-size: clamp(0.5rem, 0.62vw, 0.62rem);
+  font-weight: 700;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .tiempo-sesion {

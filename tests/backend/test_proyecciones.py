@@ -53,6 +53,7 @@ async def test_snapshots_sin_preparar_son_completos_y_sin_contexto(tmp_path: Pat
         "quorum",
         "votacion",
         "palabra",
+        "eventos_publicos",
     }
 
 
@@ -181,7 +182,9 @@ async def test_publico_en_curso_no_contiene_votos_dni_eventos_ni_mensajes(
     assert "POSITIVO" not in texto
     assert "VOTO_ORDINARIO_REGISTRADO" not in texto
     assert "votó" not in texto
-    assert "eventos" not in texto
+    assert estado.eventos_publicos == ()
+    assert "eventos_recientes" not in texto
+    assert "mensaje" not in texto
 
 
 async def test_countdown_publico_deriva_de_apertura_y_no_de_reconexion(tmp_path: Path) -> None:
