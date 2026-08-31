@@ -187,7 +187,11 @@ WP-033 quedó integrado antes de continuar WP-026 y deja disponible el harness m
 | WP-039 | Reorganizar Recinto y palabra y compactar la pantalla pública tomando producción como referencia | INTEGRADO | WP-038 | - |
 | WP-040 | Simplificar estados y tarjetas del Orden del Día | INTEGRADO | WP-036 | - |
 | WP-041 | Ajustar Eventos con nivel visible fijo y orden/autoscroll hacia el evento más reciente | INTEGRADO | WP-036 | - |
-| WP-029 | Validar bridge/hardware real, regresión funcional y candidato de producción | PENDIENTE | WP-019, WP-020, WP-027, WP-028, WP-034, WP-035, WP-036, WP-037, WP-038, WP-039, WP-040, WP-041 | - |
+| WP-043 | Alinear padrón de instalación con concejales reales de producción | EN_CURSO | WP-003 | codex |
+| WP-044 | Corregir UX de Moderación tras segunda prueba humana | PENDIENTE | WP-037, WP-039, WP-040, WP-041 | - |
+| WP-045 | Unificar estados visuales de bancas y exponer participación de voto sin sentido | PENDIENTE | WP-026, WP-038, WP-039, WP-043, WP-044 | - |
+| WP-046 | Restaurar geometría probada de Pantalla del Recinto y corregir reloj de sesión | PENDIENTE | WP-039, WP-045 | - |
+| WP-029 | Validar bridge/hardware real, regresión funcional y candidato de producción | PENDIENTE | WP-019, WP-020, WP-027, WP-028, WP-034, WP-035, WP-036, WP-037, WP-038, WP-039, WP-040, WP-041, WP-043, WP-044, WP-045, WP-046 | - |
 
 ## Cobertura funcional esperada
 
@@ -254,3 +258,5 @@ WP-038 quedó integrado mediante PR #45 sobre el candidato `d2e8d560a87ca7a82a93
 WP-039 quedó definido y aprobado por HUMAN_GATE: Q3 de Moderación adopta bancas a la izquierda y palabra en columna derecha con controles fijos; remapeo queda colapsado cuando está inactivo; la pantalla pública adopta cabecera y franjas compactas con bancas a la izquierda y palabra a la derecha; el orador se destaca en su banca sin repetir nombre/apellido sobre la cola pública; la cabecera incorpora fecha/hora local y tiempo transcurrido de sesión abierta; la votación pública se compacta en franja horizontal preservando countdown, votos y secreto. HUMAN_GATE aprobó Codex como implementador y Antigravity/AGY como revisor independiente; WP-039 queda `EN_CURSO`.
 
 WP-039 quedó integrado mediante PR #46 sobre el candidato `d1677cb6a9470eafadc75b560b1b238a6e9bcc79`, revisado independientemente por Antigravity/AGY + Gemini 3.7 Flash (High) con 0 BLOQUEANTES, 0 IMPORTANTES y 0 MENORES. El squash `bef706dd0a00088959c771b4f7bcc73408de9e4b` conserva exactamente el mismo tree SHA `2b3b0bc69d862155a370d144fd3abf034c57b717`; CI candidata #322 y CI post-merge #323 terminaron success 8/8. La integración reorganiza Q3 de Moderación, colapsa remapeo inactivo y compacta la pantalla pública con reloj/duración de sesión, quórum/votación horizontales y palabra lateral sin redundancia del orador, preservando backend, contratos y secreto.
+
+La segunda campaña humana posterior a WP-039 produjo WP-043..WP-046. WP-043 alinea el padrón canónico de instalación con los datos reales del sistema histórico de producción, preservando el contrato nuevo de Botonera2; HUMAN_GATE aprobó Codex como implementador y Antigravity/AGY como revisor independiente y queda `EN_CURSO`. WP-044..WP-046 quedan reservados como `PENDIENTE` y deberán detallarse y aprobarse individualmente con HUMAN_GATE antes de activarse. WP-029 continúa bloqueado hasta integrar esta segunda campaña de correcciones.
