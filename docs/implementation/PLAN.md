@@ -190,7 +190,7 @@ WP-033 quedó integrado antes de continuar WP-026 y deja disponible el harness m
 | WP-043 | Alinear padrón de instalación con concejales reales de producción | EN_CURSO | WP-003 | codex |
 | WP-044 | Corregir UX de Moderación tras segunda prueba humana | PENDIENTE | WP-037, WP-039, WP-040, WP-041 | - |
 | WP-045 | Unificar estados visuales de bancas y exponer participación de voto sin sentido | PENDIENTE | WP-026, WP-038, WP-039, WP-043, WP-044 | - |
-| WP-046 | Restaurar geometría probada de Pantalla del Recinto y corregir reloj de sesión | PENDIENTE | WP-039, WP-045 | - |
+| WP-046 | Restaurar geometría probada de Pantalla del Recinto y corregir reloj de sesión | PENDIENTE | WP-004, WP-039, WP-045 | - |
 | WP-029 | Validar bridge/hardware real, regresión funcional y candidato de producción | PENDIENTE | WP-019, WP-020, WP-027, WP-028, WP-034, WP-035, WP-036, WP-037, WP-038, WP-039, WP-040, WP-041, WP-043, WP-044, WP-045, WP-046 | - |
 
 ## Cobertura funcional esperada
@@ -262,3 +262,5 @@ WP-039 quedó integrado mediante PR #46 sobre el candidato `d1677cb6a9470eafadc7
 La segunda campaña humana posterior a WP-039 produjo WP-043..WP-046. WP-043 alinea el padrón canónico de instalación con los datos reales del sistema histórico de producción, preservando el contrato nuevo de Botonera2; HUMAN_GATE aprobó Codex como implementador y Antigravity/AGY como revisor independiente y queda `EN_CURSO`. WP-044..WP-046 quedan reservados como `PENDIENTE` y deberán detallarse y aprobarse individualmente con HUMAN_GATE antes de activarse. WP-029 continúa bloqueado hasta integrar esta segunda campaña de correcciones.
 
 WP-044 y WP-045 quedaron documentalmente `APROBADO` por HUMAN_GATE durante la ejecución de WP-043, pero permanecen `PENDIENTE` y sin agente asignado. WP-044 concentra correcciones UX de Moderación de la segunda prueba humana. WP-045 unifica la semántica visual de bancas Q3/Recinto y agrega, con aprobación explícita, una proyección de participación `bancas_voto_emitido` que expone únicamente la banca que ya emitió voto durante `EN_CURSO`, nunca su sentido. WP-046 continúa pendiente de cerrar la política exacta de la franja pública de eventos antes de aprobar su documento.
+
+WP-046 quedó documentalmente `APROBADO` por HUMAN_GATE y permanece `PENDIENTE` sin agente asignado. HUMAN_GATE eligió una franja inferior fija de eventos públicos sin selector, limitada por allowlist a eventos principales de sesión, presencia, palabra y apertura/cierre/resultado de votación. El DTO público deberá sanitizar por código y nunca reutilizar el mensaje crudo de auditoría; eventos individuales de voto y datos técnicos permanecen excluidos. WP-046 además restaura la geometría productiva, fija el tema a una línea con elipsis y corrige la duración de sesión usando como ancla la diferencia `generado_en - fecha_hora_apertura`, evitando dependencia de zona horaria del navegador/VPS.
