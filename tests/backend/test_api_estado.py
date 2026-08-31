@@ -109,8 +109,7 @@ async def test_rest_preparando_y_sesion_abierta_reconstruyen_todo_el_contexto(
             assert preparacion_recinto.json()["preparacion"]["numero_sesion"] == 17
             assert preparacion_recinto.json()["filas_bancas"] == [3, 4, 5]
             assert [
-                evento["codigo_evento"]
-                for evento in preparacion_recinto.json()["eventos_publicos"]
+                evento["codigo_evento"] for evento in preparacion_recinto.json()["eventos_publicos"]
             ] == ["CONCEJAL_PRESENTE"] * 7
 
             orden = (
@@ -169,8 +168,7 @@ async def test_rest_preparando_y_sesion_abierta_reconstruyen_todo_el_contexto(
             assert filas_padron_valido()[0][0] not in texto_publico
             assert "VOTO_ORDINARIO_REGISTRADO" not in texto_publico
             codigos_publicos = [
-                evento["codigo_evento"]
-                for evento in recinto_votando.json()["eventos_publicos"]
+                evento["codigo_evento"] for evento in recinto_votando.json()["eventos_publicos"]
             ]
             assert codigos_publicos[-3:] == [
                 "SESION_ABIERTA",

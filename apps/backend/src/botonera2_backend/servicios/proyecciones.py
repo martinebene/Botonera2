@@ -28,7 +28,6 @@ from botonera2_backend.dominio.votacion import (
 from botonera2_backend.servicios.publicacion import CoordinadorPublicacion
 from botonera2_backend.servicios.serializacion import EjecutorMutaciones
 
-
 # La pantalla pública trabaja con una allowlist positiva y textos escritos a
 # mano. El mensaje de auditoría no participa de este mapeo: puede contener DNI,
 # dispositivos, teclas o detalles institucionales que no pertenecen al DTO.

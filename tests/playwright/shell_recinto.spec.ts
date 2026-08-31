@@ -66,12 +66,15 @@ function crearVotacion(parcial: Record<string, unknown> = {}) {
 }
 
 function crearEventosPublicos() {
+  // Códigos, categorías y textos copiados literalmente de la allowlist del
+  // backend: si alguien cambia el mapeo público, esta prueba deja de reflejar
+  // el contrato real y el desvío se vuelve visible.
   const codigos = [
-    ['SESION_ABIERTA', 'SESIÓN', 'Sesión abierta'],
+    ['SESION_ABIERTA', 'SESION', 'Sesión abierta'],
     ['CONCEJAL_PRESENTE', 'PRESENCIA', 'Concejal presente'],
     ['PEDIDO_PALABRA_REGISTRADO', 'PALABRA', 'Pedido de palabra registrado'],
-    ['PALABRA_OTORGADA', 'PALABRA', 'Palabra otorgada'],
-    ['VOTACION_ABIERTA', 'VOTACIÓN', 'Votación abierta'],
+    ['USO_PALABRA_OTORGADO', 'PALABRA', 'Uso de palabra otorgado'],
+    ['VOTACION_ABIERTA', 'VOTACION', 'Votación abierta'],
   ] as const
   return Array.from({ length: 20 }, (_, indice) => {
     const [codigo_evento, categoria, texto] = codigos[indice % codigos.length]!

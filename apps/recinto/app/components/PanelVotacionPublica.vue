@@ -64,16 +64,21 @@ function etiquetaSentido(sentido: string): string {
     <div class="renglon-votacion renglon-estado">
       <strong>Estado</strong>
       <span data-testid="estado-votacion" class="estado-votacion">{{ estadoPrincipal }}</span>
+      <!--
+        Una votación empatada ya está cerrada: sus conteos son autoritativos y
+        deben seguir visibles mientras se espera el desempate. Por eso ambos
+        detalles conviven en el renglón en lugar de excluirse entre sí.
+      -->
+      <span v-if="conteosVisibles" data-testid="conteos-votacion" class="detalle-estado">
+        Positivos {{ conteosVisibles.positivos }} · Negativos {{ conteosVisibles.negativos }} ·
+        Abstenciones {{ conteosVisibles.abstenciones }} · Total {{ conteosVisibles.total }}
+      </span>
       <span
         v-if="votacion?.resultado === 'EMPATADA'"
         data-testid="espera-desempate"
         class="detalle-estado"
       >
         En espera del desempate de Presidencia
-      </span>
-      <span v-else-if="conteosVisibles" data-testid="conteos-votacion" class="detalle-estado">
-        Positivos {{ conteosVisibles.positivos }} · Negativos {{ conteosVisibles.negativos }} ·
-        Abstenciones {{ conteosVisibles.abstenciones }} · Total {{ conteosVisibles.total }}
       </span>
       <span
         v-if="votacion?.voto_presidencial"

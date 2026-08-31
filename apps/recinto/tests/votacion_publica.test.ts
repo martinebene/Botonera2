@@ -237,6 +237,10 @@ describe('Experiencia pública de votación', () => {
 
     expect(wrapper.get('[data-testid="estado-votacion"]').text()).toBe('Empatada')
     expect(wrapper.get('[data-testid="espera-desempate"]').text()).toContain('Presidencia')
+    // Una votación empatada ya está cerrada: la espera del desempate no puede
+    // tapar los conteos autoritativos que el backend ya publicó.
+    expect(wrapper.get('[data-testid="conteos-votacion"]').text()).toContain('Positivos 1')
+    expect(wrapper.get('[data-testid="conteos-votacion"]').text()).toContain('Total 2')
     expect(vi.getTimerCount()).toBe(1)
     vi.advanceTimersByTime(60_000)
     await wrapper.vm.$nextTick()
