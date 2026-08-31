@@ -190,7 +190,7 @@ WP-033 quedó integrado antes de continuar WP-026 y deja disponible el harness m
 | WP-043 | Alinear padrón de instalación con concejales reales de producción | INTEGRADO | WP-003 | - |
 | WP-044 | Corregir UX de Moderación tras segunda prueba humana | INTEGRADO | WP-037, WP-039, WP-040, WP-041 | - |
 | WP-045 | Unificar estados visuales de bancas y exponer participación de voto sin sentido | INTEGRADO | WP-026, WP-038, WP-039, WP-043, WP-044 | - |
-| WP-046 | Restaurar geometría probada de Pantalla del Recinto y corregir reloj de sesión | EN_CURSO | WP-004, WP-039, WP-045 | codex |
+| WP-046 | Restaurar geometría probada de Pantalla del Recinto y corregir reloj de sesión | EN_CURSO | WP-004, WP-039, WP-045 | claude |
 | WP-029 | Validar bridge/hardware real, regresión funcional y candidato de producción | PENDIENTE | WP-019, WP-020, WP-027, WP-028, WP-034, WP-035, WP-036, WP-037, WP-038, WP-039, WP-040, WP-041, WP-043, WP-044, WP-045, WP-046 | - |
 
 ## Cobertura funcional esperada
@@ -276,3 +276,5 @@ WP-045 fue activado por HUMAN_GATE con Claude Code como implementador y Codex co
 WP-045 quedó integrado mediante PR #49 sobre el candidato `80fcc8fd55246a07ff6a46461b18cccbc7c7d4b5`, revisado independientemente por Codex + GPT-5 con 0 BLOQUEANTES, 0 IMPORTANTES y 2 MENORES no bloqueantes. El squash `cc74e13fc0897d15cb4f51422e50fc82fc132715` conserva exactamente el mismo tree SHA `f5ce8de981c8662b1a83850f7e5a94c86ef5aa6a`; CI candidata #341 y CI post-merge #342 terminaron success 8/8. Los menores aceptados fueron: (1) cuando test y palabra quedan simultáneamente subordinados a un estado principal superior, el único halo visible prioriza test y la señal secundaria de palabra no queda pintada; (2) la suite específica WP-045 no consume un evento SSE real ni afirma directamente la pérdida de quórum, aunque la arquitectura y suites existentes cubren el comportamiento funcional.
 
 WP-046 fue activado por HUMAN_GATE con Codex como implementador y Claude Code como revisor independiente. El alcance comprende exclusivamente restauración de la geometría pública probada en producción, corrección del reloj de sesión mediante ancla de reloj backend y proyección sanitizada/allowlist de eventos públicos. WP-029 continúa `PENDIENTE` hasta integrar WP-046.
+
+Durante la implementación de WP-046, Codex agotó su ventana de cinco horas antes de completar el handoff. HUMAN_GATE decidió conservar íntegramente el trabajo ya realizado en el mismo worktree y reasignar la continuación a Claude Code, con Antigravity/AGY como revisor independiente. La reasignación no autoriza descartar, resetear ni recrear el trabajo parcial de Codex; Claude debe inspeccionar y continuar el estado Git existente.
