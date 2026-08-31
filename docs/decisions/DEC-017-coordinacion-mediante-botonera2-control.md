@@ -62,6 +62,17 @@ ORCHESTRATOR
 
 Publicar un resultado no puede iniciar automáticamente al siguiente agente.
 
+### Notificación auxiliar al HUMAN_GATE
+
+Se autoriza un canal de alerta event-driven, inicialmente GitHub Actions -> Telegram, cuyo único objetivo es hacer visible que una transición ya existente requiere intervención humana.
+
+Ese canal puede avisar cuando:
+
+- aparece el `expected_response_path` de IMPLEMENTER o REVIEWER, señalando que el turno terminó y corresponde devolver el control al ORCHESTRATOR;
+- `CURRENT.json` incorpora un `assignment_id` nuevo, señalando que el ORCHESTRATOR dejó un turno listo para que HUMAN_GATE inicie manualmente al actor autorizado.
+
+La alerta no forma parte de la autoridad del protocolo, no modifica repositorios, no decide el siguiente movimiento y no dispara agentes. Ante discrepancia, prevalecen `Botonera2-Control`, el protocolo vigente y la decisión del ORCHESTRATOR/HUMAN_GATE. Las credenciales del canal se mantienen fuera de ambos repositorios mediante GitHub Actions Secrets.
+
 El operador conserva la autoridad de iniciar el turno, aprobar decisiones reservadas por DT-038 y autorizar las transiciones documentales que DEC-005 reserve a aprobación humana.
 
 La compuerta humana opera **entre turnos**, no entre cada acción del mismo turno. Una vez que HUMAN_GATE inicia un actor cuya asignación es elegible, ese actor queda autorizado a ejecutar autónomamente la tarea completa hasta publicar su resultado.
