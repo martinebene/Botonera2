@@ -1,14 +1,33 @@
 <script setup lang="ts">
-/** Tarjeta pública de una banca, sin DNI, dispositivo ni interacción mutante. */
+/**
+ * Tarjeta pública de una banca, sin DNI, dispositivo ni interacción mutante.
+ *
+ * WP-045 unifica su semántica con la tarjeta de Q3 de Moderación: la tarjeta
+ * contiene solamente el bitmap real del concejal y, a lo sumo, una única
+ * etiqueta textual de estado. Nombre, apellido, bloque y número de banca ya
+ * forman parte de la propia imagen institucional, de modo que repetirlos como
+ * texto duplicaba información y obligaba a la tarjeta a crecer según el largo
+ * del nombre. Esos datos siguen disponibles en el DTO y en `aria-label`.
+ *
+ * La decisión de qué estado mostrar NO vive acá: la toma la función pura
+ * compartida `calcularPresentacionBanca`, así Q3 y Recinto no pueden divergir.
+ */
 
 import { computed, ref, watch } from 'vue'
-import type { ConcejalPublico, VotoPublico } from '@botonera2/api-client'
+import type { ConcejalPublico } from '@botonera2/api-client'
+import { calcularPresentacionBanca, estilosBanca } from '@botonera2/frontend-shared'
 import { resolverRutaAsset } from '../utils/rutas'
 
 const props = defineProps<{
   concejal: ConcejalPublico
+  /** Derivado de `palabra.orador.banca`; nunca se conserva localmente. */
   esOrador: boolean
-  voto: VotoPublico | null
+  /** `estado_recepcion` de la votación relevante; `null` si no hay votación. */
+  estadoRecepcion: string | null
+  /** La banca figura en `bancas_voto_emitido`: ya votó, sin revelar el sentido. */
+  votoEmitido: boolean
+  /** Sentido final del voto; el backend solo lo proyecta tras el cierre. */
+  valorVotoFinal: string | null
 }>()
 
 const imagenFallida = ref(false)
@@ -20,13 +39,40 @@ const claveImagen = computed(
 const iniciales = computed(() =>
   `${props.concejal.nombre.charAt(0)}${props.concejal.apellido.charAt(0)}`.toUpperCase(),
 )
-const presentacionVoto = computed(() => {
-  const presentaciones: Record<string, { texto: string; clase: string }> = {
-    POSITIVO: { texto: 'Positivo', clase: 'etiqueta-voto-positivo' },
-    NEGATIVO: { texto: 'Negativo', clase: 'etiqueta-voto-negativo' },
-    ABSTENCION: { texto: 'Abstención', clase: 'etiqueta-voto-abstencion' },
-  }
-  return props.voto ? (presentaciones[props.voto.valor] ?? null) : null
+
+/**
+ * Estado visual único de la banca.
+ *
+ * `calcularPresentacionBanca` descarta internamente cualquier sentido de voto
+ * mientras `estadoRecepcion` sea `EN_CURSO`, por lo que el secreto no depende de
+ * que este componente recuerde filtrarlo.
+ */
+const presentacion = computed(() =>
+  calcularPresentacionBanca({
+    presente: props.concejal.presente,
+    testActivo: props.concejal.test_activo,
+    esOrador: props.esOrador,
+    estadoRecepcion: props.estadoRecepcion,
+    votoEmitido: props.votoEmitido,
+    valorVotoFinal: props.valorVotoFinal,
+  }),
+)
+
+const estilos = computed(() => estilosBanca(presentacion.value))
+
+/**
+ * Descripción accesible completa.
+ *
+ * Conserva la identidad y la presencia institucional que ya no se dibujan como
+ * texto, y agrega el estado principal solo cuando aporta algo distinto de la
+ * presencia (evita leer "ausente, ausente").
+ */
+const descripcionAccesible = computed(() => {
+  const presencia = props.concejal.presente ? 'presente' : 'ausente'
+  const estado = presentacion.value.estado
+  const detalle =
+    estado === 'NORMAL' || estado === 'AUSENTE' ? '' : `, ${presentacion.value.etiquetaAccesible}`
+  return `Banca ${props.concejal.banca}, ${props.concejal.nombre} ${props.concejal.apellido}, ${presencia}${detalle}`
 })
 
 // Una baseline puede cambiar ruta o persona aun reutilizando la misma banca.
@@ -42,57 +88,44 @@ watch(claveImagen, () => {
     :data-banca="concejal.banca"
     :data-presente="concejal.presente"
     :data-orador="esOrador"
+    :data-estado-banca="presentacion.estado"
+    :data-halo-test="presentacion.haloTest"
+    :data-halo-palabra="presentacion.haloPalabra"
     class="banca-publica"
-    :class="{
-      'banca-ausente': !concejal.presente,
-      'banca-test': concejal.test_activo,
-      'banca-orador': esOrador,
-    }"
-    :aria-label="`Banca ${concejal.banca}, ${concejal.nombre} ${concejal.apellido}, ${concejal.presente ? 'presente' : 'ausente'}${presentacionVoto ? `, voto ${presentacionVoto.texto}` : ''}`"
+    :class="{ 'banca-con-halo': presentacion.haloTest || presentacion.haloPalabra }"
+    :style="estilos"
+    :aria-label="descripcionAccesible"
   >
-    <div class="foto-concejal">
+    <!--
+      Área principal: el bitmap se muestra completo (`contain`) sobre fondo
+      blanco para no recortar nombres ni logos incluidos dentro de la imagen.
+    -->
+    <div class="area-imagen">
       <img
         v-if="urlImagen && !imagenFallida"
         data-testid="imagen-concejal"
         :data-ruta-imagen="concejal.ruta_imagen"
         :src="urlImagen"
         :alt="`${concejal.nombre} ${concejal.apellido}`"
+        class="imagen-banca"
         @error="imagenFallida = true"
       />
+      <!--
+        Fallback: solo aparece cuando el bitmap no cargó. No duplica identidad
+        visible porque en ese momento no hay bitmap con el que duplicarse.
+      -->
       <div v-else data-testid="imagen-fallback" class="imagen-fallback" aria-hidden="true">
         {{ iniciales || '?' }}
       </div>
-      <span data-testid="numero-banca" class="numero-banca">Banca {{ concejal.banca }}</span>
     </div>
 
-    <div class="identidad-concejal">
-      <strong :title="`${concejal.nombre} ${concejal.apellido}`">
-        {{ concejal.nombre }} <span>{{ concejal.apellido }}</span>
-      </strong>
-      <small v-if="concejal.bloque" :title="concejal.bloque">{{ concejal.bloque }}</small>
-    </div>
-
-    <div class="estados-banca">
-      <span data-testid="estado-presencia" class="etiqueta-estado etiqueta-presencia">
-        {{ concejal.presente ? 'Presente' : 'Ausente' }}
-      </span>
-      <span
-        v-if="concejal.test_activo"
-        data-testid="estado-test"
-        class="etiqueta-estado etiqueta-test"
-      >
-        Test activo
-      </span>
-      <span v-if="esOrador" data-testid="estado-orador" class="etiqueta-estado etiqueta-orador">
-        En uso de la palabra
-      </span>
-      <span
-        v-if="presentacionVoto"
-        data-testid="voto-banca"
-        class="etiqueta-estado etiqueta-voto"
-        :class="presentacionVoto.clase"
-      >
-        {{ presentacionVoto.texto }}
+    <!--
+      Franja de estado: se reserva siempre, tenga o no texto, para que ninguna
+      tarjeta cambie de tamaño según su estado. Contiene como máximo una etiqueta.
+    -->
+    <div class="franja-estado">
+      <span v-if="presentacion.etiqueta" data-testid="etiqueta-banca" class="etiqueta-banca">
+        {{ presentacion.etiqueta }}
       </span>
     </div>
   </article>
@@ -102,184 +135,79 @@ watch(claveImagen, () => {
 .banca-publica {
   position: relative;
   min-width: 0;
+  min-height: 0;
+  height: 100%;
   display: grid;
-  grid-template-columns: minmax(58px, 34%) minmax(0, 1fr);
-  grid-template-rows: 1fr auto;
-  gap: 0.5rem 0.65rem;
-  min-height: clamp(105px, 13vh, 148px);
-  padding: clamp(0.55rem, 1vw, 0.85rem);
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 0.3rem;
+  padding: clamp(0.3rem, 0.55vw, 0.5rem);
   overflow: hidden;
-  border: 2px solid rgba(52, 211, 153, 0.5);
-  border-radius: 16px;
-  background: linear-gradient(145deg, rgba(15, 49, 55, 0.96), rgba(10, 27, 43, 0.96));
-  box-shadow: 0 14px 28px rgba(2, 8, 23, 0.24);
+  border: 2px solid var(--borde-banca);
+  border-radius: 14px;
+  background: var(--fondo-banca);
+  box-shadow: 0 10px 22px rgba(2, 8, 23, 0.28);
 }
 
-.banca-ausente {
-  opacity: 0.78;
-  border-color: rgba(100, 116, 139, 0.46);
-  background: linear-gradient(145deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.96));
-}
-
-.banca-test {
-  border-color: #fbbf24;
+/* Señal secundaria no textual de test o palabra subordinados a otro estado. */
+.banca-con-halo {
   box-shadow:
-    0 0 0 3px rgba(251, 191, 36, 0.2),
-    0 14px 28px rgba(2, 8, 23, 0.28);
+    0 0 0 3px var(--halo-banca) inset,
+    0 10px 22px rgba(2, 8, 23, 0.28);
 }
 
-.banca-orador {
-  border-color: #7dd3fc;
-  outline: 3px solid rgba(125, 211, 252, 0.92);
-  outline-offset: -1px;
-  box-shadow:
-    0 0 0 4px rgba(56, 189, 248, 0.22),
-    0 0 32px rgba(14, 165, 233, 0.18);
-}
-
-/* Test y orador pueden coexistir: el test se conserva alrededor de la fotografía. */
-.banca-test .foto-concejal {
-  box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.95);
-}
-
-.foto-concejal {
-  position: relative;
+.area-imagen {
   min-width: 0;
+  min-height: 0;
+  display: grid;
+  place-items: center;
   overflow: hidden;
-  border-radius: 12px;
-  background: #1e293b;
-  aspect-ratio: 4 / 5;
+  border-radius: 10px;
+  /* Fondo blanco fijo: el bitmap institucional se diseñó sobre blanco. */
+  background: #ffffff;
 }
 
-.foto-concejal img,
+.imagen-banca,
 .imagen-fallback {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  /* `contain` preserva la imagen completa, incluidos nombre y logos internos. */
+  object-fit: contain;
 }
 
-.banca-ausente .foto-concejal img {
+.banca-publica[data-estado-banca='AUSENTE'] .imagen-banca {
   filter: grayscale(1);
-  opacity: 0.46;
+  opacity: 0.72;
 }
 
 .imagen-fallback {
   display: grid;
   place-items: center;
-  color: #cbd5e1;
-  background: linear-gradient(145deg, #334155, #172033);
-  font-size: clamp(1rem, 2vw, 1.55rem);
+  color: #334155;
+  font-size: clamp(1rem, 2vw, 1.6rem);
   font-weight: 900;
 }
 
-.numero-banca {
-  position: absolute;
-  left: 0.35rem;
-  bottom: 0.35rem;
+.franja-estado {
+  /* Altura reservada siempre: la geometría no depende del estado ni del texto. */
+  min-height: clamp(0.95rem, 1.9vh, 1.35rem);
   display: grid;
   place-items: center;
-  min-width: 1.7rem;
-  min-height: 1.35rem;
-  padding: 0.18rem 0.38rem;
-  border-radius: 999px;
-  color: #e0f2fe;
-  background: rgba(2, 8, 23, 0.86);
-  font-size: 0.58rem;
-  font-weight: 900;
-}
-
-.identidad-concejal {
   min-width: 0;
-  align-self: center;
 }
 
-.identidad-concejal strong,
-.identidad-concejal small {
-  display: block;
+.etiqueta-banca {
+  max-width: 100%;
+  padding: 0.1rem 0.4rem;
   overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.identidad-concejal strong {
-  color: #f8fafc;
-  font-size: clamp(0.72rem, 1.15vw, 1rem);
-  line-height: 1.15;
-}
-
-.identidad-concejal strong span {
-  display: block;
-  color: #bae6fd;
-}
-
-.identidad-concejal small {
-  margin-top: 0.4rem;
-  color: #94a3b8;
-  font-size: clamp(0.58rem, 0.8vw, 0.72rem);
-  white-space: nowrap;
-}
-
-.estados-banca {
-  grid-column: 1 / -1;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.28rem;
-}
-
-.etiqueta-estado {
-  padding: 0.2rem 0.42rem;
   border-radius: 999px;
-  font-size: clamp(0.52rem, 0.68vw, 0.66rem);
+  color: var(--texto-etiqueta-banca);
+  background: var(--fondo-etiqueta-banca);
+  font-size: clamp(0.5rem, 0.72vw, 0.7rem);
   font-weight: 900;
-  letter-spacing: 0.035em;
+  letter-spacing: 0.03em;
+  text-overflow: ellipsis;
   text-transform: uppercase;
-}
-
-.etiqueta-presencia {
-  color: #a7f3d0;
-  background: rgba(6, 78, 59, 0.75);
-}
-
-.banca-ausente .etiqueta-presencia {
-  color: #e2e8f0;
-  background: rgba(71, 85, 105, 0.82);
-}
-
-.etiqueta-test {
-  color: #422006;
-  background: #fbbf24;
-}
-
-.etiqueta-orador {
-  color: #082f49;
-  background: #7dd3fc;
-}
-
-.etiqueta-voto {
-  flex-basis: 100%;
-  border: 1px solid currentColor;
-  text-align: center;
-}
-
-.etiqueta-voto-positivo {
-  color: #a7f3d0;
-  background: rgba(6, 95, 70, 0.92);
-}
-
-.etiqueta-voto-negativo {
-  color: #fecaca;
-  background: rgba(153, 27, 27, 0.92);
-}
-
-.etiqueta-voto-abstencion {
-  color: #422006;
-  background: #fbbf24;
-}
-
-@media (max-height: 820px) {
-  .banca-publica {
-    min-height: 96px;
-    grid-template-columns: minmax(48px, 30%) minmax(0, 1fr);
-    padding: 0.45rem;
-  }
+  /* Un texto largo nunca puede empujar la geometría de la tarjeta. */
+  white-space: nowrap;
 }
 </style>

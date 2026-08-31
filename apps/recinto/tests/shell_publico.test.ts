@@ -81,14 +81,24 @@ describe('Shell público del Recinto', () => {
     expect(filaSuperior.find('[data-banca="12"]').exists()).toBe(true)
     const filaInferior = wrapper.get('[data-testid="fila-fisica-1"]')
     expect(filaInferior.findAll('[data-banca]')).toHaveLength(5)
-    expect(filaInferior.findAll('[data-testid="banca-publica"]')[0]?.text()).toContain('Nombre1')
+    // WP-045: la identidad ya no se dibuja como texto; vive en el bitmap y en
+    // `aria-label`. La tarjeta solo muestra imagen + como máximo una etiqueta.
+    expect(
+      filaInferior.findAll('[data-testid="banca-publica"]')[0]?.element.getAttribute('aria-label'),
+    ).toContain('Nombre1')
     expect(filaInferior.get('[data-banca="4"]').text()).toContain('sin datos públicos')
-    expect(filaInferior.get('[data-banca="5"]').text()).toContain('Nombre5')
+    expect(filaInferior.get('[data-banca="5"]').element.getAttribute('aria-label')).toContain(
+      'Nombre5',
+    )
 
     const bancaDos = wrapper.get('[data-banca="2"]')
-    expect(bancaDos.get('[data-testid="estado-presencia"]').text()).toBe('Ausente')
+    expect(bancaDos.element.getAttribute('data-estado-banca')).toBe('AUSENTE')
+    expect(bancaDos.get('[data-testid="etiqueta-banca"]').text()).toBe('Ausente')
     expect(bancaDos.find('[data-ruta-imagen="assets/bancas/banca-02.png"]').exists()).toBe(true)
-    expect(wrapper.get('[data-banca="3"] [data-testid="estado-test"]').text()).toBe('Test activo')
+    // El test es el estado principal y, por decisión HUMAN_GATE, no lleva etiqueta.
+    const bancaTres = wrapper.get('[data-banca="3"]')
+    expect(bancaTres.element.getAttribute('data-estado-banca')).toBe('TEST')
+    expect(bancaTres.find('[data-testid="etiqueta-banca"]').exists()).toBe(false)
   })
 
   it('muestra sesión, autoridades, quórum, orador y cola FIFO aun con votación', async () => {
@@ -137,7 +147,9 @@ describe('Shell público del Recinto', () => {
     expect(wrapper.get('[data-testid="autoridades"]').text()).toContain('Ana Presidencia')
     expect(wrapper.get('[data-testid="autoridades"]').text()).toContain('Luis Secretaría')
     expect(wrapper.get('[data-testid="estado-quorum"]').text()).toBe('Quórum alcanzado')
-    expect(wrapper.get('[data-banca="4"] [data-testid="estado-orador"]').exists()).toBe(true)
+    expect(wrapper.get('[data-banca="4"]').element.getAttribute('data-estado-banca')).toBe(
+      'PALABRA',
+    )
     expect(wrapper.get('[data-testid="panel-palabra"]').text()).not.toContain('Nombre4 Apellido4')
     expect(wrapper.get('[data-testid="cabecera-sesion"]').text()).toContain('59')
     expect(wrapper.get('[data-testid="cabecera-tiempo-sesion"]').exists()).toBe(true)
@@ -173,11 +185,11 @@ describe('Shell público del Recinto', () => {
     })
     const wrapper = await montarPantalla(estadoBase)
 
-    expect(wrapper.get('[data-banca="1"]').find('[data-testid="estado-orador"]').exists()).toBe(
-      true,
+    expect(wrapper.get('[data-banca="1"]').element.getAttribute('data-estado-banca')).toBe(
+      'PALABRA',
     )
-    expect(wrapper.get('[data-banca="2"]').find('[data-testid="estado-orador"]').exists()).toBe(
-      false,
+    expect(wrapper.get('[data-banca="2"]').element.getAttribute('data-estado-banca')).not.toBe(
+      'PALABRA',
     )
 
     await wrapper.setProps({
@@ -190,17 +202,17 @@ describe('Shell público del Recinto', () => {
         },
       },
     })
-    expect(wrapper.get('[data-banca="1"]').find('[data-testid="estado-orador"]').exists()).toBe(
-      false,
+    expect(wrapper.get('[data-banca="1"]').element.getAttribute('data-estado-banca')).not.toBe(
+      'PALABRA',
     )
-    expect(wrapper.get('[data-banca="2"]').find('[data-testid="estado-orador"]').exists()).toBe(
-      true,
+    expect(wrapper.get('[data-banca="2"]').element.getAttribute('data-estado-banca')).toBe(
+      'PALABRA',
     )
 
     await wrapper.setProps({
       estado: { ...estadoBase, revision: 3, palabra: { orador: null, cola: [] } },
     })
-    expect(wrapper.find('[data-testid="estado-orador"]').exists()).toBe(false)
+    expect(wrapper.find('[data-estado-banca="PALABRA"]').exists()).toBe(false)
   })
 
   it('conserva la vista al reconectar, adopta SIN_PREPARAR y degrada imagen rota', async () => {
@@ -230,7 +242,13 @@ describe('Shell público del Recinto', () => {
     expect(wrapper.find('[data-banca="1"]').exists()).toBe(false)
 
     const banca = mount(BancaPublica, {
-      props: { concejal: crearConcejalesPublicos(1)[0]!, esOrador: false, voto: null },
+      props: {
+        concejal: crearConcejalesPublicos(1)[0]!,
+        esOrador: false,
+        estadoRecepcion: null,
+        votoEmitido: false,
+        valorVotoFinal: null,
+      },
     })
     await banca.get('img').trigger('error')
     expect(banca.get('[data-testid="imagen-fallback"]').text()).toBe('NA')
@@ -243,14 +261,22 @@ describe('Shell público del Recinto', () => {
       test_activo: true,
     }
     const banca = mount(BancaPublica, {
-      props: { concejal: concejalAusente, esOrador: true, voto: null },
+      props: {
+        concejal: concejalAusente,
+        esOrador: true,
+        estadoRecepcion: null,
+        votoEmitido: false,
+        valorVotoFinal: null,
+      },
     })
 
-    expect(banca.element.classList.contains('banca-ausente')).toBe(true)
-    expect(banca.get('[data-testid="numero-banca"]').text()).toBe('Banca 1')
-    expect(banca.get('[data-testid="estado-presencia"]').text()).toBe('Ausente')
-    expect(banca.get('[data-testid="estado-test"]').text()).toBe('Test activo')
-    expect(banca.get('[data-testid="estado-orador"]').exists()).toBe(true)
+    // Prioridad WP-045: test gana a palabra y a ausencia. El estado principal es
+    // TEST (sin etiqueta) y la palabra subordinada sobrevive solo como halo.
+    expect(banca.element.getAttribute('data-estado-banca')).toBe('TEST')
+    expect(banca.find('[data-testid="etiqueta-banca"]').exists()).toBe(false)
+    expect(banca.element.getAttribute('data-halo-palabra')).toBe('true')
+    expect(banca.element.getAttribute('aria-label')).toContain('Banca 1')
+    expect(banca.text()).not.toContain('Banca 1')
 
     await banca.get('[data-testid="imagen-concejal"]').trigger('error')
     expect(banca.get('[data-testid="imagen-fallback"]').text()).toBe('NA')
@@ -267,7 +293,7 @@ describe('Shell público del Recinto', () => {
     })
     expect(banca.find('[data-testid="imagen-concejal"]').exists()).toBe(true)
     expect(banca.find('[data-testid="imagen-fallback"]').exists()).toBe(false)
-    expect(banca.get('[data-testid="estado-presencia"]').text()).toBe('Presente')
+    expect(banca.element.getAttribute('data-presente')).toBe('true')
     expect(concejalAusente.presente).toBe(false)
   })
 })

@@ -96,7 +96,7 @@ test.describe.serial('WP-034 · Simulador Web Integrado sobre stack real', () =>
       // (El test visual dura 600 ms; coordinamos la pulsación y la observación en paralelo)
       await Promise.all([
         simulador.getByTestId('btn-dev01-8').click(),
-        expect(moderacion.locator('[data-banca="1"] [data-testid="indicador-test"]')).toBeVisible(),
+        expect(moderacion.locator('[data-banca="1"]')).toHaveAttribute('data-estado-banca', 'TEST'),
       ])
 
       // Verificar que el log del simulador registró la aceptación de la tecla 8

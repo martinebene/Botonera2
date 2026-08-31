@@ -51,6 +51,7 @@ export function crearVotacionPublicaPrueba(
     fecha_hora_cierre: parcial.fecha_hora_cierre ?? null,
     cuenta_regresiva_hasta: parcial.cuenta_regresiva_hasta ?? null,
     resultado_visible_hasta: parcial.resultado_visible_hasta ?? null,
+    bancas_voto_emitido: parcial.bancas_voto_emitido ?? [],
     votos_individuales: parcial.votos_individuales ?? null,
     conteos: parcial.conteos ?? null,
     voto_presidencial: parcial.voto_presidencial ?? null,

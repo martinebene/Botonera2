@@ -3024,6 +3024,13 @@
             "type": "integer",
             "title": "Cantidad Votos Recibidos"
           },
+          "bancas_voto_emitido": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Bancas Voto Emitido"
+          },
           "revelado_individual_desde": {
             "type": "string",
             "format": "date-time",
@@ -3084,6 +3091,7 @@
           "fecha_hora_resultado",
           "motivo_finalizacion_manual",
           "cantidad_votos_recibidos",
+          "bancas_voto_emitido",
           "revelado_individual_desde",
           "votos_individuales_revelados",
           "votos_individuales",
@@ -3179,6 +3187,13 @@
             ],
             "title": "Resultado Visible Hasta"
           },
+          "bancas_voto_emitido": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Bancas Voto Emitido"
+          },
           "votos_individuales": {
             "anyOf": [
               {
@@ -3229,6 +3244,7 @@
           "fecha_hora_cierre",
           "cuenta_regresiva_hasta",
           "resultado_visible_hasta",
+          "bancas_voto_emitido",
           "votos_individuales",
           "conteos",
           "voto_presidencial"

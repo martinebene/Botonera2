@@ -111,10 +111,13 @@ test.describe.serial('WP-027 · recorridos críticos sobre el stack real', () =>
         // paralelo, sin modificar el timer funcional ni dormir artificialmente.
         await Promise.all([
           pulsar('1-8'),
-          expect(
-            moderacion.locator('[data-banca="1"] [data-testid="indicador-test"]'),
-          ).toBeVisible(),
-          expect(recinto.locator('[data-banca="1"] [data-testid="estado-test"]')).toBeVisible(),
+          // WP-045 unifica la señal: ambas superficies pintan el test como
+          // estado principal, con el mismo atributo y sin etiqueta textual.
+          expect(moderacion.locator('[data-banca="1"]')).toHaveAttribute(
+            'data-estado-banca',
+            'TEST',
+          ),
+          expect(recinto.locator('[data-banca="1"]')).toHaveAttribute('data-estado-banca', 'TEST'),
         ])
 
         await pulsarSecuencia(['1-9', '2-9', '3-9', '4-9', '5-9', '6-9', '7-9'])
@@ -144,12 +147,14 @@ test.describe.serial('WP-027 · recorridos críticos sobre el stack real', () =>
         await expect(recinto.getByTestId('cola-palabra')).toContainText('Lorena Moreno')
         await moderacion.getByTestId('btn-otorgar-palabra').click()
         // WP-044: Moderación ya no repite al orador como texto; la señal vive en su banca.
-        await expect(
-          moderacion.locator('[data-banca="1"] [data-testid="estado-orador"]'),
-        ).toBeVisible()
-        await expect(
-          recinto.locator('[data-banca="1"] [data-testid="estado-orador"]'),
-        ).toBeVisible()
+        await expect(moderacion.locator('[data-banca="1"]')).toHaveAttribute(
+          'data-estado-banca',
+          'PALABRA',
+        )
+        await expect(recinto.locator('[data-banca="1"]')).toHaveAttribute(
+          'data-estado-banca',
+          'PALABRA',
+        )
         await expect(recinto.getByTestId('panel-palabra')).not.toContainText('Lorena Moreno')
 
         await moderacion.getByTestId('input-numero-votacion').fill('1')
@@ -161,18 +166,20 @@ test.describe.serial('WP-027 · recorridos críticos sobre el stack real', () =>
         await expect(moderacion.getByTestId('dialogo-confirmacion-apertura')).toHaveCount(0)
         await expect(moderacion.getByTestId('formulario-votacion')).toBeVisible()
         // WP-044: Moderación ya no repite al orador como texto; la señal vive en su banca.
-        await expect(
-          moderacion.locator('[data-banca="1"] [data-testid="estado-orador"]'),
-        ).toBeVisible()
+        await expect(moderacion.locator('[data-banca="1"]')).toHaveAttribute(
+          'data-estado-banca',
+          'PALABRA',
+        )
 
         await moderacion.getByTestId('btn-abrir-votacion').click()
         await moderacion.getByTestId('btn-confirmar-apertura').click()
         await expect(moderacion.getByTestId('estado-votacion')).toHaveText('EN_CURSO')
         await expect(recinto.getByTestId('estado-votacion')).toHaveText('En curso')
         await expect(recinto.getByTestId('countdown-votacion')).toBeVisible()
-        await expect(
-          recinto.locator('[data-banca="1"] [data-testid="estado-orador"]'),
-        ).toBeVisible()
+        await expect(recinto.locator('[data-banca="1"]')).toHaveAttribute(
+          'data-estado-banca',
+          'PALABRA',
+        )
         await expect(recinto.getByTestId('panel-palabra')).not.toContainText('Lorena Moreno')
       })
 
@@ -181,12 +188,31 @@ test.describe.serial('WP-027 · recorridos críticos sobre el stack real', () =>
         await expect(moderacion.getByTestId('cantidad-votos-recibidos')).toHaveText('3')
         await expect(moderacion.getByTestId('votos-ocultos')).toBeVisible()
         await expect(recinto.getByTestId('conteos-votacion')).toHaveCount(0)
-        await expect(recinto.getByTestId('voto-banca')).toHaveCount(0)
+        await expect(recinto.locator('[data-estado-banca^="RESULTADO_"]')).toHaveCount(0)
+
+        // WP-045: las tres bancas que ya votaron muestran participación en las
+        // dos superficies, con la misma etiqueta y sin ningún sentido.
+        for (const pagina of [moderacion, recinto]) {
+          for (const banca of [1, 2, 3]) {
+            await expect(pagina.locator(`[data-banca="${banca}"]`)).toHaveAttribute(
+              'data-estado-banca',
+              'VOTO_EMITIDO',
+            )
+            await expect(
+              pagina.locator(`[data-banca="${banca}"] [data-testid="etiqueta-banca"]`),
+            ).toHaveText('Voto emitido')
+          }
+          await expect(pagina.locator('[data-banca="4"]')).not.toHaveAttribute(
+            'data-estado-banca',
+            'VOTO_EMITIDO',
+          )
+        }
 
         const publicoEnCurso = await obtenerEstado(recinto, 'recinto')
         expect(publicoEnCurso.votacion?.estado_recepcion).toBe('EN_CURSO')
         expect(publicoEnCurso.votacion?.votos_individuales).toBeNull()
         expect(publicoEnCurso.votacion?.conteos).toBeNull()
+        expect(publicoEnCurso.votacion?.bancas_voto_emitido).toEqual([1, 2, 3])
         expect(JSON.stringify(publicoEnCurso)).not.toContain('POSITIVO')
         expect(JSON.stringify(publicoEnCurso)).not.toContain('10000008')
 
@@ -197,15 +223,18 @@ test.describe.serial('WP-027 · recorridos críticos sobre el stack real', () =>
         await expect(moderacion.getByTestId('estado-votacion')).toHaveText('APROBADA')
         await expect(recinto.getByTestId('estado-votacion')).toHaveText('Aprobada')
         await expect(recinto.getByTestId('conteos-votacion')).toContainText('Positivos')
-        await expect(recinto.locator('[data-banca="1"] [data-testid="voto-banca"]')).toHaveText(
-          'Positivo',
-        )
-        await expect(recinto.locator('[data-banca="2"] [data-testid="voto-banca"]')).toHaveText(
-          'Negativo',
-        )
-        await expect(recinto.locator('[data-banca="3"] [data-testid="voto-banca"]')).toHaveText(
-          'Abstención',
-        )
+        // Tras el cierre ambas superficies muestran el mismo resultado por banca.
+        for (const pagina of [moderacion, recinto]) {
+          await expect(
+            pagina.locator('[data-banca="1"] [data-testid="etiqueta-banca"]'),
+          ).toHaveText('Positivo')
+          await expect(
+            pagina.locator('[data-banca="2"] [data-testid="etiqueta-banca"]'),
+          ).toHaveText('Negativo')
+          await expect(
+            pagina.locator('[data-banca="3"] [data-testid="etiqueta-banca"]'),
+          ).toHaveText('Abstención')
+        }
         await expect(recinto.getByTestId('votacion-publica')).toHaveCount(0, { timeout: 9_000 })
       })
 
@@ -249,10 +278,13 @@ test.describe.serial('WP-027 · recorridos críticos sobre el stack real', () =>
         await pulsarSecuencia(['2-9', '3-9'])
         await expect(moderacion.getByTestId('estado-votacion')).toHaveText('INCONCLUSA')
         await expect(recinto.getByTestId('estado-votacion')).toHaveText('Inconclusa')
-        await expect(recinto.locator('[data-banca="1"] [data-testid="voto-banca"]')).toHaveText(
+        await expect(recinto.locator('[data-banca="1"] [data-testid="etiqueta-banca"]')).toHaveText(
           'Positivo',
         )
-        await expect(recinto.locator('[data-banca="4"] [data-testid="voto-banca"]')).toHaveCount(0)
+        await expect(recinto.locator('[data-banca="4"]')).not.toHaveAttribute(
+          'data-estado-banca',
+          /RESULTADO_/,
+        )
 
         await pulsarSecuencia(['2-9', '3-9'])
         await expect(recinto.getByTestId('cantidad-presentes')).toHaveText('8')
@@ -267,13 +299,22 @@ test.describe.serial('WP-027 · recorridos críticos sobre el stack real', () =>
         await expect(moderacion.getByTestId('votos-individuales')).toHaveCount(0)
         await expect(moderacion.getByTestId('conteos-votacion')).toContainText('Negativos')
         await expect(moderacion.getByTestId('conteos-votacion')).toContainText('1')
-        await expect(recinto.locator('[data-banca="1"] [data-testid="voto-banca"]')).toHaveText(
+        await expect(recinto.locator('[data-banca="1"] [data-testid="etiqueta-banca"]')).toHaveText(
           'Negativo',
         )
-        // WP-044: Moderación ya no repite al orador como texto; la señal vive en su banca.
+        // WP-045: el resultado final gana a la palabra, que sobrevive como halo
+        // sin agregar una segunda etiqueta. La señal sigue viviendo en la banca.
+        await expect(moderacion.locator('[data-banca="1"]')).toHaveAttribute(
+          'data-estado-banca',
+          'RESULTADO_NEGATIVO',
+        )
+        await expect(moderacion.locator('[data-banca="1"]')).toHaveAttribute(
+          'data-halo-palabra',
+          'true',
+        )
         await expect(
-          moderacion.locator('[data-banca="1"] [data-testid="estado-orador"]'),
-        ).toBeVisible()
+          moderacion.locator('[data-banca="1"] [data-testid="etiqueta-banca"]'),
+        ).toHaveCount(1)
       })
 
       await test.step('G · Orden del Día deja una votación real EN_CURSO para el cierre', async () => {
@@ -301,10 +342,17 @@ test.describe.serial('WP-027 · recorridos críticos sobre el stack real', () =>
         await expect(moderacion.getByTestId('dialogo-confirmacion-cierre')).toBeVisible()
         await moderacion.getByTestId('btn-cancelar-cierre').click()
         await expect(moderacion.getByTestId('vista-sesion-abierta')).toBeVisible()
-        // WP-044: Moderación ya no repite al orador como texto; la señal vive en su banca.
-        await expect(
-          moderacion.locator('[data-banca="1"] [data-testid="estado-orador"]'),
-        ).toBeVisible()
+        // WP-045: la banca 1 ya votó en esta votación EN_CURSO, así que su
+        // estado principal es la participación sin sentido; la palabra sigue
+        // señalizada como halo, sin una segunda etiqueta.
+        await expect(moderacion.locator('[data-banca="1"]')).toHaveAttribute(
+          'data-estado-banca',
+          'VOTO_EMITIDO',
+        )
+        await expect(moderacion.locator('[data-banca="1"]')).toHaveAttribute(
+          'data-halo-palabra',
+          'true',
+        )
         const estadoTrasCancelar = await obtenerEstado(moderacion, 'moderacion')
         expect(estadoTrasCancelar.estado_global).toBe('SESION_ABIERTA')
         expect(estadoTrasCancelar.votacion?.estado_recepcion).toBe('EN_CURSO')

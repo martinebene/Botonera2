@@ -232,6 +232,7 @@ async function configurarCicloVotacionMock(page: Page, estadoInicial: Record<str
           fecha_hora_cierre: '2026-08-26T10:00:10Z',
           fecha_hora_resultado: '2026-08-26T10:00:10Z',
           cantidad_votos_recibidos: 8,
+          bancas_voto_emitido: [],
           votos_individuales_revelados: true,
           votos_individuales: [
             {
@@ -289,6 +290,7 @@ async function configurarCicloVotacionMock(page: Page, estadoInicial: Record<str
           fecha_hora_resultado: null,
           motivo_finalizacion_manual: null,
           cantidad_votos_recibidos: 0,
+          bancas_voto_emitido: [],
           revelado_individual_desde: '2026-08-26T10:00:04Z',
           votos_individuales_revelados: false,
           votos_individuales: null,
@@ -886,6 +888,7 @@ function crearVotacionCompacta(parcial: Record<string, unknown> = {}) {
     fecha_hora_resultado: null,
     motivo_finalizacion_manual: null,
     cantidad_votos_recibidos: 8,
+    bancas_voto_emitido: [],
     revelado_individual_desde: '2026-08-29T10:00:04Z',
     votos_individuales_revelados: true,
     votos_individuales: [
@@ -1047,8 +1050,8 @@ test.describe('UI de Moderación - Estados Institucionales y Contrato de Shell (
       const bancas = page.locator('[data-testid="banca-concejal"]')
       await expect(bancas).toHaveCount(12)
 
-      // Banca 1 con test activo visible
-      await expect(page.locator('[data-testid="badge-test-activo"]')).toBeVisible()
+      // Banca 1 con test activo: WP-045 lo pinta como estado principal sin etiqueta.
+      await expect(page.locator('[data-estado-banca="TEST"]')).toHaveCount(1)
     }
   })
 
@@ -1107,23 +1110,26 @@ test.describe('UI de Moderación - Estados Institucionales y Contrato de Shell (
       }
 
       await expect(filaInferior.locator('[data-banca="4"]')).toContainText('sin datos')
-      await expect(filaInferior.locator('[data-banca="5"]')).toContainText('Concejal05')
-      await expect(bancaUno.locator('[data-testid="numero-banca"]')).toHaveText('Banca 1')
-      await expect(bancaUno.locator('[data-testid="nombre-concejal"]')).toContainText(
-        'Concejal01 Apellido01',
+      // WP-045: la identidad ya no se repite como texto fuera del bitmap.
+      await expect(filaInferior.locator('[data-banca="5"]')).toHaveAttribute(
+        'aria-label',
+        /Concejal05/,
       )
-      await expect(bancaUno.locator('[data-testid="bloque-concejal"]')).toBeVisible()
-      await expect(bancaUno.locator('[data-testid="estado-presencia"]')).toHaveText('Presente')
-      await expect(page.locator('[data-banca="2"] [data-testid="estado-presencia"]')).toHaveText(
+      // El fixture activa el test en la banca 1: WP-045 lo pinta como estado
+      // principal, en azul y sin ninguna etiqueta textual.
+      await expect(bancaUno).toHaveAttribute('data-estado-banca', 'TEST')
+      await expect(bancaUno.locator('[data-testid="etiqueta-banca"]')).toHaveCount(0)
+      await expect(bancaUno).not.toContainText('Concejal01')
+      await expect(bancaUno).not.toContainText('Banca 1')
+      await expect(page.locator('[data-banca="2"]')).toHaveAttribute('data-estado-banca', 'AUSENTE')
+      await expect(page.locator('[data-banca="2"] [data-testid="etiqueta-banca"]')).toHaveText(
         'Ausente',
       )
       const ausencia = await page.locator('[data-banca="2"]').evaluate((banca) => ({
-        opacidad: Number.parseFloat(getComputedStyle(banca).opacity),
         filtroFoto: getComputedStyle(
           banca.querySelector('[data-testid="imagen-concejal"]') as HTMLElement,
         ).filter,
       }))
-      expect(ausencia.opacidad).toBeLessThan(1)
       expect(ausencia.filtroFoto).not.toBe('none')
 
       // WP-039: palabra comparte horizontalmente Q3 y el remapeo inactivo ocupa
@@ -1908,7 +1914,9 @@ test.describe('WP-024 - Palabra, eventos y remapeo autoritativos', () => {
       // La cola completa conserva FIFO y quitar no promueve implícitamente.
       // WP-044: el orador se lee en su banca, no en un texto repetido dentro de la columna.
       await expect(page.locator('[data-testid="orador-actual-texto"]')).toHaveCount(0)
-      await expect(page.locator('[data-banca="1"] [data-testid="estado-orador"]')).toBeVisible()
+      // La banca 1 también tiene test activo, que gana en prioridad; el uso de
+      // la palabra sobrevive como halo, sin agregar una segunda etiqueta.
+      await expect(page.locator('[data-banca="1"]')).toHaveAttribute('data-halo-palabra', 'true')
       await expect(page.locator('[data-testid="pedido-palabra-1"]')).toContainText(
         'Concejal02 Apellido02',
       )
@@ -1919,14 +1927,15 @@ test.describe('WP-024 - Palabra, eventos y remapeo autoritativos', () => {
         ;(boton as HTMLButtonElement).click()
         ;(boton as HTMLButtonElement).click()
       })
-      await expect(page.locator('[data-testid="estado-orador"]')).toHaveCount(0)
+      await expect(page.locator('[data-halo-palabra="true"]')).toHaveCount(0)
+      await expect(page.locator('[data-estado-banca="PALABRA"]')).toHaveCount(0)
       await expect(page.locator('[data-testid="badge-cola-palabra"]')).toContainText('2 en cola')
 
       await page.locator('[data-testid="btn-otorgar-palabra"]').evaluate((boton) => {
         ;(boton as HTMLButtonElement).click()
         ;(boton as HTMLButtonElement).click()
       })
-      await expect(page.locator('[data-banca="2"] [data-testid="estado-orador"]')).toBeVisible()
+      await expect(page.locator('[data-banca="2"]')).toHaveAttribute('data-estado-banca', 'PALABRA')
       await expect(page.locator('[data-testid="badge-cola-palabra"]')).toContainText('1 en cola')
 
       // L3 es inicial; L2 y L1 incluyen acumulativamente los niveles inferiores.
@@ -2075,10 +2084,13 @@ test.describe('WP-039 - Q3 horizontal, scroll de cola y remapeo compacto', () =>
           .count(),
       ).toBe(0)
 
+      // WP-045: con test y palabra simultáneos gana el test como estado
+      // principal y la palabra sobrevive como halo, sin segunda etiqueta.
       const bancaOrador = page.locator('[data-banca="1"]')
-      await expect(bancaOrador.locator('[data-testid="estado-orador"]')).toBeVisible()
-      await expect(bancaOrador.locator('[data-testid="badge-test-activo"]')).toBeVisible()
-      expect(await bancaOrador.evaluate((banca) => getComputedStyle(banca).outlineStyle)).not.toBe(
+      await expect(bancaOrador).toHaveAttribute('data-estado-banca', 'TEST')
+      await expect(bancaOrador).toHaveAttribute('data-halo-palabra', 'true')
+      await expect(bancaOrador.locator('[data-testid="etiqueta-banca"]')).toHaveCount(0)
+      expect(await bancaOrador.evaluate((banca) => getComputedStyle(banca).boxShadow)).not.toBe(
         'none',
       )
 
