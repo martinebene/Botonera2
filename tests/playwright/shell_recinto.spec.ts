@@ -4,6 +4,11 @@ import { expect, test, type Page } from '@playwright/test'
 
 const HORA_RELOJ_E2E = new Date('2026-08-28T10:00:00Z')
 
+// La zona del navegador difiere deliberadamente de la escala sin offset del
+// backend. Así, la prueba falla si alguien vuelve a interpretar esas marcas
+// como hora local del navegador en lugar de comparar el reloj institucional.
+test.use({ timezoneId: 'America/Los_Angeles' })
+
 function crearConcejales(cantidad: number) {
   return Array.from({ length: cantidad }, (_, indice) => {
     const banca = indice + 1
@@ -32,6 +37,7 @@ function crearEstado(parcial: Record<string, unknown> = {}) {
     quorum: null,
     votacion: null,
     palabra: null,
+    eventos_publicos: [],
     ...parcial,
   }
 }
@@ -57,6 +63,32 @@ function crearVotacion(parcial: Record<string, unknown> = {}) {
     voto_presidencial: null,
     ...parcial,
   }
+}
+
+function crearEventosPublicos() {
+  // Códigos, categorías y textos copiados literalmente de la allowlist del
+  // backend: si alguien cambia el mapeo público, esta prueba deja de reflejar
+  // el contrato real y el desvío se vuelve visible.
+  const codigos = [
+    ['SESION_ABIERTA', 'SESION', 'Sesión abierta'],
+    ['CONCEJAL_PRESENTE', 'PRESENCIA', 'Concejal presente'],
+    ['PEDIDO_PALABRA_REGISTRADO', 'PALABRA', 'Pedido de palabra registrado'],
+    ['USO_PALABRA_OTORGADO', 'PALABRA', 'Uso de palabra otorgado'],
+    ['VOTACION_ABIERTA', 'VOTACION', 'Votación abierta'],
+  ] as const
+  return Array.from({ length: 20 }, (_, indice) => {
+    const [codigo_evento, categoria, texto] = codigos[indice % codigos.length]!
+    return {
+      seq: indice + 1,
+      timestamp: `2026-08-28 09:59:${String(indice).padStart(2, '0')}`,
+      categoria,
+      codigo_evento,
+      texto,
+      // La vista no debe recorrer ni renderizar campos ajenos al DTO público.
+      mensaje: 'DNI 99999999 dispositivo USB tecla 1 sentido POSITIVO',
+      nivel: 'L3',
+    }
+  })
 }
 
 /**
@@ -207,7 +239,7 @@ for (const viewport of [
     })
     await publicar(page, preparando)
 
-    await expect(page.getByTestId('estado-global-visible')).toContainText('preparación')
+    await expect(page.getByTestId('cabecera-sesion')).toContainText('Preparando')
     await expect(page.getByTestId('cabecera-fecha-hora')).toBeVisible()
     await expect(page.getByTestId('cabecera-sesion')).toContainText('Preparando')
     await expect(page.getByTestId('cabecera-tiempo-sesion')).toHaveCount(0)
@@ -266,10 +298,11 @@ for (const viewport of [
 
     const sesion = crearEstado({
       revision: 2,
+      generado_en: '2026-08-28T10:00:00',
       estado_global: 'SESION_ABIERTA',
       sesion: {
-        fecha_hora_inicio_preparacion: '2026-08-27T10:00:00Z',
-        fecha_hora_apertura: '2026-08-28T09:45:00Z',
+        fecha_hora_inicio_preparacion: '2026-08-27T10:00:00',
+        fecha_hora_apertura: '2026-08-28T09:45:00',
         numero_sesion: 59,
         presidencia: 'Ana Presidencia',
         secretaria_legislativa: 'Luis Secretaría',
@@ -290,14 +323,14 @@ for (const viewport of [
         ],
       },
       votacion: null,
+      eventos_publicos: crearEventosPublicos(),
     })
     await publicar(page, sesion)
 
-    await expect(page.getByTestId('titulo-contexto')).toContainText('59')
     await expect(page.getByTestId('cabecera-sesion')).toContainText('59')
     await expect(page.getByTestId('cabecera-tiempo-sesion')).toContainText('00:15:00')
-    await expect(page.getByTestId('autoridades')).toContainText('Ana Presidencia')
-    await expect(page.getByTestId('autoridades')).toContainText('Luis Secretaría')
+    await expect(page.getByTestId('cabecera-autoridades')).toContainText('Ana Presidencia')
+    await expect(page.getByTestId('cabecera-autoridades')).toContainText('Luis Secretaría')
     await expect(page.getByTestId('estado-quorum')).toHaveText('Quórum alcanzado')
     await expect(page.locator('[data-banca="4"]')).toHaveAttribute('data-estado-banca', 'PALABRA')
     await expect(page.getByTestId('panel-palabra')).not.toContainText('Nombre4 Apellido4')
@@ -320,20 +353,42 @@ for (const viewport of [
     expect(await page.getByTestId('cabecera-fecha-hora').textContent()).not.toBe(horaAntes)
 
     const cajaCabecera = await page.getByTestId('cabecera-recinto').boundingBox()
-    const cajaFranja = await page.getByTestId('franja-contexto-publico').boundingBox()
+    const cajaFranja = await page.getByTestId('franja-votacion-quorum').boundingBox()
     const cajaQuorum = await page.getByTestId('panel-quorum').boundingBox()
     expect(cajaCabecera).not.toBeNull()
     expect(cajaFranja).not.toBeNull()
     expect(cajaQuorum).not.toBeNull()
     expect(cajaCabecera!.height).toBeLessThan(80)
-    expect(cajaFranja!.height).toBeLessThan(150)
-    expect(cajaQuorum!.height).toBeLessThan(80)
+    expect(cajaFranja!.height).toBeGreaterThan(110)
+    expect(cajaQuorum!.height).toBeGreaterThan(110)
 
     const cajaBancasSesion = await page.getByTestId('area-bancas-publica').boundingBox()
     const cajaPalabraSesion = await page.getByTestId('columna-palabra-publica').boundingBox()
+    const cajaVotacionSesion = await page.getByTestId('votacion-publica').boundingBox()
+    const cajaEventosSesion = await page.getByTestId('panel-eventos-publicos').boundingBox()
     expect(cajaBancasSesion).not.toBeNull()
     expect(cajaPalabraSesion).not.toBeNull()
+    expect(cajaVotacionSesion).not.toBeNull()
+    expect(cajaEventosSesion).not.toBeNull()
+    expect(cajaVotacionSesion!.x + cajaVotacionSesion!.width).toBeLessThanOrEqual(cajaQuorum!.x)
+    expect(cajaFranja!.y + cajaFranja!.height).toBeLessThanOrEqual(cajaBancasSesion!.y)
     expect(cajaBancasSesion!.x + cajaBancasSesion!.width).toBeLessThanOrEqual(cajaPalabraSesion!.x)
+    expect(cajaBancasSesion!.width).toBeGreaterThan(cajaPalabraSesion!.width * 2)
+    expect(cajaBancasSesion!.y + cajaBancasSesion!.height).toBeLessThanOrEqual(cajaEventosSesion!.y)
+    expect(cajaPalabraSesion!.y + cajaPalabraSesion!.height).toBeLessThanOrEqual(
+      cajaEventosSesion!.y,
+    )
+
+    const scrollEventos = await page.getByTestId('lista-eventos-publicos').evaluate((lista) => ({
+      altoVisible: lista.clientHeight,
+      altoContenido: lista.scrollHeight,
+      desplazamiento: lista.scrollTop,
+    }))
+    expect(scrollEventos.altoContenido).toBeGreaterThan(scrollEventos.altoVisible)
+    expect(scrollEventos.desplazamiento + scrollEventos.altoVisible).toBeGreaterThanOrEqual(
+      scrollEventos.altoContenido - 1,
+    )
+    await expect(page.getByTestId('panel-eventos-publicos').locator('select')).toHaveCount(0)
 
     // La votación nueva reemplaza la sesión sin votación. Aun si el mock
     // incluyera datos prohibidos, EN_CURSO no revela voto ni conteos en DOM.
@@ -374,12 +429,73 @@ for (const viewport of [
     await expect(page.getByTestId('estado-votacion')).toHaveText('En curso')
     await expect(page.locator('[data-estado-banca^="RESULTADO_"]')).toHaveCount(0)
 
+    const htmlEventosEnCurso = (
+      await page.getByTestId('panel-eventos-publicos').evaluate((panel) => panel.outerHTML)
+    ).toLowerCase()
+    for (const datoProhibido of [
+      '99999999',
+      'dispositivo',
+      'tecla',
+      'sentido',
+      'positivo',
+      'negativo',
+      'abstencion',
+    ]) {
+      expect(htmlEventosEnCurso).not.toContain(datoProhibido)
+    }
+
+    const selectoresGeometria = [
+      'votacion-publica',
+      'panel-quorum',
+      'area-bancas-publica',
+      'columna-palabra-publica',
+      'panel-eventos-publicos',
+    ] as const
+    const geometriaTemaCorto = await Promise.all(
+      selectoresGeometria.map((selector) => page.getByTestId(selector).boundingBox()),
+    )
+
     const temaLargo =
       'Tratamiento extenso del expediente institucional con una descripción deliberadamente larga para validar la degradación controlada del texto público'
+    await publicar(page, {
+      ...enCurso,
+      revision: 4,
+      votacion: crearVotacion({
+        tema: temaLargo,
+        fecha_hora_apertura: new Date(ahoraCountdown).toISOString(),
+      }),
+    })
+    await expect(page.getByTestId('tema-votacion')).toHaveAttribute('title', temaLargo)
+    const estiloTema = await page.getByTestId('tema-votacion').evaluate((tema) => {
+      const estilo = getComputedStyle(tema)
+      return {
+        whiteSpace: estilo.whiteSpace,
+        overflow: estilo.overflow,
+        textOverflow: estilo.textOverflow,
+      }
+    })
+    expect(estiloTema).toEqual({
+      whiteSpace: 'nowrap',
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+    })
+    const geometriaTemaLargo = await Promise.all(
+      selectoresGeometria.map((selector) => page.getByTestId(selector).boundingBox()),
+    )
+    for (let indice = 0; indice < geometriaTemaCorto.length; indice += 1) {
+      const corta = geometriaTemaCorto[indice]
+      const larga = geometriaTemaLargo[indice]
+      expect(corta).not.toBeNull()
+      expect(larga).not.toBeNull()
+      for (const dimension of ['x', 'y', 'width', 'height'] as const) {
+        expect(Math.abs(corta![dimension] - larga![dimension])).toBeLessThanOrEqual(1)
+      }
+    }
+
     const ahoraAprobada = await page.evaluate(() => Date.now())
     const aprobada = {
       ...sesion,
-      revision: 4,
+      revision: 5,
       generado_en: new Date(ahoraAprobada).toISOString(),
       votacion: crearVotacion({
         tema: temaLargo,
@@ -413,15 +529,15 @@ for (const viewport of [
       'data-estado-banca',
       /RESULTADO_/,
     )
-    await expect(page.getByTestId('conteos-votacion')).toContainText('Positivos8')
-    await expect(page.getByTestId('conteos-votacion')).toContainText('Total11')
+    await expect(page.getByTestId('conteos-votacion')).toContainText('Positivos 8')
+    await expect(page.getByTestId('conteos-votacion')).toContainText('Total 11')
     await page.clock.runFor(1750)
-    await expect(page.getByTestId('votacion-publica')).toHaveCount(0)
+    await expect(page.getByTestId('estado-votacion')).toHaveText('Sin votación')
     await expect(page.locator('[data-estado-banca^="RESULTADO_"]')).toHaveCount(0)
 
     const empatada = {
       ...sesion,
-      revision: 5,
+      revision: 6,
       generado_en: new Date(await page.evaluate(() => Date.now())).toISOString(),
       votacion: crearVotacion({
         id: 'votacion-empate',
@@ -447,7 +563,7 @@ for (const viewport of [
     const ahoraDesempate = await page.evaluate(() => Date.now())
     await publicar(page, {
       ...empatada,
-      revision: 6,
+      revision: 7,
       generado_en: new Date(ahoraDesempate).toISOString(),
       votacion: crearVotacion({
         id: 'votacion-empate',
@@ -468,12 +584,12 @@ for (const viewport of [
     await expect(page.getByTestId('voto-presidencial')).toContainText('Ana Presidencia')
     await expect(page.getByTestId('voto-presidencial')).toContainText('Negativo')
     await expect(page.locator('[data-estado-banca^="RESULTADO_"]')).toHaveCount(2)
-    await expect(page.getByTestId('conteos-votacion')).toContainText('Total2')
+    await expect(page.getByTestId('conteos-votacion')).toContainText('Total 2')
 
     const ahoraInconclusa = await page.evaluate(() => Date.now())
     const inconclusa = {
       ...sesion,
-      revision: 7,
+      revision: 8,
       generado_en: new Date(ahoraInconclusa).toISOString(),
       votacion: crearVotacion({
         id: 'votacion-inconclusa',

@@ -230,6 +230,10 @@ function crearEstadoRecinto(votacion: Record<string, unknown> | null) {
       orador: { nombre: 'Concejal01', apellido: 'Apellido01', banca: 1 },
       cola: [],
     },
+    // WP-046 sumó la franja pública al snapshot. Este recorrido no la ejercita,
+    // pero el campo es obligatorio en el contrato y debe viajar igual que en el
+    // backend real para que la pantalla se monte completa.
+    eventos_publicos: [],
   }
 }
 

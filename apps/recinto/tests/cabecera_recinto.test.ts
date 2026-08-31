@@ -1,13 +1,31 @@
-/** Pruebas del reloj local y del contexto compacto de la cabecera pública. */
+/** Pruebas del reloj anclado y del contexto estable de la cabecera pública. */
 
 import { mount, type VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 import CabeceraRecinto from '../app/components/CabeceraRecinto.vue'
-import { formatearDuracion } from '../app/utils/tiempo'
+import {
+  calcularDuracionEnSnapshot,
+  convertirMarcaBackend,
+  formatearDuracion,
+} from '../app/utils/tiempo'
 import { crearEstadoRecintoPrueba } from './datos_prueba'
 
 const montados: VueWrapper[] = []
+
+function crearSesion(generadoEn: string, fechaHoraApertura: string, numeroSesion = 39) {
+  return crearEstadoRecintoPrueba({
+    generado_en: generadoEn,
+    estado_global: 'SESION_ABIERTA',
+    sesion: {
+      fecha_hora_inicio_preparacion: fechaHoraApertura,
+      fecha_hora_apertura: fechaHoraApertura,
+      numero_sesion: numeroSesion,
+      presidencia: 'Presidencia de prueba',
+      secretaria_legislativa: 'Secretaría de prueba',
+    },
+  })
+}
 
 function montarCabecera(estado = crearEstadoRecintoPrueba()): VueWrapper {
   const wrapper = mount(CabeceraRecinto, {
@@ -22,90 +40,82 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
-describe('Cabecera pública compacta', () => {
-  it('muestra fecha/hora local y actualiza reloj y duración sin red', async () => {
+describe('Cabecera pública con reloj anclado', () => {
+  it('resta dos marcas naive backend sin usar la zona ni el instante absoluto del navegador', async () => {
     vi.useFakeTimers()
-    const ahora = new Date(2026, 7, 30, 10, 0, 0)
-    vi.setSystemTime(ahora)
-    const apertura = new Date(2026, 7, 30, 9, 30, 0).toISOString()
-    const wrapper = montarCabecera(
-      crearEstadoRecintoPrueba({
-        estado_global: 'SESION_ABIERTA',
-        sesion: {
-          fecha_hora_inicio_preparacion: apertura,
-          fecha_hora_apertura: apertura,
-          numero_sesion: 39,
-          presidencia: 'Presidencia',
-          secretaria_legislativa: 'Secretaría',
-        },
-      }),
-    )
+    // El monitor simulado vive nueve años después del snapshot. La solución
+    // anterior Date.now()-Date.parse(apertura) habría producido una duración
+    // absurda; la nueva solo resta las dos lecturas del reloj backend.
+    vi.setSystemTime('2035-01-02T03:04:05Z')
+    const wrapper = montarCabecera(crearSesion('2026-08-30T10:00:00', '2026-08-30T09:30:00'))
 
-    expect(wrapper.get('[data-testid="cabecera-fecha-hora"]').text()).toBe('30/08/2026 10:00:00')
-    expect(wrapper.get('[data-testid="cabecera-sesion"]').text()).toBe('Sesión N.º 39')
+    expect(calcularDuracionEnSnapshot('2026-08-30T10:00:00', '2026-08-30T09:30:00')).toBe(1_800_000)
     expect(wrapper.get('[data-testid="cabecera-tiempo-sesion"]').text()).toContain('00:30:00')
+    expect(wrapper.get('[data-testid="cabecera-autoridades"]').text()).toContain(
+      'Presidencia de prueba',
+    )
 
     vi.advanceTimersByTime(1000)
     await nextTick()
-    expect(wrapper.get('[data-testid="cabecera-fecha-hora"]').text()).toBe('30/08/2026 10:00:01')
     expect(wrapper.get('[data-testid="cabecera-tiempo-sesion"]').text()).toContain('00:30:01')
   })
 
-  it('recalcula al cambiar la apertura y omite duración durante PREPARANDO', async () => {
+  it('continúa entre snapshots y una baseline nueva reemplaza completamente el ancla', async () => {
     vi.useFakeTimers()
-    vi.setSystemTime(new Date(2026, 7, 30, 10, 0, 0))
-    const aperturaInicial = new Date(2026, 7, 30, 9, 0, 0).toISOString()
-    const wrapper = montarCabecera(
-      crearEstadoRecintoPrueba({
-        estado_global: 'SESION_ABIERTA',
-        sesion: {
-          fecha_hora_inicio_preparacion: aperturaInicial,
-          fecha_hora_apertura: aperturaInicial,
-          numero_sesion: 39,
-          presidencia: 'Presidencia',
-          secretaria_legislativa: 'Secretaría',
-        },
-      }),
-    )
+    vi.setSystemTime('2040-05-01T00:00:00Z')
+    const wrapper = montarCabecera(crearSesion('2026-08-30T10:00:00', '2026-08-30T09:00:00'))
     expect(wrapper.get('[data-testid="cabecera-tiempo-sesion"]').text()).toContain('01:00:00')
 
-    const aperturaNueva = new Date(2026, 7, 30, 9, 55, 0).toISOString()
+    // No llega snapshot durante esta ventana (equivale a una reconexión con la
+    // última baseline confirmada): el elapsed local continúa visualmente.
+    vi.advanceTimersByTime(5000)
+    await nextTick()
+    expect(wrapper.get('[data-testid="cabecera-tiempo-sesion"]').text()).toContain('01:00:05')
+
     await wrapper.setProps({
-      estado: crearEstadoRecintoPrueba({
-        estado_global: 'SESION_ABIERTA',
-        sesion: {
-          fecha_hora_inicio_preparacion: aperturaNueva,
-          fecha_hora_apertura: aperturaNueva,
-          numero_sesion: 40,
-          presidencia: 'Otra Presidencia',
-          secretaria_legislativa: 'Otra Secretaría',
-        },
-      }),
+      estado: crearSesion('2026-08-30T10:10:00', '2026-08-30T10:05:00', 40),
     })
     expect(wrapper.get('[data-testid="cabecera-tiempo-sesion"]').text()).toContain('00:05:00')
+    expect(wrapper.get('[data-testid="cabecera-sesion"]').text()).toBe('Sesión N.º 40')
+
+    vi.advanceTimersByTime(1000)
+    await nextTick()
+    expect(wrapper.get('[data-testid="cabecera-tiempo-sesion"]').text()).toContain('00:05:01')
+  })
+
+  it('recorta aperturas futuras, omite PREPARANDO y acepta más de 24 horas', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime('2040-05-01T00:00:00Z')
+    const wrapper = montarCabecera(crearSesion('2026-08-30T10:00:00', '2026-08-30T10:05:00'))
+    expect(wrapper.get('[data-testid="cabecera-tiempo-sesion"]').text()).toContain('00:00:00')
 
     await wrapper.setProps({
       estado: crearEstadoRecintoPrueba({
+        generado_en: '2026-08-30T10:00:00',
         estado_global: 'PREPARANDO',
         preparacion: {
-          fecha_hora_inicio: aperturaNueva,
+          fecha_hora_inicio: '2026-08-30T09:00:00',
           numero_sesion: 40,
           presidencia: 'Otra Presidencia',
           secretaria_legislativa: 'Otra Secretaría',
         },
       }),
     })
-    expect(wrapper.get('[data-testid="cabecera-sesion"]').text()).toContain('Preparando')
     expect(wrapper.find('[data-testid="cabecera-tiempo-sesion"]').exists()).toBe(false)
+    expect(wrapper.get('[data-testid="cabecera-sesion"]').text()).toContain('Preparando')
+
+    expect(
+      formatearDuracion(calcularDuracionEnSnapshot('2026-08-31T11:00:00', '2026-08-30T10:00:00')!),
+    ).toBe('25:00:00')
+    expect(convertirMarcaBackend('marca inválida')).toBeNull()
   })
 
-  it('libera el ticker al desmontar y admite duraciones mayores a 24 horas', () => {
+  it('libera el único ticker visual al desmontar', () => {
     vi.useFakeTimers()
-    const wrapper = montarCabecera()
+    const wrapper = montarCabecera(crearSesion('2026-08-30T10:00:00', '2026-08-30T09:30:00'))
     expect(vi.getTimerCount()).toBe(1)
     wrapper.unmount()
     montados.pop()
     expect(vi.getTimerCount()).toBe(0)
-    expect(formatearDuracion(90_000_000)).toBe('25:00:00')
   })
 })

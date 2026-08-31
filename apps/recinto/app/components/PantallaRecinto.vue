@@ -8,6 +8,7 @@ import { usePresentacionVotacion } from '../composables/usePresentacionVotacion'
 import CabeceraRecinto from './CabeceraRecinto.vue'
 import GrillaBancas from './GrillaBancas.vue'
 import IndicadorQuorumPublico from './IndicadorQuorumPublico.vue'
+import PanelEventosPublicos from './PanelEventosPublicos.vue'
 import PanelPalabraPublico from './PanelPalabraPublico.vue'
 import PanelVotacionPublica from './PanelVotacionPublica.vue'
 
@@ -18,9 +19,6 @@ const props = defineProps<{
 }>()
 const { estado, estadoConexion, desactualizado } = toRefs(props)
 
-const contextoInstitucional = computed(
-  () => estado.value?.sesion ?? estado.value?.preparacion ?? null,
-)
 const sesionAbierta = computed(() => estado.value?.estado_global === 'SESION_ABIERTA')
 const bancaOrador = computed(() => estado.value?.palabra?.orador?.banca ?? null)
 const { votacion: votacionPresentada, segundosCuentaRegresiva } = usePresentacionVotacion(estado)
@@ -69,38 +67,15 @@ const votosIndividualesVisibles = computed(() => {
     </main>
 
     <main v-else class="contenido-recinto" :class="{ 'contenido-preparando': !sesionAbierta }">
-      <!-- Contexto, autoridades, quórum y votación comparten una franja de baja altura. -->
-      <section data-testid="franja-contexto-publico" class="franja-contexto-publico">
-        <div class="contexto-sesion-compacto">
-          <div>
-            <p data-testid="estado-global-visible" class="sobrelinea">
-              {{ sesionAbierta ? 'Sesión abierta' : 'Sala en preparación' }}
-            </p>
-            <h2 data-testid="titulo-contexto">
-              <template v-if="sesionAbierta && estado.sesion">
-                Sesión N.º {{ estado.sesion.numero_sesion }}
-              </template>
-              <template v-else-if="estado.preparacion?.numero_sesion">
-                Preparando sesión N.º {{ estado.preparacion.numero_sesion }}
-              </template>
-              <template v-else>Preparación del recinto</template>
-            </h2>
-          </div>
-
-          <dl v-if="contextoInstitucional" class="autoridades" data-testid="autoridades">
-            <div v-if="contextoInstitucional.presidencia">
-              <dt>Presidencia</dt>
-              <dd>{{ contextoInstitucional.presidencia }}</dd>
-            </div>
-            <div v-if="contextoInstitucional.secretaria_legislativa">
-              <dt>Secretaría</dt>
-              <dd>{{ contextoInstitucional.secretaria_legislativa }}</dd>
-            </div>
-          </dl>
-        </div>
-
+      <!--
+        La primera franja reproduce la relación espacial probada en producción:
+        tres renglones de votación a la izquierda y quórum grande a la derecha.
+        Su alto está reservado incluso sin votación, por lo que ningún texto
+        variable puede desplazar las bancas.
+      -->
+      <section data-testid="franja-votacion-quorum" class="franja-votacion-quorum">
+        <PanelVotacionPublica :votacion="votacionPresentada" />
         <IndicadorQuorumPublico :quorum="estado.quorum" />
-        <PanelVotacionPublica v-if="votacionPresentada" :votacion="votacionPresentada" />
       </section>
 
       <div data-testid="zona-principal-recinto" class="zona-principal-recinto">
@@ -131,6 +106,10 @@ const votosIndividualesVisibles = computed(() => {
           <PanelPalabraPublico :palabra="estado.palabra" />
         </aside>
       </div>
+
+      <section data-testid="franja-eventos-publicos" class="franja-eventos-publicos">
+        <PanelEventosPublicos :eventos="estado.eventos_publicos" />
+      </section>
     </main>
   </div>
 </template>
@@ -202,81 +181,31 @@ const votosIndividualesVisibles = computed(() => {
 
 .contenido-recinto {
   min-height: 0;
-  display: flex;
+  display: grid;
+  grid-template-rows:
+    clamp(118px, 16vh, 172px)
+    minmax(0, 1fr)
+    clamp(96px, 14vh, 144px);
   flex: 1;
-  flex-direction: column;
   gap: clamp(0.45rem, 0.75vw, 0.75rem);
   padding: clamp(0.45rem, 0.75vw, 0.75rem);
   overflow: hidden;
 }
 
-.franja-contexto-publico {
+.franja-votacion-quorum {
   min-width: 0;
-  display: flex;
-  flex: 0 0 auto;
-  align-items: stretch;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(170px, 17vw, 280px);
   gap: clamp(0.45rem, 0.7vw, 0.7rem);
-}
-
-.contexto-sesion-compacto {
-  min-width: min(30vw, 25rem);
-  display: flex;
-  align-items: center;
-  gap: clamp(0.6rem, 1vw, 1rem);
-  padding: 0.38rem 0.58rem;
   overflow: hidden;
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  border-radius: 12px;
-  background: rgba(7, 17, 31, 0.58);
-}
-
-.contenido-preparando .contexto-sesion-compacto {
-  border-color: rgba(251, 191, 36, 0.32);
-}
-
-.contexto-sesion-compacto h2 {
-  margin: 0;
-  font-size: clamp(0.74rem, 1.05vw, 0.95rem);
-  line-height: 1;
-  white-space: nowrap;
-}
-
-.autoridades {
-  min-width: 0;
-  display: flex;
-  gap: 0.55rem;
-  margin: 0;
-}
-
-.autoridades div {
-  min-width: 0;
-}
-
-.autoridades dt {
-  color: #64748b;
-  font-size: 0.5rem;
-  font-weight: 900;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.autoridades dd {
-  max-width: 11rem;
-  margin: 0.08rem 0 0;
-  overflow: hidden;
-  color: #e2e8f0;
-  font-size: clamp(0.6rem, 0.72vw, 0.68rem);
-  font-weight: 700;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .zona-principal-recinto {
   min-height: 0;
   min-width: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) clamp(230px, 19vw, 320px);
-  flex: 1;
+  grid-template-columns: minmax(0, 1fr) clamp(230px, 20vw, 360px);
   gap: clamp(0.5rem, 0.8vw, 0.8rem);
   overflow: hidden;
 }
@@ -341,6 +270,12 @@ const votosIndividualesVisibles = computed(() => {
   display: flex;
 }
 
+.franja-eventos-publicos {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
 @keyframes pulso {
   70% {
     box-shadow: 0 0 0 1.2rem rgba(56, 189, 248, 0);
@@ -349,11 +284,14 @@ const votosIndividualesVisibles = computed(() => {
 
 @media (max-width: 900px) {
   .contenido-recinto {
+    display: flex;
+    flex-direction: column;
     overflow-y: auto;
   }
 
-  .franja-contexto-publico {
-    flex-wrap: wrap;
+  .franja-votacion-quorum {
+    min-height: 250px;
+    grid-template-columns: 1fr;
   }
 
   .zona-principal-recinto {
@@ -364,6 +302,10 @@ const votosIndividualesVisibles = computed(() => {
 
   .columna-palabra-publica {
     min-height: 220px;
+  }
+
+  .franja-eventos-publicos {
+    min-height: 180px;
   }
 }
 </style>

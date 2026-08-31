@@ -121,5 +121,9 @@ export function crearMockEstadoRecinto(
       cola: [],
       orador: null,
     },
+    // La franja pública siempre viaja en el snapshot, aunque esté vacía: el
+    // contrato la declara obligatoria para que el Recinto nunca tenga que
+    // distinguir entre "sin eventos" y "campo ausente".
+    eventos_publicos: [],
   }
 }

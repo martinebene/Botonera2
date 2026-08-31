@@ -679,7 +679,7 @@ export interface components {
         };
         /**
          * EstadoRecinto
-         * @description Snapshot público por allowlist, sin capacidades ni eventos de auditoría.
+         * @description Snapshot público por allowlist, sin capacidades ni auditoría cruda.
          */
         EstadoRecinto: {
             /** Revision */
@@ -699,6 +699,8 @@ export interface components {
             quorum: components["schemas"]["EstadoQuorum"] | null;
             votacion: components["schemas"]["VotacionPublica"] | null;
             palabra: components["schemas"]["EstadoPalabraPublico"] | null;
+            /** Eventos Publicos */
+            eventos_publicos: components["schemas"]["EventoPublicoProyectado"][];
         };
         /**
          * EstadoRemapeoModeracion
@@ -742,6 +744,26 @@ export interface components {
          * @enum {string}
          */
         EstadoVotacion: "EN_CURSO" | "CERRADA";
+        /**
+         * EventoPublicoProyectado
+         * @description Hecho público seguro derivado de un evento L3 ya confirmado.
+         *
+         *     El DTO omite deliberadamente nivel, etiqueta y mensaje de auditoría. Su
+         *     texto nace de :data:`MAPEO_EVENTOS_PUBLICOS`, por lo que agregar un código
+         *     futuro al registro institucional no lo publica de manera accidental.
+         */
+        EventoPublicoProyectado: {
+            /** Seq */
+            seq: number;
+            /** Timestamp */
+            timestamp: string;
+            /** Categoria */
+            categoria: string;
+            /** Codigo Evento */
+            codigo_evento: string;
+            /** Texto */
+            texto: string;
+        };
         /**
          * EventoRecienteProyectado
          * @description Evento cuyo ``fsync`` ya fue confirmado por el escritor activo.

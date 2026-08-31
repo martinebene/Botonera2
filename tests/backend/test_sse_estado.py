@@ -208,6 +208,7 @@ async def test_stream_publico_no_mezcla_dto_ni_filtra_voto(tmp_path: Path) -> No
     assert "NEGATIVO" not in contenido
     assert "capacidades" not in datos
     assert "eventos_recientes" not in datos
+    assert datos["eventos_publicos"] == []
     await cerrar_flujo(flujo)
 
 

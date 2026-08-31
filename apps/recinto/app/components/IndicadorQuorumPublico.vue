@@ -1,5 +1,5 @@
 <script setup lang="ts">
-/** Presenta en una franja compacta los tres valores autoritativos de EstadoQuorum. */
+/** Presenta el quórum grande de la franja superior sin recalcularlo. */
 
 import type { EstadoQuorum } from '@botonera2/api-client'
 
@@ -11,7 +11,7 @@ defineProps<{ quorum: EstadoQuorum | null }>()
     <template v-if="quorum">
       <span class="rotulo-panel">Quórum</span>
       <strong data-testid="cantidad-presentes">{{ quorum.cantidad_presentes }}</strong>
-      <span>presentes · requerido {{ quorum.requerido }}</span>
+      <span class="detalle-quorum">Presentes · requiere {{ quorum.requerido }}</span>
       <b data-testid="estado-quorum">
         {{ quorum.alcanzado ? 'Quórum alcanzado' : 'Sin quórum' }}
       </b>
@@ -22,21 +22,27 @@ defineProps<{ quorum: EstadoQuorum | null }>()
 
 <style scoped>
 .panel-quorum {
-  display: flex;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
   align-items: center;
-  gap: 0.42rem;
-  padding: 0.38rem 0.58rem;
+  justify-items: center;
+  gap: 0.1rem;
+  padding: clamp(0.42rem, 0.7vw, 0.7rem);
+  overflow: hidden;
   border: 1px solid rgba(148, 163, 184, 0.2);
-  border-radius: 12px;
+  border-radius: 14px;
   color: #cbd5e1;
   background: rgba(15, 23, 42, 0.78);
-  font-size: clamp(0.58rem, 0.72vw, 0.7rem);
+  text-align: center;
   white-space: nowrap;
 }
 
 .rotulo-panel {
   color: #94a3b8;
-  font-size: 0.6rem;
+  font-size: clamp(0.58rem, 0.85vw, 0.78rem);
   font-weight: 900;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -44,18 +50,29 @@ defineProps<{ quorum: EstadoQuorum | null }>()
 
 .panel-quorum > strong {
   color: #fbbf24;
-  font-size: clamp(1rem, 1.6vw, 1.35rem);
-  line-height: 1;
+  font-size: clamp(2.8rem, 7.5vh, 5.2rem);
+  line-height: 0.9;
 }
 
 .panel-quorum > b {
-  padding: 0.22rem 0.42rem;
+  max-width: 100%;
+  padding: 0.18rem 0.42rem;
+  overflow: hidden;
   border-radius: 999px;
   color: #fde68a;
   background: rgba(120, 53, 15, 0.62);
   font-size: 0.58rem;
   font-weight: 900;
   text-transform: uppercase;
+}
+
+.detalle-quorum {
+  max-width: 100%;
+  overflow: hidden;
+  color: #cbd5e1;
+  font-size: clamp(0.56rem, 0.78vw, 0.72rem);
+  font-weight: 700;
+  text-overflow: ellipsis;
 }
 
 .alcanzado > strong {
@@ -68,6 +85,8 @@ defineProps<{ quorum: EstadoQuorum | null }>()
 }
 
 .estado-neutro {
+  align-self: center;
+  grid-row: 1 / -1;
   color: #64748b;
 }
 </style>

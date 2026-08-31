@@ -100,7 +100,7 @@ test.describe.serial('WP-027 · recorridos críticos sobre el stack real', () =>
 
         await moderacion.getByTestId('btn-preparar-sala').click()
         await expect(moderacion.getByTestId('vista-preparando')).toBeVisible()
-        await expect(recinto.getByTestId('estado-global-visible')).toHaveText('Sala en preparación')
+        await expect(recinto.getByTestId('cabecera-sesion')).toHaveText('Sala en preparación')
         await expect(moderacion.getByTestId('banca-concejal')).toHaveCount(12)
         await expect(recinto.getByTestId('banca-publica')).toHaveCount(12)
 
@@ -136,8 +136,8 @@ test.describe.serial('WP-027 · recorridos críticos sobre el stack real', () =>
         expect(preparacion.estado_global).toBe('PREPARANDO')
         await moderacion.getByTestId('btn-abrir-sesion').click()
         await expect(moderacion.getByTestId('vista-sesion-abierta')).toBeVisible()
-        await expect(recinto.getByTestId('estado-global-visible')).toHaveText('Sesión abierta')
-        await expect(recinto.getByTestId('titulo-contexto')).toContainText('27')
+        await expect(recinto.getByTestId('cabecera-sesion')).toContainText('27')
+        await expect(recinto.getByTestId('panel-eventos-publicos')).toContainText('Sesión abierta')
         expect((await obtenerEstado(moderacion, 'moderacion')).estado_global).toBe('SESION_ABIERTA')
       })
 
@@ -175,6 +175,9 @@ test.describe.serial('WP-027 · recorridos críticos sobre el stack real', () =>
         await moderacion.getByTestId('btn-confirmar-apertura').click()
         await expect(moderacion.getByTestId('estado-votacion')).toHaveText('EN_CURSO')
         await expect(recinto.getByTestId('estado-votacion')).toHaveText('En curso')
+        await expect(recinto.getByTestId('panel-eventos-publicos')).toContainText(
+          'Votación abierta',
+        )
         await expect(recinto.getByTestId('countdown-votacion')).toBeVisible()
         await expect(recinto.locator('[data-banca="1"]')).toHaveAttribute(
           'data-estado-banca',
@@ -215,6 +218,9 @@ test.describe.serial('WP-027 · recorridos críticos sobre el stack real', () =>
         expect(publicoEnCurso.votacion?.bancas_voto_emitido).toEqual([1, 2, 3])
         expect(JSON.stringify(publicoEnCurso)).not.toContain('POSITIVO')
         expect(JSON.stringify(publicoEnCurso)).not.toContain('10000008')
+        await expect(recinto.getByTestId('panel-eventos-publicos')).not.toContainText(
+          'VOTO_ORDINARIO_REGISTRADO',
+        )
 
         // WP-037 reserva Q1 para conducción: aun cuando la proyección privada tenga el
         // detalle nominal, la interfaz compacta sólo muestra el progreso agregado.
@@ -235,7 +241,9 @@ test.describe.serial('WP-027 · recorridos críticos sobre el stack real', () =>
             pagina.locator('[data-banca="3"] [data-testid="etiqueta-banca"]'),
           ).toHaveText('Abstención')
         }
-        await expect(recinto.getByTestId('votacion-publica')).toHaveCount(0, { timeout: 9_000 })
+        await expect(recinto.getByTestId('estado-votacion')).toHaveText('Sin votación', {
+          timeout: 9_000,
+        })
       })
 
       await test.step('D · empate simple persiste y el desempate queda separado', async () => {
@@ -269,7 +277,9 @@ test.describe.serial('WP-027 · recorridos críticos sobre el stack real', () =>
           'Presidencia E2E Ficticia',
         )
         expect(await moderacion.getByTestId('conteos-votacion').textContent()).toBe(conteosAntes)
-        await expect(recinto.getByTestId('votacion-publica')).toHaveCount(0, { timeout: 9_000 })
+        await expect(recinto.getByTestId('estado-votacion')).toHaveText('Sin votación', {
+          timeout: 9_000,
+        })
       })
 
       await test.step('E · pérdida de quórum cierra INCONCLUSA y no se revierte', async () => {

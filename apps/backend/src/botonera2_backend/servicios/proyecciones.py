@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from botonera2_backend.auditoria import EventoAuditoriaReciente
+from botonera2_backend.auditoria import EventoAuditoriaReciente, NivelAuditoria
 from botonera2_backend.configuracion.modelos import Concejal, ConfiguracionSistema
 from botonera2_backend.dominio.estado import EstadoGlobal, EstadoOperativo
 from botonera2_backend.dominio.preparacion import Preparacion
@@ -27,6 +27,27 @@ from botonera2_backend.dominio.votacion import (
 )
 from botonera2_backend.servicios.publicacion import CoordinadorPublicacion
 from botonera2_backend.servicios.serializacion import EjecutorMutaciones
+
+# La pantalla pública trabaja con una allowlist positiva y textos escritos a
+# mano. El mensaje de auditoría no participa de este mapeo: puede contener DNI,
+# dispositivos, teclas o detalles institucionales que no pertenecen al DTO.
+MAPEO_EVENTOS_PUBLICOS: dict[str, tuple[str, str]] = {
+    "SESION_ABIERTA": ("SESION", "Sesión abierta"),
+    "SESION_CERRADA": ("SESION", "Sesión cerrada"),
+    "CONCEJAL_PRESENTE": ("PRESENCIA", "Concejal presente"),
+    "CONCEJAL_AUSENTE": ("PRESENCIA", "Concejal ausente"),
+    "PEDIDO_PALABRA_REGISTRADO": ("PALABRA", "Pedido de palabra registrado"),
+    "PEDIDO_PALABRA_RETIRADO": ("PALABRA", "Pedido de palabra retirado"),
+    "USO_PALABRA_OTORGADO": ("PALABRA", "Uso de palabra otorgado"),
+    "USO_PALABRA_FINALIZADO": ("PALABRA", "Uso de palabra finalizado"),
+    "VOTACION_ABIERTA": ("VOTACION", "Votación abierta"),
+    "VOTACION_CERRADA_COMPLETITUD": ("VOTACION", "Votación cerrada"),
+    "VOTACION_FINALIZADA_INCONCLUSA": ("VOTACION", "Votación finalizada inconclusa"),
+    "VOTACION_RESULTADO_FINAL": ("VOTACION", "Resultado de votación disponible"),
+    "VOTACION_RESULTADO_EMPATE": ("VOTACION", "Resultado de votación empatado"),
+    "VOTACION_RESULTADO_DESEMPATE": ("VOTACION", "Resultado de desempate disponible"),
+}
+LIMITE_EVENTOS_PUBLICOS = 20
 
 
 class ModeloProyeccion(BaseModel):
@@ -237,6 +258,21 @@ class EventoRecienteProyectado(ModeloProyeccion):
     mensaje: str
 
 
+class EventoPublicoProyectado(ModeloProyeccion):
+    """Hecho público seguro derivado de un evento L3 ya confirmado.
+
+    El DTO omite deliberadamente nivel, etiqueta y mensaje de auditoría. Su
+    texto nace de :data:`MAPEO_EVENTOS_PUBLICOS`, por lo que agregar un código
+    futuro al registro institucional no lo publica de manera accidental.
+    """
+
+    seq: int
+    timestamp: str
+    categoria: str
+    codigo_evento: str
+    texto: str
+
+
 class EstadoAuditoriaProyectado(ModeloProyeccion):
     """Condición técnica del escritor, separada del estado reglamentario."""
 
@@ -307,7 +343,7 @@ class EstadoModeracion(ModeloProyeccion):
 
 
 class EstadoRecinto(ModeloProyeccion):
-    """Snapshot público por allowlist, sin capacidades ni eventos de auditoría."""
+    """Snapshot público por allowlist, sin capacidades ni auditoría cruda."""
 
     revision: int
     generado_en: datetime
@@ -319,6 +355,7 @@ class EstadoRecinto(ModeloProyeccion):
     quorum: EstadoQuorum | None
     votacion: VotacionPublica | None
     palabra: EstadoPalabraPublico | None
+    eventos_publicos: tuple[EventoPublicoProyectado, ...]
 
 
 class ServicioProyecciones:
@@ -449,6 +486,7 @@ class ServicioProyecciones:
             quorum=self._quorum(contexto),
             votacion=self._votacion_publica(contexto, generado_en),
             palabra=self._palabra_publica(sesion, contexto),
+            eventos_publicos=self._eventos_publicos(contexto),
         )
 
     def _datos_preparacion(self, contexto: Preparacion | None) -> DatosPreparacion | None:
@@ -895,6 +933,47 @@ class ServicioProyecciones:
             ServicioProyecciones._evento(evento)
             for evento in contexto.escritor_auditoria.eventos_recientes
         )
+
+    @staticmethod
+    def _eventos_publicos(
+        contexto: Preparacion | None,
+    ) -> tuple[EventoPublicoProyectado, ...]:
+        """Filtra y sanitiza los últimos hechos aptos para la pantalla pública.
+
+        La fuente es el mismo buffer que Moderación consume, cuyos elementos se
+        incorporan únicamente después del último ``fsync``. Primero se exige
+        nivel L3, luego se consulta la allowlist por código y finalmente se
+        recortan los veinte hechos permitidos más recientes. El orden ascendente
+        original se conserva para que el evento más nuevo quede al final de la
+        franja y el frontend pueda hacer un auto-scroll sencillo.
+
+        ``evento.mensaje`` no se lee ni se transforma. Esto es una frontera de
+        seguridad: un mensaje con DNI, tecla, dispositivo o sentido individual
+        jamás alcanza siquiera el constructor del DTO público.
+        """
+
+        if contexto is None:
+            return ()
+
+        eventos: list[EventoPublicoProyectado] = []
+        for evento in contexto.escritor_auditoria.eventos_recientes:
+            if evento.nivel is not NivelAuditoria.L3:
+                continue
+            traduccion = MAPEO_EVENTOS_PUBLICOS.get(evento.codigo_evento)
+            if traduccion is None:
+                continue
+            categoria, texto = traduccion
+            eventos.append(
+                EventoPublicoProyectado(
+                    seq=evento.secuencia,
+                    timestamp=evento.timestamp,
+                    categoria=categoria,
+                    codigo_evento=evento.codigo_evento,
+                    texto=texto,
+                )
+            )
+
+        return tuple(eventos[-LIMITE_EVENTOS_PUBLICOS:])
 
     @staticmethod
     def _evento(evento: EventoAuditoriaReciente) -> EventoRecienteProyectado:

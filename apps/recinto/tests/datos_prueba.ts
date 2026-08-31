@@ -30,6 +30,7 @@ export function crearEstadoRecintoPrueba(parcial: Partial<EstadoRecinto> = {}): 
     quorum: parcial.quorum ?? null,
     votacion: parcial.votacion ?? null,
     palabra: parcial.palabra ?? null,
+    eventos_publicos: parcial.eventos_publicos ?? [],
   }
 }
 
