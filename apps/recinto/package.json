@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@botonera2/api-client": "workspace:*",
+    "@botonera2/frontend-shared": "workspace:*",
     "nuxt": "4.5.2",
     "vue": "3.5.41",
     "vue-router": "5.2.0"

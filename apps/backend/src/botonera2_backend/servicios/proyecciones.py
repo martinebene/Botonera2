@@ -185,6 +185,7 @@ class VotacionModeracion(ModeloProyeccion):
     fecha_hora_resultado: datetime | None
     motivo_finalizacion_manual: str | None
     cantidad_votos_recibidos: int
+    bancas_voto_emitido: tuple[int, ...]
     revelado_individual_desde: datetime
     votos_individuales_revelados: bool
     votos_individuales: tuple[VotoModeracion, ...] | None
@@ -208,6 +209,7 @@ class VotacionPublica(ModeloProyeccion):
     fecha_hora_cierre: datetime | None
     cuenta_regresiva_hasta: datetime | None
     resultado_visible_hasta: datetime | None
+    bancas_voto_emitido: tuple[int, ...]
     votos_individuales: tuple[VotoPublico, ...] | None
     conteos: ConteosVotosProyectados | None
     voto_presidencial: VotoPresidencialProyectado | None
@@ -609,6 +611,7 @@ class ServicioProyecciones:
             fecha_hora_resultado=votacion.fecha_hora_resultado,
             motivo_finalizacion_manual=votacion.motivo_finalizacion_manual,
             cantidad_votos_recibidos=len(votacion.votos_ordinarios),
+            bancas_voto_emitido=self._bancas_voto_emitido(contexto, votacion),
             revelado_individual_desde=revelado_desde,
             votos_individuales_revelados=revelados,
             votos_individuales=votos,
@@ -681,6 +684,7 @@ class ServicioProyecciones:
                 else None
             ),
             resultado_visible_hasta=resultado_visible_hasta,
+            bancas_voto_emitido=self._bancas_voto_emitido(contexto, votacion),
             votos_individuales=votos,
             conteos=conteos,
             voto_presidencial=(
@@ -692,6 +696,43 @@ class ServicioProyecciones:
                 else None
             ),
         )
+
+    def _bancas_voto_emitido(
+        self,
+        contexto: Preparacion | None,
+        votacion: Votacion,
+    ) -> tuple[int, ...]:
+        """Deriva qué bancas ya emitieron voto, sin revelar el sentido (WP-045).
+
+        Responde exclusivamente a la pregunta autorizada por HUMAN_GATE
+        "¿esta banca ya emitió su voto?". Para no filtrar el secreto del voto
+        mientras la recepción sigue abierta, la tupla:
+
+        - se construye únicamente desde el mapa autoritativo
+          ``votacion.votos_ordinarios``, es decir la misma fuente que ya usan los
+          conteos; nunca desde auditoría, eventos, UI ni timestamps;
+        - traduce DNI a número de banca contra el padrón congelado de la
+          preparación, de modo que el payload no transporte identidad personal;
+        - se ordena ascendentemente por banca, de manera que el orden del payload
+          no codifique en qué orden temporal votó cada concejal;
+        - queda vacía fuera de ``EN_CURSO``, porque una vez cerrada la recepción
+          el sentido final ya viaja por su propio contrato de votos individuales
+          y este campo dejaría de aportar información nueva.
+
+        Args:
+            contexto: preparación congelada con el padrón; ``None`` significa que
+                todavía no hay padrón contra el cual resolver bancas.
+            votacion: votación relevante del snapshot.
+
+        Returns:
+            Tupla ordenada y sin duplicados de números de banca. El propio
+            ``dict`` de votos ya impide duplicados: hay a lo sumo un voto por DNI.
+        """
+
+        if contexto is None or votacion.estado is not EstadoVotacion.EN_CURSO:
+            return ()
+        bancas = [self._buscar_concejal(contexto, dni).banca for dni in votacion.votos_ordinarios]
+        return tuple(sorted(bancas))
 
     @staticmethod
     def _conteos(votacion: Votacion) -> ConteosVotosProyectados:

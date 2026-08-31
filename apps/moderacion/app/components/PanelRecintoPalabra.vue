@@ -117,6 +117,9 @@ function cerrarRemapeo(): void {
           :concejales="estado.concejales"
           :filas-bancas="estado.configuracion?.filas_bancas"
           :banca-orador="estado.palabra?.orador?.banca ?? null"
+          :estado-recepcion="estado.votacion?.estado_recepcion ?? null"
+          :bancas-voto-emitido="estado.votacion?.bancas_voto_emitido ?? null"
+          :votos-individuales="estado.votacion?.votos_individuales ?? null"
         />
 
         <div

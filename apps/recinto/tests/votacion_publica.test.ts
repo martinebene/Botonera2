@@ -46,6 +46,20 @@ function montar(estado: ReturnType<typeof crearEstadoRecintoPrueba>): VueWrapper
   })
 }
 
+/**
+ * Cuenta cuántas bancas muestran un resultado individual final.
+ *
+ * El DOM simulado de estas pruebas no implementa selectores de prefijo, así que
+ * se filtra a mano por el atributo `data-estado-banca` que expone la tarjeta.
+ */
+function contarBancasConResultado(wrapper: VueWrapper): number {
+  return wrapper
+    .findAll('[data-banca]')
+    .filter((banca) =>
+      (banca.element.getAttribute('data-estado-banca') ?? '').startsWith('RESULTADO_'),
+    ).length
+}
+
 afterEach(() => {
   vi.useRealTimers()
 })
@@ -75,7 +89,7 @@ describe('Experiencia pública de votación', () => {
     expect(wrapper.get('[data-testid="tema-votacion"]').text()).toContain('Expediente secreto')
     expect(wrapper.find('[data-testid="countdown-votacion"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="conteos-votacion"]').exists()).toBe(false)
-    expect(wrapper.find('[data-testid="voto-banca"]').exists()).toBe(false)
+    expect(wrapper.find('[data-estado-banca^="RESULTADO_"]').exists()).toBe(false)
     expect(wrapper.text()).not.toContain('Positivo')
     expect(wrapper.text()).not.toContain('99')
     wrapper.unmount()
@@ -106,7 +120,7 @@ describe('Experiencia pública de votación', () => {
     await wrapper.vm.$nextTick()
     expect(wrapper.find('[data-testid="countdown-votacion"]').exists()).toBe(false)
     expect(wrapper.get('[data-testid="estado-votacion"]').text()).toBe('En curso')
-    expect(wrapper.find('[data-testid="voto-banca"]').exists()).toBe(false)
+    expect(wrapper.find('[data-estado-banca^="RESULTADO_"]').exists()).toBe(false)
     wrapper.unmount()
   })
 
@@ -157,13 +171,22 @@ describe('Experiencia pública de votación', () => {
     )
 
     expect(wrapper.get('[data-testid="estado-votacion"]').text()).toBe('Aprobada')
-    expect(wrapper.get('[data-banca="1"] [data-testid="voto-banca"]').text()).toBe('Positivo')
-    expect(wrapper.get('[data-banca="2"] [data-testid="voto-banca"]').text()).toBe('Negativo')
-    expect(wrapper.get('[data-banca="3"] [data-testid="voto-banca"]').text()).toBe('Abstención')
-    expect(wrapper.find('[data-banca="4"] [data-testid="voto-banca"]').exists()).toBe(false)
-    expect(wrapper.get('[data-banca="1"] [data-testid="estado-test"]').text()).toBe('Test activo')
-    expect(wrapper.get('[data-banca="1"] [data-testid="estado-orador"]').exists()).toBe(true)
-    expect(wrapper.get('[data-banca="2"] [data-testid="estado-presencia"]').text()).toBe('Ausente')
+    // WP-045: el resultado final es el estado de mayor prioridad. En la banca 1
+    // coexisten test y palabra, que quedan subordinados como halo sin agregar
+    // una segunda etiqueta.
+    expect(wrapper.get('[data-banca="1"]').element.getAttribute('data-estado-banca')).toBe(
+      'RESULTADO_POSITIVO',
+    )
+    expect(wrapper.get('[data-banca="1"] [data-testid="etiqueta-banca"]').text()).toBe('Positivo')
+    expect(wrapper.get('[data-banca="1"]').element.getAttribute('data-halo-test')).toBe('true')
+    expect(wrapper.get('[data-banca="1"]').element.getAttribute('data-halo-palabra')).toBe('true')
+    expect(wrapper.findAll('[data-banca="1"] [data-testid="etiqueta-banca"]')).toHaveLength(1)
+    expect(wrapper.get('[data-banca="2"] [data-testid="etiqueta-banca"]').text()).toBe('Negativo')
+    expect(wrapper.get('[data-banca="3"] [data-testid="etiqueta-banca"]').text()).toBe('Abstención')
+    // La banca 4 no votó: sin resultado ni participación, vuelve al estado normal.
+    expect(wrapper.get('[data-banca="4"]').element.getAttribute('data-estado-banca')).toBe('NORMAL')
+    expect(wrapper.find('[data-banca="4"] [data-testid="etiqueta-banca"]').exists()).toBe(false)
+    expect(wrapper.get('[data-banca="2"]').element.getAttribute('data-presente')).toBe('false')
     expect(wrapper.get('[data-testid="conteos-votacion"]').text()).toContain('Positivos8')
     expect(wrapper.get('[data-testid="conteos-votacion"]').text()).toContain('Total11')
     expect(wrapper.get('[data-testid="estado-quorum"]').text()).toBe('Quórum alcanzado')
@@ -218,7 +241,7 @@ describe('Experiencia pública de votación', () => {
     vi.advanceTimersByTime(60_000)
     await wrapper.vm.$nextTick()
     expect(wrapper.get('[data-testid="estado-votacion"]').text()).toBe('Empatada')
-    expect(wrapper.findAll('[data-testid="voto-banca"]')).toHaveLength(2)
+    expect(contarBancasConResultado(wrapper)).toBe(2)
     wrapper.unmount()
   })
 
@@ -245,9 +268,11 @@ describe('Experiencia pública de votación', () => {
     const presidencial = wrapper.get('[data-testid="voto-presidencial"]')
     expect(presidencial.text()).toContain('Ana Presidencia')
     expect(presidencial.text()).toContain('Negativo')
-    expect(wrapper.findAll('[data-testid="voto-banca"]')).toHaveLength(2)
+    expect(contarBancasConResultado(wrapper)).toBe(2)
     expect(wrapper.get('[data-testid="conteos-votacion"]').text()).toContain('Total2')
-    expect(wrapper.find('[data-banca="3"] [data-testid="voto-banca"]').exists()).toBe(false)
+    expect(wrapper.get('[data-banca="3"]').element.getAttribute('data-estado-banca')).not.toContain(
+      'RESULTADO_',
+    )
     wrapper.unmount()
   })
 
@@ -272,7 +297,7 @@ describe('Experiencia pública de votación', () => {
     vi.advanceTimersByTime(2250)
     await wrapper.vm.$nextTick()
     expect(wrapper.find('[data-testid="votacion-publica"]').exists()).toBe(false)
-    expect(wrapper.find('[data-testid="voto-banca"]').exists()).toBe(false)
+    expect(wrapper.find('[data-estado-banca^="RESULTADO_"]').exists()).toBe(false)
     expect(wrapper.get('[data-testid="panel-quorum"]').exists()).toBe(true)
 
     await wrapper.setProps({
@@ -287,7 +312,7 @@ describe('Experiencia pública de votación', () => {
       ),
     })
     expect(wrapper.get('[data-testid="tema-votacion"]').text()).toContain('Nueva votación')
-    expect(wrapper.find('[data-testid="voto-banca"]').exists()).toBe(false)
+    expect(wrapper.find('[data-estado-banca^="RESULTADO_"]').exists()).toBe(false)
 
     await wrapper.setProps({
       estado: crearEstadoRecintoPrueba({ revision: 0, estado_global: 'SIN_PREPARAR' }),

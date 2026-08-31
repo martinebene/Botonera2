@@ -1176,6 +1176,8 @@ export interface components {
             motivo_finalizacion_manual: string | null;
             /** Cantidad Votos Recibidos */
             cantidad_votos_recibidos: number;
+            /** Bancas Voto Emitido */
+            bancas_voto_emitido: number[];
             /**
              * Revelado Individual Desde
              * Format: date-time
@@ -1222,6 +1224,8 @@ export interface components {
             cuenta_regresiva_hasta: string | null;
             /** Resultado Visible Hasta */
             resultado_visible_hasta: string | null;
+            /** Bancas Voto Emitido */
+            bancas_voto_emitido: number[];
             /** Votos Individuales */
             votos_individuales: components["schemas"]["VotoPublico"][] | null;
             conteos: components["schemas"]["ConteosVotosProyectados"] | null;

@@ -563,11 +563,16 @@ describe('Q3 horizontal, orador derivado y remapeo colapsable', () => {
       conectado: true,
     })
 
-    expect(wrapper.get('[data-banca="1"]').find('[data-testid="estado-orador"]').exists()).toBe(
-      true,
+    // WP-045: el uso de la palabra ya no es un chip aparte sino el estado
+    // principal de la tarjeta, con una única etiqueta textual.
+    expect(wrapper.get('[data-banca="1"]').element.getAttribute('data-estado-banca')).toBe(
+      'PALABRA',
     )
-    expect(wrapper.get('[data-banca="2"]').find('[data-testid="estado-orador"]').exists()).toBe(
-      false,
+    expect(wrapper.get('[data-banca="1"] [data-testid="etiqueta-banca"]').text()).toBe(
+      'En uso de la palabra',
+    )
+    expect(wrapper.get('[data-banca="2"]').element.getAttribute('data-estado-banca')).not.toBe(
+      'PALABRA',
     )
 
     await wrapper.setProps({
@@ -580,11 +585,11 @@ describe('Q3 horizontal, orador derivado y remapeo colapsable', () => {
         },
       }),
     })
-    expect(wrapper.get('[data-banca="1"]').find('[data-testid="estado-orador"]').exists()).toBe(
-      false,
+    expect(wrapper.get('[data-banca="1"]').element.getAttribute('data-estado-banca')).not.toBe(
+      'PALABRA',
     )
-    expect(wrapper.get('[data-banca="2"]').find('[data-testid="estado-orador"]').exists()).toBe(
-      true,
+    expect(wrapper.get('[data-banca="2"]').element.getAttribute('data-estado-banca')).toBe(
+      'PALABRA',
     )
 
     await wrapper.setProps({
@@ -594,7 +599,7 @@ describe('Q3 horizontal, orador derivado y remapeo colapsable', () => {
         palabra: { orador: null, cola: [] },
       }),
     })
-    expect(wrapper.find('[data-testid="estado-orador"]').exists()).toBe(false)
+    expect(wrapper.find('[data-estado-banca="PALABRA"]').exists()).toBe(false)
   })
 
   it('abre y cierra el remapeo inactivo sin REST y fuerza la operación backend activa', async () => {

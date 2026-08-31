@@ -51,6 +51,7 @@ function crearVotacion(parcial: Record<string, unknown> = {}) {
     fecha_hora_cierre: null,
     cuenta_regresiva_hasta: null,
     resultado_visible_hasta: null,
+    bancas_voto_emitido: [],
     votos_individuales: null,
     conteos: null,
     voto_presidencial: null,
@@ -211,12 +212,13 @@ for (const viewport of [
     await expect(page.getByTestId('cabecera-sesion')).toContainText('Preparando')
     await expect(page.getByTestId('cabecera-tiempo-sesion')).toHaveCount(0)
     await expect(page.getByTestId('estado-quorum')).toHaveText('Sin quórum')
-    await expect(page.locator('[data-banca="2"] [data-testid="estado-presencia"]')).toHaveText(
+    // WP-045: una sola etiqueta por banca; el test se pinta sin texto.
+    await expect(page.locator('[data-banca="2"]')).toHaveAttribute('data-estado-banca', 'AUSENTE')
+    await expect(page.locator('[data-banca="2"] [data-testid="etiqueta-banca"]')).toHaveText(
       'Ausente',
     )
-    await expect(page.locator('[data-banca="3"] [data-testid="estado-test"]')).toHaveText(
-      'Test activo',
-    )
+    await expect(page.locator('[data-banca="3"]')).toHaveAttribute('data-estado-banca', 'TEST')
+    await expect(page.locator('[data-banca="3"] [data-testid="etiqueta-banca"]')).toHaveCount(0)
     await expect(
       page.getByTestId('fila-fisica-1').getByTestId('banca-publica').first(),
     ).toHaveAttribute('data-banca', '1')
@@ -245,21 +247,18 @@ for (const viewport of [
     }
 
     await expect(filaInferior.locator('[data-banca="4"]')).toContainText('sin datos públicos')
-    await expect(filaInferior.locator('[data-banca="5"]')).toContainText('Nombre5')
+    // La identidad ya no se repite como texto: vive en el bitmap y en aria-label.
+    await expect(filaInferior.locator('[data-banca="5"]')).toHaveAttribute('aria-label', /Nombre5/)
     const bancaUnoPublica = filaInferior.locator('[data-banca="1"]')
-    await expect(bancaUnoPublica.locator('[data-testid="numero-banca"]')).toHaveText('Banca 1')
-    await expect(bancaUnoPublica.locator('.identidad-concejal strong')).toContainText(
-      'Nombre1 Apellido1',
-    )
-    await expect(bancaUnoPublica.locator('.identidad-concejal small')).toBeVisible()
-    await expect(bancaUnoPublica.locator('[data-testid="estado-presencia"]')).toHaveText('Presente')
+    await expect(bancaUnoPublica).toHaveAttribute('data-estado-banca', 'NORMAL')
+    await expect(bancaUnoPublica.locator('[data-testid="etiqueta-banca"]')).toHaveCount(0)
+    await expect(bancaUnoPublica).not.toContainText('Nombre1')
+    await expect(bancaUnoPublica).not.toContainText('Banca 1')
     const ausencia = await page.locator('[data-banca="2"]').evaluate((banca) => ({
-      opacidad: Number.parseFloat(getComputedStyle(banca).opacity),
       filtroFoto: getComputedStyle(
         banca.querySelector('[data-testid="imagen-concejal"]') as HTMLElement,
       ).filter,
     }))
-    expect(ausencia.opacidad).toBeLessThan(1)
     expect(ausencia.filtroFoto).not.toBe('none')
     expect(
       await page.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight + 1),
@@ -300,7 +299,7 @@ for (const viewport of [
     await expect(page.getByTestId('autoridades')).toContainText('Ana Presidencia')
     await expect(page.getByTestId('autoridades')).toContainText('Luis Secretaría')
     await expect(page.getByTestId('estado-quorum')).toHaveText('Quórum alcanzado')
-    await expect(page.locator('[data-banca="4"] [data-testid="estado-orador"]')).toBeVisible()
+    await expect(page.locator('[data-banca="4"]')).toHaveAttribute('data-estado-banca', 'PALABRA')
     await expect(page.getByTestId('panel-palabra')).not.toContainText('Nombre4 Apellido4')
     await expect(page.getByTestId('cola-palabra').locator('li')).toHaveCount(32)
     await expect(page.getByTestId('cola-palabra').locator('li').nth(0)).toContainText(
@@ -360,7 +359,7 @@ for (const viewport of [
     await expect(page.getByTestId('countdown-votacion')).toBeVisible()
     await expect(page.getByTestId('panel-quorum')).toBeVisible()
     await expect(page.getByTestId('panel-palabra')).not.toContainText('Nombre4 Apellido4')
-    await expect(page.getByTestId('voto-banca')).toHaveCount(0)
+    await expect(page.locator('[data-estado-banca^="RESULTADO_"]')).toHaveCount(0)
     await expect(page.getByTestId('conteos-votacion')).toHaveCount(0)
     await expect(page.getByText('Positivo', { exact: true })).toHaveCount(0)
 
@@ -373,7 +372,7 @@ for (const viewport of [
     await page.clock.runFor(1500)
     await expect(page.getByTestId('countdown-votacion')).toHaveCount(0)
     await expect(page.getByTestId('estado-votacion')).toHaveText('En curso')
-    await expect(page.getByTestId('voto-banca')).toHaveCount(0)
+    await expect(page.locator('[data-estado-banca^="RESULTADO_"]')).toHaveCount(0)
 
     const temaLargo =
       'Tratamiento extenso del expediente institucional con una descripción deliberadamente larga para validar la degradación controlada del texto público'
@@ -401,17 +400,24 @@ for (const viewport of [
 
     await expect(page.getByTestId('estado-votacion')).toHaveText('Aprobada')
     await expect(page.getByTestId('tema-votacion')).toHaveAttribute('title', temaLargo)
-    await expect(page.locator('[data-banca="1"] [data-testid="voto-banca"]')).toHaveText('Positivo')
-    await expect(page.locator('[data-banca="2"] [data-testid="voto-banca"]')).toHaveText('Negativo')
-    await expect(page.locator('[data-banca="3"] [data-testid="voto-banca"]')).toHaveText(
+    await expect(page.locator('[data-banca="1"] [data-testid="etiqueta-banca"]')).toHaveText(
+      'Positivo',
+    )
+    await expect(page.locator('[data-banca="2"] [data-testid="etiqueta-banca"]')).toHaveText(
+      'Negativo',
+    )
+    await expect(page.locator('[data-banca="3"] [data-testid="etiqueta-banca"]')).toHaveText(
       'Abstención',
     )
-    await expect(page.locator('[data-banca="4"] [data-testid="voto-banca"]')).toHaveCount(0)
+    await expect(page.locator('[data-banca="4"]')).not.toHaveAttribute(
+      'data-estado-banca',
+      /RESULTADO_/,
+    )
     await expect(page.getByTestId('conteos-votacion')).toContainText('Positivos8')
     await expect(page.getByTestId('conteos-votacion')).toContainText('Total11')
     await page.clock.runFor(1750)
     await expect(page.getByTestId('votacion-publica')).toHaveCount(0)
-    await expect(page.getByTestId('voto-banca')).toHaveCount(0)
+    await expect(page.locator('[data-estado-banca^="RESULTADO_"]')).toHaveCount(0)
 
     const empatada = {
       ...sesion,
@@ -436,7 +442,7 @@ for (const viewport of [
     await expect(page.getByTestId('espera-desempate')).toContainText('Presidencia')
     await page.clock.runFor(1500)
     await expect(page.getByTestId('estado-votacion')).toHaveText('Empatada')
-    await expect(page.getByTestId('voto-banca')).toHaveCount(2)
+    await expect(page.locator('[data-estado-banca^="RESULTADO_"]')).toHaveCount(2)
 
     const ahoraDesempate = await page.evaluate(() => Date.now())
     await publicar(page, {
@@ -461,7 +467,7 @@ for (const viewport of [
     await expect(page.getByTestId('estado-votacion')).toHaveText('Rechazada')
     await expect(page.getByTestId('voto-presidencial')).toContainText('Ana Presidencia')
     await expect(page.getByTestId('voto-presidencial')).toContainText('Negativo')
-    await expect(page.getByTestId('voto-banca')).toHaveCount(2)
+    await expect(page.locator('[data-estado-banca^="RESULTADO_"]')).toHaveCount(2)
     await expect(page.getByTestId('conteos-votacion')).toContainText('Total2')
 
     const ahoraInconclusa = await page.evaluate(() => Date.now())
@@ -484,9 +490,9 @@ for (const viewport of [
     }
     await publicar(page, inconclusa)
     await expect(page.getByTestId('estado-votacion')).toHaveText('Inconclusa')
-    await expect(page.getByTestId('voto-banca')).toHaveCount(1)
-    await expect(page.locator('[data-banca="4"] [data-testid="voto-banca"]')).toHaveCount(0)
-    await expect(page.locator('[data-banca="4"] [data-testid="estado-orador"]')).toBeVisible()
+    await expect(page.locator('[data-estado-banca^="RESULTADO_"]')).toHaveCount(1)
+    // La banca 4 no votó, así que su estado principal sigue siendo el uso de la palabra.
+    await expect(page.locator('[data-banca="4"]')).toHaveAttribute('data-estado-banca', 'PALABRA')
     await expect(page.getByTestId('panel-palabra')).not.toContainText('Nombre4 Apellido4')
 
     const cajas = await Promise.all([
@@ -506,7 +512,7 @@ for (const viewport of [
     await page.clock.resume()
     await cortarYRecuperar(page, reinicio)
     await expect(page.getByTestId('estado-conexion')).toContainText('desactualizada')
-    await expect(page.locator('[data-banca="4"] [data-testid="estado-orador"]')).toBeVisible()
+    await expect(page.locator('[data-banca="4"]')).toHaveAttribute('data-estado-banca', 'PALABRA')
     await expect(page.getByTestId('estado-sin-preparar')).toBeVisible({ timeout: 5000 })
     await expect(page.getByTestId('estado-conexion')).toContainText('En línea')
     await expect(page.getByTestId('grilla-bancas')).toHaveCount(0)

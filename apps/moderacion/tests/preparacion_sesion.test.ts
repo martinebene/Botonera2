@@ -318,12 +318,18 @@ describe('WP-022: Preparación, presencia, autoridades, sesión y advertencia de
 
       const html = await renderizarSSR(BancaConcejal, { concejal })
 
-      expect(html).toContain('Banca 3')
-      expect(html).toContain('Florentina Gómez Miranda')
-      expect(html).toContain('UCR')
-      expect(html).toContain('dev03')
-      expect(html).toContain('Presente')
-      expect(html).toContain('data-testid="badge-test-activo"')
+      // WP-045: la tarjeta muestra el bitmap y, como máximo, una etiqueta. La
+      // identidad ya vive dentro de la propia imagen, de modo que nombre,
+      // bloque, dispositivo y número de banca no se repiten como texto visible.
+      expect(html).toContain('data-banca="3"')
+      expect(html).toContain('assets/bancas/banca-03.png')
+      expect(html).toContain('aria-label="Banca 3, Florentina Gómez Miranda, presente')
+      expect(html).not.toContain('>UCR<')
+      expect(html).not.toContain('dev03')
+      expect(html).not.toContain('Presente')
+      // El test de dispositivo es el estado principal y se pinta sin etiqueta.
+      expect(html).toContain('data-estado-banca="TEST"')
+      expect(html).not.toContain('data-testid="etiqueta-banca"')
     })
 
     it('GrillaRecinto: dibuja [3,4,5] desde arriba sin invertir el orden horizontal', () => {
@@ -334,29 +340,22 @@ describe('WP-022: Preparación, presencia, autoridades, sesión y advertencia de
 
       // El primer nodo visual es la fila física superior, pero cada fila mantiene
       // sus bancas crecientes de izquierda a derecha.
+      // WP-045 quitó el texto `Banca N` de la tarjeta: la posición física se
+      // comprueba ahora con el atributo `data-banca`, que sigue siendo autoritativo.
+      const bancasDeFila = (fila: number): (string | undefined)[] =>
+        wrapper
+          .get(`[data-fila-fisica="${fila}"]`)
+          .findAll('[data-banca]')
+          .map((banca) => banca.element.getAttribute('data-banca'))
+
       const filas = wrapper.findAll('[data-fila-fisica]')
       expect(filas).toHaveLength(3)
-      expect(filas[0]?.text()).toContain('Banca 8')
-      expect(filas[1]?.text()).toContain('Banca 4')
-      expect(filas[2]?.text()).toContain('Banca 1')
-      expect(
-        wrapper
-          .get('[data-fila-fisica="1"]')
-          .findAll('[data-banca]')
-          .map((banca) => banca.text().match(/Banca (\d+)/)?.[1]),
-      ).toEqual(['1', '2', '3'])
-      expect(
-        wrapper
-          .get('[data-fila-fisica="2"]')
-          .findAll('[data-banca]')
-          .map((banca) => banca.text().match(/Banca (\d+)/)?.[1]),
-      ).toEqual(['4', '5', '6', '7'])
-      expect(
-        wrapper
-          .get('[data-fila-fisica="3"]')
-          .findAll('[data-banca]')
-          .map((banca) => banca.text().match(/Banca (\d+)/)?.[1]),
-      ).toEqual(['8', '9', '10', '11', '12'])
+      expect(filas[0]?.element.getAttribute('data-fila-fisica')).toBe('3')
+      expect(filas[1]?.element.getAttribute('data-fila-fisica')).toBe('2')
+      expect(filas[2]?.element.getAttribute('data-fila-fisica')).toBe('1')
+      expect(bancasDeFila(1)).toEqual(['1', '2', '3'])
+      expect(bancasDeFila(2)).toEqual(['4', '5', '6', '7'])
+      expect(bancasDeFila(3)).toEqual(['8', '9', '10', '11', '12'])
     })
 
     it('GrillaRecinto: soporta [5,7], asociación desordenada y hueco físico', () => {
@@ -367,20 +366,17 @@ describe('WP-022: Preparación, presencia, autoridades, sesión y advertencia de
         props: { concejales, filasBancas: [5, 7] },
       })
 
-      expect(
+      const bancasDeFila = (fila: number): (string | undefined)[] =>
         wrapper
-          .get('[data-fila-fisica="2"]')
+          .get(`[data-fila-fisica="${fila}"]`)
           .findAll('[data-banca]')
-          .map((banca) => banca.text().match(/Banca (\d+)/)?.[1]),
-      ).toEqual(['6', '7', '8', '9', '10', '11', '12'])
-      expect(
-        wrapper
-          .get('[data-fila-fisica="1"]')
-          .findAll('[data-banca]')
-          .map((banca) => banca.text().match(/Banca (\d+)/)?.[1]),
-      ).toEqual(['1', '2', '3', '4', '5'])
+          .map((banca) => banca.element.getAttribute('data-banca'))
+
+      expect(bancasDeFila(2)).toEqual(['6', '7', '8', '9', '10', '11', '12'])
+      expect(bancasDeFila(1)).toEqual(['1', '2', '3', '4', '5'])
       expect(wrapper.get('[data-banca="4"]').text()).toContain('sin datos')
-      expect(wrapper.get('[data-banca="5"] [data-testid="nombre-concejal"]').text()).toContain(
+      // La identidad ya no es texto visible, pero sigue disponible para accesibilidad.
+      expect(wrapper.get('[data-banca="5"]').element.getAttribute('aria-label')).toContain(
         'Concejal05',
       )
     })
@@ -395,12 +391,17 @@ describe('WP-022: Preparación, presencia, autoridades, sesión y advertencia de
         props: { concejal: concejalAusente },
       })
 
-      expect(wrapper.get('[data-testid="estado-presencia"]').text()).toContain('Ausente')
-      const htmlAusente = await renderizarSSR(BancaConcejal, { concejal: concejalAusente })
-      expect(htmlAusente).toContain('grayscale')
-      expect(htmlAusente).toContain('opacity-75')
-      expect(wrapper.get('[data-testid="indicador-test"]').text()).toContain('Test de teclado')
-      expect(wrapper.get('[data-testid="dispositivo-banca"]').text()).toContain('dev01')
+      // Test activo tiene mayor prioridad que la ausencia: el estado principal es
+      // TEST (sin etiqueta) y la ausencia sobrevive como halo secundario.
+      const tarjeta = wrapper.get('[data-testid="banca-concejal"]')
+      expect(tarjeta.element.getAttribute('data-estado-banca')).toBe('TEST')
+      expect(tarjeta.element.getAttribute('data-presente')).toBe('false')
+      expect(wrapper.find('[data-testid="etiqueta-banca"]').exists()).toBe(false)
+      expect(tarjeta.element.getAttribute('aria-label')).toContain(
+        'ausente, test de dispositivo activo',
+      )
+      expect(wrapper.text()).not.toContain('Test de teclado')
+      expect(wrapper.text()).not.toContain('dev01')
       expect(wrapper.findAll('button, input, select, textarea')).toHaveLength(0)
 
       await wrapper.get('[data-testid="imagen-concejal"]').trigger('error')
@@ -421,9 +422,12 @@ describe('WP-022: Preparación, presencia, autoridades, sesión y advertencia de
       expect(wrapper.find('[data-ruta-imagen="assets/bancas/persona-nueva.png"]').exists()).toBe(
         true,
       )
-      expect(wrapper.get('[data-testid="estado-presencia"]').text()).toContain('Presente')
+      expect(
+        wrapper.get('[data-testid="banca-concejal"]').element.getAttribute('data-estado-banca'),
+      ).toBe('NORMAL')
+      expect(wrapper.find('[data-testid="etiqueta-banca"]').exists()).toBe(false)
       const htmlPresente = await renderizarSSR(BancaConcejal, { concejal: concejalNuevo })
-      expect(htmlPresente).not.toContain('grayscale')
+      expect(htmlPresente).toContain('data-estado-banca="NORMAL"')
       expect(concejalAusente.presente).toBe(false)
     })
 

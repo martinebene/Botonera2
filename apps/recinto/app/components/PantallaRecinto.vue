@@ -24,6 +24,14 @@ const contextoInstitucional = computed(
 const sesionAbierta = computed(() => estado.value?.estado_global === 'SESION_ABIERTA')
 const bancaOrador = computed(() => estado.value?.palabra?.orador?.banca ?? null)
 const { votacion: votacionPresentada, segundosCuentaRegresiva } = usePresentacionVotacion(estado)
+const estadoRecepcionVotacion = computed(() => votacionPresentada.value?.estado_recepcion ?? null)
+/**
+ * Participación sin sentido (WP-045).
+ *
+ * El backend garantiza que solo viene poblada mientras la recepción está
+ * `EN_CURSO`; la pantalla se limita a transportarla hasta cada banca.
+ */
+const bancasVotoEmitido = computed(() => votacionPresentada.value?.bancas_voto_emitido ?? null)
 const votosIndividualesVisibles = computed(() => {
   const votacion = votacionPresentada.value
   if (votacion?.estado_recepcion === 'EN_CURSO') return null
@@ -102,6 +110,8 @@ const votosIndividualesVisibles = computed(() => {
               :filas-bancas="estado.filas_bancas"
               :concejales="estado.concejales"
               :banca-orador="bancaOrador"
+              :estado-recepcion="estadoRecepcionVotacion"
+              :bancas-voto-emitido="bancasVotoEmitido"
               :votos-individuales="votosIndividualesVisibles"
             />
             <div
