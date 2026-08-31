@@ -133,7 +133,6 @@ function claseNivel(nivel: string): string {
 <template>
   <PanelContenedor
     titulo="Eventos"
-    subtitulo="Registro de actividad y eventos institucionales recientes"
     data-testid="panel-eventos"
     :badge="`${eventosVisibles.length} de ${estado?.eventos_recientes?.length ?? 0}`"
   >

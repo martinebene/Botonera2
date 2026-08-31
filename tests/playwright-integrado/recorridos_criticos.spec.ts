@@ -143,7 +143,10 @@ test.describe.serial('WP-027 · recorridos críticos sobre el stack real', () =>
         await expect(moderacion.getByTestId('cola-palabra')).toContainText('Banca 1')
         await expect(recinto.getByTestId('cola-palabra')).toContainText('Lorena Moreno')
         await moderacion.getByTestId('btn-otorgar-palabra').click()
-        await expect(moderacion.getByTestId('orador-actual-texto')).toContainText('Banca 1')
+        // WP-044: Moderación ya no repite al orador como texto; la señal vive en su banca.
+        await expect(
+          moderacion.locator('[data-banca="1"] [data-testid="estado-orador"]'),
+        ).toBeVisible()
         await expect(
           recinto.locator('[data-banca="1"] [data-testid="estado-orador"]'),
         ).toBeVisible()
@@ -157,7 +160,10 @@ test.describe.serial('WP-027 · recorridos críticos sobre el stack real', () =>
         await moderacion.getByTestId('btn-cancelar-apertura').click()
         await expect(moderacion.getByTestId('dialogo-confirmacion-apertura')).toHaveCount(0)
         await expect(moderacion.getByTestId('formulario-votacion')).toBeVisible()
-        await expect(moderacion.getByTestId('orador-actual-texto')).toContainText('Banca 1')
+        // WP-044: Moderación ya no repite al orador como texto; la señal vive en su banca.
+        await expect(
+          moderacion.locator('[data-banca="1"] [data-testid="estado-orador"]'),
+        ).toBeVisible()
 
         await moderacion.getByTestId('btn-abrir-votacion').click()
         await moderacion.getByTestId('btn-confirmar-apertura').click()
@@ -264,7 +270,10 @@ test.describe.serial('WP-027 · recorridos críticos sobre el stack real', () =>
         await expect(recinto.locator('[data-banca="1"] [data-testid="voto-banca"]')).toHaveText(
           'Negativo',
         )
-        await expect(moderacion.getByTestId('orador-actual-texto')).toContainText('Banca 1')
+        // WP-044: Moderación ya no repite al orador como texto; la señal vive en su banca.
+        await expect(
+          moderacion.locator('[data-banca="1"] [data-testid="estado-orador"]'),
+        ).toBeVisible()
       })
 
       await test.step('G · Orden del Día deja una votación real EN_CURSO para el cierre', async () => {
@@ -292,7 +301,10 @@ test.describe.serial('WP-027 · recorridos críticos sobre el stack real', () =>
         await expect(moderacion.getByTestId('dialogo-confirmacion-cierre')).toBeVisible()
         await moderacion.getByTestId('btn-cancelar-cierre').click()
         await expect(moderacion.getByTestId('vista-sesion-abierta')).toBeVisible()
-        await expect(moderacion.getByTestId('orador-actual-texto')).toContainText('Banca 1')
+        // WP-044: Moderación ya no repite al orador como texto; la señal vive en su banca.
+        await expect(
+          moderacion.locator('[data-banca="1"] [data-testid="estado-orador"]'),
+        ).toBeVisible()
         const estadoTrasCancelar = await obtenerEstado(moderacion, 'moderacion')
         expect(estadoTrasCancelar.estado_global).toBe('SESION_ABIERTA')
         expect(estadoTrasCancelar.votacion?.estado_recepcion).toBe('EN_CURSO')

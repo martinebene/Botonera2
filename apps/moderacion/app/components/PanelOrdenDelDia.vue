@@ -10,9 +10,16 @@
  * colección confirmada. Al quitar, los puntos permanecen visibles hasta que un snapshot
  * vacío llegue desde backend. Seleccionar un punto emite una copia para precargar Q1,
  * sin marcarlo como tratado ni modificar la colección autoritativa.
+ *
+ * WP-044 concentra en este cuadrante el único acuse visual de la copia asistencial:
+ * un toast flotante de ~1 segundo. El toast se dibuja superpuesto (position absolute)
+ * para no reservar altura ni desplazar la lista, se reemplaza a sí mismo cuando el
+ * operador elige otro punto y cancela su temporizador al desmontar el componente. Es
+ * feedback puramente presentacional: no confirma ninguna mutación institucional, porque
+ * la copia solo precarga un borrador local de Q1.
  */
 
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, ref } from 'vue'
 import type {
   ClienteModeracion,
   EstadoModeracion,
@@ -36,12 +43,18 @@ const sincronizacion = useEstadoModeracion(props.clienteInyectado)
 const cliente = computed(() => props.clienteInyectado ?? sincronizacion.cliente)
 const conectado = computed(() => sincronizacion.conectado.value)
 const archivoSeleccionado = ref<File | null>(null)
-const nombreArchivo = ref('')
 const inputArchivo = ref<HTMLInputElement | null>(null)
 const cargando = ref(false)
 const descartando = ref(false)
 const mensajeError = ref<string | null>(null)
 const mensajeInformativo = ref<string | null>(null)
+
+/** Texto del toast flotante; `null` significa que ningún acuse está visible. */
+const toastCopia = ref<string | null>(null)
+/** Identificador del temporizador vigente, necesario para reemplazarlo o cancelarlo. */
+let temporizadorToast: ReturnType<typeof setTimeout> | null = null
+/** Duración objetivo del acuse, fijada por WP-044. */
+const DURACION_TOAST_MS = 1000
 
 const capacidadCargar = computed(() => props.estado?.capacidades.cargar_orden_del_dia)
 const capacidadDescartar = computed(() => props.estado?.capacidades.descartar_orden_del_dia)
@@ -93,7 +106,6 @@ function manejarSeleccionArchivo(evento: Event): void {
   const entrada = evento.target as HTMLInputElement | null
   const archivo = entrada?.files?.[0] ?? null
   archivoSeleccionado.value = archivo
-  nombreArchivo.value = archivo?.name ?? ''
   limpiarMensajes()
 }
 
@@ -105,7 +117,6 @@ async function cargarOrdenDelDia(): Promise<void> {
   try {
     await cliente.value.cargarOrdenDelDia(archivo)
     archivoSeleccionado.value = null
-    nombreArchivo.value = ''
     if (inputArchivo.value) inputArchivo.value.value = ''
     mensajeInformativo.value =
       'Archivo enviado. La lista cambiará cuando el backend proyecte la colección confirmada.'
@@ -131,22 +142,63 @@ async function descartarOrdenDelDia(): Promise<void> {
   }
 }
 
+/**
+ * Muestra (o reemplaza) el único toast del cuadrante durante `DURACION_TOAST_MS`.
+ *
+ * Cancelar primero el temporizador anterior evita que una selección vieja apague el
+ * acuse de la selección nueva antes de tiempo: siempre queda un solo timer vivo.
+ */
+function mostrarToastCopia(texto: string): void {
+  if (temporizadorToast !== null) clearTimeout(temporizadorToast)
+  toastCopia.value = texto
+  temporizadorToast = setTimeout(() => {
+    toastCopia.value = null
+    temporizadorToast = null
+  }, DURACION_TOAST_MS)
+}
+
+/**
+ * Copiar un punto es una acción asistencial local: emite la copia y muestra el toast.
+ *
+ * Deliberadamente no limpia los mensajes de carga o error ya visibles. Hacerlo cambiaba
+ * el alto del cuadrante justo cuando el operador hace clic y desplazaba la lista bajo el
+ * cursor, que es exactamente lo que WP-044 pide evitar.
+ */
 function seleccionarPunto(punto: PuntoOrdenDelDiaProyectado): void {
   emit('seleccionar', { ...punto })
-  mensajeInformativo.value = `Punto Nº ${punto.nro_votacion} copiado al borrador de votación.`
-  mensajeError.value = null
+  mostrarToastCopia(`Punto Nº ${punto.nro_votacion} copiado al borrador`)
 }
+
+// Un componente desmontado con un timer pendiente escribiría sobre un ref muerto:
+// por eso el temporizador se cancela explícitamente en el ciclo de vida.
+onBeforeUnmount(() => {
+  if (temporizadorToast !== null) {
+    clearTimeout(temporizadorToast)
+    temporizadorToast = null
+  }
+})
 </script>
 
 <template>
   <PanelContenedor
     titulo="Orden del Día"
-    :subtitulo="tieneOrdenDelDia ? 'Puntos confirmados por backend' : 'Carga CSV compacta'"
     data-testid="panel-orden-del-dia"
     :badge="puntosOrdenDelDia.length ? `${puntosOrdenDelDia.length} puntos` : 'Sin cargar'"
     :contenido-con-scroll-propio="true"
   >
-    <div class="flex h-full min-h-0 flex-col gap-2 text-sm text-slate-300">
+    <div class="relative flex h-full min-h-0 flex-col gap-2 text-sm text-slate-300">
+      <!--
+        Acuse flotante de la copia asistencial. Al estar superpuesto y sin participar del
+        flujo normal, aparecer o desaparecer no cambia el alto de la lista ni su scroll.
+      -->
+      <div
+        v-if="toastCopia"
+        data-testid="toast-punto-copiado"
+        role="status"
+        class="pointer-events-none absolute inset-x-2 top-2 z-30 rounded-lg border border-cyan-700 bg-cyan-950/95 px-3 py-1.5 text-center text-xs font-semibold text-cyan-100 shadow-xl"
+      >
+        {{ toastCopia }}
+      </div>
       <!--
         La carga solo existe con colección vacía. No se ofrece reemplazo directo:
         para elegir otro CSV el operador debe quitar primero el estado confirmado.
@@ -182,9 +234,6 @@ function seleccionarPunto(punto: PuntoOrdenDelDiaProyectado): void {
             {{ cargando ? 'Cargando...' : 'Cargar' }}
           </button>
         </div>
-        <p v-if="nombreArchivo" class="mt-1 truncate text-[11px] text-slate-400">
-          Seleccionado: {{ nombreArchivo }}
-        </p>
         <p v-if="!conectado" class="text-[11px] text-amber-300">
           Los comandos quedan deshabilitados hasta recuperar la conexión confirmada.
         </p>

@@ -2,10 +2,16 @@
 /**
  * Presenta y opera el uso de la palabra sin crear una cola paralela en Vue.
  *
- * El orador y la cola se leen siempre del snapshot recibido. Los únicos datos
- * locales son el comando en vuelo y un mensaje transitorio; después de un 204
- * se espera la siguiente proyección REST/SSE antes de mostrar cualquier cambio
- * institucional.
+ * El orador y la cola se leen siempre del snapshot recibido. El único dato local
+ * es el comando en vuelo; después de un 204 se espera la siguiente proyección
+ * REST/SSE antes de mostrar cualquier cambio institucional.
+ *
+ * WP-044 elimina dos textos que ocupaban altura sin agregar decisión operativa:
+ * la repetición del orador (su señal vive en la banca resaltada del recinto) y el
+ * acuse `Comando enviado. Esperando...`. Ese acuse describía un tránsito HTTP que el
+ * operador no puede accionar y que, además, nunca debe confundirse con el estado
+ * institucional. Los errores reales sí se conservan: son los únicos mensajes que
+ * habilitan una decisión (reintentar, corregir o escalar).
  */
 
 import { computed, ref } from 'vue'
@@ -25,10 +31,9 @@ type AccionPalabra = 'OTORGAR' | 'QUITAR'
 
 const accionEnVuelo = ref<AccionPalabra | null>(null)
 const mensajeError = ref<string | null>(null)
-const mensajeInformativo = ref<string | null>(null)
 
 const palabra = computed(() => props.estado?.palabra ?? null)
-const orador = computed(() => palabra.value?.orador ?? null)
+// El orador ya no se replica como texto acá: WP-044 deja esa señal en la banca del recinto.
 const cola = computed(() => palabra.value?.cola ?? [])
 
 const capacidadOtorgar = computed(() => props.estado?.capacidades.otorgar_palabra)
@@ -72,7 +77,6 @@ function extraerMensajeError(error: unknown, mensajePredeterminado: string): str
 
 function limpiarMensajes(): void {
   mensajeError.value = null
-  mensajeInformativo.value = null
 }
 
 /**
@@ -84,8 +88,8 @@ async function otorgarPalabra(): Promise<void> {
   limpiarMensajes()
   accionEnVuelo.value = 'OTORGAR'
   try {
+    // Sin acuse de éxito: la transición se hace visible cuando el snapshot la confirma.
     await props.cliente.otorgarPalabra()
-    mensajeInformativo.value = 'Comando enviado. Esperando el estado confirmado del backend.'
   } catch (error: unknown) {
     mensajeError.value = extraerMensajeError(error, 'No se pudo otorgar la palabra.')
   } finally {
@@ -102,8 +106,8 @@ async function quitarPalabra(): Promise<void> {
   limpiarMensajes()
   accionEnVuelo.value = 'QUITAR'
   try {
+    // Sin acuse de éxito: la cola visible solo cambia por proyección autoritativa.
     await props.cliente.quitarPalabra()
-    mensajeInformativo.value = 'Comando enviado. Esperando el estado confirmado del backend.'
   } catch (error: unknown) {
     mensajeError.value = extraerMensajeError(error, 'No se pudo quitar la palabra.')
   } finally {
@@ -118,10 +122,7 @@ async function quitarPalabra(): Promise<void> {
     class="flex h-full min-h-0 flex-col gap-2 overflow-hidden rounded-lg border border-slate-800 bg-slate-950/60 p-2.5"
   >
     <div class="flex shrink-0 items-center justify-between gap-2 border-b border-slate-800 pb-1.5">
-      <div>
-        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300">Uso de la palabra</h3>
-        <p class="text-[9px] text-slate-500">Cola FIFO autoritativa</p>
-      </div>
+      <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300">Uso de la palabra</h3>
       <span
         data-testid="badge-cola-palabra"
         class="rounded border px-2 py-0.5 text-[10px] font-bold"
@@ -134,19 +135,6 @@ async function quitarPalabra(): Promise<void> {
         {{ cola.length }} en cola
       </span>
     </div>
-
-    <!-- El texto es una ayuda operativa compacta; la señal principal vive en la banca resaltada. -->
-    <p
-      data-testid="orador-actual-texto"
-      class="shrink-0 truncate rounded border border-slate-800/80 bg-slate-900/50 px-2 py-1 text-[10px] font-semibold"
-      :class="orador ? 'text-cyan-300' : 'italic text-slate-400'"
-      :title="orador ? `${orador.nombre} ${orador.apellido}` : undefined"
-    >
-      <template v-if="orador">
-        En uso: Banca {{ orador.banca }} · {{ orador.nombre }} {{ orador.apellido }}
-      </template>
-      <template v-else>Sin orador activo</template>
-    </p>
 
     <!-- Esta lista es la única frontera de scroll de la columna de palabra. -->
     <div
@@ -212,14 +200,6 @@ async function quitarPalabra(): Promise<void> {
       role="alert"
     >
       {{ mensajeError }}
-    </p>
-    <p
-      v-if="mensajeInformativo"
-      data-testid="aviso-palabra"
-      class="max-h-12 shrink-0 overflow-y-auto rounded border border-cyan-800 bg-cyan-950/40 px-2 py-1 text-[10px] text-cyan-200"
-      role="status"
-    >
-      {{ mensajeInformativo }}
     </p>
   </section>
 </template>

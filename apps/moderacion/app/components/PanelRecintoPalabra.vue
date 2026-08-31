@@ -12,6 +12,12 @@
  * de modo que no se repita en dos lugares que podrían llegar a divergir visualmente.
  * La presencia individual de cada concejal se sigue viendo en su propia banca.
  *
+ * WP-044 mueve `Remapear dispositivo` al área de acciones del encabezado del panel y
+ * elimina el subencabezado interior `Distribución de bancas`. La altura recuperada
+ * queda disponible para la grilla, que es el contenido con valor operativo real. El
+ * botón sigue viviendo en este componente: `PanelContenedor` solo presta el slot y no
+ * conoce nada del flujo de remapeo.
+ *
  * Invariantes respetados:
  * - NO incluye controles de presencia manual ni atajos de teclado para marcar presencia.
  * - NO modifica localmente quórum ni presencia ante tests de teclado.
@@ -76,10 +82,26 @@ function cerrarRemapeo(): void {
 <template>
   <PanelContenedor
     titulo="Recinto y palabra"
-    subtitulo="Bancas, palabra y coordinación de dispositivos"
     data-testid="panel-recinto-palabra"
     contenido-con-scroll-propio
   >
+    <!--
+      La acción vive en el encabezado, alineada a la derecha del título. Solo se ofrece
+      cuando el estado admite iniciar el flujo y todavía no hay un cajón abierto ni una
+      operación autoritativa en curso: en ese caso el flujo completo ya está visible.
+    -->
+    <template #acciones>
+      <button
+        v-if="estado && estado.estado_global !== 'SIN_PREPARAR' && !mostrarRemapeo"
+        type="button"
+        data-testid="btn-desplegar-remapeo"
+        class="rounded border border-violet-700 bg-violet-950/70 px-2 py-1 text-[10px] font-bold text-violet-200"
+        @click="abrirRemapeo"
+      >
+        Remapear dispositivo
+      </button>
+    </template>
+
     <div
       v-if="estado"
       data-testid="composicion-recinto-palabra"
@@ -90,22 +112,6 @@ function cerrarRemapeo(): void {
         data-testid="area-bancas-moderacion"
         class="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-slate-800 bg-slate-950/50 p-2"
       >
-        <div
-          class="mb-1.5 flex shrink-0 items-center justify-between gap-2 border-b border-slate-800/80 px-1 pb-1.5 text-xs"
-        >
-          <span class="font-bold text-slate-300 uppercase tracking-wider text-[11px]"
-            >Distribución de bancas</span
-          >
-          <button
-            v-if="estado.estado_global !== 'SIN_PREPARAR' && !mostrarRemapeo"
-            type="button"
-            data-testid="btn-desplegar-remapeo"
-            class="rounded border border-violet-700 bg-violet-950/70 px-2 py-1 text-[10px] font-bold text-violet-200"
-            @click="abrirRemapeo"
-          >
-            Remapear dispositivo
-          </button>
-        </div>
         <GrillaRecinto
           v-if="estado.concejales && estado.concejales.length > 0"
           :concejales="estado.concejales"
