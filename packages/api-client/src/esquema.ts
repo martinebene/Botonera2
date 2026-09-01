@@ -1194,6 +1194,8 @@ export interface components {
             fecha_hora_cierre: string | null;
             /** Fecha Hora Resultado */
             fecha_hora_resultado: string | null;
+            /** Resultado Visible Hasta */
+            resultado_visible_hasta: string | null;
             /** Motivo Finalizacion Manual */
             motivo_finalizacion_manual: string | null;
             /** Cantidad Votos Recibidos */

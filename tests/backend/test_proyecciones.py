@@ -212,7 +212,11 @@ async def test_resultado_final_publico_expira_desde_su_disponibilidad(
 ) -> None:
     """Aprobada/rechazada viven exactamente la ventana configurada."""
 
-    entorno = crear_entorno_proyecciones(tmp_path, resultado_publico=6)
+    entorno = crear_entorno_proyecciones(
+        tmp_path,
+        resultado_publico=6,
+        revelado_moderacion=0,
+    )
     votacion = abrir_votacion_prueba(entorno)
     dni = entorno.contexto.padron.concejales[0].dni
     votacion.registrar_voto(VotoOrdinario(dni, ValorVotoOrdinario.POSITIVO))
@@ -220,16 +224,27 @@ async def test_resultado_final_publico_expira_desde_su_disponibilidad(
     votacion.aplicar_resultado_ordinario(resultado, entorno.reloj.ahora())
     entorno.estado.votacion_activa = None
 
-    visible = await entorno.servicio.obtener_estado_recinto()
-    assert visible.votacion is not None
-    assert visible.votacion.resultado == resultado.value
-    assert visible.votacion.votos_individuales is not None
-    assert visible.votacion.resultado_visible_hasta == entorno.reloj.ahora() + timedelta(seconds=6)
+    moderacion_visible = await entorno.servicio.obtener_estado_moderacion()
+    recinto_visible = await entorno.servicio.obtener_estado_recinto()
+    assert moderacion_visible.votacion is not None
+    assert recinto_visible.votacion is not None
+    assert recinto_visible.votacion.resultado == resultado.value
+    assert recinto_visible.votacion.votos_individuales is not None
+    frontera = entorno.reloj.ahora() + timedelta(seconds=6)
+    assert moderacion_visible.votacion.resultado_visible_hasta == frontera
+    assert recinto_visible.votacion.resultado_visible_hasta == frontera
 
     entorno.reloj.avanzar(6)
-    expirado = await entorno.servicio.obtener_estado_recinto()
-    assert expirado.votacion is None
-    assert expirado.sesion is not None
+    moderacion_expirada = await entorno.servicio.obtener_estado_moderacion()
+    recinto_expirado = await entorno.servicio.obtener_estado_recinto()
+    # La frontera retira solamente la presentación Q3/Recinto. Q1 conserva el
+    # resultado institucional completo en EstadoModeracion.
+    assert moderacion_expirada.votacion is not None
+    assert moderacion_expirada.votacion.resultado == resultado.value
+    assert moderacion_expirada.votacion.votos_individuales is not None
+    assert moderacion_expirada.votacion.resultado_visible_hasta == frontera
+    assert recinto_expirado.votacion is None
+    assert recinto_expirado.sesion is not None
 
 
 async def test_inconclusa_inicia_ventana_y_conserva_votos(tmp_path: Path) -> None:
@@ -279,8 +294,11 @@ async def test_empate_no_expira_y_desempate_tardio_inicia_ventana_completa(
 
     entorno.reloj.avanzar(60)
     empate = await entorno.servicio.obtener_estado_recinto()
+    empate_moderacion = await entorno.servicio.obtener_estado_moderacion()
     assert empate.votacion is not None and empate.votacion.resultado == "EMPATADA"
     assert empate.votacion.resultado_visible_hasta is None
+    assert empate_moderacion.votacion is not None
+    assert empate_moderacion.votacion.resultado_visible_hasta is None
 
     voto = votacion.preparar_voto_desempate(
         SentidoVotoDesempate.POSITIVO,
@@ -290,9 +308,15 @@ async def test_empate_no_expira_y_desempate_tardio_inicia_ventana_completa(
     votacion.consolidar_resultado_desempate(entorno.reloj.ahora())
     entorno.estado.votacion_activa = None
     resuelto = await entorno.servicio.obtener_estado_recinto()
+    resuelto_moderacion = await entorno.servicio.obtener_estado_moderacion()
     assert resuelto.votacion is not None
     assert resuelto.votacion.resultado == "APROBADA"
     assert resuelto.votacion.resultado_visible_hasta == entorno.reloj.ahora() + timedelta(seconds=6)
+    assert resuelto_moderacion.votacion is not None
+    assert (
+        resuelto_moderacion.votacion.resultado_visible_hasta
+        == resuelto.votacion.resultado_visible_hasta
+    )
     assert resuelto.votacion.voto_presidencial is not None
 
 

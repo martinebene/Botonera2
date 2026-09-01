@@ -76,6 +76,37 @@ export interface PresentacionBanca {
   haloPalabra: boolean
 }
 
+/** Datos mínimos para decidir si todavía puede pintarse un resultado individual. */
+export interface EntradaVisibilidadResultadoBanca {
+  /** Estado de recepción autoritativo de la votación. */
+  estadoRecepcion: string | null
+  /** Resultado institucional, o `null` mientras todavía no fue calculado. */
+  resultado: string | null
+  /** Deadline común calculado por backend para Q3 y Recinto. */
+  resultadoVisibleHasta: string | null
+  /** Instante actual expresado en el reloj backend calibrado por el frontend. */
+  ahoraBackend: number
+}
+
+/**
+ * Decide si los sentidos individuales siguen dentro del ciclo visual común.
+ *
+ * La función no conoce una duración en segundos: compara exclusivamente contra
+ * `resultado_visible_hasta`, calculado una sola vez por backend. `EMPATADA`
+ * permanece visible sin deadline mientras espera a Presidencia. Durante
+ * `EN_CURSO` siempre devuelve `false`, aunque un DTO privado transporte votos por
+ * otra política, y preserva así el mismo secreto visual en ambas superficies.
+ */
+export function resultadoIndividualVisible(entrada: EntradaVisibilidadResultadoBanca): boolean {
+  if (entrada.estadoRecepcion === 'EN_CURSO' || entrada.resultado === null) return false
+  if (entrada.resultado === 'EMPATADA') return true
+
+  const limite = entrada.resultadoVisibleHasta
+    ? Date.parse(entrada.resultadoVisibleHasta)
+    : Number.NaN
+  return Number.isFinite(limite) && entrada.ahoraBackend < limite
+}
+
 /** Paleta de una familia cromática, aplicada como custom properties CSS. */
 export interface ColoresBanca {
   /** Fondo principal de la tarjeta. */

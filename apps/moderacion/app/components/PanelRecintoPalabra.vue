@@ -24,7 +24,7 @@
  * - Resuelve imágenes exclusivamente desde ruta_imagen sin hardcodeo de nombres de archivo.
  */
 
-import { computed, ref, watch } from 'vue'
+import { computed, ref, toRef, watch } from 'vue'
 import {
   crearClienteModeracion,
   type ClienteModeracion,
@@ -34,6 +34,7 @@ import PanelContenedor from './PanelContenedor.vue'
 import GrillaRecinto from './GrillaRecinto.vue'
 import GestionPalabra from './GestionPalabra.vue'
 import GestionRemapeo from './GestionRemapeo.vue'
+import { usePresentacionBancas } from '../composables/usePresentacionBancas'
 
 const props = defineProps<{
   /** Estado autoritativo de moderación recibido desde el backend */
@@ -47,6 +48,9 @@ const props = defineProps<{
 // El fallback permite renderizar el componente aislado en SSR sin abrir una
 // suscripción ni duplicar la frontera de sincronización de la aplicación.
 const clienteEfectivo = props.cliente ?? crearClienteModeracion()
+const { votosIndividuales: votosIndividualesPresentados } = usePresentacionBancas(
+  toRef(props, 'estado'),
+)
 
 /**
  * Controla únicamente si el operador abrió el cajón visual de remapeo.
@@ -119,7 +123,7 @@ function cerrarRemapeo(): void {
           :banca-orador="estado.palabra?.orador?.banca ?? null"
           :estado-recepcion="estado.votacion?.estado_recepcion ?? null"
           :bancas-voto-emitido="estado.votacion?.bancas_voto_emitido ?? null"
-          :votos-individuales="estado.votacion?.votos_individuales ?? null"
+          :votos-individuales="votosIndividualesPresentados"
         />
 
         <div
