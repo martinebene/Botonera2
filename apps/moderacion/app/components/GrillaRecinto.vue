@@ -14,8 +14,8 @@ import BancaConcejal from './BancaConcejal.vue'
 interface BancaFisica {
   numero: number
   concejal: ConcejalModeracion | null
-  /** Columna donde arranca la banca dentro de la grilla común de la superficie. */
-  columna: number
+  /** Media-columna inicial; cada tarjeta ocupa dos para permitir centrado exacto. */
+  columnaInicial: number
 }
 
 interface FilaFisica {
@@ -75,8 +75,9 @@ const votoFinalPorBanca = computed(() => {
  * WP-045 exige que TODAS las tarjetas de Q3 midan lo mismo. Con filas de
  * distinta longitud (por ejemplo `[5, 7]`), repartir cada fila en `1fr` propios
  * haría más anchas las tarjetas de la fila corta. Se usa entonces una única
- * grilla del ancho de la fila más larga y las filas cortas se centran dejando
- * columnas vacías a los costados, sin alterar la disposición física de WP-038.
+ * grilla con dos subcolumnas por banca. Cada tarjeta ocupa dos, por lo que una
+ * fila con sobrante impar reparte media tarjeta a cada lado y queda realmente
+ * centrada sin cambiar el ancho de ninguna tarjeta.
  */
 const columnasMaximas = computed(() =>
   props.filasBancas?.length ? Math.max(...props.filasBancas) : props.concejales.length || 1,
@@ -88,7 +89,11 @@ const filasVisuales = computed<FilaFisica[]>(() => {
     // el fallback conserva una única fila ordenada sin inventar una geometría adicional.
     const bancas = [...props.concejales]
       .sort((primero, segundo) => primero.banca - segundo.banca)
-      .map((concejal, indice) => ({ numero: concejal.banca, concejal, columna: indice + 1 }))
+      .map((concejal, indice) => ({
+        numero: concejal.banca,
+        concejal,
+        columnaInicial: indice * 2 + 1,
+      }))
     return bancas.length > 0 ? [{ numero: 1, bancas }] : []
   }
 
@@ -96,14 +101,15 @@ const filasVisuales = computed<FilaFisica[]>(() => {
   const columnas = columnasMaximas.value
   let primeraBanca = 1
   const filasInferiorASuperior = props.filasBancas.map((cantidad, indice) => {
-    // Columna inicial 1-based; el sobrante impar deja la columna extra a la derecha.
-    const desplazamientoInicial = Math.floor((columnas - cantidad) / 2)
+    // Una subcolumna equivale a media tarjeta. Así el sobrante se distribuye
+    // simétricamente aunque la diferencia entre filas sea impar.
+    const desplazamientoInicial = columnas - cantidad
     const bancas = Array.from({ length: cantidad }, (_, desplazamiento) => {
       const numero = primeraBanca + desplazamiento
       return {
         numero,
         concejal: concejalesPorBanca.get(numero) ?? null,
-        columna: desplazamientoInicial + desplazamiento + 1,
+        columnaInicial: desplazamientoInicial + desplazamiento * 2 + 1,
       }
     })
     primeraBanca += cantidad
@@ -126,12 +132,12 @@ const filasVisuales = computed<FilaFisica[]>(() => {
       :data-testid="`fila-bancas-${fila.numero}`"
       :data-fila-fisica="fila.numero"
       class="grid min-h-0 w-full flex-1 items-stretch gap-1.5 xl:gap-2"
-      :style="{ gridTemplateColumns: `repeat(${columnasMaximas}, minmax(0, 1fr))` }"
+      :style="{ gridTemplateColumns: `repeat(${columnasMaximas * 2}, minmax(0, 1fr))` }"
     >
       <template v-for="banca in fila.bancas" :key="banca.numero">
         <BancaConcejal
           v-if="banca.concejal"
-          :style="{ gridColumn: String(banca.columna) }"
+          :style="{ gridColumn: `${banca.columnaInicial} / span 2` }"
           :concejal="banca.concejal"
           :es-orador="bancaOrador === banca.numero"
           :estado-recepcion="estadoRecepcion ?? null"
@@ -142,7 +148,7 @@ const filasVisuales = computed<FilaFisica[]>(() => {
           v-else
           data-testid="banca-sin-datos"
           :data-banca="banca.numero"
-          :style="{ gridColumn: String(banca.columna) }"
+          :style="{ gridColumn: `${banca.columnaInicial} / span 2` }"
           class="grid min-h-20 place-items-center rounded-lg border border-dashed border-slate-700 bg-slate-950/40 p-1 text-center text-[8px] text-slate-500"
         >
           Banca {{ banca.numero }} sin datos

@@ -204,6 +204,7 @@ class VotacionModeracion(ModeloProyeccion):
     fecha_hora_apertura: datetime
     fecha_hora_cierre: datetime | None
     fecha_hora_resultado: datetime | None
+    resultado_visible_hasta: datetime | None
     motivo_finalizacion_manual: str | None
     cantidad_votos_recibidos: int
     bancas_voto_emitido: tuple[int, ...]
@@ -422,19 +423,11 @@ class ServicioProyecciones:
             if demora_revelado > 0:
                 demoras.append(demora_revelado)
 
-            if votacion.resultado in (
-                ResultadoVotacion.APROBADA,
-                ResultadoVotacion.RECHAZADA,
-                ResultadoVotacion.INCONCLUSA,
-            ):
-                disponible_desde = votacion.fecha_hora_resultado
-                if disponible_desde is not None:
-                    limite = disponible_desde + timedelta(
-                        seconds=contexto.configuracion.recinto_resultado_publico_segundos
-                    )
-                    demora_resultado = (limite - ahora).total_seconds()
-                    if demora_resultado > 0:
-                        demoras.append(demora_resultado)
+            limite = self._resultado_visible_hasta(contexto, votacion)
+            if limite is not None:
+                demora_resultado = (limite - ahora).total_seconds()
+                if demora_resultado > 0:
+                    demoras.append(demora_resultado)
 
         return min(demoras) if demoras else None
 
@@ -634,6 +627,7 @@ class ServicioProyecciones:
         votos = self._votos_moderacion(contexto, votacion) if revelados else None
         conteos = self._conteos(votacion) if revelados else None
         presidencial = votacion.voto_desempate
+        resultado_visible_hasta = self._resultado_visible_hasta(contexto, votacion)
         return VotacionModeracion(
             id=votacion.id,
             numero_votacion=votacion.numero_votacion,
@@ -647,6 +641,7 @@ class ServicioProyecciones:
             fecha_hora_apertura=votacion.fecha_hora_apertura,
             fecha_hora_cierre=votacion.fecha_hora_cierre,
             fecha_hora_resultado=votacion.fecha_hora_resultado,
+            resultado_visible_hasta=resultado_visible_hasta,
             motivo_finalizacion_manual=votacion.motivo_finalizacion_manual,
             cantidad_votos_recibidos=len(votacion.votos_ordinarios),
             bancas_voto_emitido=self._bancas_voto_emitido(contexto, votacion),
@@ -675,20 +670,9 @@ class ServicioProyecciones:
         if contexto is None or votacion is None:
             return None
 
-        resultado_visible_hasta: datetime | None = None
-        if votacion.resultado in (
-            ResultadoVotacion.APROBADA,
-            ResultadoVotacion.RECHAZADA,
-            ResultadoVotacion.INCONCLUSA,
-        ):
-            disponible_desde = votacion.fecha_hora_resultado
-            if disponible_desde is None:
-                raise RuntimeError("Resultado final sin fecha de disponibilidad")
-            resultado_visible_hasta = disponible_desde + timedelta(
-                seconds=contexto.configuracion.recinto_resultado_publico_segundos
-            )
-            if generado_en >= resultado_visible_hasta:
-                return None
+        resultado_visible_hasta = self._resultado_visible_hasta(contexto, votacion)
+        if resultado_visible_hasta is not None and generado_en >= resultado_visible_hasta:
+            return None
 
         en_curso = votacion.estado is EstadoVotacion.EN_CURSO
         votos = None if en_curso else self._votos_publicos(contexto, votacion)
@@ -733,6 +717,38 @@ class ServicioProyecciones:
                 if exponer_presidencial and presidencial is not None
                 else None
             ),
+        )
+
+    @staticmethod
+    def _resultado_visible_hasta(
+        contexto: Preparacion,
+        votacion: Votacion,
+    ) -> datetime | None:
+        """Calcula la única frontera temporal de las bancas Q3 y Recinto.
+
+        El resultado institucional permanece en el dominio y en la proyección de
+        Moderación. Este deadline gobierna solamente cuánto tiempo las tarjetas de
+        ambas superficies pueden pintar sentidos individuales. Centralizar el
+        cálculo evita que Q3 agregue un temporizador propio o que use una duración
+        distinta de la pantalla pública.
+
+        ``EMPATADA`` no expira mientras espera a Presidencia. Cuando el desempate
+        produce un resultado final, ``fecha_hora_resultado`` cambia y comienza una
+        ventana completa desde ese hecho durable.
+        """
+
+        if votacion.resultado not in (
+            ResultadoVotacion.APROBADA,
+            ResultadoVotacion.RECHAZADA,
+            ResultadoVotacion.INCONCLUSA,
+        ):
+            return None
+
+        disponible_desde = votacion.fecha_hora_resultado
+        if disponible_desde is None:
+            raise RuntimeError("Resultado final sin fecha de disponibilidad")
+        return disponible_desde + timedelta(
+            seconds=contexto.configuracion.recinto_resultado_publico_segundos
         )
 
     def _bancas_voto_emitido(

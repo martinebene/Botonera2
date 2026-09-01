@@ -3051,6 +3051,18 @@
             ],
             "title": "Fecha Hora Resultado"
           },
+          "resultado_visible_hasta": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resultado Visible Hasta"
+          },
           "motivo_finalizacion_manual": {
             "anyOf": [
               {
@@ -3131,6 +3143,7 @@
           "fecha_hora_apertura",
           "fecha_hora_cierre",
           "fecha_hora_resultado",
+          "resultado_visible_hasta",
           "motivo_finalizacion_manual",
           "cantidad_votos_recibidos",
           "bancas_voto_emitido",

@@ -8,8 +8,8 @@ import BancaPublica from './BancaPublica.vue'
 interface BancaFisica {
   numero: number
   concejal: ConcejalPublico | null
-  /** Columna donde arranca la banca dentro de la grilla común de la superficie. */
-  columna: number
+  /** Media-columna inicial; cada tarjeta ocupa dos para permitir centrado exacto. */
+  columnaInicial: number
 }
 
 interface FilaFisica {
@@ -54,8 +54,9 @@ const votoFinalPorBanca = computed(() => {
  * WP-045 exige que TODAS las tarjetas de una superficie midan lo mismo. Con
  * filas de distinta longitud (por ejemplo `[5, 7]`), repartir cada fila en
  * `1fr` propios haría más anchas las tarjetas de la fila corta. Se usa entonces
- * una única grilla del ancho de la fila más larga y las filas cortas se centran
- * dejando columnas vacías a los costados, sin alterar la disposición física.
+ * una única grilla con dos subcolumnas por banca. Cada tarjeta ocupa dos, por lo
+ * que una fila con sobrante impar reparte media tarjeta a cada lado y conserva
+ * el mismo ancho que las tarjetas de la fila más larga.
  */
 const columnasMaximas = computed(() => Math.max(...(props.filasBancas ?? [1])))
 
@@ -66,14 +67,15 @@ const filasVisuales = computed<FilaFisica[]>(() => {
   const columnas = columnasMaximas.value
   let primeraBanca = 1
   const filasInferiorASuperior = props.filasBancas.map((cantidad, indice) => {
-    // Columna inicial 1-based; el sobrante impar deja la columna extra a la derecha.
-    const desplazamientoInicial = Math.floor((columnas - cantidad) / 2)
+    // Una subcolumna equivale a media tarjeta. Así el sobrante se distribuye
+    // simétricamente aunque la diferencia entre filas sea impar.
+    const desplazamientoInicial = columnas - cantidad
     const bancas = Array.from({ length: cantidad }, (_, desplazamiento) => {
       const numero = primeraBanca + desplazamiento
       return {
         numero,
         concejal: porBanca.get(numero) ?? null,
-        columna: desplazamientoInicial + desplazamiento + 1,
+        columnaInicial: desplazamientoInicial + desplazamiento * 2 + 1,
       }
     })
     primeraBanca += cantidad
@@ -99,12 +101,12 @@ const filasVisuales = computed<FilaFisica[]>(() => {
       :data-testid="`fila-fisica-${fila.numero}`"
       :data-fila-fisica="fila.numero"
       class="fila-bancas"
-      :style="{ gridTemplateColumns: `repeat(${columnasMaximas}, minmax(0, 1fr))` }"
+      :style="{ gridTemplateColumns: `repeat(${columnasMaximas * 2}, minmax(0, 1fr))` }"
     >
       <template v-for="banca in fila.bancas" :key="banca.numero">
         <BancaPublica
           v-if="banca.concejal"
-          :style="{ gridColumn: String(banca.columna) }"
+          :style="{ gridColumn: `${banca.columnaInicial} / span 2` }"
           :concejal="banca.concejal"
           :es-orador="bancaOrador === banca.numero"
           :estado-recepcion="estadoRecepcion"
@@ -115,7 +117,7 @@ const filasVisuales = computed<FilaFisica[]>(() => {
           v-else
           class="banca-sin-datos"
           :data-banca="banca.numero"
-          :style="{ gridColumn: String(banca.columna) }"
+          :style="{ gridColumn: `${banca.columnaInicial} / span 2` }"
         >
           Banca {{ banca.numero }} sin datos públicos
         </div>

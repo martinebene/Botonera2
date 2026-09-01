@@ -8,9 +8,9 @@
 
 import { computed, onScopeDispose, ref, watch, type ComputedRef, type Ref } from 'vue'
 import type { EstadoRecinto, VotacionPublica } from '@botonera2/api-client'
+import { resultadoIndividualVisible } from '@botonera2/frontend-shared'
 
 const INTERVALO_RELOJ_MS = 250
-const RESULTADOS_FINALES = new Set(['APROBADA', 'RECHAZADA', 'INCONCLUSA'])
 
 export interface PresentacionVotacion {
   votacion: ComputedRef<VotacionPublica | null>
@@ -45,16 +45,16 @@ export function usePresentacionVotacion(estado: Ref<EstadoRecinto | null>): Pres
     const actual = estado.value?.votacion ?? null
     if (actual === null) return null
 
-    // EMPATADA no usa expiración local: permanece mientras el backend publique
-    // esa misma votación pendiente del voto de Presidencia.
-    if (actual.resultado === 'EMPATADA') return actual
-
-    if (actual.resultado !== null && RESULTADOS_FINALES.has(actual.resultado)) {
-      const visibleHasta = instante(actual.resultado_visible_hasta)
-      // Un resultado final sin deadline contradice el contrato público. No lo
-      // perpetuamos localmente porque el único permiso de visibilidad es ese
-      // timestamp autoritativo.
-      if (visibleHasta === null || ahoraBackend.value >= visibleHasta) return null
+    if (
+      actual.resultado !== null &&
+      !resultadoIndividualVisible({
+        estadoRecepcion: actual.estado_recepcion,
+        resultado: actual.resultado,
+        resultadoVisibleHasta: actual.resultado_visible_hasta,
+        ahoraBackend: ahoraBackend.value,
+      })
+    ) {
+      return null
     }
 
     return actual
@@ -87,10 +87,8 @@ export function usePresentacionVotacion(estado: Ref<EstadoRecinto | null>): Pres
       if (countdown !== null && countdown > ahoraBackend.value) return countdown
     }
 
-    if (actual.resultado !== null && RESULTADOS_FINALES.has(actual.resultado)) {
-      const resultado = instante(actual.resultado_visible_hasta)
-      if (resultado !== null && resultado > ahoraBackend.value) return resultado
-    }
+    const resultado = instante(actual.resultado_visible_hasta)
+    if (resultado !== null && resultado > ahoraBackend.value) return resultado
 
     return null
   }

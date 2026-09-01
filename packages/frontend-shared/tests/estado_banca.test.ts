@@ -13,6 +13,7 @@ import {
   calcularPresentacionBanca,
   estilosBanca,
   PALETA_BANCAS,
+  resultadoIndividualVisible,
   type EntradaEstadoBanca,
 } from '../src/index'
 
@@ -178,4 +179,31 @@ describe('estilosBanca', () => {
     const estilos = estilosBanca(presentar({ esOrador: true, valorVotoFinal: 'POSITIVO' }))
     expect(estilos['--halo-banca']).toBe(PALETA_BANCAS.NARANJA.fondo)
   })
+})
+
+describe('resultadoIndividualVisible', () => {
+  const HORA = Date.parse('2026-09-01T12:00:00Z')
+
+  it.each([
+    ['EN_CURSO', null, null, false],
+    ['EN_CURSO', 'APROBADA', '2026-09-01T12:00:10Z', false],
+    ['CERRADA', null, null, false],
+    ['CERRADA', 'EMPATADA', null, true],
+    ['CERRADA', 'APROBADA', '2026-09-01T12:00:01Z', true],
+    ['CERRADA', 'RECHAZADA', '2026-09-01T12:00:00Z', false],
+    ['CERRADA', 'INCONCLUSA', '2026-09-01T11:59:59Z', false],
+    ['CERRADA', 'APROBADA', null, false],
+  ])(
+    '%s / %s / %s produce visibilidad %s',
+    (estadoRecepcion, resultado, resultadoVisibleHasta, esperado) => {
+      expect(
+        resultadoIndividualVisible({
+          estadoRecepcion,
+          resultado,
+          resultadoVisibleHasta,
+          ahoraBackend: HORA,
+        }),
+      ).toBe(esperado)
+    },
+  )
 })

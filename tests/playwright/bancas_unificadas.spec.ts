@@ -114,6 +114,7 @@ function crearVotacionModeracion(parcial: Record<string, unknown> = {}) {
     fecha_hora_apertura: '2026-08-25T10:00:00Z',
     fecha_hora_cierre: null,
     fecha_hora_resultado: null,
+    resultado_visible_hasta: null,
     motivo_finalizacion_manual: null,
     cantidad_votos_recibidos: 3,
     bancas_voto_emitido: [1, 3, 6],
@@ -199,7 +200,7 @@ function crearEstadoModeracion(votacion: Record<string, unknown> | null) {
       cola: [],
     },
     quorum: { cantidad_presentes: 11, requerido: 7, alcanzado: true },
-    configuracion: { filas_bancas: [5, 7] },
+    configuracion: { filas_bancas: [3, 4, 5] },
     concejales: crearConcejalesModeracion(),
     orden_del_dia: null,
     eventos_recientes: [],
@@ -222,7 +223,7 @@ function crearEstadoRecinto(votacion: Record<string, unknown> | null) {
       presidencia: 'Presidencia de prueba',
       secretaria_legislativa: 'Secretaría de prueba',
     },
-    filas_bancas: [5, 7],
+    filas_bancas: [3, 4, 5],
     concejales: crearConcejalesPublicos(),
     quorum: { cantidad_presentes: 11, requerido: 7, alcanzado: true },
     votacion,
@@ -321,6 +322,24 @@ async function verificarTamanoUniforme(bancas: Locator): Promise<void> {
   }
 }
 
+/** Mide el centro real del conjunto de tarjetas de cada fila. */
+async function verificarCentradoDeFilas(page: Page): Promise<void> {
+  const filas = page.locator('[data-fila-fisica]')
+  await expect(filas).toHaveCount(3)
+  for (let indice = 0; indice < (await filas.count()); indice += 1) {
+    const diferencia = await filas.nth(indice).evaluate((fila) => {
+      const cajaFila = fila.getBoundingClientRect()
+      const cajas = Array.from(fila.querySelectorAll<HTMLElement>(':scope > [data-banca]')).map(
+        (banca) => banca.getBoundingClientRect(),
+      )
+      const izquierda = Math.min(...cajas.map((caja) => caja.left))
+      const derecha = Math.max(...cajas.map((caja) => caja.right))
+      return Math.abs((izquierda + derecha) / 2 - (cajaFila.left + cajaFila.right) / 2)
+    })
+    expect(diferencia).toBeLessThanOrEqual(1)
+  }
+}
+
 /**
  * Verifica que la banca emitida no filtre el sentido por ningún canal del DOM.
  *
@@ -368,6 +387,7 @@ async function verificarSuperficieEnCurso(page: Page, selectorTarjeta: string): 
   const bancas = page.locator(selectorTarjeta)
   await expect(bancas).toHaveCount(12)
   await verificarTamanoUniforme(bancas)
+  await verificarCentradoDeFilas(page)
 
   const banca = (numero: number) => page.locator(`[data-banca="${numero}"]`)
 
@@ -490,6 +510,7 @@ for (const resolucion of RESOLUCIONES) {
             resultado: 'APROBADA',
             fecha_hora_cierre: '2026-08-25T10:00:20Z',
             fecha_hora_resultado: '2026-08-25T10:00:20Z',
+            resultado_visible_hasta: '2199-01-01T00:00:00Z',
             bancas_voto_emitido: [],
             conteos: { positivos: 1, negativos: 1, abstenciones: 1, total: 3 },
           }),
