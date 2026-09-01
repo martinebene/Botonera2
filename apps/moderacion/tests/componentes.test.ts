@@ -129,7 +129,7 @@ function crearEstadoFixture(parcial: Partial<EstadoModeracion> = {}): EstadoMode
 
 describe('Componentes del Shell de Moderación', () => {
   describe('CabeceraModeracion', () => {
-    it('muestra un guion en el estado global y no inventa datos antes del primer snapshot', async () => {
+    it('no inventa contexto institucional antes del primer snapshot', async () => {
       const html = await renderizarComponente(CabeceraModeracion, {
         estadoConexion: 'INICIAL',
         estadoGlobal: null,
@@ -137,18 +137,18 @@ describe('Componentes del Shell de Moderación', () => {
         desactualizado: false,
       })
 
-      // WP-036: el distintivo del producto se retiró de la cabecera.
+      // WP-047: identidad, reloj y conexión permanecen; estado y número no se inventan.
       expect(html).not.toContain('Botonera2')
       expect(html).toContain('Moderación')
-      expect(html).toContain('data-testid="estado-global"')
-      expect(html).toContain('—')
+      expect(html).not.toContain('data-testid="estado-global"')
+      expect(html).not.toContain('data-testid="cabecera-numero-sesion"')
       // WP-036: la revisión ya no ocupa espacio permanente en la vista principal.
       expect(html).not.toContain('data-testid="revision-estado"')
       expect(html).toContain('Conectando')
       expect(html).not.toContain('data-testid="alerta-desactualizado"')
     })
 
-    it('muestra estado global confirmado y conserva la revisión como detalle emergente', async () => {
+    it('retira el estado global redundante y conserva la revisión como detalle emergente', async () => {
       const html = await renderizarComponente(CabeceraModeracion, {
         estadoConexion: 'CONECTADO',
         estadoGlobal: 'SESION_ABIERTA',
@@ -156,7 +156,8 @@ describe('Componentes del Shell de Moderación', () => {
         desactualizado: false,
       })
 
-      expect(html).toContain('Sesión abierta')
+      expect(html).not.toContain('Sesión abierta')
+      expect(html).not.toContain('data-testid="estado-global"')
       expect(html).toContain('Conectado')
       // La revisión sigue disponible para diagnóstico sin ocupar densidad permanente.
       expect(html).toContain('title="Conectado · revisión 142"')

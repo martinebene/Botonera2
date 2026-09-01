@@ -5,7 +5,7 @@
  * Responsabilidades:
  * 1. Inicializar y consumir la frontera reactiva de sincronización (useEstadoModeracion).
  * 2. Alimentar la cabecera compacta con todos los datos globales de la pantalla:
- *    estado global, conexión, quórum, autoridades y apertura formal de la sesión.
+ *    número de sesión, conexión, quórum, autoridades y ancla temporal backend.
  * 3. Disponer los cuatro cuadrantes funcionales en una grilla 2×2 que entra completa
  *    en el viewport a 1366×768 y a 1920×1080, sin scroll de página.
  * 4. Garantizar que el crecimiento interno de cualquier panel quede confinado a su propio
@@ -58,6 +58,20 @@ const secretariaLegislativa = computed(
 const fechaHoraApertura = computed(() => estado.value?.sesion?.fecha_hora_apertura ?? null)
 
 /**
+ * Momento de generación del snapshot. Se entrega junto con la apertura para que la
+ * cabecera reste dos marcas del mismo reloj backend y no dependa de la zona del navegador.
+ */
+const generadoEn = computed(() => estado.value?.generado_en ?? null)
+
+/**
+ * Número institucional visible en la cabecera. Durante PREPARANDO puede ser nulo;
+ * una sesión abierta siempre aporta el número definitivo desde `sesion`.
+ */
+const numeroSesion = computed(
+  () => estado.value?.sesion?.numero_sesion ?? estado.value?.preparacion?.numero_sesion ?? null,
+)
+
+/**
  * Conserva únicamente el punto elegido como borrador visual entre los cuadrantes.
  * Se crea una copia nueva en cada selección para que volver a elegir el mismo punto
  * también vuelva a precargar el formulario. La colección autoritativa continúa en
@@ -85,13 +99,15 @@ function seleccionarPuntoOrdenDelDia(punto: PuntoOrdenDelDiaProyectado): void {
       :presidencia="presidencia"
       :secretaria-legislativa="secretariaLegislativa"
       :fecha-hora-apertura="fechaHoraApertura"
+      :generado-en="generadoEn"
+      :numero-sesion="numeroSesion"
     />
 
     <!-- Área de trabajo principal con grilla 2×2 en desktop (1366×768 y 1920×1080) -->
-    <main class="flex flex-1 min-h-0 min-w-0 flex-col overflow-hidden p-2 lg:p-3">
+    <main class="flex flex-1 min-h-0 min-w-0 flex-col overflow-hidden p-2">
       <div
         data-testid="grilla-paneles"
-        class="grid flex-1 min-h-0 min-w-0 grid-cols-1 auto-rows-[minmax(45dvh,auto)] gap-2 overflow-y-auto lg:grid-cols-2 lg:grid-rows-2 lg:gap-3 lg:overflow-hidden"
+        class="grid flex-1 min-h-0 min-w-0 grid-cols-1 auto-rows-[minmax(45dvh,auto)] gap-2 overflow-y-auto lg:grid-cols-2 lg:grid-rows-2 lg:overflow-hidden"
       >
         <!-- Cuadrante 1 (arriba izquierda): Sesión y votación -->
         <PanelSesionVotacion :estado="estado" :punto-preseleccionado="puntoSeleccionado" />
