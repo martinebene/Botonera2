@@ -25,9 +25,13 @@ Si el rol no coincide, la asignación no existe, los metadatos no coinciden, el 
 
 ### Varios WPs activos
 
-Desde protocolo 1.1, `Botonera2-Control/CURRENT.json` puede contener `active_assignments`. Cuando exista esa colección, los campos escalares históricos de turno no son autoridad de elegibilidad. El agente debe seleccionar exactamente una entrada compatible con su rol y con el arnés/modelo de la sesión, verificar su `assignment_id`, WP, iteración, ruta y respuesta pendiente, y recién entonces actuar.
+Desde protocolo 1.2, `Botonera2-Control/CURRENT.json` puede contener `active_assignments`. Cuando exista esa colección, los campos escalares históricos de turno no son autoridad de elegibilidad.
 
-Cero coincidencias implica que ese agente no tiene turno; más de una implica ambigüedad y obliga a detenerse. Cambios en otras asignaciones paralelas no invalidan un turno ya iniciado: solo la entrada propia determina su continuidad.
+La sesión debe determinar primero su worktree/rama actual y resolver de forma inequívoca el `WP-NNN` local. Después filtra `active_assignments` por ese WP, luego por rol y finalmente por arnés/modelo cuando estén fijados. Debe quedar exactamente una asignación compatible **dentro del WP actual**; recién entonces verifica `assignment_id`, iteración, ruta y respuesta pendiente y actúa.
+
+Asignaciones del mismo arnés/modelo en otros worktrees/WPs no generan ambigüedad y se ignoran desde esta sesión. Cero coincidencias para el WP local implica que ese agente no tiene turno; más de una dentro de ese mismo WP implica ambigüedad real y obliga a detenerse. Cambios en otras asignaciones paralelas no invalidan un turno ya iniciado: solo la entrada del mismo WP determina su continuidad.
+
+El mismo arnés/modelo puede implementar varios WPs paralelos en worktrees distintos, o revisar varios WPs paralelos en worktrees distintos. La independencia de revisión se exige por WP/candidato: quien revisa un WP no puede ser quien implementó ese mismo WP. Dentro de un mismo lote paralelo activo se evita mezclar al mismo arnés/modelo simultáneamente entre roles IMPLEMENTER y REVIEWER.
 
 Una vez que esas comprobaciones pasan, la intervención humana que inició el turno **autoriza la ejecución completa de la asignación hasta el handoff**. El agente no debe introducir micro-confirmaciones adicionales para acciones rutinarias ya autorizadas.
 
