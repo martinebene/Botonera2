@@ -13,6 +13,8 @@
  * 6. Conexión y advertencia de estado desactualizado.
  * 7. Número de sesión antes del quórum y ausencia del estado global redundante.
  * 8. Funciones puras de formateo temporal compartidas con Recinto.
+ * 9. WP-054: agrupación del sector derecho (autoridades + tiempo + fecha + conexión)
+ *    y etiquetas explícitas `Tiempo de sesión` y `Fecha`.
  *
  * El shell completo (`app.vue`) aporta a la cabecera los datos derivados del estado; esas
  * derivaciones se comprueban aquí sobre las mismas reglas: sesión primero, preparación después.
@@ -195,13 +197,18 @@ describe('CabeceraModeracion (WP-047)', () => {
       vi.setSystemTime(new Date(2026, 7, 29, 10, 0, 0))
       const wrapper = montarCabecera(propsBase())
 
-      expect(wrapper.get('[data-testid="cabecera-fecha-hora"]').text()).toBe('29/08/2026 10:00:00')
+      // Desde WP-054 el valor viaja junto a su rótulo explícito `Fecha`.
+      expect(wrapper.get('[data-testid="cabecera-fecha-hora"]').text()).toContain(
+        '29/08/2026 10:00:00',
+      )
 
       // Un tick del temporizador local basta para refrescar la vista: no hay ningún fetch de por medio.
       vi.advanceTimersByTime(1000)
       await nextTick()
 
-      expect(wrapper.get('[data-testid="cabecera-fecha-hora"]').text()).toBe('29/08/2026 10:00:01')
+      expect(wrapper.get('[data-testid="cabecera-fecha-hora"]').text()).toContain(
+        '29/08/2026 10:00:01',
+      )
     })
 
     it('cancela su temporizador al desmontarse para no dejar trabajo pendiente', async () => {
@@ -370,5 +377,106 @@ describe('CabeceraModeracion (WP-047)', () => {
 
       expect(html).not.toContain('data-testid="alerta-desactualizado"')
     })
+  })
+})
+
+/**
+ * Reorganización de la cabecera pedida por HUMAN_GATE sobre la captura real
+ * del 01/09/2026 (WP-054).
+ *
+ * Acá se fija el *orden estructural* del renglón —qué dato vive en qué sector—
+ * y la presencia de las etiquetas explícitas. Que todo eso entre efectivamente
+ * en una sola línea, con la misma altura que antes, se mide con bounding boxes
+ * en Playwright a 1366×768 y 1920×1080.
+ */
+describe('Cabecera reorganizada de Moderación (WP-054)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+  })
+
+  afterEach(() => {
+    while (montados.length > 0) {
+      montados.pop()?.unmount()
+    }
+    vi.useRealTimers()
+  })
+
+  /** Props con autoridades y quórum cargados: el caso completo de sesión abierta. */
+  function propsCompletas(parcial: Record<string, unknown> = {}) {
+    const quorum: EstadoQuorum = { cantidad_presentes: 9, requerido: 7, alcanzado: true }
+    return propsBase({
+      quorum,
+      totalConcejales: 12,
+      presidencia: 'Dra. María Elena Walsh',
+      secretariaLegislativa: 'Lic. Juan Gómez',
+      ...parcial,
+    })
+  }
+
+  it('agrupa autoridades, tiempo, fecha y conexión después del bloque institucional', async () => {
+    const html = await renderizarSSR(propsCompletas())
+
+    // Orden de aparición en el marcado: identidad, sesión y quórum a la
+    // izquierda; autoridades, tiempo, fecha y conexión a la derecha.
+    const posiciones = [
+      'cabecera-numero-sesion',
+      'cabecera-quorum',
+      'cabecera-presidencia',
+      'cabecera-secretaria',
+      'cabecera-tiempo-sesion',
+      'cabecera-fecha-hora',
+      'estado-conexion',
+    ].map((testid) => html.indexOf(`data-testid="${testid}"`))
+
+    for (const posicion of posiciones) {
+      expect(posicion).toBeGreaterThan(-1)
+    }
+    // Cada elemento aparece después del anterior: antes de WP-054 las
+    // autoridades estaban entre el quórum y el bloque temporal, pero en el
+    // centro flexible, no dentro del sector derecho.
+    for (let indice = 1; indice < posiciones.length; indice += 1) {
+      expect(posiciones[indice]!).toBeGreaterThan(posiciones[indice - 1]!)
+    }
+  })
+
+  it('rotula explícitamente el tiempo de sesión y la fecha', async () => {
+    const html = await renderizarSSR(propsCompletas())
+
+    // Dos valores numéricos conviven en el mismo sector: sin rótulo, `00:30:15`
+    // y `29/08/2026 12:30:15` se leen como dos relojes indistinguibles.
+    expect(html).toContain('Tiempo de sesión')
+    expect(html).toContain('Fecha')
+  })
+
+  it('mantiene las autoridades y el resto del sector derecho en el mismo grupo', () => {
+    const wrapper = montarCabecera(propsCompletas())
+
+    // El sector derecho es un único contenedor: si las autoridades quedaran
+    // fuera, volverían a ocupar el centro flexible de la cabecera.
+    const presidencia = wrapper.get('[data-testid="cabecera-presidencia"]').element
+    const conexion = wrapper.get('[data-testid="estado-conexion"]').element
+    const sectores = wrapper
+      .findAll('div')
+      .filter(
+        (nodo) =>
+          nodo.element.querySelector('[data-testid="cabecera-presidencia"]') !== null &&
+          nodo.element.querySelector('[data-testid="estado-conexion"]') !== null,
+      )
+    expect(sectores.length).toBeGreaterThan(0)
+
+    // Ambos textos siguen presentes y con su contenido institucional.
+    expect(presidencia.textContent).toContain('Dra. María Elena Walsh')
+    expect(conexion.textContent).toContain('Conectado')
+  })
+
+  it('conserva el nombre completo de cada autoridad en `title` porque se recorta', () => {
+    const wrapper = montarCabecera(propsCompletas())
+
+    expect(wrapper.get('[data-testid="cabecera-presidencia"]').element.getAttribute('title')).toBe(
+      'Presidencia: Dra. María Elena Walsh',
+    )
+    expect(wrapper.get('[data-testid="cabecera-secretaria"]').element.getAttribute('title')).toBe(
+      'Secretaría: Lic. Juan Gómez',
+    )
   })
 })

@@ -1078,8 +1078,9 @@ test.describe('UI de Moderación - Estados Institucionales y Contrato de Shell (
 
       // Sin sesión abierta tampoco hay tiempo transcurrido, pero el reloj local sí está presente
       await expect(page.locator('[data-testid="cabecera-tiempo-sesion"]')).toHaveCount(0)
+      // WP-054: el valor viaja precedido por su rótulo explícito `Fecha`.
       await expect(page.locator('[data-testid="cabecera-fecha-hora"]')).toHaveText(
-        /^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}:\d{2}$/,
+        /^Fecha\s+\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}:\d{2}$/,
       )
     }
   })
@@ -1359,12 +1360,13 @@ test.describe('UI de Moderación - Estados Institucionales y Contrato de Shell (
         'Lic. Juan Gómez',
       )
 
-      // Cabecera: reloj local y tiempo transcurrido desde la apertura formal de la sesión
+      // Cabecera: reloj local y tiempo transcurrido desde la apertura formal de la
+      // sesión, ambos con el rótulo explícito que introdujo WP-054.
       await expect(page.locator('[data-testid="cabecera-fecha-hora"]')).toHaveText(
-        /^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}:\d{2}$/,
+        /^Fecha\s+\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}:\d{2}$/,
       )
       await expect(page.locator('[data-testid="cabecera-tiempo-sesion"]')).toHaveText(
-        /Tiempo\s+\d{2,}:\d{2}:\d{2}/,
+        /Tiempo de sesión\s+\d{2,}:\d{2}:\d{2}/,
       )
 
       // WP-037: Q1 no conserva inputs permanentes; la edición se abre en un modal.
@@ -1540,7 +1542,7 @@ test.describe('WP-036 - Cabecera compacta y redistribución del shell', () => {
 
     // El primer valor sirve de referencia: al segundo siguiente el reloj debe haber cambiado.
     const primerValor = await reloj.textContent()
-    expect(primerValor).toMatch(/^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}:\d{2}$/)
+    expect(primerValor?.trim()).toMatch(/^Fecha\s+\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}:\d{2}$/)
     await expect(reloj).not.toHaveText(primerValor ?? '')
 
     // El tiempo de sesión se deriva de la misma marca autoritativa y también avanza.
@@ -3217,6 +3219,173 @@ test.describe('WP-048 - Q1 compacto y Q2 sin acuse persistente', () => {
       await expect(panel.locator('[data-testid="toast-punto-copiado"]')).toContainText(
         'copiado al borrador',
       )
+
+      await verificarGeometriaShellCompleto(page, viewport)
+    })
+  }
+})
+
+/**
+ * Evidencia geométrica del refinamiento visual de Moderación (WP-054).
+ *
+ * Dos objetivos independientes:
+ *
+ * 1. La cabecera reorganizada debe seguir siendo una sola línea de la misma
+ *    altura que la baseline WP-047 (≤ 32 px, `nowrap`, sin desborde), con
+ *    autoridades, tiempo, fecha y conexión agrupados en el sector derecho y con
+ *    los dos rótulos explícitos visibles.
+ * 2. La geometría de `BancaConcejal.vue` debe auditarse contra las imágenes
+ *    canónicas reales. El WP obliga a decidir por evidencia: sólo se corrige si
+ *    los bounding boxes prueban clipping o desborde. Esta prueba es esa
+ *    auditoría y queda versionada como regresión permanente.
+ */
+test.describe('WP-054 - Cabecera derecha y auditoría geométrica de bancas', () => {
+  // Misma zona deliberadamente distinta de las marcas naive del backend.
+  test.use({ timezoneId: 'America/Los_Angeles' })
+
+  function crearEstadoWp054() {
+    return crearEstadoFixture({
+      generado_en: '2026-08-31T10:30:00',
+      estado_global: 'SESION_ABIERTA',
+      sesion: {
+        fecha_hora_inicio_preparacion: '2026-08-31T09:45:00',
+        fecha_hora_apertura: '2026-08-31T10:00:00',
+        numero_sesion: 47,
+        presidencia: 'Dra. María Elena Walsh',
+        secretaria_legislativa: 'Lic. Juan Gómez',
+      },
+      quorum: { cantidad_presentes: 9, requerido: 7, alcanzado: true },
+    })
+  }
+
+  for (const viewport of [
+    { width: 1366, height: 768 },
+    { width: 1920, height: 1080 },
+  ]) {
+    test(`agrupa autoridades y tiempo a la derecha en ${viewport.width}×${viewport.height}`, async ({
+      page,
+    }) => {
+      await configurarRutasMock(page, crearEstadoWp054())
+      await page.setViewportSize(viewport)
+      await page.goto('/moderacion/')
+      await page.getByTestId('cabecera-moderacion').waitFor()
+
+      const caja = async (testid: string) => (await page.getByTestId(testid).boundingBox())!
+      const cajaCabecera = await caja('cabecera-moderacion')
+      const cajaQuorum = await caja('cabecera-quorum')
+      const cajaPresidencia = await caja('cabecera-presidencia')
+      const cajaSecretaria = await caja('cabecera-secretaria')
+      const cajaTiempo = await caja('cabecera-tiempo-sesion')
+      const cajaFecha = await caja('cabecera-fecha-hora')
+      const cajaConexion = await caja('estado-conexion')
+
+      // 1 · Sector derecho: el orden horizontal es autoridades → tiempo → fecha
+      // → conexión, y todo el grupo empieza después del bloque institucional.
+      const sectorDerecho = [cajaPresidencia, cajaSecretaria, cajaTiempo, cajaFecha, cajaConexion]
+      expect(cajaQuorum.x + cajaQuorum.width).toBeLessThanOrEqual(cajaPresidencia.x)
+      for (let indice = 1; indice < sectorDerecho.length; indice += 1) {
+        expect(sectorDerecho[indice - 1]!.x + sectorDerecho[indice - 1]!.width).toBeLessThanOrEqual(
+          sectorDerecho[indice]!.x + 1,
+        )
+      }
+
+      // 2 · El grupo está efectivamente pegado al borde derecho: entre la
+      // conexión y el límite de la cabecera sólo queda su padding horizontal.
+      const bordeDerechoCabecera = cajaCabecera.x + cajaCabecera.width
+      expect(bordeDerechoCabecera - (cajaConexion.x + cajaConexion.width)).toBeLessThanOrEqual(12)
+
+      // 3 · Una sola línea: todos los elementos comparten renglón con el título.
+      const cajaTitulo = await page.locator('[data-testid="cabecera-moderacion"] h1').boundingBox()
+      for (const elemento of [cajaQuorum, ...sectorDerecho]) {
+        const centro = elemento.y + elemento.height / 2
+        const centroTitulo = cajaTitulo!.y + cajaTitulo!.height / 2
+        expect(Math.abs(centro - centroTitulo)).toBeLessThanOrEqual(2)
+      }
+
+      // 4 · Altura y contención: la baseline WP-047 no se degrada.
+      expect(cajaCabecera.height).toBeLessThanOrEqual(32)
+      const contencion = await page.getByTestId('cabecera-moderacion').evaluate((cabecera) => ({
+        flexWrap: getComputedStyle(cabecera).flexWrap,
+        altoVisible: cabecera.clientHeight,
+        altoContenido: cabecera.scrollHeight,
+        anchoVisible: cabecera.clientWidth,
+        anchoContenido: cabecera.scrollWidth,
+      }))
+      expect(contencion.flexWrap).toBe('nowrap')
+      expect(contencion.altoContenido).toBeLessThanOrEqual(contencion.altoVisible + 1)
+      expect(contencion.anchoContenido).toBeLessThanOrEqual(contencion.anchoVisible + 1)
+
+      // 5 · Rótulos explícitos efectivamente visibles.
+      await expect(page.getByTestId('cabecera-tiempo-sesion')).toContainText('Tiempo de sesión')
+      await expect(page.getByTestId('cabecera-fecha-hora')).toContainText('Fecha')
+
+      await verificarGeometriaShellCompleto(page, viewport)
+    })
+
+    test(`audita el clipping de las bancas de Q3 en ${viewport.width}×${viewport.height}`, async ({
+      page,
+    }) => {
+      await configurarRutasMock(page, crearEstadoWp054())
+      await page.setViewportSize(viewport)
+      await page.goto('/moderacion/')
+      await expect(page.getByTestId('banca-concejal')).toHaveCount(12)
+
+      // Las imágenes reales deben estar cargadas antes de medir cualquier recorte.
+      await expect(page.getByTestId('imagen-concejal').first()).toBeVisible()
+      await page.waitForFunction(() =>
+        Array.from(document.querySelectorAll('img')).every((imagen) => imagen.complete),
+      )
+
+      const auditoria = await page.getByTestId('banca-concejal').evaluateAll((tarjetas) =>
+        tarjetas.map((tarjeta) => {
+          const imagen = tarjeta.querySelector(
+            '[data-testid="imagen-concejal"]',
+          ) as HTMLImageElement
+          const area = tarjeta.querySelector('.area-imagen') as HTMLElement
+          const cajaTarjeta = tarjeta.getBoundingClientRect()
+          const cajaArea = area.getBoundingClientRect()
+          const cajaImagen = imagen.getBoundingClientRect()
+          return {
+            banca: tarjeta.getAttribute('data-banca'),
+            ajuste: getComputedStyle(imagen).objectFit,
+            cargada: imagen.naturalWidth > 0,
+            // Contención real, medida en píxeles, no deducida del CSS.
+            dentroDelArea:
+              cajaImagen.left >= cajaArea.left - 1 &&
+              cajaImagen.right <= cajaArea.right + 1 &&
+              cajaImagen.top >= cajaArea.top - 1 &&
+              cajaImagen.bottom <= cajaArea.bottom + 1,
+            dentroDeLaTarjeta:
+              cajaImagen.left >= cajaTarjeta.left - 1 &&
+              cajaImagen.right <= cajaTarjeta.right + 1 &&
+              cajaImagen.top >= cajaTarjeta.top - 1 &&
+              cajaImagen.bottom <= cajaTarjeta.bottom + 1,
+            // Un contenido mayor que la caja visible sería recorte encubierto.
+            desbordeHorizontal: tarjeta.scrollWidth - tarjeta.clientWidth,
+            desbordeVertical: tarjeta.scrollHeight - tarjeta.clientHeight,
+            tamano: { ancho: cajaTarjeta.width, alto: cajaTarjeta.height },
+          }
+        }),
+      )
+
+      expect(auditoria).toHaveLength(12)
+      for (const banca of auditoria) {
+        // `contain` es la garantía de que el bitmap institucional entra entero:
+        // incluye el nombre y los logos dibujados dentro de la propia imagen.
+        expect(banca.ajuste).toBe('contain')
+        expect(banca.cargada).toBe(true)
+        expect(banca.dentroDelArea).toBe(true)
+        expect(banca.dentroDeLaTarjeta).toBe(true)
+        expect(banca.desbordeHorizontal).toBeLessThanOrEqual(1)
+        expect(banca.desbordeVertical).toBeLessThanOrEqual(1)
+      }
+
+      // Tarjetas uniformes: ninguna banca queda más chica que las demás por un
+      // recorte propio de su contenido.
+      for (const banca of auditoria) {
+        expect(banca.tamano.ancho).toBeCloseTo(auditoria[0]!.tamano.ancho, 0)
+        expect(banca.tamano.alto).toBeCloseTo(auditoria[0]!.tamano.alto, 0)
+      }
 
       await verificarGeometriaShellCompleto(page, viewport)
     })

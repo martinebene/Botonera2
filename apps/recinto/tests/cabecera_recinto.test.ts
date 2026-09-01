@@ -126,7 +126,7 @@ describe('Cabecera pública con reloj anclado', () => {
   })
 })
 
-describe('Cabecera pública de una sola línea (WP-050)', () => {
+describe('Cabecera pública de una sola línea (WP-050, refinada por WP-054)', () => {
   /** Devuelve las etiquetas de los hijos directos del bloque central. */
   function hijosDelContexto(wrapper: VueWrapper): string[] {
     return Array.from(wrapper.get('[data-testid="cabecera-contexto"]').element.children).map(
@@ -134,23 +134,33 @@ describe('Cabecera pública de una sola línea (WP-050)', () => {
     )
   }
 
-  it('condensa título, sesión, duración y autoridades como elementos en línea', () => {
+  /**
+   * Texto de cada renglón de autoridad del sector derecho.
+   *
+   * El DOM simulado del monorepo entiende selectores simples y descendientes,
+   * no combinadores de hijo directo: por eso se busca por clase.
+   */
+  function renglonesDeAutoridades(wrapper: VueWrapper): string[] {
+    return wrapper
+      .findAll('.renglon-autoridad')
+      .map((renglon) => renglon.text().replace(/\s+/g, ' ').trim())
+  }
+
+  it('condensa título, sesión y duración como elementos en línea del centro', () => {
     vi.useFakeTimers()
     vi.setSystemTime('2030-01-01T00:00:00Z')
     const wrapper = montarCabecera(crearSesion('2026-08-30T10:00:00', '2026-08-30T09:30:00'))
 
-    // Cuatro elementos en línea, ningún párrafo: antes de WP-050 el centro eran
-    // un `h1` y dos `p`, es decir tres renglones apilados.
-    expect(hijosDelContexto(wrapper)).toEqual(['h1', 'span', 'span', 'span'])
+    // Tres elementos en línea, ningún párrafo: antes de WP-050 el centro eran
+    // un `h1` y dos `p`, es decir tres renglones apilados. WP-054 le quita
+    // además las autoridades, que se mudaron al sector derecho.
+    expect(hijosDelContexto(wrapper)).toEqual(['h1', 'span', 'span'])
     expect(hijosDelContexto(wrapper)).not.toContain('p')
 
     // Cada dato conserva su texto limpio: el separador `·` lo dibuja CSS, de
     // modo que ninguna prueba ni lector de pantalla lo lee como contenido.
     expect(wrapper.get('[data-testid="cabecera-sesion"]').text()).toBe('Sesión N.º 39')
     expect(wrapper.get('[data-testid="cabecera-tiempo-sesion"]').text()).toBe('00:30:00')
-    expect(wrapper.get('[data-testid="cabecera-autoridades"]').text()).toBe(
-      'Presidencia: Presidencia de prueba · Secretaría: Secretaría de prueba',
-    )
     expect(wrapper.text()).toContain('Concejo Deliberante de Puerto Madryn')
   })
 
@@ -168,16 +178,16 @@ describe('Cabecera pública de una sola línea (WP-050)', () => {
       }),
     )
 
-    // Sin autoridades el elemento directamente no existe: ya no queda un
-    // párrafo con un espacio duro ocupando altura.
+    // Sin autoridades el bloque directamente no existe: ya no queda un párrafo
+    // con un espacio duro ocupando altura.
     expect(wrapper.find('[data-testid="cabecera-autoridades"]').exists()).toBe(false)
     // PREPARANDO no expone duración de sesión.
     expect(wrapper.find('[data-testid="cabecera-tiempo-sesion"]').exists()).toBe(false)
     expect(hijosDelContexto(wrapper)).toEqual(['h1', 'span'])
     expect(wrapper.get('[data-testid="cabecera-sesion"]').text()).toContain('61')
 
-    // Con una sola autoridad tampoco aparece una segunda fila: se suma un solo
-    // elemento en línea más.
+    // Con una sola autoridad se dibuja un único renglón: el bloque derecho no
+    // reserva el segundo mientras Secretaría no exista.
     await wrapper.setProps({
       estado: crearEstadoRecintoPrueba({
         generado_en: '2026-08-30T10:00:00',
@@ -190,10 +200,8 @@ describe('Cabecera pública de una sola línea (WP-050)', () => {
         },
       }),
     })
-    expect(hijosDelContexto(wrapper)).toEqual(['h1', 'span', 'span'])
-    expect(wrapper.get('[data-testid="cabecera-autoridades"]').text()).toBe(
-      'Presidencia: Sólo Presidencia',
-    )
+    expect(hijosDelContexto(wrapper)).toEqual(['h1', 'span'])
+    expect(renglonesDeAutoridades(wrapper)).toEqual(['Presidencia: Sólo Presidencia'])
   })
 
   it('ofrece el texto completo de autoridades en `title` porque en pantalla se recorta', () => {
@@ -214,7 +222,60 @@ describe('Cabecera pública de una sola línea (WP-050)', () => {
     // El DOM liviano de estas pruebas expone los atributos por `getAttribute`.
     const autoridades = wrapper.get('[data-testid="cabecera-autoridades"]').element
     expect(autoridades.getAttribute('title')).toBe(`Presidencia: ${largo}`)
-    // El texto largo no agrega hijos: sigue siendo un único elemento en línea.
-    expect(hijosDelContexto(wrapper)).toEqual(['h1', 'span', 'span', 'span'])
+    // El texto largo no agrega renglones ni vuelve al centro de la cabecera.
+    expect(renglonesDeAutoridades(wrapper)).toHaveLength(1)
+    expect(hijosDelContexto(wrapper)).toEqual(['h1', 'span', 'span'])
+  })
+})
+
+/**
+ * Reorganización de jerarquía pedida por HUMAN_GATE sobre la captura real.
+ *
+ * jsdom no calcula layout, así que acá se fija la *estructura* que hace posible
+ * el resultado visual —qué dato vive en qué zona y qué clases comparten— y la
+ * geometría concreta (centrado real, dos renglones, sin invasión) se mide en
+ * Playwright con bounding boxes en 1366×768 y 1920×1080.
+ */
+describe('Cabecera pública reorganizada (WP-054)', () => {
+  it('deja en el centro sólo institución, sesión y duración, con una única escala', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime('2030-01-01T00:00:00Z')
+    const wrapper = montarCabecera(crearSesion('2026-08-30T10:00:00', '2026-08-30T09:30:00'))
+
+    const contexto = wrapper.get('[data-testid="cabecera-contexto"]')
+    // Los tres datos centrales comparten la clase que fija el tamaño: es lo que
+    // impide que el título vuelva a leerse como un encabezado con apostillas.
+    const hijosCentrales = Array.from(contexto.element.children)
+    expect(hijosCentrales).toHaveLength(3)
+    for (const hijo of hijosCentrales) {
+      expect(hijo.classList.contains('dato-cabecera')).toBe(true)
+    }
+
+    // Las autoridades ya no forman parte del centro.
+    expect(contexto.find('[data-testid="cabecera-autoridades"]').exists()).toBe(false)
+    expect(contexto.text()).not.toContain('Presidencia')
+  })
+
+  it('ubica las autoridades en dos renglones del sector derecho, junto a la conexión', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime('2030-01-01T00:00:00Z')
+    const wrapper = montarCabecera(crearSesion('2026-08-30T10:00:00', '2026-08-30T09:30:00'))
+
+    const autoridades = wrapper.get('[data-testid="cabecera-autoridades"]')
+    const renglones = autoridades.findAll('.renglon-autoridad')
+    // Un renglón por autoridad, en el orden institucional Presidencia/Secretaría.
+    expect(renglones).toHaveLength(2)
+    expect(renglones[0]!.text().replace(/\s+/g, ' ').trim()).toBe(
+      'Presidencia: Presidencia de prueba',
+    )
+    expect(renglones[1]!.text().replace(/\s+/g, ' ').trim()).toBe(
+      'Secretaría: Secretaría de prueba',
+    )
+
+    // Autoridades y conexión comparten el mismo contenedor derecho: ambas
+    // aparecen como descendientes del sector, y ninguna quedó en el centro.
+    const sector = wrapper.get('.sector-derecho')
+    expect(sector.find('[data-testid="cabecera-autoridades"]').exists()).toBe(true)
+    expect(sector.find('[data-testid="estado-conexion"]').exists()).toBe(true)
   })
 })

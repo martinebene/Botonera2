@@ -138,7 +138,8 @@ test.describe.serial('WP-027 · recorridos críticos sobre el stack real', () =>
         await pulsarSecuencia(['1-9', '2-9', '3-9', '4-9', '5-9', '6-9', '7-9'])
         // WP-036: el quórum de Moderación es un dato único de la cabecera compacta.
         await expect(moderacion.getByTestId('cabecera-quorum')).toContainText('Quórum 7/12')
-        await expect(recinto.getByTestId('cantidad-presentes')).toHaveText('7')
+        // WP-054: el indicador público muestra `presentes/total` del padrón (12 bancas).
+        await expect(recinto.getByTestId('cantidad-presentes')).toHaveText('7/12')
         await expect(recinto.getByTestId('estado-quorum')).toContainText('Quórum alcanzado')
 
         await moderacion.getByTestId('input-numero-sesion').fill('27')
@@ -266,7 +267,7 @@ test.describe.serial('WP-027 · recorridos críticos sobre el stack real', () =>
 
       await test.step('D · empate simple persiste y el desempate queda separado', async () => {
         await pulsar('8-9')
-        await expect(recinto.getByTestId('cantidad-presentes')).toHaveText('8')
+        await expect(recinto.getByTestId('cantidad-presentes')).toHaveText('8/12')
         await abrirVotacion(moderacion, 2, 'Empate simple real')
         await pulsarSecuencia(['1-1', '2-1', '3-1', '4-1', '5-3', '6-3', '7-3', '8-3'])
 
@@ -315,7 +316,7 @@ test.describe.serial('WP-027 · recorridos críticos sobre el stack real', () =>
         )
 
         await pulsarSecuencia(['2-9', '3-9'])
-        await expect(recinto.getByTestId('cantidad-presentes')).toHaveText('8')
+        await expect(recinto.getByTestId('cantidad-presentes')).toHaveText('8/12')
         await expect(moderacion.getByTestId('estado-votacion')).toHaveText('INCONCLUSA')
         await expect(moderacion.getByTestId('formulario-votacion')).toBeVisible()
       })

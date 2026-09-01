@@ -731,17 +731,17 @@ for (const viewport of [
     const cajaConexion = (await page.getByTestId('estado-conexion').boundingBox())!
     const cajaSesion = (await page.getByTestId('cabecera-sesion').boundingBox())!
     const cajaTiempo = (await page.getByTestId('cabecera-tiempo-sesion').boundingBox())!
-    const cajaAutoridades = (await page.getByTestId('cabecera-autoridades').boundingBox())!
 
     // Baseline previa a WP-050: 76 px en Full HD y 62 px en 1366×768.
     expect(cajaCabecera.height).toBeLessThanOrEqual(60)
     expect(cajaCabecera.height).toBeLessThan(viewport.height === 1080 ? 76 : 62)
 
     // Una sola línea: el bloque central mide un renglón (≈18 px con esta
-    // tipografía) y los tres datos caben enteros dentro de ese renglón. Si
-    // alguno pasara a una segunda fila, su caja sobresaldría del contenedor.
+    // tipografía) y sus datos caben enteros dentro de ese renglón. Si alguno
+    // pasara a una segunda fila, su caja sobresaldría del contenedor. Desde
+    // WP-054 las autoridades ya no viven acá: se miden en su propio bloque.
     expect(cajaContexto.height).toBeLessThanOrEqual(26)
-    for (const caja of [cajaSesion, cajaTiempo, cajaAutoridades]) {
+    for (const caja of [cajaSesion, cajaTiempo]) {
       expect(caja.y).toBeGreaterThanOrEqual(cajaContexto.y - 1)
       expect(caja.y + caja.height).toBeLessThanOrEqual(cajaContexto.y + cajaContexto.height + 1)
     }
@@ -873,17 +873,37 @@ for (const viewport of [
     await expect(page.getByTestId('tema-votacion')).toHaveAttribute('title', temaExtenso)
     await expect(page.getByTestId('cabecera-autoridades')).toContainText('María')
 
-    // Tema y autoridades se recortan con elipsis en una única línea.
-    for (const selector of ['tema-votacion', 'cabecera-autoridades'] as const) {
-      const estilo = await page.getByTestId(selector).evaluate((elemento) => {
-        const computado = getComputedStyle(elemento)
-        return {
-          whiteSpace: computado.whiteSpace,
-          overflow: computado.overflow,
-          textOverflow: computado.textOverflow,
-          recortado: elemento.scrollWidth > elemento.clientWidth,
-        }
-      })
+    // El tema se recorta con elipsis en una única línea.
+    const estiloTema = await page.getByTestId('tema-votacion').evaluate((elemento) => {
+      const computado = getComputedStyle(elemento)
+      return {
+        overflow: computado.overflow,
+        textOverflow: computado.textOverflow,
+        recortado: elemento.scrollWidth > elemento.clientWidth,
+      }
+    })
+    expect(estiloTema.overflow).toBe('hidden')
+    expect(estiloTema.textOverflow).toBe('ellipsis')
+    expect(estiloTema.recortado).toBe(true)
+
+    // Cada autoridad se recorta por separado (WP-054): el bloque derecho apila
+    // dos renglones y ninguno puede envolver a una tercera línea.
+    const estilosAutoridades = await page
+      .locator('[data-testid="cabecera-autoridades"] .renglon-autoridad')
+      .evaluateAll((renglones) =>
+        renglones.map((renglon) => {
+          const computado = getComputedStyle(renglon)
+          return {
+            whiteSpace: computado.whiteSpace,
+            overflow: computado.overflow,
+            textOverflow: computado.textOverflow,
+            recortado: renglon.scrollWidth > renglon.clientWidth,
+          }
+        }),
+      )
+    expect(estilosAutoridades).toHaveLength(2)
+    for (const estilo of estilosAutoridades) {
+      expect(estilo.whiteSpace).toBe('nowrap')
       expect(estilo.overflow).toBe('hidden')
       expect(estilo.textOverflow).toBe('ellipsis')
       expect(estilo.recortado).toBe(true)
@@ -919,5 +939,261 @@ for (const viewport of [
     await page.clock.runFor(1000)
     await expect(page.getByTestId('cabecera-tiempo-sesion')).toContainText('00:15:01')
     expect(await page.getByTestId('cabecera-fecha-hora').textContent()).not.toBe(relojAntes)
+  })
+}
+
+/**
+ * Evidencia geométrica del refinamiento visual público (WP-054).
+ *
+ * HUMAN_GATE decidió estos cambios mirando capturas reales del 01/09/2026, así
+ * que la comprobación no puede quedarse en clases CSS: cada criterio se mide
+ * con bounding boxes y estilos calculados en las dos resoluciones canónicas.
+ *
+ * Baselines contra las que se compara (medidas sobre el código previo a WP-054):
+ *
+ * | dato                    | baseline           | exigencia WP-054            |
+ * |-------------------------|--------------------|-----------------------------|
+ * | nombre en cola          | 0,76 rem = 12,16 px| estrictamente mayor         |
+ * | banca en cola           | 0,63 rem = 10,08 px| estrictamente mayor         |
+ * | círculo de orden        | 1,6 rem = 25,6 px  | exactamente igual           |
+ * | autoridades en cabecera | centro             | sector derecho, dos líneas  |
+ */
+for (const viewport of [
+  { width: 1920, height: 1080 },
+  { width: 1366, height: 768 },
+]) {
+  test(`aplica el refinamiento visual WP-054 en ${viewport.width}×${viewport.height}`, async ({
+    page,
+  }) => {
+    // Baselines tipográficas previas al WP, en píxeles (raíz de 16 px).
+    const NOMBRE_BASELINE_PX = 12.16
+    const BANCA_BASELINE_PX = 10.08
+    const CIRCULO_ORDEN_PX = 25.6
+
+    await page.setViewportSize(viewport)
+    await page.clock.install({ time: new Date('2026-08-28T09:59:00Z') })
+    await instalarBackendPublico(page, crearEstado())
+    await page.goto('http://localhost:3001/recinto/')
+    await page.getByTestId('estado-conexion').waitFor()
+    await page.clock.runFor(20)
+    await page.clock.pauseAt(HORA_RELOJ_E2E)
+
+    const datosSesion = {
+      fecha_hora_inicio_preparacion: '2026-08-28T09:30:00',
+      fecha_hora_apertura: '2026-08-28T09:45:00',
+      numero_sesion: 59,
+      presidencia: 'Ana Presidencia',
+      secretaria_legislativa: 'Luis Secretaría',
+    }
+    // Nombres tomados del padrón real: el criterio de aceptación pide que la
+    // cola no genere scroll horizontal "con nombres reales".
+    const colaReal = [
+      { nombre: 'Gastón', apellido: 'Cuis Taccari', banca: 4 },
+      { nombre: 'Federico', apellido: 'Garitano', banca: 7 },
+      { nombre: 'Lorena', apellido: 'Moreno', banca: 1 },
+    ]
+    const sesion = crearEstado({
+      revision: 1,
+      generado_en: '2026-08-28T10:00:00',
+      estado_global: 'SESION_ABIERTA',
+      sesion: datosSesion,
+      filas_bancas: [3, 4, 5],
+      concejales: crearConcejales(12),
+      quorum: { cantidad_presentes: 8, requerido: 7, alcanzado: true },
+      palabra: {
+        orador: { nombre: 'Andrea', apellido: 'Rueda', banca: 3 },
+        cola: colaReal,
+      },
+      votacion: crearVotacion({ tema: 'Expediente breve', cuenta_regresiva_hasta: null }),
+    })
+    await publicar(page, sesion)
+    await expect(page.getByTestId('cabecera-sesion')).toContainText('59')
+
+    // -----------------------------------------------------------------------
+    // 1 · Cabecera pública: centro real y autoridades a la derecha
+    // -----------------------------------------------------------------------
+    const cajaCabecera = (await page.getByTestId('cabecera-recinto').boundingBox())!
+    const cajaContexto = (await page.getByTestId('cabecera-contexto').boundingBox())!
+    const cajaReloj = (await page.getByTestId('cabecera-fecha-hora').boundingBox())!
+    const cajaAutoridades = (await page.getByTestId('cabecera-autoridades').boundingBox())!
+    const cajaConexion = (await page.getByTestId('estado-conexion').boundingBox())!
+
+    // Centro real: el eje del bloque central coincide con el eje del viewport.
+    // La tolerancia de 2 px absorbe el redondeo de subpíxel del navegador.
+    const centroContexto = cajaContexto.x + cajaContexto.width / 2
+    expect(Math.abs(centroContexto - viewport.width / 2)).toBeLessThanOrEqual(2)
+
+    // Sin invasión: el centro termina antes de que empiece el bloque derecho.
+    expect(cajaReloj.x + cajaReloj.width).toBeLessThanOrEqual(cajaContexto.x)
+    expect(cajaContexto.x + cajaContexto.width).toBeLessThanOrEqual(cajaAutoridades.x)
+    expect(cajaAutoridades.x + cajaAutoridades.width).toBeLessThanOrEqual(cajaConexion.x + 1)
+
+    // Toda la cabecera entra en su altura fija: nada se recorta ni la empuja.
+    expect(cajaCabecera.height).toBeLessThanOrEqual(60)
+    for (const caja of [cajaContexto, cajaAutoridades, cajaConexion]) {
+      expect(caja.y).toBeGreaterThanOrEqual(cajaCabecera.y - 1)
+      expect(caja.y + caja.height).toBeLessThanOrEqual(cajaCabecera.y + cajaCabecera.height + 1)
+    }
+
+    // El centro sigue midiendo un solo renglón.
+    expect(cajaContexto.height).toBeLessThanOrEqual(26)
+
+    // Jerarquía uniforme: institución, sesión y duración comparten tamaño.
+    const tamanosCentro = await page
+      .locator('[data-testid="cabecera-contexto"] > *')
+      .evaluateAll((nodos) => nodos.map((nodo) => getComputedStyle(nodo).fontSize))
+    expect(tamanosCentro).toHaveLength(3)
+    expect(new Set(tamanosCentro).size).toBe(1)
+
+    // Autoridades en dos renglones apilados, no en una línea con separadores.
+    const cajasAutoridades = await page
+      .locator('[data-testid="cabecera-autoridades"] .renglon-autoridad')
+      .evaluateAll((renglones) =>
+        renglones.map((renglon) => {
+          const caja = renglon.getBoundingClientRect()
+          return { y: caja.y, alto: caja.height, texto: renglon.textContent?.trim() ?? '' }
+        }),
+      )
+    expect(cajasAutoridades).toHaveLength(2)
+    expect(cajasAutoridades[0]!.texto).toContain('Presidencia')
+    expect(cajasAutoridades[1]!.texto).toContain('Secretaría')
+    // El segundo renglón arranca por debajo del primero: están apilados.
+    expect(cajasAutoridades[1]!.y).toBeGreaterThanOrEqual(
+      cajasAutoridades[0]!.y + cajasAutoridades[0]!.alto - 1,
+    )
+
+    // -----------------------------------------------------------------------
+    // 2 · Cola de palabra: más grande, mismo círculo, sin scroll horizontal
+    // -----------------------------------------------------------------------
+    const tipografiaCola = await page
+      .locator('[data-testid="cola-palabra"] li')
+      .evaluateAll((elementos) =>
+        elementos.map((elemento) => {
+          const nombre = elemento.querySelector(
+            '[data-testid="nombre-cola-palabra"]',
+          ) as HTMLElement
+          const banca = elemento.querySelector('[data-testid="banca-cola-palabra"]') as HTMLElement
+          const circulo = elemento.querySelector('.orden-cola') as HTMLElement
+          const cajaCirculo = circulo.getBoundingClientRect()
+          return {
+            nombrePx: Number.parseFloat(getComputedStyle(nombre).fontSize),
+            bancaPx: Number.parseFloat(getComputedStyle(banca).fontSize),
+            circulo: { ancho: cajaCirculo.width, alto: cajaCirculo.height },
+          }
+        }),
+      )
+    expect(tipografiaCola).toHaveLength(colaReal.length)
+    for (const medida of tipografiaCola) {
+      // Criterio 7: nombre y banca visiblemente mayores que la baseline.
+      expect(medida.nombrePx).toBeGreaterThan(NOMBRE_BASELINE_PX)
+      expect(medida.bancaPx).toBeGreaterThan(BANCA_BASELINE_PX)
+      // El nombre sigue dominando sobre el número de banca.
+      expect(medida.nombrePx).toBeGreaterThan(medida.bancaPx)
+      // Criterio 8: el círculo no creció ni un píxel.
+      expect(medida.circulo.ancho).toBeCloseTo(CIRCULO_ORDEN_PX, 1)
+      expect(medida.circulo.alto).toBeCloseTo(CIRCULO_ORDEN_PX, 1)
+    }
+
+    // Criterio 6: la cola no desborda lateralmente ni desplaza su contenedor.
+    const desbordeCola = await page.getByTestId('cola-palabra').evaluate((lista) => ({
+      horizontal: lista.scrollWidth - lista.clientWidth,
+      overflowX: getComputedStyle(lista).overflowX,
+    }))
+    expect(desbordeCola.horizontal).toBeLessThanOrEqual(0)
+    expect(desbordeCola.overflowX).toBe('hidden')
+
+    // Cada renglón queda contenido dentro de la columna de palabra.
+    const cajaPalabra = (await page.getByTestId('columna-palabra-publica').boundingBox())!
+    const cajasNombres = await page.getByTestId('nombre-cola-palabra').evaluateAll((nombres) =>
+      nombres.map((nombre) => {
+        const caja = nombre.getBoundingClientRect()
+        return { izquierda: caja.left, derecha: caja.right }
+      }),
+    )
+    for (const caja of cajasNombres) {
+      expect(caja.izquierda).toBeGreaterThanOrEqual(cajaPalabra.x - 1)
+      expect(caja.derecha).toBeLessThanOrEqual(cajaPalabra.x + cajaPalabra.width + 1)
+    }
+
+    // -----------------------------------------------------------------------
+    // 3 · Quórum presentes/total con tres estados cromáticos
+    // -----------------------------------------------------------------------
+    /** Lee nivel declarado, texto y color real de la fracción de quórum. */
+    async function medirQuorum() {
+      return page.getByTestId('panel-quorum').evaluate((panel) => {
+        const fraccion = panel.querySelector('[data-testid="cantidad-presentes"]') as HTMLElement
+        return {
+          nivel: panel.getAttribute('data-nivel-quorum'),
+          texto: fraccion.textContent?.replace(/\s+/g, '') ?? '',
+          color: getComputedStyle(fraccion).color,
+          desborde: fraccion.scrollWidth - fraccion.clientWidth,
+        }
+      })
+    }
+
+    // Criterio 9 y 10: por encima del mínimo, verde.
+    const quorumHolgado = await medirQuorum()
+    expect(quorumHolgado.texto).toBe('8/12')
+    expect(quorumHolgado.nivel).toBe('holgado')
+    // La fracción entra completa en el ancho calibrado del panel.
+    expect(quorumHolgado.desborde).toBeLessThanOrEqual(0)
+
+    // Exactamente en el mínimo: amarillo, pero el quórum sigue alcanzado.
+    await publicar(page, {
+      ...sesion,
+      revision: 2,
+      quorum: { cantidad_presentes: 7, requerido: 7, alcanzado: true },
+    })
+    await expect(page.getByTestId('cantidad-presentes')).toHaveText('7/12')
+    const quorumLimite = await medirQuorum()
+    expect(quorumLimite.nivel).toBe('limite')
+    await expect(page.getByTestId('estado-quorum')).toHaveText('Quórum alcanzado')
+
+    // Por debajo del mínimo: rojo y sin quórum.
+    await publicar(page, {
+      ...sesion,
+      revision: 3,
+      quorum: { cantidad_presentes: 6, requerido: 7, alcanzado: false },
+    })
+    await expect(page.getByTestId('cantidad-presentes')).toHaveText('6/12')
+    const quorumInsuficiente = await medirQuorum()
+    expect(quorumInsuficiente.nivel).toBe('insuficiente')
+    await expect(page.getByTestId('estado-quorum')).toHaveText('Sin quórum')
+
+    // Los tres estados se distinguen por color real, no sólo por nombre de clase.
+    const colores = [quorumHolgado.color, quorumLimite.color, quorumInsuficiente.color]
+    expect(new Set(colores).size).toBe(3)
+
+    // -----------------------------------------------------------------------
+    // 4 · Rótulo del countdown
+    // -----------------------------------------------------------------------
+    // El countdown se deriva del reloj corregido con `generado_en`, así que la
+    // ventana se construye a partir del instante que ve la propia página.
+    const ahoraCountdown = await page.evaluate(() => Date.now())
+    await publicar(page, {
+      ...sesion,
+      revision: 4,
+      generado_en: new Date(ahoraCountdown).toISOString(),
+      votacion: crearVotacion({
+        tema: 'Expediente con cuenta regresiva',
+        fecha_hora_apertura: new Date(ahoraCountdown).toISOString(),
+        cuenta_regresiva_hasta: new Date(ahoraCountdown + 5000).toISOString(),
+      }),
+    })
+    const countdown = page.getByTestId('countdown-votacion')
+    await expect(countdown).toBeVisible()
+    // Criterio 11: la recepción ya está abierta, así que el rótulo lo dice.
+    await expect(countdown).toContainText('Votación en curso')
+    await expect(countdown).not.toContainText('Comienza en')
+
+    // -----------------------------------------------------------------------
+    // 5 · Ningún cambio introdujo scroll global
+    // -----------------------------------------------------------------------
+    const desbordes = await page.evaluate(() => ({
+      vertical: document.documentElement.scrollHeight - window.innerHeight,
+      horizontal: document.documentElement.scrollWidth - window.innerWidth,
+    }))
+    expect(desbordes.vertical).toBeLessThanOrEqual(1)
+    expect(desbordes.horizontal).toBeLessThanOrEqual(1)
   })
 }

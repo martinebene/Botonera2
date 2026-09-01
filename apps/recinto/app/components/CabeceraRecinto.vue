@@ -1,12 +1,30 @@
 <script setup lang="ts">
 /**
- * Cabecera pública de una sola línea (WP-050).
+ * Cabecera pública de tres zonas (WP-050, refinada por WP-054).
  *
  * Mantiene las tres zonas probadas en producción —fecha/hora a la izquierda,
- * información institucional al centro y conexión a la derecha— pero condensa
- * todo el contexto central en un único renglón. Antes ocupaba tres renglones
- * (título, sesión + duración y autoridades), lo que robaba altura a las bancas
- * y dejaba un renglón vacío cuando no había autoridades cargadas.
+ * información institucional al centro y estado técnico a la derecha— y condensa
+ * el contexto central en un único renglón. Antes de WP-050 ocupaba tres
+ * renglones (título, sesión + duración y autoridades), lo que robaba altura a
+ * las bancas y dejaba un renglón vacío cuando no había autoridades cargadas.
+ *
+ * WP-054 introduce dos cambios de jerarquía decididos por HUMAN_GATE:
+ *
+ * 1. El centro contiene exactamente tres datos —institución, sesión y duración—
+ *    con el *mismo tamaño tipográfico*. Antes el título era notoriamente mayor
+ *    que la sesión y que la duración, lo que leía como un encabezado con
+ *    apostillas en vez de como una sola frase institucional.
+ * 2. Las autoridades se mudan al sector derecho, en dos renglones (Presidencia
+ *    arriba, Secretaría abajo) junto al indicador de conexión. Al salir del
+ *    centro, la columna central queda ocupada sólo por datos de longitud
+ *    acotada y puede quedar *realmente centrada* respecto de la pantalla.
+ *
+ * Cómo se consigue el centrado real: la cabecera es una grilla de tres columnas
+ * `1fr auto 1fr`. Dos columnas `1fr` iguales reparten el espacio libre por
+ * partes iguales, de modo que la columna `auto` del medio cae exactamente sobre
+ * el centro del viewport. Eso sólo se sostiene mientras ninguna columna lateral
+ * necesite más ancho del que le tocó: por eso el sector derecho está acotado con
+ * `max-width` y sus textos variables se recortan con elipsis en lugar de crecer.
  *
  * El reloj y la duración siguen siendo presentación local. La apertura formal y
  * el contexto de sesión continúan llegando exclusivamente en EstadoRecinto.
@@ -44,16 +62,36 @@ const contextoCentral = computed(() => {
   return 'Sala sin preparar'
 })
 
-const textoAutoridades = computed(() => {
+/**
+ * Autoridades como renglones independientes (WP-054).
+ *
+ * Antes las dos autoridades formaban un único texto unido por `·` porque
+ * compartían una sola línea con el resto del centro. Ahora cada una ocupa su
+ * propio renglón del sector derecho, así que se exponen por separado y el
+ * componente sólo renderiza las que el backend ya proyectó: una preparación sin
+ * Secretaría cargada no reserva un renglón vacío.
+ */
+const renglonesAutoridades = computed(() => {
   const contexto = contextoInstitucional.value
-  if (!contexto) return ''
-  return [
-    contexto.presidencia ? `Presidencia: ${contexto.presidencia}` : '',
-    contexto.secretaria_legislativa ? `Secretaría: ${contexto.secretaria_legislativa}` : '',
-  ]
-    .filter(Boolean)
-    .join(' · ')
+  if (!contexto) return [] as Array<{ rotulo: string; nombre: string }>
+  const renglones: Array<{ rotulo: string; nombre: string }> = []
+  if (contexto.presidencia) {
+    renglones.push({ rotulo: 'Presidencia', nombre: contexto.presidencia })
+  }
+  if (contexto.secretaria_legislativa) {
+    renglones.push({ rotulo: 'Secretaría', nombre: contexto.secretaria_legislativa })
+  }
+  return renglones
 })
+
+/**
+ * Texto completo de las autoridades, usado sólo como `title`.
+ * En pantalla cada renglón se recorta con elipsis; el emergente conserva la
+ * lectura íntegra para el operador que se acerque al monitor.
+ */
+const textoAutoridades = computed(() =>
+  renglonesAutoridades.value.map((renglon) => `${renglon.rotulo}: ${renglon.nombre}`).join(' · '),
+)
 
 const textoConexion = computed(() => {
   if (props.desactualizado) return 'Reconectando · vista desactualizada'
@@ -74,15 +112,16 @@ const textoConexion = computed(() => {
     </time>
 
     <!--
-      Renglón único: cada dato es un elemento en línea del mismo flex. Los
-      separadores `·` los dibuja CSS (`::before`), no el texto, para que las
+      Renglón único centrado: cada dato es un elemento en línea del mismo flex.
+      Los separadores `·` los dibuja CSS (`::before`), no el texto, para que las
       pruebas y los lectores de pantalla sigan leyendo cada dato limpio.
 
-      Los datos ausentes directamente no se renderizan: ya no queda un renglón
-      reservado con un espacio duro cuando faltan autoridades.
+      Desde WP-054 el centro contiene sólo institución, sesión y duración, y los
+      tres comparten tamaño tipográfico (`dato-cabecera`). El `h1` conserva su
+      rol semántico de encabezado; lo que cambia es su escala visual.
     -->
     <div data-testid="cabecera-contexto" class="marca-institucional">
-      <h1 class="titulo-institucional">Concejo Deliberante de Puerto Madryn</h1>
+      <h1 class="titulo-institucional dato-cabecera">Concejo Deliberante de Puerto Madryn</h1>
       <span data-testid="cabecera-sesion" class="dato-cabecera">{{ contextoCentral }}</span>
       <span
         v-if="tiempoSesion"
@@ -91,24 +130,41 @@ const textoConexion = computed(() => {
       >
         {{ tiempoSesion }}
       </span>
-      <span
-        v-if="textoAutoridades"
+    </div>
+
+    <!--
+      Sector derecho (WP-054): autoridades en dos renglones + estado técnico.
+
+      Las autoridades quedan a la izquierda del indicador de conexión, que es el
+      elemento de ancho más estable del bloque. Todo el sector está acotado por
+      `max-width` para no invadir la columna central.
+    -->
+    <div class="sector-derecho">
+      <div
+        v-if="renglonesAutoridades.length > 0"
         data-testid="cabecera-autoridades"
         class="autoridades-cabecera"
         :title="textoAutoridades"
       >
-        {{ textoAutoridades }}
-      </span>
-    </div>
+        <span
+          v-for="renglon in renglonesAutoridades"
+          :key="renglon.rotulo"
+          class="renglon-autoridad"
+        >
+          <span class="rotulo-autoridad">{{ renglon.rotulo }}:</span>
+          {{ renglon.nombre }}
+        </span>
+      </div>
 
-    <div
-      data-testid="estado-conexion"
-      class="estado-conexion"
-      :class="`conexion-${estadoConexion.toLowerCase()}`"
-      role="status"
-    >
-      <span class="punto-conexion" aria-hidden="true" />
-      {{ textoConexion }}
+      <div
+        data-testid="estado-conexion"
+        class="estado-conexion"
+        :class="`conexion-${estadoConexion.toLowerCase()}`"
+        role="status"
+      >
+        <span class="punto-conexion" aria-hidden="true" />
+        {{ textoConexion }}
+      </div>
     </div>
   </header>
 </template>
@@ -161,22 +217,31 @@ const textoConexion = computed(() => {
   content: '·';
 }
 
+/*
+  El título ya no compite en escala con el resto del centro (WP-054): comparte
+  la clase `dato-cabecera`, así que sólo conserva aquí lo que lo distingue —el
+  reseteo del margen del `h1`, el color institucional y el recorte por elipsis,
+  porque es el único texto central que puede quedarse sin ancho.
+*/
 .titulo-institucional {
   min-width: 0;
   flex: 0 1 auto;
   margin: 0;
   overflow: hidden;
-  font-size: clamp(0.82rem, 1.4vw, 1.15rem);
-  line-height: 1;
+  color: #e2e8f0;
   text-overflow: ellipsis;
 }
 
+/*
+  Tamaño tipográfico único del centro. Institución, sesión y duración lo
+  comparten: HUMAN_GATE pidió explícitamente una sola jerarquía en esa zona.
+*/
 .dato-cabecera {
   flex: 0 0 auto;
   color: #7dd3fc;
-  font-size: clamp(0.68rem, 0.95vw, 0.9rem);
+  font-size: clamp(0.78rem, 1.05vw, 1rem);
   font-weight: 800;
-  line-height: 1;
+  line-height: 1.05;
 }
 
 .tiempo-sesion {
@@ -185,26 +250,58 @@ const textoConexion = computed(() => {
 }
 
 /*
-  Las autoridades son el dato secundario: se recortan primero (`flex-shrink`
-  alto) y nunca pueden generar una segunda fila porque el contenedor es una
-  línea `nowrap` de altura fija.
+  Sector derecho: autoridades y conexión (WP-054).
+
+  `max-width` acotado es lo que protege el centrado real de la columna central:
+  mientras este bloque no supere el ancho que le toca a su columna `1fr`, la
+  columna `auto` del medio queda exactamente sobre el centro del viewport.
+*/
+.sector-derecho {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-self: end;
+  gap: 0.6rem;
+  max-width: min(34vw, 30rem);
+  overflow: hidden;
+}
+
+/*
+  Dos renglones apilados, uno por autoridad. La altura resultante (dos líneas de
+  ~0.72rem con `line-height` ajustado) sigue entrando en la altura fija de la
+  cabecera, de modo que la franja de votación y las bancas no se mueven.
 */
 .autoridades-cabecera {
-  max-width: min(28vw, 26rem);
   min-width: 0;
-  flex: 0 4 auto;
+  display: flex;
+  flex: 0 1 auto;
+  flex-direction: column;
+  gap: 0.1rem;
   overflow: hidden;
-  color: #94a3b8;
-  font-size: clamp(0.56rem, 0.72vw, 0.72rem);
+  text-align: right;
+}
+
+/* Cada autoridad se recorta por separado: nunca envuelve a una tercera línea. */
+.renglon-autoridad {
+  min-width: 0;
+  overflow: hidden;
+  color: #cbd5e1;
+  font-size: clamp(0.58rem, 0.74vw, 0.74rem);
   font-weight: 700;
-  line-height: 1;
+  line-height: 1.25;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rotulo-autoridad {
+  color: #94a3b8;
+  font-weight: 600;
 }
 
 .estado-conexion {
   display: inline-flex;
   align-items: center;
-  justify-self: end;
+  flex: 0 0 auto;
   gap: 0.5rem;
   max-width: 45vw;
   padding: 0.28rem 0.6rem;
@@ -255,7 +352,7 @@ const textoConexion = computed(() => {
   }
 
   .fecha-hora-local,
-  .estado-conexion {
+  .sector-derecho {
     grid-row: 2;
   }
 }
