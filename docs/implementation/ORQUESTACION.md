@@ -156,17 +156,20 @@ Los mensajes publicados no se reescriben. Una corrección o re-revisión genera 
 
 Antes de actuar, IMPLEMENTER o REVIEWER debe:
 
-1. sincronizar `martinebene/Botonera2-Control` con `main` remoto;
-2. leer su `AGENTS.md`;
-3. leer `CURRENT.json`;
-4. confirmar que `next_actor` coincide con su rol;
-5. confirmar que la asignación indicada existe;
-6. verificar `assignment_id`, WP, iteración y destinatario;
-7. comprobar que `expected_response_path` todavía no exista;
-8. leer únicamente la asignación dirigida a su rol;
-9. recién entonces cargar el contexto canónico de Botonera2.
+1. determinar el worktree Git actual y la rama activa;
+2. resolver de forma inequívoca el `WP-NNN` correspondiente a ese worktree/rama;
+3. sincronizar `martinebene/Botonera2-Control` con `main` remoto;
+4. leer su `AGENTS.md`;
+5. leer `CURRENT.json`;
+6. cuando `protocol_version >= 1.2` y exista `active_assignments`, filtrar primero por el WP del worktree actual;
+7. dentro de ese WP, confirmar que `next_actor` coincide con su rol y que harness/modelo coinciden cuando estén fijados;
+8. exigir exactamente una asignación compatible dentro del WP actual;
+9. verificar `assignment_id`, WP, iteración y destinatario;
+10. comprobar que `expected_response_path` todavía no exista;
+11. leer únicamente la asignación dirigida a su rol;
+12. recién entonces cargar el contexto canónico de Botonera2.
 
-Si falla cualquier condición, el agente se detiene sin modificar nada.
+Asignaciones del mismo harness/modelo en otros WPs paralelos no generan ambigüedad porque pertenecen a otros worktrees. Si no puede resolver el WP local o quedan cero/múltiples asignaciones para ese mismo WP, el agente se detiene sin modificar nada.
 
 La existencia del resultado esperado significa que ese turno terminó, incluso si `CURRENT.json` todavía conserva el estado anterior hasta que el humano vuelva al ORCHESTRATOR.
 
@@ -250,11 +253,15 @@ El agente sigue la misma regla de descubrimiento desde `Botonera2-Control`.
 
 ## Paralelismo de WPs
 
-Cuando el PLAN permite WPs independientes, protocolo 1.1 de Botonera2-Control permite publicarlos simultáneamente mediante `CURRENT.json.active_assignments`.
+Cuando el PLAN permite WPs independientes, protocolo 1.2 de Botonera2-Control permite publicarlos simultáneamente mediante `CURRENT.json.active_assignments`.
 
 Cada entrada activa debe identificar WP, iteración, rol, `assignment_id`, `assignment_path`, `expected_response_path` y agente/arnés/modelo cuando corresponda. Los worktrees deben ser distintos y no puede existir superposición sustantiva no coordinada.
 
-Cada HUMAN_GATE inicia manualmente cada agente. Una sesión debe poder resolver exactamente una asignación compatible; si dos entradas fueran compatibles con la misma sesión, el ORCHESTRATOR no debe habilitarlas simultáneamente.
+El mismo harness/modelo puede ser IMPLEMENTER de varios WPs paralelos o REVIEWER de varios WPs paralelos. No hace falta reservar un harness distinto por WP. La sesión local se desambigua primero por el WP de su worktree y después por rol/harness/modelo.
+
+Para evitar cruces operativos, dentro de un mismo lote paralelo activo no se asigna el mismo harness/modelo simultáneamente como IMPLEMENTER de unos WPs y REVIEWER de otros. La independencia exigida sigue siendo por WP/candidato: quien revisa un WP no puede ser quien implementó ese mismo WP.
+
+Cada HUMAN_GATE inicia manualmente cada sesión. Una sesión debe resolver exactamente una asignación compatible **para su WP local**; asignaciones compatibles del mismo agente en otros worktrees se ignoran.
 
 Agregar o completar otro WP paralelo no revoca una asignación ya iniciada. Los campos escalares históricos de `CURRENT.json` quedan como resumen/compatibilidad y no autorizan trabajo cuando `active_assignments` existe.
 
