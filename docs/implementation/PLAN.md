@@ -199,7 +199,7 @@ WP-033 quedó integrado antes de continuar WP-026 y deja disponible el harness m
 | WP-050 | Restaurar proporciones finales de la Pantalla del Recinto | INTEGRADO | WP-049, WP-046 | - |
 | WP-051 | Corregir feedback operativo y estados transitorios de Moderación | INTEGRADO | WP-048 | - |
 | WP-052 | Proyectar eventos operativos seguros y enriquecer la lectura L3 sin romper secreto | INTEGRADO | WP-041, WP-045 | - |
-| WP-053 | Atenuar asistencialmente puntos del Orden del Día ya tratados por número | PENDIENTE | WP-040 | - |
+| WP-053 | Atenuar asistencialmente puntos del Orden del Día ya tratados por número | EN_CURSO | WP-040 | claude |
 | WP-054 | Refinar cabeceras, quórum, palabra y geometría visual de Moderación/Recinto | INTEGRADO | WP-047, WP-050 | - |
 | WP-055 | Crear backend/contrato autoritativo para Apoyo Técnico, transmisión y avisos | PENDIENTE | WP-052, WP-053 | - |
 | WP-056 | Implementar frontend de Apoyo Técnico e integrar avisos/transmisión en las pantallas | PENDIENTE | WP-052, WP-054, WP-055 | - |
@@ -320,3 +320,6 @@ WP-046 fue activado por HUMAN_GATE con Codex como implementador y Claude Code co
 Durante la implementación de WP-046, Codex agotó su ventana de cinco horas antes de completar el handoff. HUMAN_GATE decidió conservar íntegramente el trabajo ya realizado en el mismo worktree y reasignar la continuación a Claude Code, con Antigravity/AGY como revisor independiente. La reasignación no autoriza descartar, resetear ni recrear el trabajo parcial de Codex; Claude debe inspeccionar y continuar el estado Git existente.
 
 WP-046 quedó integrado mediante PR #51 sobre el candidato `042052cc9020f1a4d65ede06d989a23636bc7c72`, con implementación iniciada por Codex/GPT-5 y completada por Claude Code/Claude Opus 5 en el mismo worktree tras agotarse la ventana de Codex. La revisión independiente Antigravity/AGY + Gemini 3.7 Flash informó 0 BLOQUEANTES, 0 IMPORTANTES y 0 MENORES, con veredicto `LISTA PARA INTEGRAR`. El squash `ad7de014fd2a37ea74ee65baed3b06b012c9eea8` conserva exactamente el tree SHA revisado `1f132dc8bffb9de608c1b44bf0c24c832548115b`; CI candidata #347 y CI post-merge #348 terminaron success 8/8. WP-046 restaura la geometría pública probada, corrige el reloj de sesión con ancla backend-backend y agrega eventos públicos allowlist/sanitizados preservando secreto y REST/SSE. WP-029 queda con todas sus dependencias documentales integradas, pero no se activa hasta completar el gate documental diferido PR #50.
+
+
+HUMAN_GATE activó WP-053 con Claude Code / Claude Opus 5 (High) como implementador y Antigravity/AGY / Gemini 3.7 Flash (High) como revisor independiente. WP-053 debe limitarse al seguimiento asistencial por `nro_votacion`: un número se considera tratado desde que una votación con ese número fue abierta; todos los puntos duplicados se atenúan, pero permanecen clickeables y continúan precargando Q1. La fuente de verdad es el historial autoritativo de la sesión; no se introduce estado local persistente ni polling.
