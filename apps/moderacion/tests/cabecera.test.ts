@@ -1,17 +1,18 @@
 /**
- * Pruebas dedicadas de la cabecera compacta de Moderación (WP-036).
+ * Pruebas dedicadas de la cabecera compacta de Moderación (WP-047).
  *
  * Cobertura:
  * 1. Densidad: el distintivo `BOTONERA2` desapareció y `Moderación` sigue siendo la identidad.
  * 2. Reloj local: se muestra la fecha/hora del equipo y avanza con el paso del tiempo,
  *    verificado con un reloj falso (sin depender del reloj real de la máquina de CI).
- * 3. Tiempo de sesión: aparece sólo cuando existe `sesion.fecha_hora_apertura` y se deriva
- *    de esa marca autoritativa más el reloj local.
+ * 3. Tiempo de sesión: se ancla con `generado_en - fecha_hora_apertura`, dos marcas
+ *    backend comparables aunque el navegador use otra zona horaria.
  * 4. Autoridades: Presidencia y Secretaría Legislativa se muestran desde que fueron cargadas,
  *    tanto en PREPARANDO como en SESION_ABIERTA, y se omiten mientras no existan.
  * 5. Quórum: se presenta en cabecera cuando el backend lo proyecta y se omite cuando es null.
  * 6. Conexión y advertencia de estado desactualizado.
- * 7. Funciones puras de formateo temporal.
+ * 7. Número de sesión antes del quórum y ausencia del estado global redundante.
+ * 8. Funciones puras de formateo temporal compartidas con Recinto.
  *
  * El shell completo (`app.vue`) aporta a la cabecera los datos derivados del estado; esas
  * derivaciones se comprueban aquí sobre las mismas reglas: sesión primero, preparación después.
@@ -26,7 +27,8 @@ import fuenteCabeceraModeracion from '../app/components/CabeceraModeracion.vue?r
 import {
   formatearFechaHoraLocal,
   formatearDuracion,
-  calcularTiempoTranscurrido,
+  calcularDuracionEnSnapshot,
+  convertirMarcaBackend,
 } from '../app/utils/tiempo'
 import type { EstadoQuorum } from '@botonera2/api-client'
 
@@ -72,6 +74,9 @@ function propsBase(parcial: Record<string, unknown> = {}) {
     estadoGlobal: 'SESION_ABIERTA',
     revision: 7,
     desactualizado: false,
+    generadoEn: '2026-08-29T12:30:15',
+    fechaHoraApertura: '2026-08-29T12:00:00',
+    numeroSesion: 8,
     ...parcial,
   }
 }
@@ -120,17 +125,13 @@ describe('Utilidades de tiempo de la cabecera', () => {
     expect(formatearDuracion(-5_000)).toBe('00:00:00')
   })
 
-  it('calcula el tiempo transcurrido desde la apertura formal y omite el dato sin sesión', () => {
-    const ahora = new Date('2026-08-29T12:30:15Z')
-
-    expect(calcularTiempoTranscurrido('2026-08-29T12:00:00Z', ahora)).toBe('00:30:15')
-    expect(calcularTiempoTranscurrido(null, ahora)).toBeNull()
-    expect(calcularTiempoTranscurrido(undefined, ahora)).toBeNull()
-    expect(calcularTiempoTranscurrido('fecha-invalida', ahora)).toBeNull()
+  it('resta marcas backend naive sin incorporar la zona horaria del navegador', () => {
+    expect(calcularDuracionEnSnapshot('2026-08-29T12:30:15', '2026-08-29T12:00:00')).toBe(1_815_000)
+    expect(convertirMarcaBackend('fecha-invalida')).toBeNull()
   })
 })
 
-describe('CabeceraModeracion (WP-036)', () => {
+describe('CabeceraModeracion (WP-047)', () => {
   beforeEach(() => {
     vi.useFakeTimers()
   })
@@ -143,14 +144,49 @@ describe('CabeceraModeracion (WP-036)', () => {
   })
 
   describe('Densidad e identidad', () => {
-    it('conserva únicamente Moderación como identidad y no muestra la revisión de forma permanente', async () => {
+    it('conserva Moderación, retira el estado global y no muestra la revisión permanentemente', async () => {
       const html = await renderizarSSR(propsBase())
 
       expect(html).toContain('Moderación')
       expect(html).not.toContain('Botonera2')
       expect(html).not.toContain('BOTONERA2')
+      expect(html).not.toContain('data-testid="estado-global"')
+      expect(html).not.toContain('Sesión abierta')
       expect(html).not.toContain('data-testid="revision-estado"')
       expect(html).not.toContain('Revisión:')
+    })
+
+    it('muestra el número de sesión antes del quórum y admite el provisorio de PREPARANDO', async () => {
+      const quorum: EstadoQuorum = { cantidad_presentes: 9, requerido: 7, alcanzado: true }
+      const htmlSesion = await renderizarSSR(propsBase({ quorum, totalConcejales: 12 }))
+      const htmlPreparacion = await renderizarSSR(
+        propsBase({
+          estadoGlobal: 'PREPARANDO',
+          numeroSesion: 9,
+          generadoEn: null,
+          fechaHoraApertura: null,
+        }),
+      )
+
+      expect(htmlSesion).toContain('data-testid="cabecera-numero-sesion"')
+      expect(htmlSesion).toContain('Sesión Nº 8')
+      expect(htmlSesion.indexOf('cabecera-numero-sesion')).toBeLessThan(
+        htmlSesion.indexOf('cabecera-quorum'),
+      )
+      expect(htmlPreparacion).toContain('Sesión Nº 9')
+    })
+
+    it('no inventa un número mientras la preparación todavía no lo tiene', async () => {
+      const html = await renderizarSSR(
+        propsBase({
+          estadoGlobal: 'PREPARANDO',
+          numeroSesion: null,
+          generadoEn: null,
+          fechaHoraApertura: null,
+        }),
+      )
+
+      expect(html).not.toContain('data-testid="cabecera-numero-sesion"')
     })
   })
 
@@ -188,9 +224,9 @@ describe('CabeceraModeracion (WP-036)', () => {
       expect(html).not.toContain('data-testid="cabecera-tiempo-sesion"')
     })
 
-    it('deriva el tiempo de sesión de fecha_hora_apertura y del reloj local', async () => {
-      vi.setSystemTime(new Date('2026-08-29T12:30:15Z'))
-      const wrapper = montarCabecera(propsBase({ fechaHoraApertura: '2026-08-29T12:00:00Z' }))
+    it('deriva la duración de dos marcas backend aunque el reloj local esté en otro año', async () => {
+      vi.setSystemTime(new Date('2035-01-02T03:04:05Z'))
+      const wrapper = montarCabecera(propsBase())
 
       expect(wrapper.get('[data-testid="cabecera-tiempo-sesion"]').text()).toContain('00:30:15')
 
@@ -198,6 +234,51 @@ describe('CabeceraModeracion (WP-036)', () => {
       await nextTick()
 
       expect(wrapper.get('[data-testid="cabecera-tiempo-sesion"]').text()).toContain('00:31:00')
+    })
+
+    it('continúa sin baseline nueva y se reancla completamente al recibir otro snapshot', async () => {
+      vi.setSystemTime(new Date('2040-05-01T00:00:00Z'))
+      const wrapper = montarCabecera(
+        propsBase({
+          generadoEn: '2026-08-30T10:00:00',
+          fechaHoraApertura: '2026-08-30T09:00:00',
+        }),
+      )
+      expect(wrapper.get('[data-testid="cabecera-tiempo-sesion"]').text()).toContain('01:00:00')
+
+      // Esta ventana representa una reconexión sin baseline nueva: el ticker local
+      // conserva el último anclaje confirmado en lugar de resetear el contador.
+      vi.advanceTimersByTime(5000)
+      await nextTick()
+      expect(wrapper.get('[data-testid="cabecera-tiempo-sesion"]').text()).toContain('01:00:05')
+
+      await wrapper.setProps({
+        generadoEn: '2026-08-30T10:10:00',
+        fechaHoraApertura: '2026-08-30T10:05:00',
+        numeroSesion: 9,
+      })
+      expect(wrapper.get('[data-testid="cabecera-tiempo-sesion"]').text()).toContain('00:05:00')
+      expect(wrapper.get('[data-testid="cabecera-numero-sesion"]').text()).toBe('Sesión Nº 9')
+    })
+
+    it('recorta aperturas futuras, admite más de 24 horas y omite estados sin sesión', async () => {
+      vi.setSystemTime(new Date('2040-05-01T00:00:00Z'))
+      const wrapper = montarCabecera(
+        propsBase({
+          generadoEn: '2026-08-30T10:00:00',
+          fechaHoraApertura: '2026-08-30T10:05:00',
+        }),
+      )
+      expect(wrapper.get('[data-testid="cabecera-tiempo-sesion"]').text()).toContain('00:00:00')
+
+      await wrapper.setProps({ estadoGlobal: 'PREPARANDO' })
+      expect(wrapper.find('[data-testid="cabecera-tiempo-sesion"]').exists()).toBe(false)
+
+      expect(
+        formatearDuracion(
+          calcularDuracionEnSnapshot('2026-08-31T11:00:00', '2026-08-30T10:00:00')!,
+        ),
+      ).toBe('25:00:00')
     })
   })
 

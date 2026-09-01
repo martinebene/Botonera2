@@ -7,10 +7,10 @@
  * 2. Encabezado fijo con título accesible, subtítulo opcional y badges de estado.
  * 3. Área de contenido con scroll interno independiente (overflow-y-auto + min-h-0).
  *
- * Densidad (WP-036): el encabezado y el cuerpo usan tipografía y espaciados reducidos.
- * Cada cuadrante ahorra así altura de chrome, que es la que necesita la grilla 2×2 para
- * entrar completa a 1366×768. El componente nunca fija su altura en píxeles: siempre
- * ocupa el 100 % de la celda de grilla que le asigna el shell.
+ * Densidad (WP-047): el encabezado usa 4 px verticales y 10 px horizontales; todos los
+ * cuerpos comunes usan 8 px. Es una reducción coordinada respecto de la baseline previa
+ * de 6/12 px y se aplica a los cuatro cuadrantes, no como parche de un panel puntual.
+ * El componente nunca fija su altura: ocupa la celda que le asigna el shell.
  *
  * WP-037 agrega una excepción explícita para Q1: `contenidoSinScroll` cambia el
  * cuerpo a `overflow-hidden` desde el breakpoint desktop. El panel de Sesión y
@@ -49,7 +49,7 @@ defineProps<{
   >
     <!-- Encabezado del panel -->
     <header
-      class="flex shrink-0 items-center justify-between gap-2 border-b border-slate-800 px-3 py-1.5 bg-slate-900"
+      class="flex shrink-0 items-center justify-between gap-2 border-b border-slate-800 bg-slate-900 px-2.5 py-1"
     >
       <div class="min-w-0 flex-1">
         <h2 class="truncate text-sm font-semibold text-slate-100">
@@ -82,7 +82,7 @@ defineProps<{
           ? 'overflow-hidden p-2'
           : contenidoSinScroll
             ? 'overflow-y-auto p-2 lg:overflow-hidden'
-            : 'overflow-y-auto p-3'
+            : 'overflow-y-auto p-2'
       "
     >
       <slot />

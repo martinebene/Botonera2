@@ -778,6 +778,106 @@ async function verificarGeometriaShellCompleto(
 }
 
 /**
+ * Mide la densidad común fijada por WP-047 y comprueba que la cabecera no envuelva.
+ *
+ * La baseline previa usaba 12 px de padding/gap en desktop y 6/12 px en los
+ * encabezados/cuerpos comunes. Producción histórica usa 10 px. El nuevo shell usa
+ * 8 px de padding/gap, encabezados de 4/10 px y cuerpos de 8 px: menos chrome que
+ * ambas referencias, sin tocar el tamaño de los controles internos de cada cuadrante.
+ */
+async function verificarDensidadComunWp047(
+  page: Page,
+  viewport: { width: number; height: number },
+) {
+  const medicion = await page.evaluate(() => {
+    const cabecera = document.querySelector<HTMLElement>('[data-testid="cabecera-moderacion"]')!
+    const grilla = document.querySelector<HTMLElement>('[data-testid="grilla-paneles"]')!
+    const principal = grilla.parentElement as HTMLElement
+    const paneles = Array.from(
+      document.querySelectorAll<HTMLElement>('[data-testid^="panel-"]'),
+    ).filter((panel) => panel.querySelector('[data-testid="cuerpo-panel"]'))
+    const encabezadoPanel = paneles[0]?.querySelector<HTMLElement>(':scope > header')
+    const cuerpos = paneles.map((panel) =>
+      panel.querySelector<HTMLElement>('[data-testid="cuerpo-panel"]')!,
+    )
+    const cajaCabecera = cabecera.getBoundingClientRect()
+    const cajaGrilla = grilla.getBoundingClientRect()
+    const estiloCabecera = getComputedStyle(cabecera)
+    const estiloGrilla = getComputedStyle(grilla)
+    const estiloPrincipal = getComputedStyle(principal)
+    const estiloEncabezado = getComputedStyle(encabezadoPanel!)
+
+    return {
+      cabecera: {
+        altura: cajaCabecera.height,
+        flexWrap: estiloCabecera.flexWrap,
+        altoVisible: cabecera.clientHeight,
+        altoContenido: cabecera.scrollHeight,
+        anchoVisible: cabecera.clientWidth,
+        anchoContenido: cabecera.scrollWidth,
+      },
+      grilla: {
+        x: cajaGrilla.x,
+        y: cajaGrilla.y,
+        ancho: cajaGrilla.width,
+        alto: cajaGrilla.height,
+        gapFila: Number.parseFloat(estiloGrilla.rowGap),
+        gapColumna: Number.parseFloat(estiloGrilla.columnGap),
+      },
+      principal: {
+        paddingSuperior: Number.parseFloat(estiloPrincipal.paddingTop),
+        paddingDerecho: Number.parseFloat(estiloPrincipal.paddingRight),
+        paddingInferior: Number.parseFloat(estiloPrincipal.paddingBottom),
+        paddingIzquierdo: Number.parseFloat(estiloPrincipal.paddingLeft),
+      },
+      encabezadoPanel: {
+        paddingVertical: Number.parseFloat(estiloEncabezado.paddingTop),
+        paddingHorizontal: Number.parseFloat(estiloEncabezado.paddingLeft),
+      },
+      cuerpos: cuerpos.map((cuerpo) => {
+        const estilo = getComputedStyle(cuerpo)
+        return {
+          paddingSuperior: Number.parseFloat(estilo.paddingTop),
+          paddingDerecho: Number.parseFloat(estilo.paddingRight),
+          paddingInferior: Number.parseFloat(estilo.paddingBottom),
+          paddingIzquierdo: Number.parseFloat(estilo.paddingLeft),
+        }
+      }),
+    }
+  })
+
+  expect(medicion.principal).toEqual({
+    paddingSuperior: 8,
+    paddingDerecho: 8,
+    paddingInferior: 8,
+    paddingIzquierdo: 8,
+  })
+  expect(medicion.grilla.gapFila).toBe(8)
+  expect(medicion.grilla.gapColumna).toBe(8)
+  expect(medicion.encabezadoPanel).toEqual({ paddingVertical: 4, paddingHorizontal: 10 })
+  expect(medicion.cuerpos).toHaveLength(4)
+  for (const cuerpo of medicion.cuerpos) {
+    expect(cuerpo).toEqual({
+      paddingSuperior: 8,
+      paddingDerecho: 8,
+      paddingInferior: 8,
+      paddingIzquierdo: 8,
+    })
+  }
+
+  expect(medicion.cabecera.flexWrap).toBe('nowrap')
+  expect(medicion.cabecera.altoContenido).toBeLessThanOrEqual(medicion.cabecera.altoVisible + 1)
+  expect(medicion.cabecera.anchoContenido).toBeLessThanOrEqual(medicion.cabecera.anchoVisible + 1)
+  expect(medicion.cabecera.altura).toBeLessThanOrEqual(32)
+
+  // Las medidas de la grilla quedan registradas junto con los bounding boxes de
+  // los cuatro paneles que verifica `verificarGeometriaShellCompleto`.
+  expect(medicion.grilla.x).toBe(8)
+  expect(medicion.grilla.ancho).toBe(viewport.width - 16)
+  expect(medicion.grilla.y + medicion.grilla.alto).toBeLessThanOrEqual(viewport.height - 8 + 1)
+}
+
+/**
  * Verifica la frontera específica de WP-037 con medidas reales del DOM.
  *
  * No alcanza con buscar una clase Tailwind: el cuerpo debe tener overflow no
@@ -932,8 +1032,8 @@ test.describe('UI de Moderación - Estados Institucionales y Contrato de Shell (
       // Verificamos el contrato geométrico 2×2 completo del shell (N1)
       await verificarGeometriaShellCompleto(page, viewport)
 
-      // Verificamos estado en cabecera
-      await expect(page.locator('[data-testid="estado-global"]')).toContainText('Sin preparar')
+      // WP-047 retira el estado global redundante: Q1 sigue siendo su sede operativa.
+      await expect(page.locator('[data-testid="estado-global"]')).toHaveCount(0)
 
       // Cuadrante 1: Sesión y votación
       const vistaSinPreparar = page.locator('[data-testid="vista-sin-preparar"]')
@@ -1029,6 +1129,11 @@ test.describe('UI de Moderación - Estados Institucionales y Contrato de Shell (
       // Motivo visible de quórum insuficiente para abrir sesión
       await expect(page.locator('[data-testid="motivos-abrir-sesion"]')).toContainText(
         'Quórum insuficiente',
+      )
+
+      // WP-047: el número provisorio ya cargado antecede al quórum en la cabecera.
+      await expect(page.locator('[data-testid="cabecera-numero-sesion"]')).toHaveText(
+        'Sesión Nº 42',
       )
 
       // WP-036: el quórum es global y se muestra únicamente en la cabecera
@@ -1212,6 +1317,8 @@ test.describe('UI de Moderación - Estados Institucionales y Contrato de Shell (
       await expect(page.locator('[data-testid="indicador-quorum"]')).toHaveCount(0)
 
       // Cabecera: única sede del quórum y de las autoridades vigentes
+      await expect(page.locator('[data-testid="cabecera-numero-sesion"]')).toHaveText('Sesión Nº 8')
+      await expect(page.locator('[data-testid="estado-global"]')).toHaveCount(0)
       await expect(page.locator('[data-testid="cabecera-quorum"]')).toContainText(
         'Quórum 9/12 · mín 7',
       )
@@ -1227,7 +1334,7 @@ test.describe('UI de Moderación - Estados Institucionales y Contrato de Shell (
         /^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}:\d{2}$/,
       )
       await expect(page.locator('[data-testid="cabecera-tiempo-sesion"]')).toHaveText(
-        /Sesión\s+\d{2,}:\d{2}:\d{2}/,
+        /Tiempo\s+\d{2,}:\d{2}:\d{2}/,
       )
 
       // WP-037: Q1 no conserva inputs permanentes; la edición se abre en un modal.
@@ -1451,6 +1558,76 @@ test.describe('WP-036 - Cabecera compacta y redistribución del shell', () => {
     // Si el layout dependiera de alturas absolutas en píxeles, el cuadrante mediría igual
     // en ambas resoluciones. Debe crecer junto con el viewport.
     expect(alturas['1080']).toBeGreaterThan(alturas['768'] + 50)
+  })
+})
+
+test.describe('WP-047 - Densidad, cabecera y reloj robusto de Moderación', () => {
+  // La zona difiere deliberadamente de las marcas naive del backend. Una resta
+  // Date.now()-Date.parse(apertura) produciría otro valor y haría fallar la prueba.
+  test.use({ timezoneId: 'America/Los_Angeles' })
+
+  function crearEstadoWp047() {
+    return crearEstadoFixture({
+      generado_en: '2026-08-31T10:30:00',
+      estado_global: 'SESION_ABIERTA',
+      sesion: {
+        fecha_hora_inicio_preparacion: '2026-08-31T09:45:00',
+        fecha_hora_apertura: '2026-08-31T10:00:00',
+        numero_sesion: 47,
+        presidencia: 'Dra. María Elena Walsh',
+        secretaria_legislativa: 'Lic. Juan Gómez',
+      },
+      quorum: { cantidad_presentes: 9, requerido: 7, alcanzado: true },
+    })
+  }
+
+  for (const viewport of [
+    { width: 1366, height: 768 },
+    { width: 1920, height: 1080 },
+  ]) {
+    test(`reduce chrome y conserva toda la grilla/cabecera en ${viewport.width}×${viewport.height}`, async ({
+      page,
+    }, testInfo) => {
+      await configurarRutasMock(page, crearEstadoWp047())
+      await page.setViewportSize(viewport)
+      await page.goto('/moderacion/')
+      await page.getByTestId('cabecera-moderacion').waitFor()
+
+      await verificarGeometriaShellCompleto(page, viewport)
+      await verificarDensidadComunWp047(page, viewport)
+
+      const cabecera = page.getByTestId('cabecera-moderacion')
+      await expect(cabecera).not.toContainText('Sesión abierta')
+      await expect(page.getByTestId('estado-global')).toHaveCount(0)
+      await expect(page.getByTestId('cabecera-numero-sesion')).toHaveText('Sesión Nº 47')
+      await expect(page.getByTestId('cabecera-quorum')).toContainText('Quórum 9/12')
+      await expect(page.getByTestId('cabecera-presidencia')).toContainText('Dra. María Elena Walsh')
+      await expect(page.getByTestId('cabecera-secretaria')).toContainText('Lic. Juan Gómez')
+      await expect(page.getByTestId('cabecera-fecha-hora')).toBeVisible()
+      await expect(page.getByTestId('estado-conexion')).toBeVisible()
+
+      // La captura queda adjunta al reporte reproducible de Playwright para comparar
+      // la proporción de chrome con la referencia histórica consultada.
+      await testInfo.attach(`wp047-${viewport.width}x${viewport.height}.png`, {
+        body: await page.screenshot({ fullPage: true }),
+        contentType: 'image/png',
+      })
+    })
+  }
+
+  test('ancla dos marcas backend naive y continúa avanzando en otra zona horaria', async ({
+    page,
+  }) => {
+    await page.clock.install({ time: new Date('2035-01-02T03:04:05Z') })
+    await configurarRutasMock(page, crearEstadoWp047())
+    await page.setViewportSize({ width: 1366, height: 768 })
+    await page.goto('/moderacion/')
+    await page.clock.runFor(50)
+
+    const tiempoSesion = page.getByTestId('cabecera-tiempo-sesion')
+    await expect(tiempoSesion).toContainText('00:30:00')
+    await page.clock.runFor(1000)
+    await expect(tiempoSesion).toContainText('00:30:01')
   })
 })
 

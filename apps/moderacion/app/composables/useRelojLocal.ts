@@ -1,77 +1,93 @@
 /**
- * Reloj local reactivo para la cabecera de Moderación.
+ * Reloj visual y ancla de duración para la cabecera de Moderación.
  *
- * ¿Por qué un reloj propio y no un dato del backend?
- * La fecha y hora que ve quien opera cumple una función de orientación, igual que el
- * reloj de pared del recinto. No es estado institucional: no se audita, no decide
- * reglas y no debe generar tráfico. Por eso este composable NO agrega polling ni
- * consulta ningún endpoint; se limita a leer el reloj del propio equipo con un
- * temporizador del navegador.
- *
- * El único dato autoritativo asociado al paso del tiempo sigue siendo
- * `sesion.fecha_hora_apertura`, que llega por REST/SSE dentro de `EstadoModeracion`.
- * El tiempo transcurrido de sesión se deriva de esa marca y de este reloj.
- *
- * Detalle importante del ciclo de vida: el temporizador se crea recién en `onMounted`
- * y se cancela en `onScopeDispose`. De esa forma un render de servidor o una prueba
- * de renderizado a texto nunca dejan un `setInterval` colgado, y cada componente que
- * usa el reloj libera su temporizador al desmontarse.
+ * La hora del puesto es local y solo orientativa. La duración de sesión, en cambio,
+ * parte de una diferencia confirmada entre `generado_en` y `fecha_hora_apertura`, dos
+ * marcas emitidas por el mismo reloj backend. Entre snapshots se suma exclusivamente
+ * el tiempo local transcurrido; no hay polling ni llamadas de red adicionales.
  */
 
-import { ref, onMounted, onScopeDispose, getCurrentScope, type Ref } from 'vue'
+import { computed, onMounted, onScopeDispose, ref, watch, type ComputedRef, type Ref } from 'vue'
+import type { EstadoGlobal } from '@botonera2/api-client'
+import { calcularDuracionEnSnapshot, formatearDuracion } from '../utils/tiempo'
 
-/** Opciones de configuración del reloj local. */
-export interface OpcionesRelojLocal {
-  /** Período de actualización en milisegundos (por defecto 1000, es decir un tick por segundo). */
-  intervaloMs?: number
-  /** Fuente de tiempo inyectable; permite fijar el instante en pruebas deterministas. */
-  obtenerAhora?: () => Date
+/** Datos mínimos de un snapshot necesarios para anclar la duración visual. */
+export interface AnclaSesionModeracion {
+  /** Estado global autoritativo: solo SESION_ABIERTA habilita la duración. */
+  estadoGlobal: EstadoGlobal | null
+  /** Momento en el que backend construyó la baseline recibida. */
+  generadoEn: string | null
+  /** Apertura formal de la sesión incluida en esa misma baseline. */
+  fechaHoraApertura: string | null
 }
 
-/** Superficie reactiva devuelta por el reloj local. */
+/** Superficie reactiva consumida por la cabecera. */
 export interface RelojLocal {
-  /** Instante actual, revalidado en cada tick del temporizador. */
+  /** Instante local vigente para presentar fecha y hora del puesto. */
   ahora: Ref<Date>
-  /** Fuerza una actualización inmediata sin esperar al siguiente tick. */
-  actualizar: () => void
+  /** Duración anclada por el último snapshot válido de una sesión abierta. */
+  tiempoSesion: ComputedRef<string | null>
 }
 
 /**
- * Crea un reloj local reactivo asociado al scope del componente que lo invoca.
+ * Crea el único ticker visual de la cabecera y lo asocia al ciclo de vida de Vue.
  *
- * @param opciones Período de actualización y fuente de tiempo inyectable.
- * @returns Referencia reactiva al instante actual y su función de actualización manual.
+ * Cada cambio de baseline reemplaza el ancla. Si la conexión se interrumpe y no llega
+ * otra baseline, el valor conserva la última duración confirmada y continúa avanzando
+ * con el reloj local. Al salir de SESION_ABIERTA se descarta inmediatamente el ancla.
+ *
+ * @param ancla Datos reactivos extraídos del snapshot de Moderación.
+ * @returns Hora local y texto de duración, ambos reactivos y sin efectos de red.
  */
-export function useRelojLocal(opciones: OpcionesRelojLocal = {}): RelojLocal {
-  const intervaloMs = opciones.intervaloMs ?? 1000
-  const obtenerAhora = opciones.obtenerAhora ?? (() => new Date())
-
-  // El valor inicial se toma de inmediato para que el primer render ya muestre una hora
-  // coherente y no un hueco visual hasta el primer tick.
-  const ahora = ref<Date>(obtenerAhora())
-
+export function useRelojLocal(ancla: Ref<AnclaSesionModeracion>): RelojLocal {
+  const ahora = ref(new Date())
+  const duracionAnclada = ref<number | null>(null)
+  const recepcionLocal = ref<number | null>(null)
   let identificadorIntervalo: ReturnType<typeof setInterval> | null = null
 
   function actualizar(): void {
-    ahora.value = obtenerAhora()
+    ahora.value = new Date()
   }
 
-  // Sin scope reactivo activo (por ejemplo, si alguien llamara a esta función fuera de
-  // un componente) no hay nada que registrar ni que limpiar después.
-  if (getCurrentScope()) {
-    onMounted(() => {
-      // Al montar volvemos a leer el reloj: entre setup() y mounted pudo pasar tiempo.
-      actualizar()
-      identificadorIntervalo = setInterval(actualizar, intervaloMs)
-    })
+  /** Reemplaza el ancla únicamente cuando las dos marcas backend son utilizables. */
+  function reanclar(nuevaAncla: AnclaSesionModeracion): void {
+    if (
+      nuevaAncla.estadoGlobal !== 'SESION_ABIERTA' ||
+      !nuevaAncla.generadoEn ||
+      !nuevaAncla.fechaHoraApertura
+    ) {
+      duracionAnclada.value = null
+      recepcionLocal.value = null
+      return
+    }
 
-    onScopeDispose(() => {
-      if (identificadorIntervalo !== null) {
-        clearInterval(identificadorIntervalo)
-        identificadorIntervalo = null
-      }
-    })
+    const duracion = calcularDuracionEnSnapshot(nuevaAncla.generadoEn, nuevaAncla.fechaHoraApertura)
+    const recibidoEn = Date.now()
+    ahora.value = new Date(recibidoEn)
+    duracionAnclada.value = duracion
+    recepcionLocal.value = duracion === null ? null : recibidoEn
   }
 
-  return { ahora, actualizar }
+  const tiempoSesion = computed(() => {
+    if (duracionAnclada.value === null || recepcionLocal.value === null) return null
+
+    // El elapsed nunca puede restar duración. Esto cubre ajustes hacia atrás del
+    // reloj del navegador sin alterar la baseline ya confirmada por backend.
+    const transcurridoLocal = Math.max(0, ahora.value.getTime() - recepcionLocal.value)
+    return formatearDuracion(duracionAnclada.value + transcurridoLocal)
+  })
+
+  watch(ancla, reanclar, { immediate: true })
+
+  onMounted(() => {
+    actualizar()
+    identificadorIntervalo = setInterval(actualizar, 1000)
+  })
+
+  onScopeDispose(() => {
+    if (identificadorIntervalo !== null) clearInterval(identificadorIntervalo)
+    identificadorIntervalo = null
+  })
+
+  return { ahora, tiempoSesion }
 }
