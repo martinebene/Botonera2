@@ -197,10 +197,10 @@ WP-033 quedó integrado antes de continuar WP-026 y deja disponible el harness m
 | WP-048 | Compactar Q1 y eliminar feedback persistente innecesario de Q2 | INTEGRADO | WP-047, WP-037, WP-040, WP-044 | - |
 | WP-049 | Unificar definitivamente bancas Q3/Recinto, geometría y ciclo visual | INTEGRADO | WP-047, WP-045, WP-046 | - |
 | WP-050 | Restaurar proporciones finales de la Pantalla del Recinto | INTEGRADO | WP-049, WP-046 | - |
-| WP-051 | Corregir feedback operativo y estados transitorios de Moderación | PENDIENTE | WP-048 | - |
-| WP-052 | Proyectar eventos operativos seguros y enriquecer la lectura L3 sin romper secreto | PENDIENTE | WP-041, WP-045 | - |
+| WP-051 | Corregir feedback operativo y estados transitorios de Moderación | EN_CURSO | WP-048 | claude |
+| WP-052 | Proyectar eventos operativos seguros y enriquecer la lectura L3 sin romper secreto | EN_CURSO | WP-041, WP-045 | claude |
 | WP-053 | Atenuar asistencialmente puntos del Orden del Día ya tratados por número | PENDIENTE | WP-040 | - |
-| WP-054 | Refinar cabeceras, quórum, palabra y geometría visual de Moderación/Recinto | PENDIENTE | WP-047, WP-050 | - |
+| WP-054 | Refinar cabeceras, quórum, palabra y geometría visual de Moderación/Recinto | EN_CURSO | WP-047, WP-050 | claude |
 | WP-055 | Crear backend/contrato autoritativo para Apoyo Técnico, transmisión y avisos | PENDIENTE | WP-052, WP-053 | - |
 | WP-056 | Implementar frontend de Apoyo Técnico e integrar avisos/transmisión en las pantallas | PENDIENTE | WP-052, WP-054, WP-055 | - |
 | WP-029 | Validar bridge/hardware real, regresión funcional y candidato de producción | BLOQUEADO | WP-019, WP-020, WP-027, WP-028, WP-034, WP-035, WP-036, WP-037, WP-038, WP-039, WP-040, WP-041, WP-043, WP-044, WP-045, WP-046, WP-047, WP-048, WP-049, WP-050, WP-051, WP-052, WP-053, WP-054, WP-055, WP-056 | - |
@@ -226,6 +226,8 @@ La tercera campaña humana end-to-end del 31/08/2026 produjo WP-047..WP-050. HUM
 HUMAN_GATE aprobó documentalmente WP-051..WP-056 a partir de pruebas humanas y capturas reales de Moderación y Recinto en una pantalla de clase ~1440×768. Las capturas son referencia concreta de proporciones, márgenes, jerarquía y ausencia de scroll; los criterios geométricos deben validarse además a 1366×768 y 1920×1080.
 
 La estrategia aprobada es: WP-051, WP-052 y WP-054 pueden activarse en paralelo con worktrees separados una vez acordados implementador/modelo y revisor/modelo de cada uno; WP-053 se ejecuta después de integrar WP-052 para evitar cambios concurrentes sobre proyecciones/contratos; WP-055 parte de WP-052 y WP-053; WP-056 requiere WP-052, WP-054 y WP-055. WP-029 queda BLOQUEADO hasta integrar y cerrar WP-051..WP-056 y continúa reservado para bridge/hardware real, regresión física y candidato de producción.
+
+HUMAN_GATE activó en paralelo WP-051, WP-052 y WP-054 con Claude Code / Claude Opus 5 (High) como implementador de los tres y Antigravity/AGY / Gemini 3.7 Flash (High) como revisor independiente de los tres. Protocolo 1.2 permite repetir el mismo harness/modelo en el mismo rol sobre worktrees distintos; cada sesión se desambigua primero por el WP de su worktree. Los tres parten de la misma baseline de main y antes de congelar candidato deben incorporar mediante merge normal cualquier avance integrado de los otros WPs que resulte necesario, sin rebase ni force-push.
 
 Decisiones HUMAN_GATE cerradas: un número del Orden del Día queda tratado desde que una votación con ese número fue abierta y todos los repetidos se atenúan sin bloqueo; transmisión APAGADO → countdown opcional → EN VIVO → apagado manual; avisos sin scroll con duración opcional y elipsis si no entra el texto; en Moderación reemplazan Q4 y en Recinto la franja de votación/tema/estado; presets con CRUD y persistencia CSV guardando destino MODERACION/RECINTO/AMBOS; frontend técnico de red sin autenticación adicional; L3 usa ✅/❌/🟡 y ✋/✊; durante secreto un voto L3 identifica concejal/banca pero sólo informa `Voto emitido`, enriqueciéndose posteriormente con sentido/emoji; empate explícito para Presidencia; acuses técnicos van a log, advertencias accionables permanecen visibles y confirmaciones útiles usan toast breve.
 
