@@ -7,8 +7,8 @@
  *    - SIN_PREPARAR: Preparación de sala como acción principal.
  *    - PREPARANDO: Carga y edición de número de sesión, Presidencia y Secretaría Legislativa,
  *      apertura formal de sesión cuando se cumplan las capacidades, o cancelación de la preparación.
- *    - SESION_ABIERTA: Franja institucional compacta, autoridades mediante modal,
- *      votación como contenido principal y cierre con advertencia de palabra pendiente.
+ *    - SESION_ABIERTA: votación como único contenido del cuerpo, autoridades mediante modal
+ *      y cierre con advertencia de palabra pendiente.
  * 2. Gestión robusta de borradores locales (H1): Los campos en edición activa (dirty) no son
  *    sobrescritos por snapshots SSE no relacionados (ej. pulsaciones de presencia o test de teclado).
  *    Al cambiar de estado global, los borradores se resincronizan con el nuevo estado institucional.
@@ -24,6 +24,13 @@
  * 7. Integrar los diálogos de autoridades y cierre sin reservar altura cuando están cerrados.
  * 8. El cuerpo de Q1 no tiene scroll en desktop: cada estado reduce tarjetas, espacios y
  *    textos secundarios para caber completo en la celda asignada por el shell.
+ * 9. Compactación operativa (WP-048): las dos acciones institucionales de la sesión
+ *    (`Editar autoridades` y `Cerrar sesión`) viven en el área de acciones del encabezado
+ *    del cuadrante, no en una franja propia del cuerpo. El número de sesión ya se publica
+ *    una sola vez en la cabecera global del shell, así que Q1 deja de reservar altura para
+ *    repetirlo. El badge de estado de sala sí permanece acá: tras WP-047 este cuadrante es
+ *    su única sede visible. El cuerpo queda íntegramente disponible para la votación, que
+ *    es el trabajo real del operador durante una sesión abierta.
  */
 
 import { ref, computed, watch } from 'vue'
@@ -542,6 +549,34 @@ const claseBadge = computed(() => {
     :clase-badge="claseBadge"
     :contenido-sin-scroll="true"
   >
+    <!--
+      WP-048: las acciones de sesión comparten la fila del título y del badge. Al vivir en
+      el encabezado ya existente del cuadrante no consumen una franja propia dentro del
+      cuerpo, que es la altura que necesitan el resultado anterior y el formulario nuevo.
+      Se mantienen deliberadamente en la escala del badge (`py-0.5`, `text-[11px]`) para
+      que el encabezado conserve la altura fijada por WP-047.
+    -->
+    <template v-if="estado?.estado_global === 'SESION_ABIERTA'" #acciones>
+      <button
+        type="button"
+        data-testid="btn-editar-autoridades"
+        class="rounded border border-emerald-700 bg-emerald-950 px-2 py-0.5 text-[11px] font-semibold text-emerald-200 disabled:opacity-40"
+        :disabled="!puedeAbrirEdicionAutoridades"
+        @click="abrirEdicionAutoridades"
+      >
+        Editar autoridades
+      </button>
+      <button
+        type="button"
+        data-testid="btn-cerrar-sesion"
+        class="rounded border border-rose-700 bg-rose-950 px-2 py-0.5 text-[11px] font-semibold text-rose-200 disabled:opacity-40"
+        :disabled="!puedeCerrarSesion"
+        @click="iniciarCerrarSesion"
+      >
+        {{ enviando ? 'Cerrando...' : 'Cerrar sesión' }}
+      </button>
+    </template>
+
     <div class="relative h-full min-h-0 text-xs text-slate-300">
       <!--
         El feedback flota dentro del viewport y no reserva una fila vacía en Q1.
@@ -703,13 +738,22 @@ const claseBadge = computed(() => {
             {{ enviando ? 'Abriendo...' : 'Abrir sesión' }}
           </button>
         </div>
-        <p
+        <!--
+          WP-048: los requisitos que faltan para abrir la sesión se leen uno por renglón.
+          Concatenarlos con separadores obligaba al operador a recorrer un párrafo corrido
+          para descubrir cuántas condiciones seguían pendientes. Los motivos llegan tal cual
+          desde `capacidades.abrir_sesion.motivos`: el frontend no inventa requisitos ni
+          decide si la sesión puede abrirse.
+        -->
+        <ul
           v-if="!puedeAbrirSesion && motivosAbrirSesion.length > 0"
           data-testid="motivos-abrir-sesion"
-          class="text-[11px] leading-tight text-amber-300"
+          class="space-y-0.5 text-[11px] leading-tight text-amber-300"
         >
-          {{ motivosAbrirSesion.join(' · ') }}
-        </p>
+          <li v-for="motivo in motivosAbrirSesion" :key="motivo" data-testid="motivo-abrir-sesion">
+            {{ motivo }}
+          </li>
+        </ul>
       </div>
 
       <div
@@ -717,35 +761,11 @@ const claseBadge = computed(() => {
         data-testid="vista-sesion-abierta"
         class="flex h-full min-h-0 flex-col gap-2"
       >
-        <div
-          data-testid="franja-sesion-abierta"
-          class="flex shrink-0 flex-wrap items-center justify-between gap-2 rounded-lg border border-emerald-900/60 bg-emerald-950/25 px-2 py-1.5"
-        >
-          <span data-testid="numero-sesion-inmutable" class="font-bold text-emerald-300">
-            Sesión Nº {{ estado.sesion?.numero_sesion }}
-          </span>
-          <div class="flex items-center gap-2">
-            <button
-              type="button"
-              data-testid="btn-editar-autoridades"
-              class="rounded border border-emerald-700 bg-emerald-950 px-2.5 py-1 text-[11px] font-semibold text-emerald-200 disabled:opacity-40"
-              :disabled="!puedeAbrirEdicionAutoridades"
-              @click="abrirEdicionAutoridades"
-            >
-              Editar autoridades
-            </button>
-            <button
-              type="button"
-              data-testid="btn-cerrar-sesion"
-              class="rounded border border-rose-700 bg-rose-950 px-2.5 py-1 text-[11px] font-semibold text-rose-200 disabled:opacity-40"
-              :disabled="!puedeCerrarSesion"
-              @click="iniciarCerrarSesion"
-            >
-              {{ enviando ? 'Cerrando...' : 'Cerrar sesión' }}
-            </button>
-          </div>
-        </div>
-
+        <!--
+          WP-048: el cuerpo arranca directamente en la votación. El número de sesión no
+          reserva una franja acá porque ya es un dato único de la cabecera global, y las
+          dos acciones institucionales se movieron al encabezado del cuadrante.
+        -->
         <GestionVotacion
           class="min-h-0 flex-1"
           :estado="estado"

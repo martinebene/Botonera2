@@ -458,7 +458,7 @@ describe('WP-022: Preparación, presencia, autoridades, sesión y advertencia de
   // 4. SESION_ABIERTA Y AUTORIDADES (SSR Y M1)
   // ===========================================================================
   describe('4. Estado SESION_ABIERTA (Estructura y M1)', () => {
-    it('muestra la franja compacta sin inputs permanentes ni quórum repetido', async () => {
+    it('opera desde el encabezado, sin franja de número ni inputs permanentes ni quórum repetido', async () => {
       const estado = crearEstadoBase({
         estado_global: 'SESION_ABIERTA',
         sesion: {
@@ -483,18 +483,23 @@ describe('WP-022: Preparación, presencia, autoridades, sesión y advertencia de
       const html = await renderizarSSR(PanelSesionVotacion, { estado })
 
       expect(html).toContain('data-testid="vista-sesion-abierta"')
-      expect(html).toContain('data-testid="numero-sesion-inmutable"')
-      expect(html).toContain('Sesión Nº 8')
       // WP-036: Q1 ya no repite el resumen global de quórum.
       expect(html).not.toContain('data-testid="quorum-resumen-sesion"')
       expect(html).not.toContain('data-testid="badge-quorum-resumen-sesion"')
       expect(html).not.toContain('Quórum legal')
       expect(html).not.toContain('9 / 7 presentes')
-      expect(html).toContain('data-testid="franja-sesion-abierta"')
+      // WP-048: el número de sesión es un dato único de la cabecera global del shell.
+      // Q1 ya no reserva una franja interior para repetirlo.
+      expect(html).not.toContain('data-testid="franja-sesion-abierta"')
+      expect(html).not.toContain('data-testid="numero-sesion-inmutable"')
+      expect(html).not.toContain('Sesión Nº 8')
       expect(html).not.toContain('data-testid="input-presidencia-sesion"')
       expect(html).not.toContain('data-testid="input-secretaria-sesion"')
+      // Las dos acciones institucionales siguen existiendo, ahora en el encabezado.
       expect(html).toContain('data-testid="btn-editar-autoridades"')
       expect(html).toContain('data-testid="btn-cerrar-sesion"')
+      // El badge de estado de sala permanece en Q1: es su única sede visible tras WP-047.
+      expect(html).toContain('Sesión activa')
     })
   })
 

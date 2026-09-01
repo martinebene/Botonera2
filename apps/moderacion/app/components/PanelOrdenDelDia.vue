@@ -17,6 +17,11 @@
  * operador elige otro punto y cancela su temporizador al desmontar el componente. Es
  * feedback puramente presentacional: no confirma ninguna mutación institucional, porque
  * la copia solo precarga un borrador local de Q1.
+ *
+ * WP-048 retira el acuse persistente de una carga exitosa: la colección proyectada es por
+ * sí misma la confirmación y el renglón informativo solo restaba alto útil. El aviso
+ * informativo del descarte se conserva porque ahí el snapshot todavía no cambió nada
+ * visible, y los errores reales siguen siendo siempre visibles.
  */
 
 import { computed, onBeforeUnmount, ref } from 'vue'
@@ -118,8 +123,11 @@ async function cargarOrdenDelDia(): Promise<void> {
     await cliente.value.cargarOrdenDelDia(archivo)
     archivoSeleccionado.value = null
     if (inputArchivo.value) inputArchivo.value.value = ''
-    mensajeInformativo.value =
-      'Archivo enviado. La lista cambiará cuando el backend proyecte la colección confirmada.'
+    // WP-048: una carga exitosa no deja acuse propio. La confirmación autoritativa es la
+    // aparición de la colección proyectada por el snapshot, que reemplaza esta misma vista
+    // de carga. Un renglón adicional de éxito solo restaba alto a la lista recién cargada.
+    // Los errores reales sí siguen mostrándose: son la única información que el snapshot
+    // no puede dar por sí mismo.
   } catch (error: unknown) {
     mensajeError.value = extraerMensajeError(error, 'No se pudo cargar el Orden del Día.')
   } finally {
