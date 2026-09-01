@@ -459,6 +459,23 @@ export interface components {
             puntos: components["schemas"]["PuntoOrdenDelDiaRespuesta"][];
         };
         /**
+         * ConcejalHechoProyectado
+         * @description Identidad mínima del concejal al que se refiere un hecho operativo.
+         *
+         *     Se resuelve contra el padrón congelado en el momento de proyectar, así que
+         *     el buffer de auditoría no guarda una copia paralela de la identidad. No
+         *     incluye DNI ni dispositivo porque el panel de eventos necesita reconocer la
+         *     banca, no repetir datos que ya viajan en la grilla de concejales.
+         */
+        ConcejalHechoProyectado: {
+            /** Nombre */
+            nombre: string;
+            /** Apellido */
+            apellido: string;
+            /** Banca */
+            banca: number;
+        };
+        /**
          * ConcejalModeracion
          * @description Banca completa disponible para el operador institucional.
          */
@@ -767,6 +784,11 @@ export interface components {
         /**
          * EventoRecienteProyectado
          * @description Evento cuyo ``fsync`` ya fue confirmado por el escritor activo.
+         *
+         *     ``mensaje`` conserva el texto humano de la auditoría salvo cuando ese texto
+         *     revelaría el sentido individual de un voto todavía secreto: en ese caso se
+         *     publica la redacción segura declarada al registrar el hecho. El CSV durable
+         *     nunca cambia; lo único que se elige acá es qué puede ver Moderación ahora.
          */
         EventoRecienteProyectado: {
             /** Seq */
@@ -781,6 +803,7 @@ export interface components {
             codigo_evento: string;
             /** Mensaje */
             mensaje: string;
+            hecho: components["schemas"]["HechoOperativoProyectado"] | null;
         };
         FactorEspecial: number;
         FactorNumerico: number;
@@ -788,6 +811,39 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /**
+         * HechoOperativoProyectado
+         * @description Lectura estructurada y ya filtrada por la frontera de secreto (WP-052).
+         *
+         *     Este es el contrato que consume la interfaz de Moderación para pintar un
+         *     evento sensible. Existe justamente para que el frontend **no** tenga que
+         *     interpretar ``mensaje``: el texto humano puede reescribirse en cualquier WP
+         *     posterior sin romper la UI, y ningún cambio de redacción puede convertirse
+         *     accidentalmente en un canal lateral que revele un voto.
+         *
+         *     Atributos:
+         *         tipo: valor de :class:`TipoHechoOperativo` que clasifica el hecho.
+         *         concejal: banca e identidad legible del hecho.
+         *         detalle: texto corto ya resuelto para mostrar. Durante el secreto de un
+         *             voto vale exactamente ``"Voto emitido"``.
+         *         icono: emoji decidido por el backend. Es ``None`` mientras el sentido
+         *             individual siga siendo secreto, de modo que la ausencia del icono
+         *             no dependa de una decisión del frontend.
+         *         sentido: ``POSITIVO``/``NEGATIVO``/``ABSTENCION`` únicamente cuando la
+         *             frontera autoritativa de esa votación ya habilitó el revelado. Antes
+         *             de esa frontera vale ``None`` y el dato no viaja en el payload.
+         */
+        HechoOperativoProyectado: {
+            /** Tipo */
+            tipo: string;
+            concejal: components["schemas"]["ConcejalHechoProyectado"];
+            /** Detalle */
+            detalle: string;
+            /** Icono */
+            icono: string | null;
+            /** Sentido */
+            sentido: string | null;
         };
         /**
          * IdentidadConcejalRespuesta

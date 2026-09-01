@@ -15,6 +15,7 @@ import pytest
 from botonera2_backend.aplicacion import crear_aplicacion
 from botonera2_backend.auditoria import ErrorAuditoria, NivelAuditoria
 from botonera2_backend.dominio.votacion import ResultadoVotacion
+from botonera2_backend.hechos_operativos import ReferenciaHechoOperativo
 from botonera2_backend.recursos import obtener_recursos_aplicacion
 from botonera2_backend.servicios.entrada import ServicioEntradaTecla
 from conftest import (
@@ -398,11 +399,15 @@ async def test_api_no_informa_exito_si_falla_auditoria_del_resultado(
                 etiqueta: str,
                 codigo_evento: str,
                 mensaje: str,
+                *,
+                referencia: ReferenciaHechoOperativo | None = None,
             ) -> int:
                 if codigo_evento == "VOTACION_RESULTADO_FINAL":
                     monkeypatch.setattr(escritor, "_fallado", True)
                     raise ErrorAuditoria("fallo simulado en resultado")
-                return registrar_original(nivel, etiqueta, codigo_evento, mensaje)
+                return registrar_original(
+                    nivel, etiqueta, codigo_evento, mensaje, referencia=referencia
+                )
 
             monkeypatch.setattr(escritor, "registrar_evento", registrar_evento)
             respuesta = await cliente.post(

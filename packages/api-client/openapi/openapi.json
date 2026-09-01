@@ -1335,6 +1335,30 @@
         "title": "CargaOrdenDelDiaRespuesta",
         "description": "Respuesta exitosa de carga con la lista de puntos normalizados."
       },
+      "ConcejalHechoProyectado": {
+        "properties": {
+          "nombre": {
+            "type": "string",
+            "title": "Nombre"
+          },
+          "apellido": {
+            "type": "string",
+            "title": "Apellido"
+          },
+          "banca": {
+            "type": "integer",
+            "title": "Banca"
+          }
+        },
+        "type": "object",
+        "required": [
+          "nombre",
+          "apellido",
+          "banca"
+        ],
+        "title": "ConcejalHechoProyectado",
+        "description": "Identidad mínima del concejal al que se refiere un hecho operativo.\n\nSe resuelve contra el padrón congelado en el momento de proyectar, así que\nel buffer de auditoría no guarda una copia paralela de la identidad. No\nincluye DNI ni dispositivo porque el panel de eventos necesita reconocer la\nbanca, no repetir datos que ya viajan en la grilla de concejales."
+      },
       "ConcejalModeracion": {
         "properties": {
           "dni": {
@@ -2234,6 +2258,16 @@
           "mensaje": {
             "type": "string",
             "title": "Mensaje"
+          },
+          "hecho": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HechoOperativoProyectado"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -2243,10 +2277,11 @@
           "nivel",
           "etiqueta",
           "codigo_evento",
-          "mensaje"
+          "mensaje",
+          "hecho"
         ],
         "title": "EventoRecienteProyectado",
-        "description": "Evento cuyo ``fsync`` ya fue confirmado por el escritor activo."
+        "description": "Evento cuyo ``fsync`` ya fue confirmado por el escritor activo.\n\n``mensaje`` conserva el texto humano de la auditoría salvo cuando ese texto\nrevelaría el sentido individual de un voto todavía secreto: en ese caso se\npublica la redacción segura declarada al registrar el hecho. El CSV durable\nnunca cambia; lo único que se elige acá es qué puede ver Moderación ahora."
       },
       "FactorEspecial": {
         "type": "number",
@@ -2268,6 +2303,53 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "HechoOperativoProyectado": {
+        "properties": {
+          "tipo": {
+            "type": "string",
+            "title": "Tipo"
+          },
+          "concejal": {
+            "$ref": "#/components/schemas/ConcejalHechoProyectado"
+          },
+          "detalle": {
+            "type": "string",
+            "title": "Detalle"
+          },
+          "icono": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Icono"
+          },
+          "sentido": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sentido"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tipo",
+          "concejal",
+          "detalle",
+          "icono",
+          "sentido"
+        ],
+        "title": "HechoOperativoProyectado",
+        "description": "Lectura estructurada y ya filtrada por la frontera de secreto (WP-052).\n\nEste es el contrato que consume la interfaz de Moderación para pintar un\nevento sensible. Existe justamente para que el frontend **no** tenga que\ninterpretar ``mensaje``: el texto humano puede reescribirse en cualquier WP\nposterior sin romper la UI, y ningún cambio de redacción puede convertirse\naccidentalmente en un canal lateral que revele un voto.\n\nAtributos:\n    tipo: valor de :class:`TipoHechoOperativo` que clasifica el hecho.\n    concejal: banca e identidad legible del hecho.\n    detalle: texto corto ya resuelto para mostrar. Durante el secreto de un\n        voto vale exactamente ``\"Voto emitido\"``.\n    icono: emoji decidido por el backend. Es ``None`` mientras el sentido\n        individual siga siendo secreto, de modo que la ausencia del icono\n        no dependa de una decisión del frontend.\n    sentido: ``POSITIVO``/``NEGATIVO``/``ABSTENCION`` únicamente cuando la\n        frontera autoritativa de esa votación ya habilitó el revelado. Antes\n        de esa frontera vale ``None`` y el dato no viaja en el payload."
       },
       "IdentidadConcejalRespuesta": {
         "properties": {
