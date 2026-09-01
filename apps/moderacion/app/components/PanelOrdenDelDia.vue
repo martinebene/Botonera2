@@ -19,18 +19,24 @@
  * la copia solo precarga un borrador local de Q1.
  *
  * WP-048 retira el acuse persistente de una carga exitosa: la colección proyectada es por
- * sí misma la confirmación y el renglón informativo solo restaba alto útil. El aviso
- * informativo del descarte se conserva porque ahí el snapshot todavía no cambió nada
- * visible, y los errores reales siguen siendo siempre visibles.
+ * sí misma la confirmación y el renglón informativo solo restaba alto útil.
+ *
+ * WP-051 completa esa política sobre el descarte. El acuse "Descarte enviado…" describía un
+ * tránsito HTTP y quedaba fijo en el cuadrante; el hecho institucional ya lo audita el
+ * backend (`ORDEN_DEL_DIA_DESCARTADO`) y lo confirma el snapshot vacío que reemplaza la
+ * colección. Se conserva sólo una confirmación humana breve, con la misma caducidad que el
+ * acuse de copia, para que el operador perciba que el comando fue aceptado incluso si el
+ * snapshot todavía no llegó. Los errores reales siguen siendo siempre visibles.
  */
 
-import { computed, onBeforeUnmount, ref } from 'vue'
+import { computed, ref } from 'vue'
 import type {
   ClienteModeracion,
   EstadoModeracion,
   PuntoOrdenDelDiaProyectado,
 } from '@botonera2/api-client'
 import { useEstadoModeracion } from '../composables/useEstadoModeracion'
+import { useAvisoEfimero } from '../composables/useAvisoEfimero'
 import { traducirMotivos } from '../utils/motivos'
 import PanelContenedor from './PanelContenedor.vue'
 
@@ -52,14 +58,21 @@ const inputArchivo = ref<HTMLInputElement | null>(null)
 const cargando = ref(false)
 const descartando = ref(false)
 const mensajeError = ref<string | null>(null)
-const mensajeInformativo = ref<string | null>(null)
 
-/** Texto del toast flotante; `null` significa que ningún acuse está visible. */
-const toastCopia = ref<string | null>(null)
-/** Identificador del temporizador vigente, necesario para reemplazarlo o cancelarlo. */
-let temporizadorToast: ReturnType<typeof setTimeout> | null = null
 /** Duración objetivo del acuse, fijada por WP-044. */
 const DURACION_TOAST_MS = 1000
+
+/**
+ * Los dos acuses efímeros del cuadrante comparten la mecánica de caducidad (WP-051 la
+ * concentra en `useAvisoEfimero`) pero se mantienen separados porque hablan de cosas
+ * distintas: uno acusa una copia asistencial puramente local y el otro la aceptación de
+ * una mutación institucional. En la práctica no conviven, porque después de descartar ya
+ * no queda ningún punto para copiar.
+ */
+const avisoCopia = useAvisoEfimero(DURACION_TOAST_MS)
+const toastCopia = avisoCopia.mensaje
+const avisoDescarte = useAvisoEfimero(DURACION_TOAST_MS)
+const mensajeDescarte = avisoDescarte.mensaje
 
 const capacidadCargar = computed(() => props.estado?.capacidades.cargar_orden_del_dia)
 const capacidadDescartar = computed(() => props.estado?.capacidades.descartar_orden_del_dia)
@@ -102,9 +115,9 @@ function extraerMensajeError(error: unknown, mensajePorDefecto: string): string 
   return mensajePorDefecto
 }
 
+/** Borra el error visible antes de emitir un comando nuevo o cambiar el archivo elegido. */
 function limpiarMensajes(): void {
   mensajeError.value = null
-  mensajeInformativo.value = null
 }
 
 function manejarSeleccionArchivo(evento: Event): void {
@@ -141,28 +154,15 @@ async function descartarOrdenDelDia(): Promise<void> {
   descartando.value = true
   try {
     await cliente.value.descartarOrdenDelDia()
-    mensajeInformativo.value =
-      'Descarte enviado. La colección visible se conservará hasta el próximo estado confirmado.'
+    // WP-051: confirmación breve en vez de acuse fijo. La lista sigue visible hasta que
+    // llegue el snapshot vacío, así que el aviso le dice al operador que su comando fue
+    // aceptado sin ocupar el cuadrante de forma permanente.
+    avisoDescarte.mostrar('Orden del Día descartado.')
   } catch (error: unknown) {
     mensajeError.value = extraerMensajeError(error, 'No se pudo descartar el Orden del Día.')
   } finally {
     descartando.value = false
   }
-}
-
-/**
- * Muestra (o reemplaza) el único toast del cuadrante durante `DURACION_TOAST_MS`.
- *
- * Cancelar primero el temporizador anterior evita que una selección vieja apague el
- * acuse de la selección nueva antes de tiempo: siempre queda un solo timer vivo.
- */
-function mostrarToastCopia(texto: string): void {
-  if (temporizadorToast !== null) clearTimeout(temporizadorToast)
-  toastCopia.value = texto
-  temporizadorToast = setTimeout(() => {
-    toastCopia.value = null
-    temporizadorToast = null
-  }, DURACION_TOAST_MS)
 }
 
 /**
@@ -174,17 +174,8 @@ function mostrarToastCopia(texto: string): void {
  */
 function seleccionarPunto(punto: PuntoOrdenDelDiaProyectado): void {
   emit('seleccionar', { ...punto })
-  mostrarToastCopia(`Punto Nº ${punto.nro_votacion} copiado al borrador`)
+  avisoCopia.mostrar(`Punto Nº ${punto.nro_votacion} copiado al borrador`)
 }
-
-// Un componente desmontado con un timer pendiente escribiría sobre un ref muerto:
-// por eso el temporizador se cancela explícitamente en el ciclo de vida.
-onBeforeUnmount(() => {
-  if (temporizadorToast !== null) {
-    clearTimeout(temporizadorToast)
-    temporizadorToast = null
-  }
-})
 </script>
 
 <template>
@@ -262,13 +253,17 @@ onBeforeUnmount(() => {
       >
         {{ mensajeError }}
       </div>
+      <!--
+        WP-051: confirmación breve del descarte. Antes era un renglón fijo que describía el
+        envío HTTP; ahora caduca sola, igual que el acuse de copia.
+      -->
       <div
-        v-if="mensajeInformativo"
+        v-if="mensajeDescarte"
         data-testid="aviso-orden-dia"
         role="status"
         class="rounded border border-cyan-800 bg-cyan-950/50 p-2 text-xs text-cyan-200"
       >
-        {{ mensajeInformativo }}
+        {{ mensajeDescarte }}
       </div>
 
       <!--

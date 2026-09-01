@@ -6,6 +6,16 @@
  *
  * Este módulo traduce esos códigos a explicaciones claras y pedagógicas en español
  * para el operador institucional, sin alterar la autoridad funcional del backend.
+ *
+ * WP-051 agrega una segunda dimensión: el **contexto**. Un mismo código puede aparecer
+ * en capacidades distintas y significar impedimentos distintos para el operador. El caso
+ * concreto que motivó el cambio es `QUORUM_INSUFICIENTE`: el backend lo publica tanto en
+ * `abrir_sesion` (durante PREPARANDO) como en `abrir_votacion` (con la sesión ya abierta).
+ * Traducirlo siempre como "para abrir la sesión" confundía al operador durante una sesión
+ * en curso, porque la sesión ya estaba abierta y lo que quedaba impedido era votar.
+ *
+ * El contexto solo cambia la **redacción**: no agrega, quita ni reinterpreta motivos. La
+ * autoridad sobre qué está permitido sigue siendo exclusivamente del backend.
  */
 
 const DICCIONARIO_MOTIVOS: Record<string, string> = {
@@ -32,13 +42,42 @@ const DICCIONARIO_MOTIVOS: Record<string, string> = {
 }
 
 /**
+ * Capacidad concreta desde la que se está leyendo un motivo.
+ *
+ * Solo se enumeran los contextos que realmente necesitan una redacción propia. Para el
+ * resto alcanza el texto general del diccionario, así que no se declaran contextos
+ * preventivos que después nadie mantendría.
+ */
+export type ContextoMotivo = 'abrir_votacion'
+
+/**
+ * Redacciones específicas por contexto.
+ *
+ * Se lee como: "cuando el motivo `X` viene de la capacidad `C`, decilo así". Si un código
+ * no figura acá para el contexto pedido, se usa la traducción general.
+ */
+const MOTIVOS_POR_CONTEXTO: Record<ContextoMotivo, Record<string, string>> = {
+  // Con la sesión ya abierta, la falta de quórum no impide "abrir la sesión": impide
+  // poner una votación en marcha. Es el texto que pidió la prueba humana del 01/09/2026.
+  abrir_votacion: {
+    QUORUM_INSUFICIENTE: 'Quórum insuficiente para abrir una votación.',
+  },
+}
+
+/**
  * Traduce un código de motivo backend a una descripción humana en español.
  *
  * @param codigo Identificador de motivo retornado por el backend (ej: "QUORUM_INSUFICIENTE")
+ * @param contexto Capacidad desde la que se lee el motivo. Cuando existe una redacción
+ *   específica para ese contexto se prefiere; si no, se usa la traducción general.
  * @returns Mensaje explicativo legible para el operador
  */
-export function traducirMotivo(codigo: string): string {
+export function traducirMotivo(codigo: string, contexto?: ContextoMotivo): string {
   if (!codigo) return ''
+  if (contexto) {
+    const especifico = MOTIVOS_POR_CONTEXTO[contexto][codigo]
+    if (especifico) return especifico
+  }
   return DICCIONARIO_MOTIVOS[codigo] || `Motivo técnico: ${codigo}`
 }
 
@@ -46,9 +85,10 @@ export function traducirMotivo(codigo: string): string {
  * Traduce una lista de motivos del backend.
  *
  * @param motivos Lista de códigos de motivo
+ * @param contexto Capacidad desde la que se leen todos esos motivos
  * @returns Lista de mensajes traducidos
  */
-export function traducirMotivos(motivos?: string[] | null): string[] {
+export function traducirMotivos(motivos?: string[] | null, contexto?: ContextoMotivo): string[] {
   if (!motivos || motivos.length === 0) return []
-  return motivos.map(traducirMotivo)
+  return motivos.map((codigo) => traducirMotivo(codigo, contexto))
 }

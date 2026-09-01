@@ -6,6 +6,14 @@
  * operador. La operación activa, sus fingerprints y su etapa se reconstruyen
  * siempre desde `EstadoModeracion.remapeo`; ningún 201/204 modifica ese estado
  * de forma optimista ni conecta al navegador con el device-bridge.
+ *
+ * WP-051 retira los tres acuses de tránsito que este panel dejaba fijos en pantalla
+ * ("Inicio enviado…", "Confirmación enviada…", "Cancelación enviada…"). Eran acuses
+ * puramente técnicos: describían que la petición había salido, mientras que el hecho real
+ * ya lo confirma la propia operación proyectada en `estado.remapeo` (aparece esperando
+ * pulsación, pasa a candidato o desaparece) y queda registrado por la auditoría del
+ * backend. Los errores del remapeo siguen mostrándose sin caducidad porque exigen una
+ * decisión del operador.
  */
 
 import { computed, ref, watch } from 'vue'
@@ -28,7 +36,6 @@ const dispositivoSeleccionado = ref('')
 const persistenciaSeleccionada = ref<PersistenciaSeleccionada | null>(null)
 const accionEnVuelo = ref<AccionRemapeo | null>(null)
 const mensajeError = ref<string | null>(null)
-const mensajeInformativo = ref<string | null>(null)
 
 const remapeo = computed(() => props.estado?.remapeo ?? null)
 const concejales = computed(() => props.estado?.concejales ?? [])
@@ -113,9 +120,12 @@ function extraerMensajeError(error: unknown, mensajePredeterminado: string): str
   return mensajePredeterminado
 }
 
+/**
+ * Borra el error anterior antes de emitir un comando nuevo, para que un fallo viejo no
+ * quede acusando a la operación que el operador acaba de reintentar.
+ */
 function limpiarMensajes(): void {
   mensajeError.value = null
-  mensajeInformativo.value = null
 }
 
 /** Inicia captura para el devXX elegido desde una opción de banca proyectada. */
@@ -126,7 +136,6 @@ async function iniciarRemapeo(): Promise<void> {
   accionEnVuelo.value = 'INICIAR'
   try {
     await props.cliente.iniciarRemapeo(concejal.dispositivo_votacion)
-    mensajeInformativo.value = 'Inicio enviado. Esperando la operación proyectada por el backend.'
   } catch (error: unknown) {
     mensajeError.value = extraerMensajeError(error, 'No se pudo iniciar el remapeo.')
   } finally {
@@ -146,7 +155,6 @@ async function confirmarRemapeo(): Promise<void> {
   accionEnVuelo.value = 'CONFIRMAR'
   try {
     await props.cliente.confirmarRemapeo(operacion.remapeo_id, persistencia)
-    mensajeInformativo.value = 'Confirmación enviada. Esperando el estado físico confirmado.'
   } catch (error: unknown) {
     mensajeError.value = extraerMensajeError(error, 'No se pudo confirmar el remapeo.')
   } finally {
@@ -162,7 +170,6 @@ async function cancelarRemapeo(): Promise<void> {
   accionEnVuelo.value = 'CANCELAR'
   try {
     await props.cliente.cancelarRemapeo(operacion.remapeo_id)
-    mensajeInformativo.value = 'Cancelación enviada. Esperando la proyección actualizada.'
   } catch (error: unknown) {
     mensajeError.value = extraerMensajeError(error, 'No se pudo cancelar el remapeo.')
   } finally {
@@ -409,14 +416,6 @@ async function cancelarRemapeo(): Promise<void> {
       role="alert"
     >
       {{ mensajeError }}
-    </p>
-    <p
-      v-if="mensajeInformativo"
-      data-testid="aviso-remapeo"
-      class="rounded border border-cyan-800 bg-cyan-950/40 p-2 text-cyan-200"
-      role="status"
-    >
-      {{ mensajeInformativo }}
     </p>
   </section>
 </template>
