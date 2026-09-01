@@ -29,6 +29,15 @@ const estadoRecepcionVotacion = computed(() => votacionPresentada.value?.estado_
  * `EN_CURSO`; la pantalla se limita a transportarla hasta cada banca.
  */
 const bancasVotoEmitido = computed(() => votacionPresentada.value?.bancas_voto_emitido ?? null)
+
+/**
+ * Total de bancas del padrón activo, denominador del indicador de quórum.
+ *
+ * Sale del propio snapshot público: `concejales` ya contiene exactamente las
+ * bancas de la preparación vigente. No hizo falta agregar un campo al contrato
+ * ni consultar otra fuente para mostrar `presentes/total` (WP-054).
+ */
+const totalConcejales = computed(() => estado.value?.concejales.length ?? 0)
 const votosIndividualesVisibles = computed(() => {
   const votacion = votacionPresentada.value
   if (votacion?.estado_recepcion === 'EN_CURSO') return null
@@ -74,7 +83,7 @@ const votosIndividualesVisibles = computed(() => {
       -->
       <section data-testid="franja-votacion-quorum" class="franja-votacion-quorum">
         <PanelVotacionPublica :votacion="votacionPresentada" />
-        <IndicadorQuorumPublico :quorum="estado.quorum" />
+        <IndicadorQuorumPublico :quorum="estado.quorum" :total="totalConcejales" />
       </section>
 
       <div data-testid="zona-principal-recinto" class="zona-principal-recinto">
@@ -95,7 +104,13 @@ const votosIndividualesVisibles = computed(() => {
               role="status"
               aria-live="polite"
             >
-              <span>Comienza en</span>
+              <!--
+                La cuenta regresiva acompaña a una votación que ya está
+                `EN_CURSO`: es el tiempo que resta para votar, no una espera
+                previa. El rótulo anterior (`Comienza en`) sugería lo contrario
+                y HUMAN_GATE lo corrigió en WP-054.
+              -->
+              <span>Votación en curso</span>
               <strong>{{ segundosCuentaRegresiva }}</strong>
             </div>
           </div>

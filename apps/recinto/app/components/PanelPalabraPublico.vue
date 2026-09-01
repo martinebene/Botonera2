@@ -1,5 +1,21 @@
 <script setup lang="ts">
-/** Cola FIFO pública; el orador se comunica exclusivamente en su banca resaltada. */
+/**
+ * Cola FIFO pública de pedidos de uso de la palabra.
+ *
+ * El orador en uso no se muestra acá: se comunica exclusivamente resaltando su
+ * banca en la grilla. Este panel sólo enumera a quienes esperan turno, en el
+ * orden exacto que envía el backend.
+ *
+ * Legibilidad a distancia (WP-054). HUMAN_GATE observó sobre la captura real que
+ * la cola era ilegible desde el recinto, así que:
+ *
+ * - el nombre pasa a ser el elemento dominante del renglón;
+ * - el número de banca crece hasta ser legible sin acercarse;
+ * - el círculo de orden **no** crece: es una referencia secundaria y agrandarlo
+ *   le robaría ancho al nombre, que es el dato que se necesita leer;
+ * - nada de esto puede producir scroll horizontal: el ancho de la columna es
+ *   fijo y ambos textos se recortan con elipsis dentro de él.
+ */
 
 import type { EstadoPalabraPublico } from '@botonera2/api-client'
 
@@ -23,8 +39,13 @@ defineProps<{ palabra: EstadoPalabraPublico | null }>()
       <li v-for="(persona, indice) in palabra.cola" :key="`${persona.banca}-${indice}`">
         <span class="orden-cola">{{ indice + 1 }}</span>
         <span class="persona-cola">
-          <strong>{{ persona.nombre }} {{ persona.apellido }}</strong>
-          <small>Banca {{ persona.banca }}</small>
+          <strong
+            data-testid="nombre-cola-palabra"
+            :title="`${persona.nombre} ${persona.apellido}`"
+          >
+            {{ persona.nombre }} {{ persona.apellido }}
+          </strong>
+          <small data-testid="banca-cola-palabra">Banca {{ persona.banca }}</small>
         </span>
       </li>
     </ol>
@@ -67,10 +88,17 @@ defineProps<{ palabra: EstadoPalabraPublico | null }>()
   text-align: center;
 }
 
+/*
+  `overflow-x: hidden` es explícito, no heredado: la lista es el único
+  contenedor que podría desplazarse lateralmente si un nombre no entrara, y el
+  WP exige que eso jamás ocurra. El desplazamiento vertical sí es legítimo
+  cuando hay más pedidos que altura disponible.
+*/
 .cola-palabra {
   min-height: 0;
   margin: 0;
   padding: 0 0.15rem 0 0;
+  overflow-x: hidden;
   overflow-y: auto;
   list-style: none;
 }
@@ -83,6 +111,12 @@ defineProps<{ palabra: EstadoPalabraPublico | null }>()
   border-top: 1px solid rgba(148, 163, 184, 0.13);
 }
 
+/*
+  Círculo de orden: geometría deliberadamente congelada (WP-054).
+
+  1,6 rem exactos, igual que en la baseline. Es la referencia secundaria del
+  renglón; todo el crecimiento tipográfico va al nombre y a la banca.
+*/
 .orden-cola {
   display: grid;
   place-items: center;
@@ -100,22 +134,35 @@ defineProps<{ palabra: EstadoPalabraPublico | null }>()
   min-width: 0;
 }
 
-.persona-cola strong,
-.persona-cola small {
-  display: block;
-}
-
+/*
+  Nombre: dato dominante del renglón. Pasa de 0,76 rem fijos a un rango elástico
+  que arranca por encima del máximo anterior, de modo que crece con la pantalla
+  sin depender de una resolución concreta. El recorte por elipsis se conserva:
+  es lo que impide que un apellido largo empuje el ancho de la columna.
+*/
 .persona-cola strong {
+  display: block;
   overflow: hidden;
-  font-size: 0.76rem;
+  font-size: clamp(0.92rem, 1.02vw, 1.28rem);
+  line-height: 1.2;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+/*
+  Banca: dato de identificación institucional. También crece respecto de la
+  baseline (0,63 rem) y se recorta igual que el nombre.
+*/
 .persona-cola small {
-  margin-top: 0.12rem;
-  color: #94a3b8;
-  font-size: 0.63rem;
+  display: block;
+  margin-top: 0.1rem;
+  overflow: hidden;
+  color: #cbd5e1;
+  font-size: clamp(0.74rem, 0.8vw, 0.98rem);
+  font-weight: 700;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .cola-vacia {

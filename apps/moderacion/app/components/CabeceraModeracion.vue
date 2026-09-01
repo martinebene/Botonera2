@@ -10,11 +10,21 @@
  * 1. Identidad de la pantalla: `Moderación`.
  * 2. Número de sesión confirmado o provisorio, cuando existe.
  * 3. Quórum global, en cuanto existe contexto preparado que lo calcule.
- * 4. Presidencia y Secretaría Legislativa, desde que fueron cargadas (también en PREPARANDO).
- * 5. Tiempo transcurrido desde la apertura formal, solo durante SESION_ABIERTA.
- * 6. Fecha y hora local, calculada en el propio equipo.
- * 7. Advertencia de estado posiblemente desactualizado.
+ * 4. Advertencia de estado posiblemente desactualizado.
+ * 5. Presidencia y Secretaría Legislativa, desde que fueron cargadas (también en PREPARANDO).
+ * 6. Tiempo transcurrido desde la apertura formal, solo durante SESION_ABIERTA.
+ * 7. Fecha y hora local, calculada en el propio equipo.
  * 8. Estado técnico de la conexión.
+ *
+ * Agrupación por origen del dato (WP-054):
+ * - A la izquierda queda el contexto *institucional del backend*: pantalla, número de
+ *   sesión y quórum. Son los datos que el operador consulta para decidir.
+ * - A la derecha se concentra el *contexto de la sesión y del puesto*: autoridades,
+ *   tiempo de sesión, fecha/hora local y conexión. HUMAN_GATE pidió esa agrupación
+ *   porque Presidencia y Secretaría se leen junto al tiempo, no como dato central.
+ * - Las etiquetas `Tiempo de sesión` y `Fecha` son explícitas: antes decían sólo
+ *   `Tiempo` y la fecha no tenía rótulo, lo que obligaba a deducir cada valor por su
+ *   formato. El texto extra crece a lo ancho, nunca a lo alto.
  *
  * Decisiones de densidad:
  * - Se retiró el estado global visible: Q1 ya representa la etapa operativa y repetir
@@ -173,14 +183,35 @@ const claseQuorum = computed(() =>
     </span>
 
     <!--
-      Las autoridades comparten el ancho flexible central. Los nombres largos se
-      truncan individualmente antes de empujar el bloque temporal a otra línea.
+      Sector derecho (WP-054): autoridades + tiempo + fecha + conexión.
+
+      `ml-auto` absorbe todo el ancho sobrante y empuja el grupo contra el borde,
+      sin necesidad de un elemento separador vacío. El grupo puede encogerse
+      (`min-w-0`, sin `shrink-0`) para que, cuando el ancho aprieta, se recorten
+      los nombres de las autoridades y nunca los valores de ancho fijo.
+      `flex-nowrap` garantiza que el sector completo permanezca en el mismo
+      renglón que el bloque institucional izquierdo.
     -->
-    <div class="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
+    <div class="ml-auto flex min-w-0 flex-nowrap items-center justify-end gap-2">
+      <!-- Alerta de estado potencialmente desactualizado -->
+      <span
+        v-if="desactualizado"
+        data-testid="alerta-desactualizado"
+        class="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-amber-700 bg-amber-950/80 px-1.5 py-0.5 font-medium text-amber-200"
+      >
+        <span class="inline-block h-1.5 w-1.5 rounded-full bg-amber-400 animate-ping" />
+        <span>Estado desactualizado</span>
+      </span>
+
+      <!--
+        Autoridades institucionales. Son los únicos textos de longitud
+        imprevisible del sector, así que son los únicos que se recortan: cada
+        uno trunca con elipsis y conserva el nombre completo en `title`.
+      -->
       <span
         v-if="presidencia"
         data-testid="cabecera-presidencia"
-        class="min-w-0 flex-1 truncate text-slate-300"
+        class="min-w-0 truncate text-slate-300"
         :title="`Presidencia: ${presidencia}`"
       >
         <span class="text-slate-500">Presidencia:&nbsp;</span>
@@ -190,46 +221,41 @@ const claseQuorum = computed(() =>
       <span
         v-if="secretariaLegislativa"
         data-testid="cabecera-secretaria"
-        class="min-w-0 flex-1 truncate text-slate-300"
+        class="min-w-0 truncate text-slate-300"
         :title="`Secretaría: ${secretariaLegislativa}`"
       >
         <span class="text-slate-500">Secretaría:&nbsp;</span>
         <span class="font-medium text-slate-200">{{ secretariaLegislativa }}</span>
       </span>
-    </div>
 
-    <!-- Bloque técnico/temporal alineado al extremo opuesto -->
-    <div class="ml-auto flex shrink-0 flex-nowrap items-center justify-end gap-2 whitespace-nowrap">
-      <!-- Alerta de estado potencialmente desactualizado -->
-      <span
-        v-if="desactualizado"
-        data-testid="alerta-desactualizado"
-        class="inline-flex items-center gap-1 rounded-full border border-amber-700 bg-amber-950/80 px-1.5 py-0.5 font-medium text-amber-200"
-      >
-        <span class="inline-block h-1.5 w-1.5 rounded-full bg-amber-400 animate-ping" />
-        <span>Estado desactualizado</span>
-      </span>
-
-      <!-- Tiempo transcurrido desde la apertura formal de la sesión -->
+      <!--
+        Tiempo transcurrido desde la apertura formal de la sesión.
+        La etiqueta es explícita (`Tiempo de sesión`) porque el valor `hh:mm:ss`
+        convive con la hora local y ambos son numéricos.
+      -->
       <span
         v-if="tiempoSesion"
         data-testid="cabecera-tiempo-sesion"
-        class="font-mono text-slate-200"
+        class="shrink-0 whitespace-nowrap font-mono text-slate-200"
         title="Tiempo transcurrido desde la apertura formal de la sesión"
       >
-        <span class="font-sans text-slate-500">Tiempo&nbsp;</span>
+        <span class="font-sans text-slate-500">Tiempo de sesión&nbsp;</span>
         {{ tiempoSesion }}
       </span>
 
-      <!-- Fecha y hora local del puesto de Moderación -->
-      <span data-testid="cabecera-fecha-hora" class="font-mono text-slate-300">
+      <!-- Fecha y hora local del puesto de Moderación, con rótulo explícito. -->
+      <span
+        data-testid="cabecera-fecha-hora"
+        class="shrink-0 whitespace-nowrap font-mono text-slate-300"
+      >
+        <span class="font-sans text-slate-500">Fecha&nbsp;</span>
         {{ fechaHoraLocal }}
       </span>
 
       <!-- Indicador de conexión técnica -->
       <span
         data-testid="estado-conexion"
-        class="inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 font-semibold"
+        class="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border px-1.5 py-0.5 font-semibold"
         :class="claseConexion"
         :title="detalleConexion"
       >
