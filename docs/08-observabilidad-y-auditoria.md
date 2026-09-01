@@ -218,6 +218,24 @@ orden institucional, no agrega persistencia y nunca sustituye a los CSV.
 deliberada evita transportar `message` crudo o clasificar por exclusión códigos
 que podrían revelar votos durante `EN_CURSO`.
 
+La proyección que consume Moderación es **operativa y segura**, no una copia
+literal de la fila persistida. Además de las seis dimensiones canónicas, cada
+evento puede incluir un hecho estructurado con tipo, identidad/banca, detalle
+ya resuelto, icono y sentido. Ese hecho se deriva del evento durable más el
+estado autoritativo vigente; la interfaz nunca interpreta `message` para
+obtener identidad, tipo ni sentido.
+
+Mientras la frontera autoritativa de revelado individual de una votación no
+venció, la proyección publica una redacción alternativa sin sentido y omite
+icono y sentido. Vencida esa frontera, el **mismo** `seq` se enriquece leyendo
+el sentido desde el mapa autoritativo de votos de esa votación. El mismo
+criterio protege los eventos L2 de pulsación de teclas 1/2/3, cuya tecla
+permitiría deducir el sentido de una banca identificable.
+
+Nada de esto altera los CSV: la fila persistida conserva siempre el mensaje
+humano completo, los metadatos estructurados viven únicamente en el buffer en
+memoria y la auditoría histórica no se reescribe.
+
 ## 14. Edición posterior
 
 Botonera2 no ofrece edición de archivos cerrados.

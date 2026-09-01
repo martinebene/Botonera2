@@ -14,6 +14,7 @@ from botonera2_backend.dominio.votacion import (
     ValorVotoOrdinario,
     VotoOrdinario,
 )
+from botonera2_backend.hechos_operativos import ReferenciaHechoOperativo
 from botonera2_backend.servicios.proyecciones import EstadoModeracion
 from botonera2_backend.servicios.votacion import (
     CODIGO_VOTACION_RESULTADO_DESEMPATE,
@@ -49,11 +50,15 @@ class EscritorAuditoriaConFallo(EscritorAuditoriaCsv):
         etiqueta: str,
         codigo_evento: str,
         mensaje: str,
+        *,
+        referencia: ReferenciaHechoOperativo | None = None,
     ) -> int:
         """Activa el fallo al entrar al evento objetivo y delega persistencia."""
 
         self._fallar_sincronizacion = codigo_evento == self._codigo_objetivo
-        return super().registrar_evento(nivel, etiqueta, codigo_evento, mensaje)
+        return super().registrar_evento(
+            nivel, etiqueta, codigo_evento, mensaje, referencia=referencia
+        )
 
     def _sincronizar_controlado(self, _descriptor: int) -> None:
         """Falla dentro del escritor para que éste active su estado cerrado."""

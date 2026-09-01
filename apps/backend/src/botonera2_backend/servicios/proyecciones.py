@@ -23,7 +23,12 @@ from botonera2_backend.dominio.votacion import (
     EstadoVotacion,
     ResultadoVotacion,
     TipoMayoria,
+    ValorVotoOrdinario,
     Votacion,
+)
+from botonera2_backend.hechos_operativos import (
+    ReferenciaHechoOperativo,
+    TipoHechoOperativo,
 )
 from botonera2_backend.servicios.publicacion import CoordinadorPublicacion
 from botonera2_backend.servicios.serializacion import EjecutorMutaciones
@@ -48,6 +53,28 @@ MAPEO_EVENTOS_PUBLICOS: dict[str, tuple[str, str]] = {
     "VOTACION_RESULTADO_DESEMPATE": ("VOTACION", "Resultado de desempate disponible"),
 }
 LIMITE_EVENTOS_PUBLICOS = 20
+
+# Iconografía y textos decididos por HUMAN_GATE para el panel de eventos de
+# Moderación (WP-052). Viven en el backend, y no en Vue, porque forman parte de
+# la frontera de secreto: si el icono de sentido lo eligiera el frontend, el
+# payload tendría que transportar el sentido incluso cuando todavía es secreto.
+ICONO_POR_SENTIDO: dict[ValorVotoOrdinario, str] = {
+    ValorVotoOrdinario.POSITIVO: "\u2705",
+    ValorVotoOrdinario.NEGATIVO: "\u274c",
+    ValorVotoOrdinario.ABSTENCION: "\U0001f7e1",
+}
+DETALLE_POR_SENTIDO: dict[ValorVotoOrdinario, str] = {
+    ValorVotoOrdinario.POSITIVO: "Voto POSITIVO",
+    ValorVotoOrdinario.NEGATIVO: "Voto NEGATIVO",
+    ValorVotoOrdinario.ABSTENCION: "Voto ABSTENCIÓN",
+}
+# Texto único mientras el sentido individual sigue siendo secreto: identifica
+# que la banca ya participó sin decir nunca qué votó.
+DETALLE_VOTO_SECRETO = "Voto emitido"
+ICONO_PEDIDO_PALABRA = "\u270b"
+ICONO_RETIRO_PALABRA = "\u270a"
+DETALLE_PEDIDO_PALABRA = "Pedido de palabra"
+DETALLE_RETIRO_PALABRA = "Pedido de palabra retirado"
 
 
 class ModeloProyeccion(BaseModel):
@@ -248,8 +275,57 @@ class PuntoOrdenDelDiaProyectado(ModeloProyeccion):
     base: str
 
 
+class ConcejalHechoProyectado(ModeloProyeccion):
+    """Identidad mínima del concejal al que se refiere un hecho operativo.
+
+    Se resuelve contra el padrón congelado en el momento de proyectar, así que
+    el buffer de auditoría no guarda una copia paralela de la identidad. No
+    incluye DNI ni dispositivo porque el panel de eventos necesita reconocer la
+    banca, no repetir datos que ya viajan en la grilla de concejales.
+    """
+
+    nombre: str
+    apellido: str
+    banca: int
+
+
+class HechoOperativoProyectado(ModeloProyeccion):
+    """Lectura estructurada y ya filtrada por la frontera de secreto (WP-052).
+
+    Este es el contrato que consume la interfaz de Moderación para pintar un
+    evento sensible. Existe justamente para que el frontend **no** tenga que
+    interpretar ``mensaje``: el texto humano puede reescribirse en cualquier WP
+    posterior sin romper la UI, y ningún cambio de redacción puede convertirse
+    accidentalmente en un canal lateral que revele un voto.
+
+    Atributos:
+        tipo: valor de :class:`TipoHechoOperativo` que clasifica el hecho.
+        concejal: banca e identidad legible del hecho.
+        detalle: texto corto ya resuelto para mostrar. Durante el secreto de un
+            voto vale exactamente ``"Voto emitido"``.
+        icono: emoji decidido por el backend. Es ``None`` mientras el sentido
+            individual siga siendo secreto, de modo que la ausencia del icono
+            no dependa de una decisión del frontend.
+        sentido: ``POSITIVO``/``NEGATIVO``/``ABSTENCION`` únicamente cuando la
+            frontera autoritativa de esa votación ya habilitó el revelado. Antes
+            de esa frontera vale ``None`` y el dato no viaja en el payload.
+    """
+
+    tipo: str
+    concejal: ConcejalHechoProyectado
+    detalle: str
+    icono: str | None
+    sentido: str | None
+
+
 class EventoRecienteProyectado(ModeloProyeccion):
-    """Evento cuyo ``fsync`` ya fue confirmado por el escritor activo."""
+    """Evento cuyo ``fsync`` ya fue confirmado por el escritor activo.
+
+    ``mensaje`` conserva el texto humano de la auditoría salvo cuando ese texto
+    revelaría el sentido individual de un voto todavía secreto: en ese caso se
+    publica la redacción segura declarada al registrar el hecho. El CSV durable
+    nunca cambia; lo único que se elige acá es qué puede ver Moderación ahora.
+    """
 
     seq: int
     timestamp: str
@@ -257,6 +333,7 @@ class EventoRecienteProyectado(ModeloProyeccion):
     etiqueta: str
     codigo_evento: str
     mensaje: str
+    hecho: HechoOperativoProyectado | None
 
 
 class EventoPublicoProyectado(ModeloProyeccion):
@@ -414,15 +491,19 @@ class ServicioProyecciones:
             if expiracion > ahora_monotono
         )
 
-        votacion = self._votacion_relevante()
-        if votacion is not None:
-            revelado = votacion.fecha_hora_apertura + timedelta(
-                seconds=contexto.configuracion.moderacion_revelado_votos_segundos
-            )
-            demora_revelado = (revelado - ahora).total_seconds()
+        # El revelado se evalúa sobre todas las votaciones conocidas y no solo
+        # sobre la relevante: el panel de eventos puede seguir mostrando votos
+        # de una votación anterior cuya frontera todavía no venció, y esa fila
+        # debe enriquecerse sola, sin esperar a que ocurra otra mutación.
+        for votacion_conocida in self._votaciones_conocidas():
+            demora_revelado = (
+                self._revelado_individual_desde(contexto, votacion_conocida) - ahora
+            ).total_seconds()
             if demora_revelado > 0:
                 demoras.append(demora_revelado)
 
+        votacion = self._votacion_relevante()
+        if votacion is not None:
             limite = self._resultado_visible_hasta(contexto, votacion)
             if limite is not None:
                 demora_resultado = (limite - ahora).total_seconds()
@@ -452,7 +533,7 @@ class ServicioProyecciones:
             votacion=self._votacion_moderacion(contexto, generado_en),
             palabra=self._palabra_moderacion(sesion, contexto),
             orden_del_dia=self._orden_del_dia(contexto),
-            eventos_recientes=self._eventos(contexto),
+            eventos_recientes=self._eventos(contexto, generado_en),
             auditoria=self._auditoria(contexto),
             remapeo=self._remapeo(self._estado.remapeo_activo),
             capacidades=self._capacidades(contexto),
@@ -610,6 +691,49 @@ class ServicioProyecciones:
             return None
         return sesion.votaciones[-1]
 
+    def _votaciones_conocidas(self) -> tuple[Votacion, ...]:
+        """Devuelve todas las votaciones vivas del contexto operativo actual.
+
+        La sesión conserva su historial en orden de apertura y la votación
+        activa siempre pertenece a esa lista. Igualmente se agrega de forma
+        defensiva por si el estado se instalara sin pasar por el historial: es
+        preferible evaluar una frontera de más que dejar de proteger un voto.
+        """
+
+        sesion = self._estado.sesion_activa
+        conocidas = list(sesion.votaciones) if sesion is not None else []
+        activa = self._estado.votacion_activa
+        if activa is not None and activa not in conocidas:
+            conocidas.append(activa)
+        return tuple(conocidas)
+
+    def _buscar_votacion(self, votacion_id: str) -> Votacion | None:
+        """Resuelve por identificador la votación a la que pertenece un hecho.
+
+        Es lo que permite que un evento de una votación anterior siga usando
+        **su** frontera de revelado y no la de la votación que casualmente esté
+        activa cuando se genera el snapshot.
+        """
+
+        for votacion in self._votaciones_conocidas():
+            if votacion.id == votacion_id:
+                return votacion
+        return None
+
+    @staticmethod
+    def _revelado_individual_desde(contexto: Preparacion, votacion: Votacion) -> datetime:
+        """Calcula la única frontera de revelado individual para Moderación.
+
+        El retardo se cuenta desde la apertura de la votación y proviene de la
+        configuración congelada de la preparación. Centralizarlo garantiza que
+        la grilla de votos y el panel de eventos no puedan aplicar dos políticas
+        de secreto distintas sobre el mismo hecho.
+        """
+
+        return votacion.fecha_hora_apertura + timedelta(
+            seconds=contexto.configuracion.moderacion_revelado_votos_segundos
+        )
+
     def _votacion_moderacion(
         self,
         contexto: Preparacion | None,
@@ -620,9 +744,7 @@ class ServicioProyecciones:
         votacion = self._votacion_relevante()
         if contexto is None or votacion is None:
             return None
-        revelado_desde = votacion.fecha_hora_apertura + timedelta(
-            seconds=contexto.configuracion.moderacion_revelado_votos_segundos
-        )
+        revelado_desde = self._revelado_individual_desde(contexto, votacion)
         revelados = generado_en >= revelado_desde
         votos = self._votos_moderacion(contexto, votacion) if revelados else None
         conteos = self._conteos(votacion) if revelados else None
@@ -939,14 +1061,17 @@ class ServicioProyecciones:
             for punto in contexto.orden_del_dia
         )
 
-    @staticmethod
-    def _eventos(contexto: Preparacion | None) -> tuple[EventoRecienteProyectado, ...]:
-        """Copia hasta 200 eventos confirmados del escritor activo."""
+    def _eventos(
+        self,
+        contexto: Preparacion | None,
+        generado_en: datetime,
+    ) -> tuple[EventoRecienteProyectado, ...]:
+        """Copia hasta 200 eventos confirmados aplicando la frontera de secreto."""
 
         if contexto is None:
             return ()
         return tuple(
-            ServicioProyecciones._evento(evento)
+            self._evento(evento, contexto, generado_en)
             for evento in contexto.escritor_auditoria.eventos_recientes
         )
 
@@ -991,18 +1116,159 @@ class ServicioProyecciones:
 
         return tuple(eventos[-LIMITE_EVENTOS_PUBLICOS:])
 
-    @staticmethod
-    def _evento(evento: EventoAuditoriaReciente) -> EventoRecienteProyectado:
-        """Traduce las seis dimensiones canónicas sin reinterpretarlas."""
+    def _evento(
+        self,
+        evento: EventoAuditoriaReciente,
+        contexto: Preparacion,
+        generado_en: datetime,
+    ) -> EventoRecienteProyectado:
+        """Traduce las seis dimensiones canónicas y agrega el hecho estructurado.
 
+        El paso decisivo es ``revelable``: se calcula una sola vez por evento y
+        gobierna a la vez qué mensaje se publica y si el hecho puede llevar
+        sentido e icono. Al derivarse del estado autoritativo y no del texto de
+        auditoría, un cambio de redacción futuro no puede abrir una fuga.
+
+        Args:
+            evento: hecho ya confirmado en los tres CSV correspondientes.
+            contexto: preparación vigente, con padrón y configuración congelados.
+            generado_en: hora civil del snapshot, la misma que usa el resto de
+                la proyección para evaluar fronteras temporales.
+
+        Returns:
+            El DTO listo para Moderación, sin sentido individual cuando el
+            secreto de esa votación sigue vigente.
+        """
+
+        referencia = evento.referencia
+        revelable = self._sentido_revelable(contexto, referencia, generado_en)
         return EventoRecienteProyectado(
             seq=evento.secuencia,
             timestamp=evento.timestamp,
             nivel=evento.nivel.value,
             etiqueta=evento.etiqueta,
             codigo_evento=evento.codigo_evento,
-            mensaje=evento.mensaje,
+            mensaje=self._mensaje_evento(evento, revelable),
+            hecho=self._hecho_operativo(contexto, referencia, revelable),
         )
+
+    @staticmethod
+    def _mensaje_evento(evento: EventoAuditoriaReciente, revelable: bool) -> str:
+        """Elige entre el mensaje durable y su variante segura.
+
+        Un evento sin referencia, o con referencia que no declaró texto
+        alternativo, publica siempre su mensaje original: no se inventa una
+        censura donde el emisor no declaró un secreto.
+        """
+
+        referencia = evento.referencia
+        if revelable or referencia is None or referencia.mensaje_seguro is None:
+            return evento.mensaje
+        return referencia.mensaje_seguro
+
+    def _sentido_revelable(
+        self,
+        contexto: Preparacion,
+        referencia: ReferenciaHechoOperativo | None,
+        generado_en: datetime,
+    ) -> bool:
+        """Decide si el sentido asociado a un hecho ya puede publicarse.
+
+        Un hecho sin referencia o sin votación asociada nunca fue secreto, así
+        que se considera revelable. Si la votación referida ya no existe en el
+        contexto vivo, se falla cerrado devolviendo ``False``: ante la duda, el
+        secreto se conserva.
+        """
+
+        if referencia is None or referencia.votacion_id is None:
+            return True
+        votacion = self._buscar_votacion(referencia.votacion_id)
+        if votacion is None:
+            return False
+        return generado_en >= self._revelado_individual_desde(contexto, votacion)
+
+    def _hecho_operativo(
+        self,
+        contexto: Preparacion,
+        referencia: ReferenciaHechoOperativo | None,
+        revelable: bool,
+    ) -> HechoOperativoProyectado | None:
+        """Construye la lectura estructurada del hecho, o ``None`` si no aplica.
+
+        Solo los hechos institucionales que el WP pide presentar de forma
+        enriquecida producen un DTO. Las pulsaciones sensibles quedan fuera a
+        propósito: su protección consiste en publicar el mensaje seguro, no en
+        convertirlas en una tarjeta con identidad e icono.
+        """
+
+        if referencia is None or referencia.dni is None:
+            return None
+        if referencia.tipo is TipoHechoOperativo.PULSACION_DE_VOTO:
+            return None
+
+        concejal = self._buscar_concejal(contexto, referencia.dni)
+        identidad = ConcejalHechoProyectado(
+            nombre=concejal.nombre,
+            apellido=concejal.apellido,
+            banca=concejal.banca,
+        )
+
+        if referencia.tipo is TipoHechoOperativo.PEDIDO_PALABRA:
+            return HechoOperativoProyectado(
+                tipo=referencia.tipo.value,
+                concejal=identidad,
+                detalle=DETALLE_PEDIDO_PALABRA,
+                icono=ICONO_PEDIDO_PALABRA,
+                sentido=None,
+            )
+        if referencia.tipo is TipoHechoOperativo.RETIRO_PALABRA:
+            return HechoOperativoProyectado(
+                tipo=referencia.tipo.value,
+                concejal=identidad,
+                detalle=DETALLE_RETIRO_PALABRA,
+                icono=ICONO_RETIRO_PALABRA,
+                sentido=None,
+            )
+
+        # Voto ordinario: el mismo ``seq`` se enriquece más tarde sin cambiar de
+        # identidad. El sentido se relee del mapa autoritativo de votos, nunca
+        # del buffer de auditoría, para que la única verdad siga siendo la
+        # votación y no una copia envejecida del hecho.
+        sentido = self._sentido_de_voto(referencia) if revelable else None
+        if sentido is None:
+            return HechoOperativoProyectado(
+                tipo=referencia.tipo.value,
+                concejal=identidad,
+                detalle=DETALLE_VOTO_SECRETO,
+                icono=None,
+                sentido=None,
+            )
+        return HechoOperativoProyectado(
+            tipo=referencia.tipo.value,
+            concejal=identidad,
+            detalle=DETALLE_POR_SENTIDO[sentido],
+            icono=ICONO_POR_SENTIDO[sentido],
+            sentido=sentido.value,
+        )
+
+    def _sentido_de_voto(
+        self,
+        referencia: ReferenciaHechoOperativo,
+    ) -> ValorVotoOrdinario | None:
+        """Relee el sentido desde la votación autoritativa referida por el hecho.
+
+        Devuelve ``None`` si la votación o el voto ya no existen, por ejemplo
+        ante un evento cuyo contexto quedó fuera del estado vivo. En ese caso el
+        hecho se presenta como si el secreto continuara vigente.
+        """
+
+        if referencia.votacion_id is None or referencia.dni is None:
+            return None
+        votacion = self._buscar_votacion(referencia.votacion_id)
+        if votacion is None:
+            return None
+        voto = votacion.votos_ordinarios.get(referencia.dni)
+        return voto.valor if voto is not None else None
 
     @staticmethod
     def _auditoria(contexto: Preparacion | None) -> EstadoAuditoriaProyectado:

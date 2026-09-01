@@ -18,6 +18,19 @@
  *    ese momento, la lista vuelve al inicio de su scroll para que el evento
  *    recién ocurrido quede visible sin intervención del operador.
  *
+ * WP-052 agrega la lectura enriquecida y segura de los hechos sensibles:
+ *
+ * - Cuando el backend adjunta `evento.hecho`, el cuerpo de la tarjeta muestra
+ *   identidad/banca y un detalle ya resuelto en lugar del mensaje humano de
+ *   auditoría. Este componente **no interpreta** `mensaje`: si lo hiciera,
+ *   una redacción de auditoría se convertiría en un contrato de UI encubierto
+ *   y cualquier cambio de texto podría filtrar el sentido de un voto.
+ * - El emoji también llega decidido por el backend (`hecho.icono`). Mientras
+ *   el sentido individual sea secreto ese campo vale `null` y aquí no hay
+ *   ninguna regla que pueda “adivinarlo”: el secreto se protege en servidor.
+ * - El icono se dibuja a la derecha del registro y ocupa aproximadamente la
+ *   altura de las dos filas de texto existentes.
+ *
  * CRÍTICO: el crecimiento del listado no debe aumentar la altura de los demás
  * paneles. Por eso el listado tiene scroll interno propio y ocupa exactamente
  * la altura disponible del cuerpo del panel.
@@ -175,32 +188,76 @@ function claseNivel(nivel: string): string {
           class="rounded border border-slate-800 bg-slate-950/70 px-2 py-1 text-slate-300 transition-colors hover:border-slate-700"
         >
           <!--
-            Cabecera compacta de la tarjeta: mantiene visibles seq, nivel,
-            etiqueta, código y timestamp en una sola línea que puede envolver.
+            Fila horizontal: a la izquierda las dos filas de texto existentes y
+            a la derecha el icono del hecho, que las abarca en altura.
           -->
-          <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 leading-tight">
-            <span class="font-semibold text-cyan-400">#{{ evento.seq }}</span>
+          <div data-testid="fila-evento" class="flex items-center gap-2">
+            <div data-testid="cuerpo-evento" class="min-w-0 flex-1">
+              <!--
+                Cabecera compacta de la tarjeta: mantiene visibles seq, nivel,
+                etiqueta, código y timestamp en una sola línea que puede envolver.
+              -->
+              <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 leading-tight">
+                <span class="font-semibold text-cyan-400">#{{ evento.seq }}</span>
+                <span
+                  data-testid="nivel-evento"
+                  class="rounded border px-1 text-[10px] font-bold leading-tight"
+                  :class="claseNivel(evento.nivel)"
+                >
+                  {{ evento.nivel }}
+                </span>
+                <span data-testid="etiqueta-evento" class="text-slate-400"
+                  >[{{ evento.etiqueta }}]</span
+                >
+                <span data-testid="codigo-evento" class="font-semibold text-slate-200">
+                  {{ evento.codigo_evento }}
+                </span>
+                <span class="ml-auto text-[10px] text-slate-500">{{ evento.timestamp }}</span>
+              </div>
+
+              <!--
+                Segunda fila. Con hecho estructurado se muestran identidad y
+                detalle ya resueltos por el backend; sin él se conserva el
+                mensaje humano de auditoría tal como venía de WP-041.
+              -->
+              <p
+                v-if="evento.hecho"
+                data-testid="hecho-evento"
+                class="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 leading-tight"
+              >
+                <span data-testid="hecho-concejal" class="text-slate-200">
+                  {{ evento.hecho.concejal.nombre }} {{ evento.hecho.concejal.apellido }} · Banca
+                  {{ evento.hecho.concejal.banca }}
+                </span>
+                <span data-testid="hecho-detalle" class="font-semibold text-slate-300">
+                  {{ evento.hecho.detalle }}
+                </span>
+              </p>
+              <p
+                v-else
+                data-testid="mensaje-evento"
+                class="mt-0.5 whitespace-pre-wrap break-words leading-tight text-slate-300"
+              >
+                {{ evento.mensaje }}
+              </p>
+            </div>
+
+            <!--
+              Icono del hecho. Solo existe cuando el backend lo envía: durante
+              el secreto del voto llega `null` y la tarjeta queda sin emoji.
+              La altura fija de 1.75rem equivale aproximadamente a las dos
+              filas de texto de 11px con interlineado ajustado.
+            -->
             <span
-              data-testid="nivel-evento"
-              class="rounded border px-1 text-[10px] font-bold leading-tight"
-              :class="claseNivel(evento.nivel)"
+              v-if="evento.hecho?.icono"
+              data-testid="icono-evento"
+              role="img"
+              :aria-label="evento.hecho.detalle"
+              class="flex h-7 w-7 shrink-0 items-center justify-center text-[22px] leading-none"
             >
-              {{ evento.nivel }}
+              {{ evento.hecho.icono }}
             </span>
-            <span data-testid="etiqueta-evento" class="text-slate-400"
-              >[{{ evento.etiqueta }}]</span
-            >
-            <span data-testid="codigo-evento" class="font-semibold text-slate-200">
-              {{ evento.codigo_evento }}
-            </span>
-            <span class="ml-auto text-[10px] text-slate-500">{{ evento.timestamp }}</span>
           </div>
-          <p
-            data-testid="mensaje-evento"
-            class="mt-0.5 whitespace-pre-wrap break-words leading-tight text-slate-300"
-          >
-            {{ evento.mensaje }}
-          </p>
         </div>
       </div>
 

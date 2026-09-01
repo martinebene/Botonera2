@@ -44,6 +44,10 @@ from botonera2_backend.dominio.votacion import (
     Votacion,
     VotoOrdinario,
 )
+from botonera2_backend.hechos_operativos import (
+    ReferenciaHechoOperativo,
+    TipoHechoOperativo,
+)
 from botonera2_backend.servicios.finalizacion_votacion import (
     finalizar_votacion_inconclusa_bajo_lock,
 )
@@ -89,6 +93,11 @@ CODIGO_PEDIDO_PALABRA_RETIRADO = "PEDIDO_PALABRA_RETIRADO"
 CODIGO_USO_PALABRA_FINALIZADO = "USO_PALABRA_FINALIZADO"
 
 CAUSA_FINALIZACION_PROPIO = "PROPIO"
+
+# Texto con el que se reemplaza la tecla 1/2/3 en la proyección de eventos
+# mientras el sentido individual del voto todavía es secreto. El CSV durable
+# sigue registrando la tecla real: acá solo se protege lo que ve Moderación.
+TECLA_OCULTA = "oculta"
 
 
 class ServicioEntradaTecla:
@@ -339,6 +348,10 @@ class ServicioEntradaTecla:
                 ETIQUETA_PALABRA,
                 CODIGO_PEDIDO_PALABRA_RETIRADO,
                 f"Pedido de palabra retirado: {identidad_mensaje}; posicion_previa={posicion}",
+                referencia=ReferenciaHechoOperativo(
+                    tipo=TipoHechoOperativo.RETIRO_PALABRA,
+                    dni=concejal.dni,
+                ),
             )
             estado_palabra.retirar_pedido(concejal.dni)
             return self._respuesta_palabra(
@@ -354,6 +367,10 @@ class ServicioEntradaTecla:
             ETIQUETA_PALABRA,
             CODIGO_PEDIDO_PALABRA_REGISTRADO,
             f"Pedido de palabra registrado: {identidad_mensaje}; posicion={posicion}",
+            referencia=ReferenciaHechoOperativo(
+                tipo=TipoHechoOperativo.PEDIDO_PALABRA,
+                dni=concejal.dni,
+            ),
         )
         estado_palabra.agregar_pedido(concejal.dni)
         return self._respuesta_palabra(
@@ -403,11 +420,22 @@ class ServicioEntradaTecla:
             )
 
         voto = VotoOrdinario(dni=dni, valor=valor)
+        # El CSV recibe el mensaje completo con el sentido: es el hecho durable
+        # y no se reescribe nunca. La referencia adjunta viaja solo en memoria y
+        # le da a la proyección de Moderación una redacción alternativa sin
+        # sentido, más los datos estructurados para enriquecer el mismo ``seq``
+        # cuando la frontera autoritativa de esta votación habilite el revelado.
         preparacion.escritor_auditoria.registrar_evento(
             NivelAuditoria.L3,
             ETIQUETA_VOTACION,
             CODIGO_VOTO_ORDINARIO_REGISTRADO,
             self._mensaje_voto(votacion, identidad, valor),
+            referencia=ReferenciaHechoOperativo(
+                tipo=TipoHechoOperativo.VOTO_ORDINARIO,
+                dni=dni,
+                votacion_id=votacion.id,
+                mensaje_seguro=self._mensaje_voto_sin_sentido(votacion, identidad),
+            ),
         )
 
         # El voto se incorpora únicamente después del fsync de su evento. Si el
@@ -636,21 +664,22 @@ class ServicioEntradaTecla:
             banca=concejal.banca,
         )
 
-    @staticmethod
-    def _registrar_pulsacion_recibida(preparacion: Preparacion, pulsacion: Pulsacion) -> None:
+    def _registrar_pulsacion_recibida(self, preparacion: Preparacion, pulsacion: Pulsacion) -> None:
         """Persiste el evento de entrada antes de cualquier resolución funcional."""
 
         preparacion.escritor_auditoria.registrar_evento(
             NivelAuditoria.L2,
             ETIQUETA_INPUT,
             CODIGO_PULSACION_RECIBIDA,
-            f"Pulsación recibida: tecla [{pulsacion.tecla}] del dispositivo "
-            f"[{pulsacion.dispositivo}]",
+            self._mensaje_pulsacion_recibida(pulsacion, pulsacion.tecla),
+            referencia=self._referencia_pulsacion_de_voto(
+                pulsacion,
+                self._mensaje_pulsacion_recibida(pulsacion, TECLA_OCULTA),
+            ),
         )
 
-    @staticmethod
     def _registrar_pulsacion_rechazada(
-        preparacion: Preparacion, pulsacion: Pulsacion, motivo: str
+        self, preparacion: Preparacion, pulsacion: Pulsacion, motivo: str
     ) -> None:
         """Persiste el motivo estable de un rechazo funcional normal."""
 
@@ -658,8 +687,65 @@ class ServicioEntradaTecla:
             NivelAuditoria.L2,
             ETIQUETA_INPUT,
             CODIGO_PULSACION_RECHAZADA,
-            f"Pulsación rechazada: tecla [{pulsacion.tecla}] del dispositivo "
-            f"[{pulsacion.dispositivo}]; motivo={motivo}",
+            self._mensaje_pulsacion_rechazada(pulsacion, pulsacion.tecla, motivo),
+            referencia=self._referencia_pulsacion_de_voto(
+                pulsacion,
+                self._mensaje_pulsacion_rechazada(pulsacion, TECLA_OCULTA, motivo),
+            ),
+        )
+
+    @staticmethod
+    def _mensaje_pulsacion_recibida(pulsacion: Pulsacion, tecla: str) -> str:
+        """Redacta el evento de entrada con la tecla real o con su reemplazo.
+
+        Recibir la tecla como parámetro permite construir con una única
+        redacción tanto la fila durable como la variante segura que ve
+        Moderación mientras el sentido del voto es secreto.
+        """
+
+        return f"Pulsación recibida: tecla [{tecla}] del dispositivo [{pulsacion.dispositivo}]"
+
+    @staticmethod
+    def _mensaje_pulsacion_rechazada(pulsacion: Pulsacion, tecla: str, motivo: str) -> str:
+        """Redacta el rechazo con la tecla real o con su reemplazo seguro."""
+
+        return (
+            f"Pulsación rechazada: tecla [{tecla}] del dispositivo "
+            f"[{pulsacion.dispositivo}]; motivo={motivo}"
+        )
+
+    def _referencia_pulsacion_de_voto(
+        self,
+        pulsacion: Pulsacion,
+        mensaje_seguro: str,
+    ) -> ReferenciaHechoOperativo | None:
+        """Marca como sensible una pulsación 1/2/3 hecha con recepción abierta.
+
+        La tecla física y el dispositivo bastan para deducir el sentido del voto
+        de una banca concreta: ``1`` es POSITIVO, ``2`` ABSTENCIÓN y ``3``
+        NEGATIVO, y el dispositivo lógico ya identifica al concejal en la propia
+        pantalla de Moderación. Por eso el mismo secreto que protege al evento
+        L3 del voto debe proteger también a estos eventos L2 de entrada.
+
+        La decisión se toma en el momento del registro, que es cuando se conoce
+        la recepción vigente. La votación referida queda anotada para que el
+        revelado posterior use su frontera y no la de otra votación.
+
+        Returns:
+            La referencia que habilita el texto seguro, o ``None`` cuando la
+            pulsación no puede revelar ningún sentido: teclas no vinculadas al
+            voto o ausencia de una recepción abierta.
+        """
+
+        if pulsacion.tecla not in VALOR_VOTO_POR_TECLA:
+            return None
+        votacion = self._estado.votacion_activa
+        if votacion is None or votacion.estado is not EstadoVotacion.EN_CURSO:
+            return None
+        return ReferenciaHechoOperativo(
+            tipo=TipoHechoOperativo.PULSACION_DE_VOTO,
+            votacion_id=votacion.id,
+            mensaje_seguro=mensaje_seguro,
         )
 
     @staticmethod
@@ -741,5 +827,21 @@ class ServicioEntradaTecla:
         return (
             f"Voto ordinario: {identidad.nombre} {identidad.apellido} "
             f"(banca Nro:{identidad.banca}) votó {valor.value}; "
+            f"votación número={votacion.numero_votacion}; id={votacion.id}"
+        )
+
+    @staticmethod
+    def _mensaje_voto_sin_sentido(votacion: Votacion, identidad: IdentidadConcejal) -> str:
+        """Redacta el mismo hecho conservando identidad pero ocultando el sentido.
+
+        Es la variante que Moderación puede leer mientras el secreto sigue
+        vigente. Conserva deliberadamente concejal, banca y votación, porque el
+        WP autoriza mostrar quién ya emitió su voto; lo único que desaparece es
+        POSITIVO/NEGATIVO/ABSTENCION.
+        """
+
+        return (
+            f"Voto ordinario: {identidad.nombre} {identidad.apellido} "
+            f"(banca Nro:{identidad.banca}) emitió su voto; "
             f"votación número={votacion.numero_votacion}; id={votacion.id}"
         )

@@ -15,6 +15,21 @@
  * fila de Q1 en cada votación. La advertencia que aparece al intentar abrir una votación
  * con palabra pendiente (CA-062, `DialogoConfirmacionApertura`) se conserva intacta:
  * es una salvaguarda del momento del comando, no un indicador permanente.
+ *
+ * WP-051 aplica acá la política de feedback aprobada:
+ *
+ * - Los tres acuses de tránsito HTTP que existían ("Apertura enviada…", "Finalización
+ *   enviada…", "Desempate enviado…") desaparecen. Eran puramente técnicos: describían que
+ *   una petición había salido, no un hecho institucional. Cada una de esas tres mutaciones
+ *   ya queda registrada por el backend en la auditoría CSV (`VOTACION_ABIERTA`,
+ *   `VOTACION_FINALIZADA_*`, `VOTO_DESEMPATE_PRESIDENCIAL`) y su efecto real se ve en el
+ *   propio snapshot: la votación aparece EN_CURSO, aparece el resultado, cambia el
+ *   resultado tras el desempate. Nada de eso necesitaba un cartel superpuesto que además
+ *   quedaba visible indefinidamente sobre la pantalla de trabajo.
+ * - Los errores sí siguen mostrándose: son la única información que el snapshot no puede
+ *   dar por sí mismo.
+ * - El motivo de finalización se vacía únicamente después de una finalización aceptada.
+ *   Si el backend rechaza el comando, el texto tipeado se conserva para reintentar.
  */
 
 import { computed, ref, watch } from 'vue'
@@ -58,7 +73,6 @@ const borrador = ref<BorradorVotacion>({
 
 const motivoFinalizacion = ref('')
 const mensajeError = ref<string | null>(null)
-const mensajeInformativo = ref<string | null>(null)
 const abriendo = ref(false)
 const finalizando = ref(false)
 const desempatando = ref(false)
@@ -111,7 +125,10 @@ const puedeDesempatar = computed(
   () => props.conectado && capacidadDesempatar.value.habilitada && !desempatando.value,
 )
 
-const motivosAbrir = computed(() => traducirMotivos(capacidadAbrir.value.motivos))
+// WP-051: los motivos de `abrir_votacion` se traducen con su contexto propio. Durante una
+// sesión abierta, `QUORUM_INSUFICIENTE` impide poner una votación en marcha, no "abrir la
+// sesión": esa era la lectura equivocada que reportó la prueba humana del 01/09/2026.
+const motivosAbrir = computed(() => traducirMotivos(capacidadAbrir.value.motivos, 'abrir_votacion'))
 const motivosFinalizar = computed(() => traducirMotivos(capacidadFinalizar.value.motivos))
 const motivosDesempatar = computed(() => traducirMotivos(capacidadDesempatar.value.motivos))
 
@@ -148,9 +165,15 @@ function extraerMensajeError(error: unknown, mensajePorDefecto: string): string 
   return mensajePorDefecto
 }
 
+/**
+ * Borra el único feedback persistente del componente antes de emitir un comando nuevo.
+ *
+ * WP-051: acá ya no hay avisos informativos que limpiar. El error anterior sí debe
+ * desaparecer, porque de lo contrario un fallo viejo seguiría acusando a un comando que
+ * el operador acaba de reintentar.
+ */
 function limpiarMensajes(): void {
   mensajeError.value = null
-  mensajeInformativo.value = null
 }
 
 function reiniciarBorradorManual(): void {
@@ -217,7 +240,6 @@ watch(
     ) {
       idAperturaSolicitada.value = null
       reiniciarBorradorManual()
-      mensajeInformativo.value = null
     }
   },
 )
@@ -300,8 +322,10 @@ async function enviarApertura(solicitud: SolicitudAperturaVotacion): Promise<voi
   aperturaPendiente.value = null
   try {
     const respuesta = await props.cliente.abrirVotacion(solicitud)
+    // Recordamos la id aceptada para poder limpiar el borrador recién cuando el snapshot
+    // confirme esa misma votación EN_CURSO. WP-051: no se muestra ningún acuse propio,
+    // porque la aparición de la votación proyectada ya es la confirmación visible.
     idAperturaSolicitada.value = respuesta.id
-    mensajeInformativo.value = 'Apertura enviada. Esperando confirmación del estado autoritativo.'
   } catch (error: unknown) {
     mensajeError.value = extraerMensajeError(error, 'No se pudo abrir la votación.')
   } finally {
@@ -348,7 +372,10 @@ async function finalizarVotacion(): Promise<void> {
   finalizando.value = true
   try {
     await props.cliente.finalizarVotacion(actual.id, motivo)
-    mensajeInformativo.value = 'Finalización enviada. El resultado se adoptará desde el backend.'
+    // WP-051: el motivo se vacía únicamente acá, después de que el backend aceptó la
+    // finalización. Si el comando falla, el texto tipeado sobrevive para reintentarlo sin
+    // obligar al operador a volver a escribirlo.
+    motivoFinalizacion.value = ''
   } catch (error: unknown) {
     mensajeError.value = extraerMensajeError(error, 'No se pudo finalizar la votación.')
   } finally {
@@ -372,8 +399,6 @@ async function desempatar(sentido: 'POSITIVO' | 'NEGATIVO'): Promise<void> {
   desempatando.value = true
   try {
     await props.cliente.desempatar(actual.id, sentido)
-    mensajeInformativo.value =
-      'Desempate enviado. Esperando el resultado confirmado por el backend.'
   } catch (error: unknown) {
     mensajeError.value = extraerMensajeError(error, 'No se pudo registrar el desempate.')
   } finally {
@@ -391,14 +416,6 @@ async function desempatar(sentido: 'POSITIVO' | 'NEGATIVO'): Promise<void> {
       role="alert"
     >
       {{ mensajeError }}
-    </div>
-    <div
-      v-if="mensajeInformativo"
-      data-testid="aviso-votacion"
-      class="fixed top-16 right-4 z-40 max-w-md rounded-lg border border-cyan-800 bg-cyan-950/95 p-2 text-xs text-cyan-200 shadow-xl"
-      role="status"
-    >
-      {{ mensajeInformativo }}
     </div>
 
     <!-- Vista de la votación relevante, construida exclusivamente desde el snapshot. -->
@@ -554,6 +571,19 @@ async function desempatar(sentido: 'POSITIVO' | 'NEGATIVO'): Promise<void> {
         data-testid="controles-desempate"
         class="flex flex-wrap items-center gap-2 rounded border border-amber-700 bg-amber-950/30 p-2"
       >
+        <!--
+          WP-051: el empate deja de comunicarse sólo con un badge y dos botones sueltos.
+          La instrucción explícita precede siempre a POSITIVO/NEGATIVO para que el operador
+          entienda de quién es la acción pendiente. El texto es el aprobado por HUMAN_GATE y
+          no altera `puedeDesempatar`: la autoridad sobre si el desempate está habilitado
+          sigue siendo exclusivamente la capacidad publicada por el backend.
+        -->
+        <p
+          data-testid="instruccion-desempate"
+          class="w-full text-xs font-semibold leading-tight text-amber-100"
+        >
+          Votación empatada. La Presidencia debe emitir el voto de desempate:
+        </p>
         <p class="min-w-0 flex-1 text-[11px] text-amber-200">
           Presidencia vigente: <strong>{{ estado.sesion?.presidencia }}</strong>
         </p>
