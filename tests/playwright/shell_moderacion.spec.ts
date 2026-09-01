@@ -17,7 +17,7 @@
  *    - 12 bancas en recinto con fotos, nombres, presencia y señal de test activo.
  *    - Quórum y autoridades ya cargadas visibles en la cabecera, y no repetidos en los cuadrantes.
  * 4. Estado SESION_ABIERTA y Diálogo de Advertencia de Cierre (1920×1080 y 1366×768):
- *    - Número de sesión inmutable y ausencia de resumen de quórum en Q1.
+ *    - Ausencia en Q1 del resumen de quórum y, desde WP-048, del número de sesión.
  *    - Quórum, autoridades, reloj local y tiempo de sesión en cabecera.
  *    - Edición de autoridades mediante modal, sin inputs permanentes en Q1.
  *    - Apertura de diálogo modal de confirmación ante orador/cola de palabra activa (H4).
@@ -1307,9 +1307,12 @@ test.describe('UI de Moderación - Estados Institucionales y Contrato de Shell (
       // Verificamos el contrato geométrico 2×2 completo del shell (N1)
       await verificarGeometriaShellCompleto(page, viewport)
 
-      // Cuadrante 1: número inmutable y, tras WP-036, ningún resumen global de quórum
+      // Cuadrante 1: tras WP-036 no repite el quórum global y, tras WP-048, tampoco el
+      // número de sesión, que ya es un dato único de la cabecera del shell.
       await expect(page.locator('[data-testid="vista-sesion-abierta"]')).toBeVisible()
-      await expect(page.locator('[data-testid="numero-sesion-inmutable"]')).toContainText(
+      await expect(page.locator('[data-testid="numero-sesion-inmutable"]')).toHaveCount(0)
+      await expect(page.locator('[data-testid="franja-sesion-abierta"]')).toHaveCount(0)
+      await expect(page.locator('[data-testid="panel-sesion-votacion"]')).not.toContainText(
         'Sesión Nº 8',
       )
       await expect(page.locator('[data-testid="quorum-resumen-sesion"]')).toHaveCount(0)
@@ -1962,7 +1965,10 @@ test.describe('WP-023 - Recorrido de votación y Orden del Día', () => {
     await expect(vista).toContainText('Presupuesto editado')
     await expect(page.locator('[data-testid="estado-votacion"]')).toContainText('EN_CURSO')
     await expect(page.locator('[data-testid="votos-ocultos"]')).toBeVisible()
-    await expect(page.locator('[data-testid="palabra-durante-votacion"]')).toContainText(
+    // WP-048: Q1 tampoco informa de forma permanente al orador ni la cantidad en cola.
+    // Esa información es continua y su sede es Q3, no el cuerpo de la votación.
+    await expect(page.locator('[data-testid="palabra-durante-votacion"]')).toHaveCount(0)
+    await expect(page.locator('[data-testid="panel-sesion-votacion"]')).not.toContainText(
       'Ada Lovelace',
     )
     // WP-044: Q3 dejó de repetir al orador; su señal vive en la banca resaltada.
@@ -2825,4 +2831,367 @@ test.describe('WP-044 - Correcciones UX de Moderación', () => {
       await verificarGeometriaShellCompleto(page, viewport)
     }
   })
+})
+
+/**
+ * WP-048 - Compactación operativa de Q1 y limpieza de Q2.
+ *
+ * Demuestra con medidas reales del DOM, en 1366×768 y 1920×1080, que:
+ *
+ * 1. las dos acciones institucionales de la sesión se operan desde el encabezado del
+ *    cuadrante y Q1 ya no reserva una franja interior para repetir `Sesión Nº N`;
+ * 2. durante PREPARANDO cada requisito de apertura ocupa su propio renglón;
+ * 3. el cuerpo de la votación no informa de forma permanente orador ni cola, pero la
+ *    advertencia CA-062 al abrir con palabra pendiente se conserva íntegra;
+ * 4. un resultado anterior convive con el formulario completo de la votación siguiente
+ *    —incluidos los campos condicionales de mayoría especial— sin scroll interno y con
+ *    todos los controles dentro del bounding box de Q1;
+ * 5. la demanda vertical del conjunto cae muy por debajo de la baseline medida antes del
+ *    cambio, que a 1366×768 pedía 333 px de contenido para 323 px disponibles;
+ * 6. Q2 no deja ninguna fila informativa después de una carga exitosa.
+ */
+test.describe('WP-048 - Q1 compacto y Q2 sin acuse persistente', () => {
+  const resoluciones = [
+    { width: 1366, height: 768 },
+    { width: 1920, height: 1080 },
+  ]
+
+  /**
+   * Demanda vertical del contenido de Q1 en el escenario crítico (resultado anterior más
+   * formulario nuevo) medida a 1366×768 sobre el código previo a WP-048: 333 px de
+   * contenido para 323 px disponibles, es decir un recorte real de 10 px.
+   *
+   * El objetivo aprobado es reducir aproximadamente un 30 %. Se exige aquí un techo del
+   * 75 % de esa baseline para dejar margen a variaciones de fuente entre entornos sin
+   * volver la prueba complaciente: la medición efectiva del cambio quedó en 234 px.
+   */
+  const DEMANDA_VERTICAL_BASELINE = 333
+
+  /** Palabra pendiente real: un orador en uso y un pedido en cola. */
+  const palabraPendiente = {
+    orador: { dni: '30000001', nombre: 'Ada', apellido: 'Lovelace', banca: 1 },
+    cola: [{ dni: '30000002', nombre: 'Grace', apellido: 'Hopper', banca: 2 }],
+  }
+
+  /**
+   * Suma la altura que realmente pide el contenido del cuerpo de Q1.
+   *
+   * No alcanza con leer el alto de los contenedores: tanto la vista de sesión abierta como
+   * `GestionVotacion` son cajas flexibles acotadas por el shell, y su `scrollHeight` deja
+   * de crecer cuando el contenido ya no entra. Por eso la medición desciende por esos
+   * contenedores y suma la altura de sus hijos reales más los espacios declarados entre
+   * ellos: esa suma es la demanda que el cuadrante debe absorber sin recortar nada.
+   */
+  async function medirDemandaVerticalQ1(page: Page): Promise<{
+    demanda: number
+    disponible: number
+  }> {
+    return page.evaluate(() => {
+      const cuerpo = document.querySelector<HTMLElement>(
+        '[data-testid="panel-sesion-votacion"] [data-testid="cuerpo-panel"]',
+      )!
+      // Contenedores cuyo alto está limitado por el shell y no expresa la demanda real.
+      const contenedoresFlexibles = ['vista-sesion-abierta', 'gestion-votacion']
+
+      function demandaDe(contenedor: HTMLElement): number {
+        const separacion = Number.parseFloat(getComputedStyle(contenedor).rowGap) || 0
+        const hijos = Array.from(contenedor.children) as HTMLElement[]
+        const suma = hijos.reduce((total, hijo) => {
+          const testid = hijo.getAttribute('data-testid') ?? ''
+          return (
+            total + (contenedoresFlexibles.includes(testid) ? demandaDe(hijo) : hijo.scrollHeight)
+          )
+        }, 0)
+        return suma + separacion * Math.max(hijos.length - 1, 0)
+      }
+
+      const vista =
+        cuerpo.querySelector<HTMLElement>('[data-testid="vista-sesion-abierta"]') ??
+        (cuerpo.firstElementChild as HTMLElement)
+      return { demanda: Math.round(demandaDe(vista)), disponible: cuerpo.clientHeight }
+    })
+  }
+
+  /** Comprueba que un control quede íntegramente dentro del bounding box de Q1. */
+  async function verificarControlContenido(page: Page, testid: string): Promise<void> {
+    const panel = page.locator('[data-testid="panel-sesion-votacion"]')
+    const control = page.locator(`[data-testid="${testid}"]`)
+    await expect(control).toBeVisible()
+    const cajaPanel = await panel.boundingBox()
+    const cajaControl = await control.boundingBox()
+    expect(cajaPanel).not.toBeNull()
+    expect(cajaControl).not.toBeNull()
+    expect(cajaControl!.y).toBeGreaterThanOrEqual(cajaPanel!.y - 1)
+    expect(cajaControl!.x).toBeGreaterThanOrEqual(cajaPanel!.x - 1)
+    expect(cajaControl!.y + cajaControl!.height).toBeLessThanOrEqual(
+      cajaPanel!.y + cajaPanel!.height + 1,
+    )
+    expect(cajaControl!.x + cajaControl!.width).toBeLessThanOrEqual(
+      cajaPanel!.x + cajaPanel!.width + 1,
+    )
+  }
+
+  for (const viewport of resoluciones) {
+    test(`acciones en encabezado y sin franja de número a ${viewport.width}×${viewport.height}`, async ({
+      page,
+    }) => {
+      await configurarRutasMock(page, crearEstadoSesionCompacta())
+      await page.setViewportSize(viewport)
+      await page.goto('/moderacion/')
+      await expect(page.locator('[data-testid="formulario-votacion"]')).toBeVisible()
+
+      const panel = page.locator('[data-testid="panel-sesion-votacion"]')
+      const encabezado = panel.locator('> header')
+      const cuerpo = panel.locator('[data-testid="cuerpo-panel"]')
+
+      // Las dos acciones institucionales viven en el encabezado del cuadrante.
+      await expect(encabezado.locator('[data-testid="btn-editar-autoridades"]')).toBeVisible()
+      await expect(encabezado.locator('[data-testid="btn-cerrar-sesion"]')).toBeVisible()
+      await expect(cuerpo.locator('[data-testid="btn-editar-autoridades"]')).toHaveCount(0)
+      await expect(cuerpo.locator('[data-testid="btn-cerrar-sesion"]')).toHaveCount(0)
+
+      // El badge de estado de sala permanece en Q1: tras WP-047 es su única sede.
+      await expect(encabezado).toContainText('Sesión activa')
+
+      // Ninguna franja interior repite el número de sesión, que ya publica la cabecera.
+      await expect(page.locator('[data-testid="franja-sesion-abierta"]')).toHaveCount(0)
+      await expect(page.locator('[data-testid="numero-sesion-inmutable"]')).toHaveCount(0)
+      await expect(panel).not.toContainText('Sesión Nº 42')
+      await expect(page.locator('[data-testid="cabecera-numero-sesion"]')).toHaveText(
+        'Sesión Nº 42',
+      )
+
+      await verificarQ1SinScroll(page)
+      await verificarControlContenido(page, 'btn-editar-autoridades')
+      await verificarControlContenido(page, 'btn-cerrar-sesion')
+      await verificarGeometriaShellCompleto(page, viewport)
+    })
+
+    test(`requisitos de apertura en renglones separados a ${viewport.width}×${viewport.height}`, async ({
+      page,
+    }) => {
+      await configurarRutasMock(
+        page,
+        crearEstadoFixture({
+          estado_global: 'PREPARANDO',
+          preparacion: {
+            fecha_hora_inicio: '2026-08-29T09:30:00Z',
+            numero_sesion: 42,
+            presidencia: '',
+            secretaria_legislativa: '',
+          },
+          quorum: { cantidad_presentes: 5, requerido: 7, alcanzado: false },
+          capacidades: {
+            ...crearEstadoFixture().capacidades,
+            preparar_sala: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
+            actualizar_preparacion: { habilitada: true, motivos: [] },
+            cancelar_preparacion: { habilitada: true, motivos: [] },
+            abrir_sesion: {
+              habilitada: false,
+              motivos: [
+                'QUORUM_INSUFICIENTE',
+                'PRESIDENCIA_REQUERIDA',
+                'SECRETARIA_LEGISLATIVA_REQUERIDA',
+              ],
+            },
+          },
+        }),
+      )
+      await page.setViewportSize(viewport)
+      await page.goto('/moderacion/')
+
+      const renglones = page.locator('[data-testid="motivo-abrir-sesion"]')
+      await expect(renglones).toHaveCount(3)
+
+      // Cada requisito ocupa su propia línea: distinta coordenada Y, sin concatenación.
+      const cajas = await renglones.evaluateAll((elementos) =>
+        elementos.map((elemento) => Math.round(elemento.getBoundingClientRect().y)),
+      )
+      expect(new Set(cajas).size).toBe(3)
+      await expect(page.locator('[data-testid="motivos-abrir-sesion"]')).not.toContainText(' · ')
+
+      await verificarQ1SinScroll(page)
+      await verificarGeometriaShellCompleto(page, viewport)
+    })
+
+    test(`resultado previo y formulario completo conviven a ${viewport.width}×${viewport.height}`, async ({
+      page,
+    }, testInfo) => {
+      await configurarRutasMock(
+        page,
+        crearEstadoSesionCompacta({
+          votacion: crearVotacionCompacta({
+            estado_recepcion: 'CERRADA',
+            resultado: 'APROBADA',
+            fecha_hora_cierre: '2026-08-29T10:00:10Z',
+            fecha_hora_resultado: '2026-08-29T10:00:10Z',
+          }),
+          palabra: palabraPendiente,
+        }),
+      )
+      await page.setViewportSize(viewport)
+      await page.goto('/moderacion/')
+
+      // El resultado conserva la jerarquía dominante del cuadrante.
+      const resultado = page.locator('[data-testid="estado-votacion"]')
+      await expect(resultado).toHaveText('APROBADA')
+      await expect(resultado).toHaveAttribute('data-jerarquia', 'principal')
+
+      // Los conteos se leen en una sola fila: sus cuatro cajas comparten coordenada Y.
+      const conteos = page.locator('[data-testid="conteos-votacion"]')
+      await expect(conteos).toBeVisible()
+      const filas = await conteos.evaluate((elemento) => {
+        const hijos = Array.from(elemento.children) as HTMLElement[]
+        return {
+          cantidad: hijos.length,
+          coordenadas: new Set(hijos.map((hijo) => Math.round(hijo.getBoundingClientRect().y)))
+            .size,
+          alto: Math.round(elemento.getBoundingClientRect().height),
+        }
+      })
+      expect(filas.cantidad).toBe(4)
+      expect(filas.coordenadas).toBe(1)
+      expect(filas.alto).toBeLessThanOrEqual(28)
+
+      // Q1 no lista votos individuales aunque el DTO los proyecte.
+      await expect(page.locator('[data-testid="votos-individuales"]')).toHaveCount(0)
+      await expect(page.locator('[data-testid="panel-sesion-votacion"]')).not.toContainText(
+        'No debe renderizarse',
+      )
+
+      // El formulario completo de la votación siguiente sigue accesible sin scroll.
+      for (const control of [
+        'input-numero-votacion',
+        'select-tipo-votacion',
+        'radio-mayoria-simple',
+        'radio-mayoria-especial',
+        'input-tema-votacion',
+        'btn-abrir-votacion',
+        'btn-limpiar-borrador',
+      ]) {
+        await verificarControlContenido(page, control)
+      }
+
+      await verificarQ1SinScroll(page)
+
+      // Demanda vertical con mayoría simple, que es el escenario de la baseline medida.
+      const medicion = await medirDemandaVerticalQ1(page)
+      expect(medicion.demanda).toBeLessThanOrEqual(medicion.disponible)
+      if (viewport.height === 768) {
+        expect(medicion.demanda).toBeLessThanOrEqual(Math.round(DEMANDA_VERTICAL_BASELINE * 0.75))
+      }
+
+      // Los campos condicionales de mayoría especial también entran completos.
+      await page.locator('[data-testid="radio-mayoria-especial"]').check()
+      await expect(page.locator('[data-testid="campos-mayoria-especial"]')).toBeVisible()
+      await verificarControlContenido(page, 'input-factor-mayoria')
+      await verificarControlContenido(page, 'select-base-mayoria')
+      await verificarControlContenido(page, 'btn-abrir-votacion')
+      await verificarQ1SinScroll(page)
+
+      const medicionEspecial = await medirDemandaVerticalQ1(page)
+      expect(medicionEspecial.demanda).toBeLessThanOrEqual(medicionEspecial.disponible)
+
+      // La captura queda adjunta al reporte reproducible de Playwright como evidencia
+      // visual de la compactación en la resolución exacta que se está midiendo.
+      await testInfo.attach(`wp048-${viewport.width}x${viewport.height}.png`, {
+        body: await page.screenshot({ fullPage: true }),
+        contentType: 'image/png',
+      })
+
+      await verificarGeometriaShellCompleto(page, viewport)
+    })
+
+    test(`la palabra pendiente no ocupa el cuerpo pero conserva su advertencia a ${viewport.width}×${viewport.height}`, async ({
+      page,
+    }) => {
+      await configurarRutasMock(
+        page,
+        crearEstadoSesionCompacta({
+          votacion: crearVotacionCompacta(),
+          palabra: palabraPendiente,
+          capacidades: {
+            ...crearCapacidadesSesionCompacta(),
+            abrir_votacion: { habilitada: false, motivos: ['VOTACION_PENDIENTE'] },
+            finalizar_votacion: { habilitada: true, motivos: [] },
+          },
+        }),
+      )
+      await page.setViewportSize(viewport)
+      await page.goto('/moderacion/')
+      await expect(page.locator('[data-testid="btn-finalizar-votacion"]')).toBeVisible()
+
+      // Con una votación en curso y palabra pendiente, Q1 no informa orador ni cola.
+      await expect(page.locator('[data-testid="palabra-durante-votacion"]')).toHaveCount(0)
+      await expect(page.locator('[data-testid="panel-sesion-votacion"]')).not.toContainText(
+        'Ada Lovelace',
+      )
+      await expect(page.locator('[data-testid="panel-sesion-votacion"]')).not.toContainText(
+        'en cola',
+      )
+      // La información de palabra sigue disponible en su cuadrante propio.
+      await expect(page.locator('[data-testid="badge-cola-palabra"]')).toContainText('1 en cola')
+
+      await verificarQ1SinScroll(page)
+      await verificarGeometriaShellCompleto(page, viewport)
+    })
+
+    test(`abrir votación con palabra pendiente sigue advirtiendo a ${viewport.width}×${viewport.height}`, async ({
+      page,
+    }) => {
+      await configurarRutasMock(page, crearEstadoSesionCompacta({ palabra: palabraPendiente }))
+      await page.setViewportSize(viewport)
+      await page.goto('/moderacion/')
+
+      await page.locator('[data-testid="input-numero-votacion"]').fill('12')
+      await page.locator('[data-testid="input-tema-votacion"]').fill('Presupuesto anual')
+      await page.locator('[data-testid="btn-abrir-votacion"]').click()
+
+      const dialogo = page.locator('[data-testid="dialogo-confirmacion-apertura"]')
+      await expect(dialogo).toBeVisible()
+      await expect(dialogo).toHaveAttribute('role', 'dialog')
+      await expect(dialogo).toContainText('Ada Lovelace')
+
+      // Cancelar continúa siendo la opción segura: no abre nada.
+      await page.locator('[data-testid="btn-cancelar-apertura"]').click()
+      await expect(dialogo).toHaveCount(0)
+      await expect(page.locator('[data-testid="vista-votacion-proyectada"]')).toHaveCount(0)
+
+      await verificarQ1SinScroll(page)
+    })
+
+    test(`Q2 no deja fila informativa tras una carga exitosa a ${viewport.width}×${viewport.height}`, async ({
+      page,
+    }) => {
+      await configurarOrdenDelDiaMock(page, crearEstadoSesionCompacta())
+      await page.setViewportSize(viewport)
+      await page.goto('/moderacion/')
+
+      const panel = page.locator('[data-testid="panel-orden-del-dia"]')
+      const entrada = panel.locator('[data-testid="input-archivo-orden-dia"]')
+      await expect(entrada).toBeVisible()
+      await entrada.setInputFiles({
+        name: 'orden-sesion-42.csv',
+        mimeType: 'text/csv',
+        buffer: Buffer.from(
+          'nro_votacion,tipo,tema,tipo_mayoria,factor,base\n1,Proyecto,Tema,SIMPLE,0,VOTOS_COMPUTABLES',
+        ),
+      })
+      await panel.locator('[data-testid="btn-cargar-orden-dia"]').click()
+
+      // La colección proyectada es la única confirmación: no hay acuse de texto.
+      await expect(panel.locator('[data-testid="punto-orden-dia"]')).toHaveCount(2)
+      await expect(panel.locator('[data-testid="aviso-orden-dia"]')).toHaveCount(0)
+      await expect(panel).not.toContainText('Archivo enviado')
+      await expect(panel).not.toContainText('La lista cambiará')
+
+      // El toast de copiado de punto no forma parte de esta corrección y sigue vigente.
+      await panel.locator('[data-testid="punto-orden-dia"]').first().click()
+      await expect(panel.locator('[data-testid="toast-punto-copiado"]')).toContainText(
+        'copiado al borrador',
+      )
+
+      await verificarGeometriaShellCompleto(page, viewport)
+    })
+  }
 })
