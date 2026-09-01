@@ -155,11 +155,25 @@ watch(claveImagen, () => {
     0 10px 22px rgba(2, 8, 23, 0.28);
 }
 
+/*
+  Contenedor de la foto.
+
+  Es `position: relative` a propósito. Antes era una grilla con
+  `place-items: center` y el bitmap pedía `height: 100%`: ese porcentaje se
+  resolvía contra una fila implícita `auto`, cuyo alto dependía a su vez del
+  propio bitmap. La dependencia circular hacía que el navegador tratara la
+  altura como `auto`, la imagen tomaba su relación de aspecto natural a partir
+  del ancho y, cuando la tarjeta era más alta que ancha, sobresalía por arriba
+  y por abajo: `overflow: hidden` la recortaba en silencio.
+
+  Con un contenedor posicionado y la imagen en `inset: 0` ya no hay porcentaje
+  que resolver: la caja del bitmap es exactamente la caja interior de esta
+  área, y `object-fit: contain` puede hacer su trabajo sin recortar nada.
+*/
 .area-imagen {
+  position: relative;
   min-width: 0;
   min-height: 0;
-  display: grid;
-  place-items: center;
   overflow: hidden;
   border-radius: 10px;
   /* Fondo blanco fijo: el bitmap institucional se diseñó sobre blanco. */
@@ -168,6 +182,8 @@ watch(claveImagen, () => {
 
 .imagen-banca,
 .imagen-fallback {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   /* `contain` preserva la imagen completa, incluidos nombre y logos internos. */

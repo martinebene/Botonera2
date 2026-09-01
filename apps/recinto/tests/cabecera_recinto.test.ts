@@ -1,4 +1,10 @@
-/** Pruebas del reloj anclado y del contexto estable de la cabecera pública. */
+/**
+ * Pruebas del reloj anclado y del renglón único de la cabecera pública.
+ *
+ * La geometría real (altura, una sola línea, elipsis) se verifica en Playwright
+ * con bounding boxes; acá se fija la *estructura* que la hace posible, porque
+ * jsdom no calcula layout.
+ */
 
 import { mount, type VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -117,5 +123,98 @@ describe('Cabecera pública con reloj anclado', () => {
     wrapper.unmount()
     montados.pop()
     expect(vi.getTimerCount()).toBe(0)
+  })
+})
+
+describe('Cabecera pública de una sola línea (WP-050)', () => {
+  /** Devuelve las etiquetas de los hijos directos del bloque central. */
+  function hijosDelContexto(wrapper: VueWrapper): string[] {
+    return Array.from(wrapper.get('[data-testid="cabecera-contexto"]').element.children).map(
+      (hijo) => hijo.tagName.toLowerCase(),
+    )
+  }
+
+  it('condensa título, sesión, duración y autoridades como elementos en línea', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime('2030-01-01T00:00:00Z')
+    const wrapper = montarCabecera(crearSesion('2026-08-30T10:00:00', '2026-08-30T09:30:00'))
+
+    // Cuatro elementos en línea, ningún párrafo: antes de WP-050 el centro eran
+    // un `h1` y dos `p`, es decir tres renglones apilados.
+    expect(hijosDelContexto(wrapper)).toEqual(['h1', 'span', 'span', 'span'])
+    expect(hijosDelContexto(wrapper)).not.toContain('p')
+
+    // Cada dato conserva su texto limpio: el separador `·` lo dibuja CSS, de
+    // modo que ninguna prueba ni lector de pantalla lo lee como contenido.
+    expect(wrapper.get('[data-testid="cabecera-sesion"]').text()).toBe('Sesión N.º 39')
+    expect(wrapper.get('[data-testid="cabecera-tiempo-sesion"]').text()).toBe('00:30:00')
+    expect(wrapper.get('[data-testid="cabecera-autoridades"]').text()).toBe(
+      'Presidencia: Presidencia de prueba · Secretaría: Secretaría de prueba',
+    )
+    expect(wrapper.text()).toContain('Concejo Deliberante de Puerto Madryn')
+  })
+
+  it('no reserva renglón cuando faltan autoridades o duración', async () => {
+    const wrapper = montarCabecera(
+      crearEstadoRecintoPrueba({
+        generado_en: '2026-08-30T10:00:00',
+        estado_global: 'PREPARANDO',
+        preparacion: {
+          fecha_hora_inicio: '2026-08-30T09:00:00',
+          numero_sesion: 61,
+          presidencia: null,
+          secretaria_legislativa: null,
+        },
+      }),
+    )
+
+    // Sin autoridades el elemento directamente no existe: ya no queda un
+    // párrafo con un espacio duro ocupando altura.
+    expect(wrapper.find('[data-testid="cabecera-autoridades"]').exists()).toBe(false)
+    // PREPARANDO no expone duración de sesión.
+    expect(wrapper.find('[data-testid="cabecera-tiempo-sesion"]').exists()).toBe(false)
+    expect(hijosDelContexto(wrapper)).toEqual(['h1', 'span'])
+    expect(wrapper.get('[data-testid="cabecera-sesion"]').text()).toContain('61')
+
+    // Con una sola autoridad tampoco aparece una segunda fila: se suma un solo
+    // elemento en línea más.
+    await wrapper.setProps({
+      estado: crearEstadoRecintoPrueba({
+        generado_en: '2026-08-30T10:00:00',
+        estado_global: 'PREPARANDO',
+        preparacion: {
+          fecha_hora_inicio: '2026-08-30T09:00:00',
+          numero_sesion: 61,
+          presidencia: 'Sólo Presidencia',
+          secretaria_legislativa: null,
+        },
+      }),
+    })
+    expect(hijosDelContexto(wrapper)).toEqual(['h1', 'span', 'span'])
+    expect(wrapper.get('[data-testid="cabecera-autoridades"]').text()).toBe(
+      'Presidencia: Sólo Presidencia',
+    )
+  })
+
+  it('ofrece el texto completo de autoridades en `title` porque en pantalla se recorta', () => {
+    const largo = 'Presidencia con un nombre deliberadamente extenso para forzar el recorte visual'
+    const wrapper = montarCabecera(
+      crearEstadoRecintoPrueba({
+        generado_en: '2026-08-30T10:00:00',
+        estado_global: 'SESION_ABIERTA',
+        sesion: {
+          fecha_hora_inicio_preparacion: '2026-08-30T09:00:00',
+          fecha_hora_apertura: '2026-08-30T09:30:00',
+          numero_sesion: 62,
+          presidencia: largo,
+          secretaria_legislativa: null,
+        },
+      }),
+    )
+    // El DOM liviano de estas pruebas expone los atributos por `getAttribute`.
+    const autoridades = wrapper.get('[data-testid="cabecera-autoridades"]').element
+    expect(autoridades.getAttribute('title')).toBe(`Presidencia: ${largo}`)
+    // El texto largo no agrega hijos: sigue siendo un único elemento en línea.
+    expect(hijosDelContexto(wrapper)).toEqual(['h1', 'span', 'span', 'span'])
   })
 })

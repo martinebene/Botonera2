@@ -8,7 +8,6 @@ import { usePresentacionVotacion } from '../composables/usePresentacionVotacion'
 import CabeceraRecinto from './CabeceraRecinto.vue'
 import GrillaBancas from './GrillaBancas.vue'
 import IndicadorQuorumPublico from './IndicadorQuorumPublico.vue'
-import PanelEventosPublicos from './PanelEventosPublicos.vue'
 import PanelPalabraPublico from './PanelPalabraPublico.vue'
 import PanelVotacionPublica from './PanelVotacionPublica.vue'
 
@@ -106,10 +105,6 @@ const votosIndividualesVisibles = computed(() => {
           <PanelPalabraPublico :palabra="estado.palabra" />
         </aside>
       </div>
-
-      <section data-testid="franja-eventos-publicos" class="franja-eventos-publicos">
-        <PanelEventosPublicos :eventos="estado.eventos_publicos" />
-      </section>
     </main>
   </div>
 </template>
@@ -179,33 +174,50 @@ const votosIndividualesVisibles = computed(() => {
   text-transform: uppercase;
 }
 
+/*
+  Dos filas, no tres (WP-050).
+
+  La franja inferior de eventos dejó de dibujarse, así que su altura completa
+  —hasta 144 px en Full HD— pasa a la zona principal. La primera fila conserva
+  su alto reservado incluso sin votación: es lo que impide que un tema largo o
+  un cambio de estado desplacen las bancas.
+*/
 .contenido-recinto {
   min-height: 0;
   display: grid;
   grid-template-rows:
     clamp(118px, 16vh, 172px)
-    minmax(0, 1fr)
-    clamp(96px, 14vh, 144px);
+    minmax(0, 1fr);
   flex: 1;
   gap: clamp(0.45rem, 0.75vw, 0.75rem);
   padding: clamp(0.45rem, 0.75vw, 0.75rem);
   overflow: hidden;
 }
 
+/*
+  Ancho de quórum calibrado contra producción: allí la caja mide 220 px en
+  1920×1080 y 164 px en 1366×768 (≈12 % del ancho). El `clamp` reproduce esas
+  dos medidas y devuelve al renglón del tema el ancho que sobraba.
+*/
 .franja-votacion-quorum {
   min-width: 0;
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) clamp(170px, 17vw, 280px);
+  grid-template-columns: minmax(0, 1fr) clamp(150px, 12vw, 224px);
   gap: clamp(0.45rem, 0.7vw, 0.7rem);
   overflow: hidden;
 }
 
+/*
+  Palabra a la derecha con el mismo ancho relativo que producción
+  (`flex: 0 0 20vw`): 384 px en 1920×1080 y 273 px en 1366×768. El resto del
+  ancho queda para las bancas, que siguen siendo la superficie dominante.
+*/
 .zona-principal-recinto {
   min-height: 0;
   min-width: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) clamp(230px, 20vw, 360px);
+  grid-template-columns: minmax(0, 1fr) clamp(230px, 20vw, 384px);
   gap: clamp(0.5rem, 0.8vw, 0.8rem);
   overflow: hidden;
 }
@@ -270,12 +282,6 @@ const votosIndividualesVisibles = computed(() => {
   display: flex;
 }
 
-.franja-eventos-publicos {
-  min-width: 0;
-  min-height: 0;
-  overflow: hidden;
-}
-
 @keyframes pulso {
   70% {
     box-shadow: 0 0 0 1.2rem rgba(56, 189, 248, 0);
@@ -302,10 +308,6 @@ const votosIndividualesVisibles = computed(() => {
 
   .columna-palabra-publica {
     min-height: 220px;
-  }
-
-  .franja-eventos-publicos {
-    min-height: 180px;
   }
 }
 </style>

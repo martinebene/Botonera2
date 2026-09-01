@@ -2,6 +2,14 @@
 /**
  * Franja inferior de hechos públicos ya sanitizados por FastAPI.
  *
+ * IMPORTANTE (WP-050): **la Pantalla del Recinto ya no lo renderiza.** HUMAN_GATE
+ * decidió recuperar esa altura para las bancas, pero decidió también que la
+ * proyección `eventos_publicos` del backend, el DTO y el contrato OpenAPI siguen
+ * existiendo sin cambios. Por eso el componente se conserva versionado y con su
+ * prueba de sanitización: no es código a resucitar por descuido, es la vista que
+ * corresponde a un dato del contrato que hoy no se dibuja. Volver a mostrarlo es
+ * agregar una sola etiqueta en `PantallaRecinto.vue`, no reescribirlo.
+ *
  * No recibe auditoría de Moderación ni implementa selectores de nivel. Cada
  * fila usa exclusivamente el DTO público allowlist; si el backend agregara
  * campos internos a un objeto por error, Vue no los recorre ni los renderiza.
