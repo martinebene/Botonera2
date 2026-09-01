@@ -24,7 +24,13 @@
  * 7. Integrar los diálogos de autoridades y cierre sin reservar altura cuando están cerrados.
  * 8. El cuerpo de Q1 no tiene scroll en desktop: cada estado reduce tarjetas, espacios y
  *    textos secundarios para caber completo en la celda asignada por el shell.
- * 9. Compactación operativa (WP-048): las dos acciones institucionales de la sesión
+ * 9. Feedback operativo (WP-051): las confirmaciones humanas no críticas de este cuadrante
+ *    (guardar datos de preparación, actualizar autoridades) se muestran como aviso efímero
+ *    con caducidad automática en vez de quedar fijas sobre la pantalla. La mutación real ya
+ *    queda registrada por la auditoría del backend y confirmada por el snapshot; el aviso
+ *    sólo sirve para que el operador perciba que su comando fue aceptado. Los errores, en
+ *    cambio, siguen siendo persistentes y con cierre manual: son accionables.
+ * 10. Compactación operativa (WP-048): las dos acciones institucionales de la sesión
  *    (`Editar autoridades` y `Cerrar sesión`) viven en el área de acciones del encabezado
  *    del cuadrante, no en una franja propia del cuerpo. El número de sesión ya se publica
  *    una sola vez en la cabecera global del shell, así que Q1 deja de reservar altura para
@@ -40,6 +46,7 @@ import type {
   PuntoOrdenDelDiaProyectado,
 } from '@botonera2/api-client'
 import { useEstadoModeracion } from '../composables/useEstadoModeracion'
+import { useAvisoEfimero } from '../composables/useAvisoEfimero'
 import PanelContenedor from './PanelContenedor.vue'
 import DialogoConfirmacionCierre from './DialogoConfirmacionCierre.vue'
 import DialogoEdicionAutoridades from './DialogoEdicionAutoridades.vue'
@@ -76,7 +83,9 @@ const ultimoEstadoGlobal = ref<string | null>(null)
 // Estado local de operaciones en vuelo y errores
 const enviando = ref(false)
 const mensajeError = ref<string | null>(null)
-const mensajeExito = ref<string | null>(null)
+// Confirmación humana no crítica: aparece un instante y se apaga sola (WP-051).
+const avisoExito = useAvisoEfimero()
+const mensajeExito = avisoExito.mensaje
 
 // Control de apertura del diálogo de advertencia de cierre
 const mostrarDialogoCierre = ref(false)
@@ -316,9 +325,15 @@ const motivosCerrarSesion = computed(() =>
 // Ejecutores de comandos
 // =============================================================================
 
+/**
+ * Deja el cuadrante sin feedback previo antes de emitir un comando nuevo.
+ *
+ * Limpiar el aviso efímero también cancela su temporizador pendiente: así una confirmación
+ * vieja no puede apagarse encima de una nueva ni sobrevivir a un error recién ocurrido.
+ */
 function limpiarMensajes(): void {
   mensajeError.value = null
-  mensajeExito.value = null
+  avisoExito.limpiar()
 }
 
 /**
@@ -370,7 +385,10 @@ async function ejecutarActualizarPreparacion(): Promise<void> {
     }
 
     await cliente.value.actualizarPreparacion(datosActualizacion)
-    mensajeExito.value = 'Datos de preparación enviados correctamente.'
+    // WP-051: confirmación breve. Guardar los mismos valores no produce ningún cambio
+    // visible en el formulario, así que un acuse momentáneo es información útil; dejarlo
+    // fijo, en cambio, tapaba la pantalla de trabajo durante toda la preparación.
+    avisoExito.mostrar('Datos de preparación guardados.')
   } catch (error: unknown) {
     mensajeError.value = extraerMensajeError(error, 'Error al actualizar los datos de preparación')
   } finally {
@@ -425,7 +443,9 @@ async function ejecutarActualizarSesion(): Promise<void> {
       presidencia: presidenciaInput.value.trim(),
       secretaria_legislativa: secretariaInput.value.trim(),
     })
-    mensajeExito.value = 'Autoridades actualizadas correctamente.'
+    // WP-051: el modal se cierra enseguida, así que la confirmación vive como aviso
+    // efímero del cuadrante y no como cartel permanente.
+    avisoExito.mostrar('Autoridades actualizadas.')
     // El modal puede cerrarse tras la aceptación HTTP sin falsear el estado visible:
     // la cabecera continúa mostrando exclusivamente el snapshot confirmado.
     mostrarDialogoAutoridades.value = false
@@ -580,7 +600,11 @@ const claseBadge = computed(() => {
     <div class="relative h-full min-h-0 text-xs text-slate-300">
       <!--
         El feedback flota dentro del viewport y no reserva una fila vacía en Q1.
-        Sigue siendo accesible mediante role y puede cerrarse manualmente.
+        Sigue siendo accesible mediante role.
+
+        WP-051 separa las dos categorías: el error es accionable y permanece hasta que el
+        operador lo resuelve o lo cierra; la confirmación es un aviso efímero que se apaga
+        solo y por eso ya no ofrece botón de cierre.
       -->
       <div
         v-if="mensajeError"
@@ -604,20 +628,10 @@ const claseBadge = computed(() => {
       <div
         v-if="mensajeExito"
         data-testid="alerta-exito-comando"
-        class="fixed top-16 right-4 z-40 flex max-w-md items-center justify-between gap-2 rounded-lg border border-emerald-700/80 bg-emerald-950/95 p-2 text-xs text-emerald-200 shadow-xl"
+        class="pointer-events-none fixed top-16 right-4 z-40 flex max-w-md items-center gap-2 rounded-lg border border-emerald-700/80 bg-emerald-950/95 p-2 text-xs text-emerald-200 shadow-xl"
         role="status"
       >
-        <div class="flex items-center gap-2">
-          <span class="font-bold text-emerald-400">Éxito:</span>
-          <span>{{ mensajeExito }}</span>
-        </div>
-        <button
-          type="button"
-          class="rounded p-1 text-emerald-400 hover:bg-emerald-900/50"
-          @click="limpiarMensajes"
-        >
-          ✕
-        </button>
+        <span>{{ mensajeExito }}</span>
       </div>
 
       <div

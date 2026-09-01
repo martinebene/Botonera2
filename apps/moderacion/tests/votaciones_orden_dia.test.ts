@@ -527,7 +527,13 @@ describe('WP-023: Orden del Día y ciclo visual de votaciones', () => {
     await flushPromises()
     expect(finalizar).toHaveBeenCalledWith('votacion-1', 'Moción previa')
 
+    // WP-051: una finalización aceptada vacía el motivo, así que el siguiente intento
+    // vuelve a exigirlo. Antes el texto quedaba pegado y podía reutilizarse sin querer.
+    const campoMotivo = wrapper.get('[data-testid="input-motivo-finalizacion"]')
+    expect((campoMotivo.element as HTMLInputElement).value).toBe('')
+
     finalizar.mockRejectedValueOnce({ mensaje: 'Finalización rechazada' })
+    await campoMotivo.setValue('Moción previa')
     await wrapper.get('[data-testid="btn-finalizar-votacion"]').trigger('click')
     await flushPromises()
     expect(wrapper.get('[data-testid="alerta-error-votacion"]').text()).toContain(

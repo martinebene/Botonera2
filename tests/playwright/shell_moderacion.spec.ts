@@ -219,7 +219,26 @@ async function configurarCicloVotacionMock(page: Page, estadoInicial: Record<str
     // @ts-expect-error EventSource controlado para este recorrido de navegador.
     window.EventSource = MockEventSourceVotacion
 
-    const ventanaPrueba = window as Window & { cerrarComoEmpatada?: () => void }
+    const ventanaPrueba = window as Window & {
+      cerrarComoEmpatada?: () => void
+      perderQuorum?: () => void
+    }
+    /**
+     * WP-051: simula la pérdida de quórum durante la sesión abierta. El backend deja de
+     * habilitar `abrir_votacion` con el motivo estable `QUORUM_INSUFICIENTE`; la sesión
+     * sigue abierta, así que el frontend debe leer ese motivo en clave de votación.
+     */
+    ventanaPrueba.perderQuorum = () => {
+      publicar({
+        ...estadoActual,
+        revision: estadoActual.revision + 1,
+        quorum: { cantidad_presentes: 3, requerido: 7, alcanzado: false },
+        capacidades: {
+          ...estadoActual.capacidades,
+          abrir_votacion: { habilitada: false, motivos: ['QUORUM_INSUFICIENTE'] },
+        },
+      })
+    }
     ventanaPrueba.cerrarComoEmpatada = () => {
       if (!estadoActual.votacion) return
       publicar({
@@ -311,6 +330,14 @@ async function configurarCicloVotacionMock(page: Page, estadoInicial: Record<str
           status: 201,
           headers: { 'Content-Type': 'application/json' },
         })
+      }
+
+      if (url.endsWith('/finalizacion') && metodo === 'POST' && estadoActual.votacion) {
+        // El backend cierra la votación y publica el snapshot; el frontend nunca adopta
+        // un resultado propio. Este escenario cierra empatado para poder recorrer también
+        // el desempate presidencial dentro del mismo ciclo operativo.
+        ventanaPrueba.cerrarComoEmpatada?.()
+        return new Response(null, { status: 204 })
       }
 
       if (url.endsWith('/desempate') && metodo === 'POST' && estadoActual.votacion) {
@@ -3194,4 +3221,113 @@ test.describe('WP-048 - Q1 compacto y Q2 sin acuse persistente', () => {
       await verificarGeometriaShellCompleto(page, viewport)
     })
   }
+})
+
+test.describe('WP-051 - Feedback operativo y ciclo de votación legible', () => {
+  /**
+   * Recorrido operativo principal con la política de feedback aprobada por WP-051.
+   *
+   * Se ejercita el ciclo completo sobre el shell real: abrir la votación, finalizarla
+   * manualmente, resolver el empate y volver al formulario. En cada paso se verifica que la
+   * pantalla no acumule acuses puramente técnicos, que la instrucción de desempate sea
+   * inequívoca y que la pérdida de quórum se explique en clave de votación.
+   */
+  test('el ciclo completo no deja acuses técnicos y explica empate y quórum', async ({ page }) => {
+    const capacidades = {
+      preparar_sala: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
+      actualizar_preparacion: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
+      cancelar_preparacion: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
+      abrir_sesion: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
+      actualizar_sesion: { habilitada: true, motivos: [] },
+      cerrar_sesion: { habilitada: true, motivos: [] },
+      cargar_orden_del_dia: { habilitada: true, motivos: [] },
+      descartar_orden_del_dia: { habilitada: true, motivos: [] },
+      abrir_votacion: { habilitada: true, motivos: [] },
+      finalizar_votacion: { habilitada: false, motivos: ['VOTACION_NO_EN_CURSO'] },
+      desempatar: { habilitada: false, motivos: ['VOTACION_NO_EMPATADA'] },
+      otorgar_palabra: { habilitada: true, motivos: [] },
+      quitar_palabra: { habilitada: true, motivos: [] },
+    }
+    const estado = crearEstadoFixture({
+      estado_global: 'SESION_ABIERTA',
+      sesion: {
+        fecha_hora_inicio_preparacion: '2026-09-01T09:30:00Z',
+        fecha_hora_apertura: '2026-09-01T09:45:00Z',
+        numero_sesion: 42,
+        presidencia: 'Dra. Presidencia',
+        secretaria_legislativa: 'Sr. Secretaría',
+      },
+      configuracion: {
+        quorum: 7,
+        filas_bancas: [3, 4, 5],
+        tipos_votacion: ['Proyecto', 'Moción'],
+        duracion_test_segundos: 3,
+        revelado_votos_moderacion_segundos: 4,
+        cuenta_regresiva_recinto_segundos: 3,
+        resultado_publico_recinto_segundos: 6,
+      },
+      quorum: { cantidad_presentes: 8, requerido: 7, alcanzado: true },
+      // Sin palabra pendiente: la salvaguarda CA-062 ya tiene su propio recorrido en WP-023.
+      palabra: { orador: null, cola: [] },
+      orden_del_dia: [],
+      eventos_recientes: [],
+      auditoria: {
+        activa: true,
+        disponible: true,
+        fallado: false,
+        cerrado: false,
+        motivo: null,
+      },
+      capacidades,
+    })
+    await configurarCicloVotacionMock(page, estado)
+    await page.setViewportSize({ width: 1366, height: 768 })
+    await page.goto('/moderacion/')
+
+    const panelQ1 = page.locator('[data-testid="panel-sesion-votacion"]')
+    await expect(page.locator('[data-testid="formulario-votacion"]')).toBeVisible()
+
+    // 1. Apertura: la votación proyectada es la confirmación; no hay acuse de tránsito.
+    await page.locator('[data-testid="input-numero-votacion"]').fill('12')
+    await page.locator('[data-testid="input-tema-votacion"]').fill('Presupuesto anual')
+    await page.locator('[data-testid="btn-abrir-votacion"]').click()
+    await expect(page.locator('[data-testid="estado-votacion"]')).toContainText('EN_CURSO')
+    await expect(page.locator('[data-testid="aviso-votacion"]')).toHaveCount(0)
+    await expect(panelQ1).not.toContainText('Apertura enviada')
+
+    // 2. Finalización manual: tampoco deja acuse propio, el resultado habla por sí solo.
+    await page.locator('[data-testid="input-motivo-finalizacion"]').fill('Moción previa')
+    await page.locator('[data-testid="btn-finalizar-votacion"]').click()
+    await expect(page.locator('[data-testid="estado-votacion"]')).toContainText('EMPATADA')
+    await expect(page.locator('[data-testid="aviso-votacion"]')).toHaveCount(0)
+    await expect(panelQ1).not.toContainText('Finalización enviada')
+
+    // 3. Empate: la instrucción a Presidencia precede visualmente a los dos botones.
+    const controles = page.locator('[data-testid="controles-desempate"]')
+    const instruccion = controles.locator('[data-testid="instruccion-desempate"]')
+    await expect(instruccion).toHaveText(
+      'Votación empatada. La Presidencia debe emitir el voto de desempate:',
+    )
+    const cajaInstruccion = await instruccion.boundingBox()
+    const cajaBoton = await page.locator('[data-testid="btn-desempate-positivo"]').boundingBox()
+    expect(cajaInstruccion).not.toBeNull()
+    expect(cajaBoton).not.toBeNull()
+    expect(cajaInstruccion!.y).toBeLessThan(cajaBoton!.y)
+
+    // 4. Desempate: el resultado confirmado reemplaza al bloque, sin acuse intermedio.
+    await page.locator('[data-testid="btn-desempate-positivo"]').click()
+    await expect(page.locator('[data-testid="estado-votacion"]')).toContainText('APROBADA')
+    await expect(controles).toHaveCount(0)
+    await expect(page.locator('[data-testid="aviso-votacion"]')).toHaveCount(0)
+    await expect(panelQ1).not.toContainText('Desempate enviado')
+
+    // 5. Pérdida de quórum con la sesión abierta: el impedimento es votar, no abrir sesión.
+    await expect(page.locator('[data-testid="formulario-votacion"]')).toBeVisible()
+    await page.evaluate(() => {
+      ;(window as Window & { perderQuorum?: () => void }).perderQuorum?.()
+    })
+    await expect(page.locator('[data-testid="btn-abrir-votacion"]')).toBeDisabled()
+    await expect(panelQ1).toContainText('Quórum insuficiente para abrir una votación.')
+    await expect(panelQ1).not.toContainText('para abrir la sesión')
+  })
 })
