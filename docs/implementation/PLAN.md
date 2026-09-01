@@ -191,13 +191,15 @@ WP-033 quedó integrado antes de continuar WP-026 y deja disponible el harness m
 | WP-044 | Corregir UX de Moderación tras segunda prueba humana | INTEGRADO | WP-037, WP-039, WP-040, WP-041 | - |
 | WP-045 | Unificar estados visuales de bancas y exponer participación de voto sin sentido | INTEGRADO | WP-026, WP-038, WP-039, WP-043, WP-044 | - |
 | WP-046 | Restaurar geometría probada de Pantalla del Recinto y corregir reloj de sesión | INTEGRADO | WP-004, WP-039, WP-045 | - |
-| WP-047 | Reducir densidad general y corregir cabecera/reloj de Moderación | EN_CURSO | WP-036, WP-044, WP-046 | codex |
+| WP-047 | Reducir densidad general y corregir cabecera/reloj de Moderación | INTEGRADO | WP-036, WP-044, WP-046 | - |
 | WP-048 | Compactar Q1 y eliminar feedback persistente innecesario de Q2 | PENDIENTE | WP-047, WP-037, WP-040, WP-044 | - |
 | WP-049 | Unificar definitivamente bancas Q3/Recinto, geometría y ciclo visual | PENDIENTE | WP-047, WP-045, WP-046 | - |
 | WP-050 | Restaurar proporciones finales de la Pantalla del Recinto | PENDIENTE | WP-049, WP-046 | - |
 | WP-029 | Validar bridge/hardware real, regresión funcional y candidato de producción | PENDIENTE | WP-019, WP-020, WP-027, WP-028, WP-034, WP-035, WP-036, WP-037, WP-038, WP-039, WP-040, WP-041, WP-043, WP-044, WP-045, WP-046, WP-047, WP-048, WP-049, WP-050 | - |
 
 HUMAN_GATE seleccionó Codex como implementador y Antigravity/AGY como revisor independiente de WP-047. WP-047 queda `EN_CURSO`; WP-048 y WP-049 permanecen bloqueados por esta dependencia y todavía no tienen agente asignado.
+
+WP-047 quedó integrado mediante PR #54 sobre el candidato `ed1424af2910b4cb9cf3e7d122356cea59e433fe`, implementado por Codex/GPT-5 y revisado independientemente por Antigravity/AGY + Gemini 3.7 Flash (High) con 0 BLOQUEANTES, 0 IMPORTANTES y 0 MENORES, veredicto `LISTA PARA INTEGRAR`. El squash `05bad0d8e6a96a539f54e506d146eed873ee5645` integra exactamente los mismos blobs revisados en los 12 archivos del WP; CI candidata #360 y CI post-merge #361 terminaron `success` 8/8. WP-047 reduce chrome y gaps de Moderación, traslada el número de sesión a la cabecera y corrige el reloj con ancla backend-backend sin polling. Con WP-047 integrado, WP-048 y WP-049 quedan habilitados documentalmente para ejecución paralela en worktrees separados.
 
 La tercera campaña humana end-to-end del 31/08/2026 produjo WP-047..WP-050. HUMAN_GATE aprobó documentalmente los cuatro alcances: primero WP-047 fija densidad/cabecera de Moderación; después WP-048 (Q1/Q2) y WP-049 (Q3/Recinto) pueden ejecutarse en paralelo con worktrees separados porque no deben volver a tocar el shell global; WP-050 depende de la geometría canónica de bancas de WP-049 y realiza el ajuste final de la Pantalla del Recinto. WP-029 permanece bloqueado hasta integrar los cuatro correctivos y continúa reservado para hardware real, regresión física y candidato de producción.
 
