@@ -20,6 +20,8 @@ No reemplaza las reglas de negocio, decisiones técnicas ni documentos propietar
 - Cada WP `EN_CURSO` debe tener un único agente implementador asignado y un `git worktree` propio.
 - No se permite que dos agentes actúen simultáneamente sobre el mismo WP, rama o working tree. Las sesiones del implementador y del revisor pueden permanecer abiertas en el mismo worktree si el relevo es estrictamente secuencial y el agente que no tiene el turno permanece inactivo.
 - Pueden ejecutarse WPs en paralelo solo cuando sean independientes y este PLAN lo permita.
+- El mismo harness/modelo puede implementar varios WPs paralelos en worktrees distintos, o revisar varios WPs paralelos en worktrees distintos; no es requisito usar un agente diferente por WP.
+- Dentro de un mismo lote paralelo activo se evita asignar el mismo harness/modelo simultáneamente a roles mezclados IMPLEMENTER y REVIEWER. La independencia de revisión se exige por WP/candidato: el revisor de un WP debe ser independiente de quien implementó ese WP.
 - Un WP no debe comenzar si depende de otro WP aún no integrado, salvo autorización explícita documentada.
 - Los agentes no deben ampliar silenciosamente el alcance de un WP.
 - Las decisiones nuevas reservadas por DT-038 deben escalarse antes de continuar la parte afectada.
@@ -269,7 +271,7 @@ WP-036 quedó integrado mediante PR #40 sobre el candidato `759a832201e1519062ed
 
 La primera campaña humana produjo los ajustes WP-035..WP-041. WP-035 y WP-036 pueden ejecutarse en paralelo porque afectan aplicaciones distintas y no comparten archivos sustantivos. WP-037..WP-041 permanecen pendientes y se detallarán individualmente con HUMAN_GATE antes de aprobar sus especificaciones. WP-029 queda bloqueado hasta integrar toda esta tanda visual/UX y continúa reservado para hardware real, regresión física y candidato de producción.
 
-WP-041 quedó definido y aprobado por HUMAN_GATE con eventos más nuevos arriba, selector L3/L2/L1 fijo en la cabecera del panel y mantenimiento del filtro acumulativo vigente. Antes de activarlo, HUMAN_GATE reemplazó la selección operativa inicial y acordó Claude Code como implementador y OpenCode como revisor independiente. Al usar un harness distinto de Codex, WP-041 puede ejecutarse en paralelo con la implementación activa de WP-037 sin ambigüedad de elegibilidad bajo protocolo 1.1.
+WP-041 quedó definido y aprobado por HUMAN_GATE con eventos más nuevos arriba, selector L3/L2/L1 fijo en la cabecera del panel y mantenimiento del filtro acumulativo vigente. Antes de activarlo, HUMAN_GATE reemplazó la selección operativa inicial y acordó Claude Code como implementador y OpenCode como revisor independiente. En ese momento se utilizó la separación de harnesses como mecanismo de desambiguación bajo protocolo 1.1; desde protocolo 1.2 esa restricción procedimental queda superada y la sesión se identifica primero por el WP de su worktree.
 
 WP-040 quedó definido y aprobado documentalmente por HUMAN_GATE con decisiones 1A/2A/3A/4A: carga CSV compacta cuando no hay colección; con colección cargada se oculta el selector de archivo y queda únicamente `Quitar Orden del Día`; al quitar y confirmar snapshot vacío vuelve la vista de carga; y las tarjetas conservan solo información del punto, sin texto instructivo de copiado. HUMAN_GATE aprobó Codex como implementador y Antigravity/AGY como revisor independiente; WP-040 queda `EN_CURSO`.
 
