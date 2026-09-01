@@ -33,6 +33,7 @@ from botonera2_backend.dominio.votacion import (
     Votacion,
     VotoOrdinario,
 )
+from botonera2_backend.hechos_operativos import ReferenciaHechoOperativo
 from botonera2_backend.servicios.entrada import ServicioEntradaTecla
 from botonera2_backend.servicios.preparacion import ServicioPreparacion
 from botonera2_backend.servicios.serializacion import EjecutorMutaciones
@@ -512,10 +513,12 @@ async def test_auditoria_cierre_precede_resultado_y_resultado_precede_mutacion(
         etiqueta: str,
         codigo_evento: str,
         mensaje: str,
+        *,
+        referencia: ReferenciaHechoOperativo | None = None,
     ) -> int:
         if codigo_evento == "VOTACION_RESULTADO_FINAL":
             resultados_al_persistir.append(votacion.resultado)
-        return registrar_original(nivel, etiqueta, codigo_evento, mensaje)
+        return registrar_original(nivel, etiqueta, codigo_evento, mensaje, referencia=referencia)
 
     monkeypatch.setattr(escritor, "registrar_evento", registrar_evento)
     await emitir_votos(entorno, votos)
@@ -570,11 +573,13 @@ async def test_fallo_auditoria_resultado_conserva_ultimo_hecho_persistido(
         etiqueta: str,
         codigo_evento: str,
         mensaje: str,
+        *,
+        referencia: ReferenciaHechoOperativo | None = None,
     ) -> int:
         if codigo_evento == "VOTACION_RESULTADO_FINAL":
             monkeypatch.setattr(escritor, "_fallado", True)
             raise ErrorAuditoria("fallo simulado en resultado")
-        return registrar_original(nivel, etiqueta, codigo_evento, mensaje)
+        return registrar_original(nivel, etiqueta, codigo_evento, mensaje, referencia=referencia)
 
     monkeypatch.setattr(escritor, "registrar_evento", registrar_evento)
     with pytest.raises(ErrorAuditoria, match="resultado"):

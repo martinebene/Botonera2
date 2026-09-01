@@ -4,6 +4,12 @@ Este módulo se ocupa solamente de archivos: no conoce estados de sala, votacion
 ni códigos concretos de eventos. Los Work Packages funcionales posteriores
 decidirán cuándo registrar cada hecho y ejecutarán este escritor dentro del
 serializador global del backend.
+
+WP-052 agrega la posibilidad de adjuntar a cada evento una
+:class:`~botonera2_backend.hechos_operativos.ReferenciaHechoOperativo`. El
+escritor la transporta pero no la interpreta ni la persiste: las seis columnas
+canónicas del CSV siguen siendo exactamente las mismas y la referencia vive
+solo en el buffer de eventos recientes que consume la proyección de Moderación.
 """
 
 from __future__ import annotations
@@ -19,6 +25,8 @@ from enum import StrEnum
 from pathlib import Path
 from types import MappingProxyType
 from typing import TextIO
+
+from botonera2_backend.hechos_operativos import ReferenciaHechoOperativo
 
 ENCABEZADO_CSV = ("seq", "timestamp", "level", "tag", "event_code", "message")
 FORMATO_CARPETA = "%Y-%m-%d"
@@ -55,6 +63,12 @@ class EventoAuditoriaReciente:
     escritor la crea exclusivamente después de completar escritura, ``flush``
     y ``fsync`` en todos los destinos, de modo que la proyección de Moderación
     nunca anuncie como confirmado un hecho cuya persistencia terminó fallando.
+
+    ``referencia`` es el único campo que no tiene columna en el CSV: WP-052 lo
+    agrega para que la proyección de Moderación pueda describir el hecho con
+    datos estables y aplicar la frontera de secreto sin volver a interpretar
+    ``mensaje``. Es siempre opcional; los eventos que no lo declaran se siguen
+    proyectando con su texto humano tal como estaba.
     """
 
     secuencia: int
@@ -63,6 +77,7 @@ class EventoAuditoriaReciente:
     etiqueta: str
     codigo_evento: str
     mensaje: str
+    referencia: ReferenciaHechoOperativo | None = None
 
 
 class _ColisionNominal(Exception):
@@ -168,6 +183,8 @@ class EscritorAuditoriaCsv:
         etiqueta: str,
         codigo_evento: str,
         mensaje: str,
+        *,
+        referencia: ReferenciaHechoOperativo | None = None,
     ) -> int:
         """Persiste un evento en todos los niveles que le corresponden.
 
@@ -175,6 +192,11 @@ class EscritorAuditoriaCsv:
         el formato canónico. El ``seq`` se confirma internamente solo después de
         sincronizar todos los destinos. Se devuelve ese número para facilitar la
         trazabilidad del llamador.
+
+        ``referencia`` es un dato estructurado opcional que viaja únicamente en
+        el buffer en memoria. La fila persistida sigue siendo exactamente la
+        misma tupla de seis columnas, de modo que agregarlo no altera ni un byte
+        del formato canónico ni de la auditoría histórica.
 
         Raises:
             ErrorEscritorNoDisponible: si el conjunto fue cerrado o ya falló.
@@ -221,6 +243,7 @@ class EscritorAuditoriaCsv:
                 etiqueta=etiqueta,
                 codigo_evento=codigo_evento,
                 mensaje=mensaje,
+                referencia=referencia,
             )
         )
         return siguiente_secuencia

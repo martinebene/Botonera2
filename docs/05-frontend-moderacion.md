@@ -209,6 +209,20 @@ Debe mostrar una proyección legible de eventos recientes, independiente de los 
 contexto activo, en orden ascendente de `seq`. Una nueva preparación comienza
 otro buffer y `SIN_PREPARAR` no reconstruye archivos históricos.
 
+Los hechos sensibles se presentan con la proyección estructurada del backend,
+no con el mensaje crudo de auditoría:
+
+- un voto ordinario identifica concejal y banca y muestra `Voto emitido`
+  mientras el sentido individual sigue siendo secreto, sin ningún emoji;
+- cuando la frontera autoritativa de esa votación habilita el revelado, el
+  mismo registro se enriquece con el sentido y su icono: ✅ POSITIVO,
+  ❌ NEGATIVO y 🟡 ABSTENCIÓN;
+- el pedido de palabra muestra ✋ y el retiro ✊.
+
+El icono se ubica a la derecha del registro y ocupa aproximadamente la altura
+de sus dos filas de texto. Moderación no decide iconos ni sentidos: los recibe
+resueltos del backend, que es donde vive la frontera de secreto.
+
 El crecimiento del listado usa scroll interno y **no aumenta la altura de las demás áreas**.
 
 ## 15. Remapeo rápido

@@ -81,6 +81,18 @@ export type RespuestaOrdenDelDia = components['schemas']['CargaOrdenDelDiaRespue
 /** Evento reciente auditado confirmado */
 export type EventoRecienteProyectado = components['schemas']['EventoRecienteProyectado']
 
+/**
+ * Lectura estructurada y ya filtrada por la frontera de secreto de un evento.
+ *
+ * Es el contrato que debe consumir la UI para presentar votos y palabra: el
+ * campo `mensaje` sigue existiendo para los hechos sin estructura, pero nunca
+ * debe interpretarse para deducir identidad, tipo ni sentido.
+ */
+export type HechoOperativoProyectado = components['schemas']['HechoOperativoProyectado']
+
+/** Identidad mínima del concejal referido por un hecho operativo */
+export type ConcejalHechoProyectado = components['schemas']['ConcejalHechoProyectado']
+
 /** Evento principal sanitizado para la franja pública del Recinto */
 export type EventoPublicoProyectado = components['schemas']['EventoPublicoProyectado']
 

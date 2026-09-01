@@ -27,6 +27,7 @@ from botonera2_backend.dominio.votacion import (
     EstadoVotacion,
     TipoMayoria,
 )
+from botonera2_backend.hechos_operativos import ReferenciaHechoOperativo
 from botonera2_backend.servicios.entrada import ServicioEntradaTecla
 from botonera2_backend.servicios.palabra import ServicioPalabra
 from botonera2_backend.servicios.preparacion import ServicioPreparacion
@@ -193,11 +194,13 @@ def instalar_fallo_en_codigo(
         etiqueta: str,
         codigo_evento: str,
         mensaje: str,
+        *,
+        referencia: ReferenciaHechoOperativo | None = None,
     ) -> int:
         if codigo_evento == codigo_objetivo:
             monkeypatch.setattr(escritor, "_fallado", True)
             raise ErrorAuditoria(f"fallo controlado en {codigo_objetivo}")
-        return registrar_original(nivel, etiqueta, codigo_evento, mensaje)
+        return registrar_original(nivel, etiqueta, codigo_evento, mensaje, referencia=referencia)
 
     monkeypatch.setattr(escritor, "registrar_evento", registrar)
 

@@ -33,6 +33,7 @@ from botonera2_backend.dominio.errores import (
 from botonera2_backend.dominio.estado import EstadoGlobal, EstadoOperativo
 from botonera2_backend.dominio.sesion import ActualizacionDatosInstitucionales
 from botonera2_backend.dominio.votacion import BaseMayoria, TipoMayoria, Votacion
+from botonera2_backend.hechos_operativos import ReferenciaHechoOperativo
 from botonera2_backend.servicios.entrada import ServicioEntradaTecla
 from botonera2_backend.servicios.preparacion import ServicioPreparacion
 from botonera2_backend.servicios.serializacion import EjecutorMutaciones
@@ -472,10 +473,14 @@ class EscritorOrdenCierre(EscritorAuditoriaCsv):
         etiqueta: str,
         codigo_evento: str,
         mensaje: str,
+        *,
+        referencia: ReferenciaHechoOperativo | None = None,
     ) -> int:
         if codigo_evento == "SESION_CERRADA":
             self.acciones.append("evento")
-        return super().registrar_evento(nivel, etiqueta, codigo_evento, mensaje)
+        return super().registrar_evento(
+            nivel, etiqueta, codigo_evento, mensaje, referencia=referencia
+        )
 
     def cerrar(self) -> None:
         self.acciones.append("cerrar")

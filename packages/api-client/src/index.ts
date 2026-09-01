@@ -51,6 +51,8 @@ export type {
   PuntoOrdenDelDiaRespuesta,
   RespuestaOrdenDelDia,
   EventoRecienteProyectado,
+  HechoOperativoProyectado,
+  ConcejalHechoProyectado,
   EventoPublicoProyectado,
   EstadoAuditoriaProyectado,
   EstadoRemapeoModeracion,
