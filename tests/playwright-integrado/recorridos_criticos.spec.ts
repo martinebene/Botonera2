@@ -24,6 +24,21 @@ interface EstadoBasico {
     votos_individuales: unknown
     conteos: unknown
   } | null
+  /**
+   * Proyección pública de hechos (WP-046).
+   *
+   * WP-050 dejó de dibujarla en la Pantalla del Recinto, así que este recorrido
+   * dejó de comprobarla mirando el DOM y pasó a comprobarla donde realmente
+   * vive: el DTO que entrega el backend. Es, además, la evidencia de que el
+   * contrato de `eventos_publicos` no cambió.
+   */
+  eventos_publicos?: { codigo_evento: string; categoria: string; texto: string }[]
+}
+
+/** Textos de la proyección pública, en el orden en que los emitió el backend. */
+async function textosEventosPublicos(recinto: Page): Promise<string[]> {
+  const estado = await obtenerEstado(recinto, 'recinto')
+  return (estado.eventos_publicos ?? []).map((evento) => evento.texto)
 }
 
 async function obtenerEstado(page: Page, destino: 'moderacion' | 'recinto'): Promise<EstadoBasico> {
@@ -137,7 +152,9 @@ test.describe.serial('WP-027 · recorridos críticos sobre el stack real', () =>
         await moderacion.getByTestId('btn-abrir-sesion').click()
         await expect(moderacion.getByTestId('vista-sesion-abierta')).toBeVisible()
         await expect(recinto.getByTestId('cabecera-sesion')).toContainText('27')
-        await expect(recinto.getByTestId('panel-eventos-publicos')).toContainText('Sesión abierta')
+        // WP-050: la franja dejó de dibujarse; la proyección sigue existiendo.
+        await expect(recinto.getByTestId('panel-eventos-publicos')).toHaveCount(0)
+        expect(await textosEventosPublicos(recinto)).toContain('Sesión abierta')
         expect((await obtenerEstado(moderacion, 'moderacion')).estado_global).toBe('SESION_ABIERTA')
       })
 
@@ -175,9 +192,7 @@ test.describe.serial('WP-027 · recorridos críticos sobre el stack real', () =>
         await moderacion.getByTestId('btn-confirmar-apertura').click()
         await expect(moderacion.getByTestId('estado-votacion')).toHaveText('EN_CURSO')
         await expect(recinto.getByTestId('estado-votacion')).toHaveText('En curso')
-        await expect(recinto.getByTestId('panel-eventos-publicos')).toContainText(
-          'Votación abierta',
-        )
+        expect(await textosEventosPublicos(recinto)).toContain('Votación abierta')
         await expect(recinto.getByTestId('countdown-votacion')).toBeVisible()
         await expect(recinto.locator('[data-banca="1"]')).toHaveAttribute(
           'data-estado-banca',
@@ -218,9 +233,12 @@ test.describe.serial('WP-027 · recorridos críticos sobre el stack real', () =>
         expect(publicoEnCurso.votacion?.bancas_voto_emitido).toEqual([1, 2, 3])
         expect(JSON.stringify(publicoEnCurso)).not.toContain('POSITIVO')
         expect(JSON.stringify(publicoEnCurso)).not.toContain('10000008')
-        await expect(recinto.getByTestId('panel-eventos-publicos')).not.toContainText(
-          'VOTO_ORDINARIO_REGISTRADO',
-        )
+        // El secreto sigue garantizado en la proyección, no por ocultamiento
+        // visual: ningún voto individual aparece entre los hechos públicos.
+        const codigosEnCurso = (
+          (await obtenerEstado(recinto, 'recinto')).eventos_publicos ?? []
+        ).map((evento) => evento.codigo_evento)
+        expect(codigosEnCurso).not.toContain('VOTO_ORDINARIO_REGISTRADO')
 
         // WP-037 reserva Q1 para conducción: aun cuando la proyección privada tenga el
         // detalle nominal, la interfaz compacta sólo muestra el progreso agregado.

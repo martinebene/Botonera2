@@ -1,4 +1,15 @@
-/** Regresiones DOM de la franja pública fija y su frontera de datos. */
+/**
+ * Regresiones DOM de la proyección pública de eventos y de su retiro visual.
+ *
+ * WP-050 sacó la franja de eventos de la Pantalla del Recinto, pero **solo de
+ * la vista**: el backend, el DTO y `EstadoRecinto.eventos_publicos` siguen
+ * intactos. Por eso este archivo cubre dos cosas distintas:
+ *
+ * 1. que `PanelEventosPublicos` continúe sanitizando el DTO (el componente se
+ *    conserva versionado porque el dato del contrato sigue existiendo);
+ * 2. que la pantalla ya no lo renderice ni le reserve altura, aun cuando el
+ *    snapshot traiga eventos.
+ */
 
 import { mount } from '@vue/test-utils'
 import { describe, expect, it, vi } from 'vitest'
@@ -35,7 +46,7 @@ describe('Eventos públicos del Recinto', () => {
     expect(wrapper.findAll('[data-testid="lista-eventos-publicos"] li')).toHaveLength(1)
   })
 
-  it('mantiene las cuatro regiones en orden y reemplaza una lista larga sin historia local', async () => {
+  it('deja de dibujar la franja de eventos y no le reserva una tercera fila', async () => {
     vi.useFakeTimers()
     vi.setSystemTime('2030-01-01T00:00:00Z')
     const estadoPreparando = crearEstadoRecintoPrueba({
@@ -50,6 +61,8 @@ describe('Eventos públicos del Recinto', () => {
       filas_bancas: [2],
       concejales: crearConcejalesPublicos(2),
       quorum: { cantidad_presentes: 1, requerido: 2, alcanzado: false },
+      // El snapshot sigue trayendo la proyección completa: el contrato público
+      // no cambió, únicamente dejó de dibujarse.
       eventos_publicos: Array.from({ length: 20 }, (_, indice) => crearEvento(indice + 1)),
     })
     const wrapper = mount(PantallaRecinto, {
@@ -57,19 +70,24 @@ describe('Eventos públicos del Recinto', () => {
     })
 
     const contenido = wrapper.get('.contenido-recinto')
+    // Quedan exactamente dos regiones, en el orden canónico. Si alguien volviera
+    // a agregar una fila reservada (aunque estuviera vacía), esto falla.
     expect(
       Array.from(contenido.element.children).map((elemento) =>
         elemento.getAttribute('data-testid'),
       ),
-    ).toEqual(['franja-votacion-quorum', 'zona-principal-recinto', 'franja-eventos-publicos'])
-    expect(wrapper.findAll('[data-testid="lista-eventos-publicos"] li')).toHaveLength(20)
+    ).toEqual(['franja-votacion-quorum', 'zona-principal-recinto'])
+    expect(wrapper.find('[data-testid="franja-eventos-publicos"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="panel-eventos-publicos"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="lista-eventos-publicos"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="cabecera-tiempo-sesion"]').exists()).toBe(false)
+    // El dato sigue disponible para quien lo necesite: no se tocó el contrato.
+    expect(estadoPreparando.eventos_publicos).toHaveLength(20)
 
     await wrapper.setProps({
       estado: crearEstadoRecintoPrueba({ revision: 0, estado_global: 'SIN_PREPARAR' }),
     })
-    expect(wrapper.find('[data-testid="franja-eventos-publicos"]').exists()).toBe(false)
-    expect(wrapper.find('[data-testid="lista-eventos-publicos"]').exists()).toBe(false)
+    expect(wrapper.find('.contenido-recinto').exists()).toBe(false)
     wrapper.unmount()
     vi.useRealTimers()
   })

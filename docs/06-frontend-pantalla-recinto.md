@@ -50,8 +50,12 @@ Debe representar al menos:
 - cantidad de presentes/quórum;
 - disposición del recinto;
 - orador y pedidos de palabra;
-- estado de la votación activa;
-- eventos públicos aptos.
+- estado de la votación activa.
+
+Desde `WP-050` la pantalla **no dibuja** la franja de eventos públicos: HUMAN_GATE
+decidió recuperar esa altura para las bancas. La proyección `eventos_publicos`
+sigue formando parte del contrato público y del snapshot; sólo dejó de tener
+representación visual.
 
 ## 6. Bancas
 
@@ -133,6 +137,9 @@ Si una votación termina `INCONCLUSA` por pérdida de quórum, debe mostrar ese 
 ## 12. Eventos públicos
 
 `PublicState`/stream público excluye detalles técnicos innecesarios y cualquier evento que revele un voto antes del cierre.
+
+Esta garantía pertenece a la proyección del backend, no a la vista: sigue vigente
+aunque `WP-050` haya retirado la franja de eventos de la Pantalla del Recinto.
 
 ## 13. Responsive y hardware
 

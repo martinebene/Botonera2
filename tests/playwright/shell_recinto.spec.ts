@@ -358,37 +358,28 @@ for (const viewport of [
     expect(cajaCabecera).not.toBeNull()
     expect(cajaFranja).not.toBeNull()
     expect(cajaQuorum).not.toBeNull()
-    expect(cajaCabecera!.height).toBeLessThan(80)
+    // WP-050 bajó la cabecera de tres renglones a uno: 76 px era la baseline.
+    expect(cajaCabecera!.height).toBeLessThanOrEqual(60)
     expect(cajaFranja!.height).toBeGreaterThan(110)
     expect(cajaQuorum!.height).toBeGreaterThan(110)
 
     const cajaBancasSesion = await page.getByTestId('area-bancas-publica').boundingBox()
     const cajaPalabraSesion = await page.getByTestId('columna-palabra-publica').boundingBox()
     const cajaVotacionSesion = await page.getByTestId('votacion-publica').boundingBox()
-    const cajaEventosSesion = await page.getByTestId('panel-eventos-publicos').boundingBox()
     expect(cajaBancasSesion).not.toBeNull()
     expect(cajaPalabraSesion).not.toBeNull()
     expect(cajaVotacionSesion).not.toBeNull()
-    expect(cajaEventosSesion).not.toBeNull()
     expect(cajaVotacionSesion!.x + cajaVotacionSesion!.width).toBeLessThanOrEqual(cajaQuorum!.x)
     expect(cajaFranja!.y + cajaFranja!.height).toBeLessThanOrEqual(cajaBancasSesion!.y)
     expect(cajaBancasSesion!.x + cajaBancasSesion!.width).toBeLessThanOrEqual(cajaPalabraSesion!.x)
     expect(cajaBancasSesion!.width).toBeGreaterThan(cajaPalabraSesion!.width * 2)
-    expect(cajaBancasSesion!.y + cajaBancasSesion!.height).toBeLessThanOrEqual(cajaEventosSesion!.y)
-    expect(cajaPalabraSesion!.y + cajaPalabraSesion!.height).toBeLessThanOrEqual(
-      cajaEventosSesion!.y,
-    )
 
-    const scrollEventos = await page.getByTestId('lista-eventos-publicos').evaluate((lista) => ({
-      altoVisible: lista.clientHeight,
-      altoContenido: lista.scrollHeight,
-      desplazamiento: lista.scrollTop,
-    }))
-    expect(scrollEventos.altoContenido).toBeGreaterThan(scrollEventos.altoVisible)
-    expect(scrollEventos.desplazamiento + scrollEventos.altoVisible).toBeGreaterThanOrEqual(
-      scrollEventos.altoContenido - 1,
-    )
-    await expect(page.getByTestId('panel-eventos-publicos').locator('select')).toHaveCount(0)
+    // WP-050: el snapshot sigue trayendo `eventos_publicos` —el contrato no
+    // cambió— pero la pantalla ya no los dibuja ni les reserva una franja.
+    expect(crearEventosPublicos().length).toBeGreaterThan(0)
+    await expect(page.getByTestId('panel-eventos-publicos')).toHaveCount(0)
+    await expect(page.getByTestId('franja-eventos-publicos')).toHaveCount(0)
+    await expect(page.getByTestId('lista-eventos-publicos')).toHaveCount(0)
 
     // La votación nueva reemplaza la sesión sin votación. Aun si el mock
     // incluyera datos prohibidos, EN_CURSO no revela voto ni conteos en DOM.
@@ -429,27 +420,38 @@ for (const viewport of [
     await expect(page.getByTestId('estado-votacion')).toHaveText('En curso')
     await expect(page.locator('[data-estado-banca^="RESULTADO_"]')).toHaveCount(0)
 
-    const htmlEventosEnCurso = (
-      await page.getByTestId('panel-eventos-publicos').evaluate((panel) => panel.outerHTML)
-    ).toLowerCase()
-    for (const datoProhibido of [
-      '99999999',
-      'dispositivo',
-      'tecla',
-      'sentido',
-      'positivo',
-      'negativo',
-      'abstencion',
-    ]) {
-      expect(htmlEventosEnCurso).not.toContain(datoProhibido)
+    // Antes se auditaba el HTML de la franja de eventos. Retirada esa franja, la
+    // comprobación se amplía a TODA la aplicación: si algún dato reservado del
+    // mock volviera a dibujarse en cualquier región, la prueba falla.
+    //
+    // Se descartan los nodos comentario porque en modo desarrollo Vue conserva
+    // los comentarios pedagógicos del código fuente, que hablan de "sentido" o
+    // "dispositivo" sin ser datos de la sesión.
+    const marcasEnCurso = await page.evaluate(() => {
+      const raiz = document.querySelector('.aplicacion-recinto') as HTMLElement
+      const copia = raiz.cloneNode(true) as HTMLElement
+      const recorrido = document.createTreeWalker(copia, NodeFilter.SHOW_COMMENT)
+      const comentarios: Comment[] = []
+      while (recorrido.nextNode()) comentarios.push(recorrido.currentNode as Comment)
+      for (const comentario of comentarios) comentario.remove()
+      return { html: copia.outerHTML.toLowerCase(), texto: raiz.innerText.toLowerCase() }
+    })
+    // El `mensaje` crudo de auditoría que trae el mock no puede aparecer en
+    // ningún atributo, clase ni texto de la aplicación.
+    for (const datoProhibido of ['99999999', 'usb', 'tecla', 'dni ']) {
+      expect(marcasEnCurso.html).not.toContain(datoProhibido)
+    }
+    // Y ningún sentido de voto puede leerse mientras la recepción sigue abierta.
+    for (const sentido of ['positivo', 'negativo', 'abstenci']) {
+      expect(marcasEnCurso.texto).not.toContain(sentido)
     }
 
     const selectoresGeometria = [
+      'cabecera-recinto',
       'votacion-publica',
       'panel-quorum',
       'area-bancas-publica',
       'columna-palabra-publica',
-      'panel-eventos-publicos',
     ] as const
     const geometriaTemaCorto = await Promise.all(
       selectoresGeometria.map((selector) => page.getByTestId(selector).boundingBox()),
@@ -632,5 +634,290 @@ for (const viewport of [
     await expect(page.getByTestId('estado-sin-preparar')).toBeVisible({ timeout: 5000 })
     await expect(page.getByTestId('estado-conexion')).toContainText('En línea')
     await expect(page.getByTestId('grilla-bancas')).toHaveCount(0)
+  })
+  /**
+   * WP-050 — proporciones finales de la Pantalla del Recinto.
+   *
+   * Esta prueba mide geometría real del DOM (bounding boxes), no clases CSS.
+   * Los umbrales salen de contrastar la composición con el sistema histórico en
+   * producción (`martinebene/Botonera@main`, `app/web/static/pantalla/`), medido
+   * en Chromium a las mismas dos resoluciones:
+   *
+   * | región                | producción 1920×1080 | producción 1366×768 |
+   * |-----------------------|----------------------|---------------------|
+   * | cabecera              | 59 px (5,5 %)        | 47 px (6,1 %)       |
+   * | votación + quórum     | 216 px (20,0 %)      | 174 px (22,7 %)     |
+   * | ancho de quórum       | 220 px (11,5 %)      | 164 px (12,0 %)     |
+   * | bancas + palabra      | 637 px (59,0 %)      | 422 px (55,0 %)     |
+   * | ancho de palabra      | 384 px (20 vw)       | 273 px (20 vw)      |
+   * | eventos               | 127 px (11,8 %)      | 84 px (11,0 %)      |
+   *
+   * Botonera2 retira la franja de eventos por decisión humana, así que su
+   * altura debe aparecer en la zona principal: acá se exige que bancas+palabra
+   * superen la proporción histórica en lugar de igualarla.
+   */
+  test(`respeta las proporciones WP-050 en ${viewport.width}×${viewport.height}`, async ({
+    page,
+  }) => {
+    await page.setViewportSize(viewport)
+    await page.clock.install({ time: new Date('2026-08-28T09:59:00Z') })
+    await instalarBackendPublico(page, crearEstado())
+    await page.goto('http://localhost:3001/recinto/')
+    await page.getByTestId('estado-conexion').waitFor()
+    await page.clock.runFor(20)
+    await page.clock.pauseAt(HORA_RELOJ_E2E)
+
+    const eventosPublicos = crearEventosPublicos()
+    const datosSesion = {
+      fecha_hora_inicio_preparacion: '2026-08-28T09:30:00',
+      fecha_hora_apertura: '2026-08-28T09:45:00',
+      numero_sesion: 59,
+      presidencia: 'Ana Presidencia',
+      secretaria_legislativa: 'Luis Secretaría',
+    }
+    const sesion = crearEstado({
+      revision: 1,
+      generado_en: '2026-08-28T10:00:00',
+      estado_global: 'SESION_ABIERTA',
+      sesion: datosSesion,
+      filas_bancas: [3, 4, 5],
+      concejales: crearConcejales(12),
+      quorum: { cantidad_presentes: 8, requerido: 7, alcanzado: true },
+      palabra: {
+        orador: { nombre: 'Nombre4', apellido: 'Apellido4', banca: 4 },
+        cola: [
+          { nombre: 'Nombre7', apellido: 'Apellido7', banca: 7 },
+          { nombre: 'Nombre1', apellido: 'Apellido1', banca: 1 },
+        ],
+      },
+      votacion: crearVotacion({ tema: 'Expediente breve', cuenta_regresiva_hasta: null }),
+      eventos_publicos: eventosPublicos,
+    })
+    await publicar(page, sesion)
+    await expect(page.getByTestId('cabecera-sesion')).toContainText('59')
+    // Las imágenes reales deben estar cargadas antes de medir recortes.
+    await expect(page.getByTestId('imagen-concejal').first()).toBeVisible()
+    await page.waitForFunction(() =>
+      Array.from(document.querySelectorAll('img')).every((imagen) => imagen.complete),
+    )
+
+    // ---------------------------------------------------------------------
+    // 1 · Eventos retirados de la vista, contrato intacto en el snapshot
+    // ---------------------------------------------------------------------
+    expect(eventosPublicos).toHaveLength(20)
+    await expect(page.getByTestId('panel-eventos-publicos')).toHaveCount(0)
+    await expect(page.getByTestId('franja-eventos-publicos')).toHaveCount(0)
+    const estadoPublicado = await page.evaluate(async () => {
+      const respuesta = await fetch('/api/v1/estado/recinto')
+      return (await respuesta.json()) as { eventos_publicos: unknown[] }
+    })
+    expect(estadoPublicado.eventos_publicos).toHaveLength(20)
+
+    // El contenido principal solo tiene dos regiones: ya no queda una tercera
+    // fila reservada (ni vacía) para la franja de eventos.
+    const regiones = await page.locator('.contenido-recinto').evaluate((contenido) => ({
+      hijos: Array.from(contenido.children).map((hijo) => hijo.getAttribute('data-testid')),
+      filas: getComputedStyle(contenido).gridTemplateRows.split(' ').length,
+    }))
+    expect(regiones.hijos).toEqual(['franja-votacion-quorum', 'zona-principal-recinto'])
+    expect(regiones.filas).toBe(2)
+
+    // ---------------------------------------------------------------------
+    // 2 · Cabecera de una sola línea y más baja que la baseline previa
+    // ---------------------------------------------------------------------
+    const cajaCabecera = (await page.getByTestId('cabecera-recinto').boundingBox())!
+    const cajaContexto = (await page.getByTestId('cabecera-contexto').boundingBox())!
+    const cajaReloj = (await page.getByTestId('cabecera-fecha-hora').boundingBox())!
+    const cajaConexion = (await page.getByTestId('estado-conexion').boundingBox())!
+    const cajaSesion = (await page.getByTestId('cabecera-sesion').boundingBox())!
+    const cajaTiempo = (await page.getByTestId('cabecera-tiempo-sesion').boundingBox())!
+    const cajaAutoridades = (await page.getByTestId('cabecera-autoridades').boundingBox())!
+
+    // Baseline previa a WP-050: 76 px en Full HD y 62 px en 1366×768.
+    expect(cajaCabecera.height).toBeLessThanOrEqual(60)
+    expect(cajaCabecera.height).toBeLessThan(viewport.height === 1080 ? 76 : 62)
+
+    // Una sola línea: el bloque central mide un renglón (≈18 px con esta
+    // tipografía) y los tres datos caben enteros dentro de ese renglón. Si
+    // alguno pasara a una segunda fila, su caja sobresaldría del contenedor.
+    expect(cajaContexto.height).toBeLessThanOrEqual(26)
+    for (const caja of [cajaSesion, cajaTiempo, cajaAutoridades]) {
+      expect(caja.y).toBeGreaterThanOrEqual(cajaContexto.y - 1)
+      expect(caja.y + caja.height).toBeLessThanOrEqual(cajaContexto.y + cajaContexto.height + 1)
+    }
+
+    // Reloj a la izquierda, contexto al medio, conexión a la derecha.
+    expect(cajaReloj.x + cajaReloj.width).toBeLessThanOrEqual(cajaContexto.x)
+    expect(cajaContexto.x + cajaContexto.width).toBeLessThanOrEqual(cajaConexion.x)
+    // Fecha/hora, sesión, duración y conexión siguen disponibles.
+    await expect(page.getByTestId('cabecera-fecha-hora')).not.toBeEmpty()
+    await expect(page.getByTestId('cabecera-tiempo-sesion')).toContainText('00:15:00')
+    await expect(page.getByTestId('estado-conexion')).toContainText('En línea')
+
+    // ---------------------------------------------------------------------
+    // 3 · Jerarquía de superficies y espacio recuperado
+    // ---------------------------------------------------------------------
+    const cajaFranja = (await page.getByTestId('franja-votacion-quorum').boundingBox())!
+    const cajaZona = (await page.getByTestId('zona-principal-recinto').boundingBox())!
+    const cajaVotacion = (await page.getByTestId('votacion-publica').boundingBox())!
+    const cajaQuorum = (await page.getByTestId('panel-quorum').boundingBox())!
+    const cajaBancas = (await page.getByTestId('area-bancas-publica').boundingBox())!
+    const cajaPalabra = (await page.getByTestId('columna-palabra-publica').boundingBox())!
+
+    // Orden espacial: votación/quórum arriba; bancas abajo-izquierda; palabra
+    // abajo-derecha. Es la relación histórica que el WP obliga a conservar.
+    expect(cajaCabecera.y + cajaCabecera.height).toBeLessThanOrEqual(cajaFranja.y)
+    expect(cajaVotacion.x + cajaVotacion.width).toBeLessThanOrEqual(cajaQuorum.x)
+    expect(cajaFranja.y + cajaFranja.height).toBeLessThanOrEqual(cajaZona.y)
+    expect(cajaBancas.x + cajaBancas.width).toBeLessThanOrEqual(cajaPalabra.x)
+    expect(Math.abs(cajaBancas.y - cajaPalabra.y)).toBeLessThanOrEqual(1)
+
+    // La zona principal supera la proporción histórica (59,0 % y 55,0 %)
+    // porque absorbió la franja de eventos y la altura sobrante de cabecera.
+    const proporcionZona = cajaZona.height / viewport.height
+    expect(proporcionZona).toBeGreaterThan(viewport.height === 1080 ? 0.7 : 0.65)
+
+    // Bancas dominantes: más altas que la franja superior y mucho más anchas
+    // que la columna de palabra.
+    expect(cajaBancas.height).toBeGreaterThan(cajaFranja.height * 3)
+    expect(cajaBancas.width).toBeGreaterThan(cajaPalabra.width * 2)
+    const superficieBancas = cajaBancas.width * cajaBancas.height
+    const superficieResto =
+      cajaFranja.width * cajaFranja.height + cajaPalabra.width * cajaPalabra.height
+    expect(superficieBancas).toBeGreaterThan(superficieResto)
+
+    // Anchos calibrados contra producción: 20 vw exactos de palabra (igual que
+    // `flex: 0 0 20vw`) y ≈12 % de ancho para el quórum (220 px y 164 px allá).
+    expect(Math.abs(cajaPalabra.width - viewport.width * 0.2)).toBeLessThanOrEqual(2)
+    expect(cajaQuorum.width / viewport.width).toBeGreaterThanOrEqual(0.11)
+    expect(cajaQuorum.width / viewport.width).toBeLessThanOrEqual(0.125)
+
+    // ---------------------------------------------------------------------
+    // 4 · Sin scroll global y sin imágenes recortadas
+    // ---------------------------------------------------------------------
+    const desbordes = await page.evaluate(() => ({
+      vertical: document.documentElement.scrollHeight - window.innerHeight,
+      horizontal: document.documentElement.scrollWidth - window.innerWidth,
+    }))
+    expect(desbordes.vertical).toBeLessThanOrEqual(1)
+    expect(desbordes.horizontal).toBeLessThanOrEqual(1)
+
+    const imagenes = await page.getByTestId('banca-publica').evaluateAll((tarjetas) =>
+      tarjetas.map((tarjeta) => {
+        const imagen = tarjeta.querySelector('[data-testid="imagen-concejal"]') as HTMLImageElement
+        const cajaTarjeta = tarjeta.getBoundingClientRect()
+        const cajaImagen = imagen.getBoundingClientRect()
+        return {
+          ajuste: getComputedStyle(imagen).objectFit,
+          cargada: imagen.naturalWidth > 0,
+          dentro:
+            cajaImagen.left >= cajaTarjeta.left - 1 &&
+            cajaImagen.right <= cajaTarjeta.right + 1 &&
+            cajaImagen.top >= cajaTarjeta.top - 1 &&
+            cajaImagen.bottom <= cajaTarjeta.bottom + 1,
+        }
+      }),
+    )
+    expect(imagenes).toHaveLength(12)
+    for (const imagen of imagenes) {
+      // `contain` es la garantía de que el bitmap institucional entra completo.
+      expect(imagen.ajuste).toBe('contain')
+      expect(imagen.cargada).toBe(true)
+      expect(imagen.dentro).toBe(true)
+    }
+
+    // ---------------------------------------------------------------------
+    // 5 · Tarjetas uniformes y estables ante texto variable
+    // ---------------------------------------------------------------------
+    async function medirTarjetas() {
+      return page.getByTestId('banca-publica').evaluateAll((tarjetas) =>
+        tarjetas.map((tarjeta) => {
+          const caja = tarjeta.getBoundingClientRect()
+          return { w: Math.round(caja.width), h: Math.round(caja.height) }
+        }),
+      )
+    }
+    const tarjetasAntes = await medirTarjetas()
+    for (const tarjeta of tarjetasAntes) {
+      expect(tarjeta.w).toBe(tarjetasAntes[0]!.w)
+      expect(tarjeta.h).toBe(tarjetasAntes[0]!.h)
+    }
+
+    const selectoresEstructurales = [
+      'cabecera-recinto',
+      'franja-votacion-quorum',
+      'zona-principal-recinto',
+      'votacion-publica',
+      'panel-quorum',
+      'area-bancas-publica',
+      'columna-palabra-publica',
+    ] as const
+    const geometriaAntes = await Promise.all(
+      selectoresEstructurales.map((selector) => page.getByTestId(selector).boundingBox()),
+    )
+
+    // Tema y autoridades extremos al mismo tiempo: el peor caso de texto.
+    const temaExtenso =
+      'Tratamiento del expediente institucional 1234/2026 sobre reordenamiento integral del ' +
+      'sistema de transporte urbano de pasajeros con todas sus modificaciones sucesivas'
+    await publicar(page, {
+      ...sesion,
+      revision: 2,
+      sesion: {
+        ...datosSesion,
+        presidencia: 'María de los Ángeles Presidencia Apellido Compuesto Extremadamente Largo',
+        secretaria_legislativa: 'Juan Carlos Secretaría Legislativa Apellido Igualmente Extenso',
+      },
+      votacion: crearVotacion({ tema: temaExtenso, cuenta_regresiva_hasta: null }),
+    })
+    await expect(page.getByTestId('tema-votacion')).toHaveAttribute('title', temaExtenso)
+    await expect(page.getByTestId('cabecera-autoridades')).toContainText('María')
+
+    // Tema y autoridades se recortan con elipsis en una única línea.
+    for (const selector of ['tema-votacion', 'cabecera-autoridades'] as const) {
+      const estilo = await page.getByTestId(selector).evaluate((elemento) => {
+        const computado = getComputedStyle(elemento)
+        return {
+          whiteSpace: computado.whiteSpace,
+          overflow: computado.overflow,
+          textOverflow: computado.textOverflow,
+          recortado: elemento.scrollWidth > elemento.clientWidth,
+        }
+      })
+      expect(estilo.overflow).toBe('hidden')
+      expect(estilo.textOverflow).toBe('ellipsis')
+      expect(estilo.recortado).toBe(true)
+    }
+    // `white-space` lo hereda el contenedor de la cabecera; se verifica el
+    // resultado observable: una sola línea, sin segunda fila.
+    const cajaContextoLargo = (await page.getByTestId('cabecera-contexto').boundingBox())!
+    expect(cajaContextoLargo.height).toBeLessThanOrEqual(26)
+
+    const geometriaDespues = await Promise.all(
+      selectoresEstructurales.map((selector) => page.getByTestId(selector).boundingBox()),
+    )
+    for (let indice = 0; indice < geometriaAntes.length; indice += 1) {
+      for (const dimension of ['x', 'y', 'width', 'height'] as const) {
+        expect(
+          Math.abs(geometriaAntes[indice]![dimension] - geometriaDespues[indice]![dimension]),
+        ).toBeLessThanOrEqual(1)
+      }
+    }
+    expect(await medirTarjetas()).toEqual(tarjetasAntes)
+
+    const desbordesFinales = await page.evaluate(() => ({
+      vertical: document.documentElement.scrollHeight - window.innerHeight,
+      horizontal: document.documentElement.scrollWidth - window.innerWidth,
+    }))
+    expect(desbordesFinales.vertical).toBeLessThanOrEqual(1)
+    expect(desbordesFinales.horizontal).toBeLessThanOrEqual(1)
+
+    // ---------------------------------------------------------------------
+    // 6 · El reloj de sesión sigue avanzando
+    // ---------------------------------------------------------------------
+    const relojAntes = await page.getByTestId('cabecera-fecha-hora').textContent()
+    await page.clock.runFor(1000)
+    await expect(page.getByTestId('cabecera-tiempo-sesion')).toContainText('00:15:01')
+    expect(await page.getByTestId('cabecera-fecha-hora').textContent()).not.toBe(relojAntes)
   })
 }
