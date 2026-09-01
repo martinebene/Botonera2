@@ -8,6 +8,13 @@
  * reconexión reconstruye la pantalla sin timers ni cálculos institucionales locales.
  * WP-037 decide además que Q1 nunca renderice la lista individual, aunque el DTO la
  * incluya: este componente presenta solamente resultado y conteos agregados.
+ *
+ * WP-048 compacta esa presentación. El cuerpo normal ya no informa de forma permanente
+ * quién tiene la palabra ni cuántos pedidos hay en cola: esa información es continua, vive
+ * en Q3 (banca resaltada del orador y badge/lista de la cola) y repetirla acá gastaba una
+ * fila de Q1 en cada votación. La advertencia que aparece al intentar abrir una votación
+ * con palabra pendiente (CA-062, `DialogoConfirmacionApertura`) se conserva intacta:
+ * es una salvaguarda del momento del comando, no un indicador permanente.
  */
 
 import { computed, ref, watch } from 'vue'
@@ -429,15 +436,22 @@ async function desempatar(sentido: 'POSITIVO' | 'NEGATIVO'): Promise<void> {
         </span>
       </div>
 
+      <!--
+        WP-048: el contexto de la regla vigente ocupa un solo renglón. Antes eran tres
+        tarjetas apiladas de etiqueta sobre valor: la misma información pedía casi el doble
+        de alto sin agregar nada, y esa altura le faltaba al formulario de la votación
+        siguiente. `cantidad-votos-recibidos` conserva su identificador y sigue conteniendo
+        únicamente el número, porque las pruebas integradas comparan ese valor exacto.
+      -->
       <dl
         v-if="votacion.estado_recepcion === 'EN_CURSO'"
-        class="grid grid-cols-3 gap-1.5 text-[11px]"
+        class="flex flex-wrap items-center gap-x-3 gap-y-0.5 rounded bg-slate-900 px-2 py-0.5 text-[11px] leading-tight"
       >
-        <div class="rounded bg-slate-900 px-2 py-1">
+        <div class="flex items-center gap-1">
           <dt class="text-slate-500">Mayoría</dt>
           <dd class="font-semibold text-slate-200">{{ votacion.tipo_mayoria }}</dd>
         </div>
-        <div class="rounded bg-slate-900 px-2 py-1">
+        <div class="flex items-center gap-1">
           <dt class="text-slate-500">Regla</dt>
           <dd class="font-semibold text-slate-200">
             <template v-if="votacion.tipo_mayoria === 'ESPECIAL'">
@@ -446,7 +460,7 @@ async function desempatar(sentido: 'POSITIVO' | 'NEGATIVO'): Promise<void> {
             <template v-else>Positivos &gt; negativos</template>
           </dd>
         </div>
-        <div class="rounded bg-slate-900 px-2 py-1">
+        <div class="flex items-center gap-1">
           <dt class="text-slate-500">Votos recibidos</dt>
           <dd data-testid="cantidad-votos-recibidos" class="font-semibold text-slate-200">
             {{ votacion.cantidad_votos_recibidos }}
@@ -454,44 +468,47 @@ async function desempatar(sentido: 'POSITIVO' | 'NEGATIVO'): Promise<void> {
         </div>
       </dl>
 
-      <div
-        v-if="estado.palabra && (estado.palabra.orador || estado.palabra.cola.length > 0)"
-        data-testid="palabra-durante-votacion"
-        class="rounded border border-cyan-900 bg-cyan-950/30 px-2 py-1 text-[11px] text-cyan-200"
+      <!--
+        WP-048: los conteos agregados son información secundaria y se leen en una única
+        fila. Las cuatro tarjetas altas anteriores competían visualmente con el cartel de
+        resultado, que es el dato dominante del cuadrante, y empujaban el formulario fuera
+        del área visible. Se conservan la familia de color de cada valor (convención de
+        producción verificada en WP-044) y los identificadores de prueba.
+      -->
+      <dl
+        v-if="votacion.conteos"
+        data-testid="conteos-votacion"
+        class="flex flex-wrap items-center gap-1 text-[11px] leading-tight"
       >
-        <span v-if="estado.palabra.orador">
-          Orador: {{ estado.palabra.orador.nombre }} {{ estado.palabra.orador.apellido }}.
-        </span>
-        <span> {{ estado.palabra.cola.length }} pedido(s) en cola.</span>
-      </div>
-
-      <div v-if="votacion.conteos" data-testid="conteos-votacion" class="grid grid-cols-4 gap-1">
         <div
           data-testid="conteo-positivos"
-          class="rounded bg-emerald-950/60 px-1 py-1 text-center text-[11px] text-emerald-200"
+          class="flex items-center gap-1 rounded bg-emerald-950/60 px-1.5 py-0.5 text-emerald-200"
         >
-          <strong>{{ votacion.conteos.positivos }}</strong
-          ><br />Positivos
+          <dt>Positivos</dt>
+          <dd class="font-bold">{{ votacion.conteos.positivos }}</dd>
         </div>
         <div
           data-testid="conteo-negativos"
-          class="rounded bg-rose-950/60 px-1 py-1 text-center text-[11px] text-rose-200"
+          class="flex items-center gap-1 rounded bg-rose-950/60 px-1.5 py-0.5 text-rose-200"
         >
-          <strong>{{ votacion.conteos.negativos }}</strong
-          ><br />Negativos
+          <dt>Negativos</dt>
+          <dd class="font-bold">{{ votacion.conteos.negativos }}</dd>
         </div>
         <div
           data-testid="conteo-abstenciones"
-          class="rounded bg-amber-950/60 px-1 py-1 text-center text-[11px] text-amber-200"
+          class="flex items-center gap-1 rounded bg-amber-950/60 px-1.5 py-0.5 text-amber-200"
         >
-          <strong>{{ votacion.conteos.abstenciones }}</strong
-          ><br />Abstenciones
+          <dt>Abstenciones</dt>
+          <dd class="font-bold">{{ votacion.conteos.abstenciones }}</dd>
         </div>
-        <div class="rounded bg-cyan-950/60 px-1 py-1 text-center text-[11px] text-cyan-200">
-          <strong>{{ votacion.conteos.total }}</strong
-          ><br />Total
+        <div
+          data-testid="conteo-total"
+          class="flex items-center gap-1 rounded bg-cyan-950/60 px-1.5 py-0.5 text-cyan-200"
+        >
+          <dt>Total</dt>
+          <dd class="font-bold">{{ votacion.conteos.total }}</dd>
         </div>
-      </div>
+      </dl>
 
       <p
         v-if="votacion.estado_recepcion === 'EN_CURSO'"

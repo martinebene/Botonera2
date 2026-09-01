@@ -258,9 +258,10 @@ describe('WP-023: Orden del Día y ciclo visual de votaciones', () => {
     expect(cargar).toHaveBeenCalledWith(archivo)
     expect(wrapper.findAll('[data-testid="punto-orden-dia"]')).toHaveLength(0)
     expect(wrapper.get('[data-testid="carga-orden-dia"]').exists()).toBe(true)
-    expect(wrapper.get('[data-testid="aviso-orden-dia"]').text()).toContain(
-      'backend proyecte la colección confirmada',
-    )
+    // WP-048: el envío exitoso no deja acuse propio. La ausencia de puntos sigue siendo
+    // fiel al backend y la confirmación llegará como colección proyectada, no como texto.
+    expect(wrapper.find('[data-testid="aviso-orden-dia"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('backend proyecte la colección confirmada')
 
     cargar.mockRejectedValueOnce({ mensaje: 'CSV inválido' })
     await seleccionarArchivoOrdenDelDia(wrapper, 'invalido.csv')
