@@ -199,7 +199,7 @@ WP-033 quedó integrado antes de continuar WP-026 y deja disponible el harness m
 | WP-050 | Restaurar proporciones finales de la Pantalla del Recinto | INTEGRADO | WP-049, WP-046 | - |
 | WP-051 | Corregir feedback operativo y estados transitorios de Moderación | INTEGRADO | WP-048 | - |
 | WP-052 | Proyectar eventos operativos seguros y enriquecer la lectura L3 sin romper secreto | INTEGRADO | WP-041, WP-045 | - |
-| WP-053 | Atenuar asistencialmente puntos del Orden del Día ya tratados por número | EN_CURSO | WP-040 | claude |
+| WP-053 | Atenuar asistencialmente puntos del Orden del Día ya tratados por número | INTEGRADO | WP-040 | - |
 | WP-054 | Refinar cabeceras, quórum, palabra y geometría visual de Moderación/Recinto | INTEGRADO | WP-047, WP-050 | - |
 | WP-055 | Crear backend/contrato autoritativo para Apoyo Técnico, transmisión y avisos | PENDIENTE | WP-052, WP-053 | - |
 | WP-056 | Implementar frontend de Apoyo Técnico e integrar avisos/transmisión en las pantallas | PENDIENTE | WP-052, WP-054, WP-055 | - |
@@ -323,3 +323,5 @@ WP-046 quedó integrado mediante PR #51 sobre el candidato `042052cc9020f1a4d65e
 
 
 HUMAN_GATE activó WP-053 con Claude Code / Claude Opus 5 (High) como implementador y Antigravity/AGY / Gemini 3.7 Flash (High) como revisor independiente. WP-053 debe limitarse al seguimiento asistencial por `nro_votacion`: un número se considera tratado desde que una votación con ese número fue abierta; todos los puntos duplicados se atenúan, pero permanecen clickeables y continúan precargando Q1. La fuente de verdad es el historial autoritativo de la sesión; no se introduce estado local persistente ni polling.
+
+WP-053 quedó integrado mediante PR #61 sobre el candidato `763db06c1d35a8d41d860f0d5e26eebd365e2e7f`, implementado por Claude Code / Claude Opus 5 (High) y revisado independientemente por Antigravity/AGY / Gemini 3.7 Flash (High) con 0 BLOQUEANTES, 0 IMPORTANTES y 0 MENORES, veredicto `LISTA PARA INTEGRAR`. El squash `36000df2e07b42728669292cfcd91038c5e8d5c3` conserva exactamente el tree SHA revisado `ed80b7857200c2d5c0c8d76aeea24cc310c7ff03`; CI candidata #394 y CI post-merge #395 terminaron `success` 8/8. La ayuda de puntos tratados deriva exclusivamente del historial autoritativo de `Sesion.votaciones`, marca desde la apertura por `nro_votacion`, atenúa todos los duplicados y conserva click/precarga. Con WP-053 integrado, WP-055 queda habilitado por dependencias junto con WP-052 ya integrado; WP-029 permanece bloqueado hasta completar WP-055 y WP-056.
