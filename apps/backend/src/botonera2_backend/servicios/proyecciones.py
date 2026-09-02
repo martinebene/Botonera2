@@ -265,7 +265,16 @@ class VotacionPublica(ModeloProyeccion):
 
 
 class PuntoOrdenDelDiaProyectado(ModeloProyeccion):
-    """Punto asistencial normalizado disponible solo para Moderación."""
+    """Punto asistencial normalizado disponible solo para Moderación.
+
+    ``tratado`` es la ayuda visual que introduce WP-053. Vale ``True`` cuando el
+    historial autoritativo de la sesión ya contiene una votación **abierta** con
+    ese mismo ``nro_votacion``. Se calcula en el backend, y no en Vue, por dos
+    razones: el frontend nunca decide reglas y, al viajar ya resuelto, cualquier
+    reconexión o recarga reconstruye la marca desde el snapshot sin guardar
+    estado local. La marca es puramente asistencial: no bloquea el punto, no lo
+    consume y no impide volver a usar el mismo número.
+    """
 
     nro_votacion: int
     tipo: str
@@ -273,6 +282,7 @@ class PuntoOrdenDelDiaProyectado(ModeloProyeccion):
     tipo_mayoria: str
     factor: float
     base: str
+    tratado: bool
 
 
 class ConcejalHechoProyectado(ModeloProyeccion):
@@ -532,7 +542,7 @@ class ServicioProyecciones:
             quorum=self._quorum(contexto),
             votacion=self._votacion_moderacion(contexto, generado_en),
             palabra=self._palabra_moderacion(sesion, contexto),
-            orden_del_dia=self._orden_del_dia(contexto),
+            orden_del_dia=self._orden_del_dia(contexto, sesion),
             eventos_recientes=self._eventos(contexto, generado_en),
             auditoria=self._auditoria(contexto),
             remapeo=self._remapeo(self._estado.remapeo_activo),
@@ -1042,13 +1052,44 @@ class ServicioProyecciones:
         )
 
     @staticmethod
+    def _numeros_votacion_tratados(sesion: Sesion | None) -> frozenset[int]:
+        """Deriva del historial de la sesión los números ya abiertos.
+
+        ``Sesion.votaciones`` recibe cada votación en el momento exacto de su
+        apertura (``ServicioVotacion`` la agrega recién después de auditar), así
+        que basta con recorrerlo: no hace falta que la votación esté finalizada
+        para considerar tratado su número, ni existe otra fuente que pueda
+        contradecirlo. Sin sesión abierta —``SIN_PREPARAR`` o ``PREPARANDO``— no
+        hay historial y ningún punto puede estar tratado todavía.
+
+        Args:
+            sesion: sesión formal activa, o ``None`` si no hay ninguna.
+
+        Returns:
+            Conjunto inmutable de ``numero_votacion`` ya abiertos en la sesión.
+        """
+
+        if sesion is None:
+            return frozenset()
+        return frozenset(votacion.numero_votacion for votacion in sesion.votaciones)
+
+    @classmethod
     def _orden_del_dia(
+        cls,
         contexto: Preparacion | None,
+        sesion: Sesion | None,
     ) -> tuple[PuntoOrdenDelDiaProyectado, ...]:
-        """Copia la colección temporal o devuelve una colección vacía."""
+        """Copia la colección temporal marcando los números ya tratados.
+
+        La comparación usa exclusivamente ``nro_votacion``: no se miran tema,
+        tipo ni mayoría. Por eso, si el CSV repite un número, todas las filas que
+        lo comparten quedan marcadas a la vez, que es exactamente la ayuda que
+        pidió WP-053. Sin colección cargada se devuelve una tupla vacía.
+        """
 
         if contexto is None or contexto.orden_del_dia is None:
             return ()
+        numeros_tratados = cls._numeros_votacion_tratados(sesion)
         return tuple(
             PuntoOrdenDelDiaProyectado(
                 nro_votacion=punto.nro_votacion,
@@ -1057,6 +1098,7 @@ class ServicioProyecciones:
                 tipo_mayoria=punto.tipo_mayoria.value,
                 factor=punto.factor,
                 base=punto.base.value,
+                tratado=punto.nro_votacion in numeros_tratados,
             )
             for punto in contexto.orden_del_dia
         )

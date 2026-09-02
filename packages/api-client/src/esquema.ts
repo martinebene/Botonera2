@@ -890,6 +890,14 @@ export interface components {
         /**
          * PuntoOrdenDelDiaProyectado
          * @description Punto asistencial normalizado disponible solo para Moderación.
+         *
+         *     ``tratado`` es la ayuda visual que introduce WP-053. Vale ``True`` cuando el
+         *     historial autoritativo de la sesión ya contiene una votación **abierta** con
+         *     ese mismo ``nro_votacion``. Se calcula en el backend, y no en Vue, por dos
+         *     razones: el frontend nunca decide reglas y, al viajar ya resuelto, cualquier
+         *     reconexión o recarga reconstruye la marca desde el snapshot sin guardar
+         *     estado local. La marca es puramente asistencial: no bloquea el punto, no lo
+         *     consume y no impide volver a usar el mismo número.
          */
         PuntoOrdenDelDiaProyectado: {
             /** Nro Votacion */
@@ -904,6 +912,8 @@ export interface components {
             factor: number;
             /** Base */
             base: string;
+            /** Tratado */
+            tratado: boolean;
         };
         /**
          * PuntoOrdenDelDiaRespuesta

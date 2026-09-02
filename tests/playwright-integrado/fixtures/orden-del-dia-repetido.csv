@@ -1,0 +1,4 @@
+nro_votacion,tipo,tema,tipo_mayoria,factor,base
+71,Otro,Primera lectura del numero repetido,SIMPLE,0,VOTOS_COMPUTABLES
+72,Otro,Punto que no se trata,SIMPLE,0,VOTOS_COMPUTABLES
+71,Mocion,Segunda lectura del numero repetido,SIMPLE,0,VOTOS_COMPUTABLES
