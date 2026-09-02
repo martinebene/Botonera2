@@ -30,6 +30,11 @@ from botonera2_backend.configuracion.errores import (
     ErrorTomlInvalido,
     ErrorValidacionConfiguracion,
 )
+from botonera2_backend.dominio.apoyo_tecnico import (
+    ErrorBibliotecaMensajesNoDisponible,
+    ErrorMensajeTecnicoNoExistente,
+    ErrorPersistenciaMensajesTecnicos,
+)
 from botonera2_backend.dominio.errores import (
     ErrorDesempateYaEmitido,
     ErrorEstadoIncompatible,
@@ -98,6 +103,15 @@ CODIGOS_CONFLICTO: dict[type[Exception], str] = {
 CODIGOS_SERVICIO_NO_DISPONIBLE: dict[type[Exception], str] = {
     ErrorBridgeNoDisponible: "BRIDGE_NO_DISPONIBLE",
     ErrorAplicacionBridgeRechazada: "APLICACION_BRIDGE_RECHAZADA",
+    ErrorBibliotecaMensajesNoDisponible: "BIBLIOTECA_MENSAJES_INVALIDA",
+    ErrorPersistenciaMensajesTecnicos: "PERSISTENCIA_MENSAJES_FALLIDA",
+}
+
+# Recursos direccionados por identificador que el cliente puede haber tomado de
+# una copia desactualizada del estado. Se responden con 404 y no con 409 porque
+# el conflicto no es de estado global: simplemente el recurso ya no existe.
+CODIGOS_NO_ENCONTRADO: dict[type[Exception], str] = {
+    ErrorMensajeTecnicoNoExistente: "MENSAJE_TECNICO_NO_EXISTENTE",
 }
 
 CODIGOS_ENTIDAD_NO_PROCESABLE: dict[type[Exception], str] = {
@@ -134,6 +148,15 @@ async def manejar_error_entidad_no_procesable(
     return _respuesta_error(422, codigo, str(error))
 
 
+async def manejar_error_no_encontrado(_solicitud: Request, error: Exception) -> JSONResponse:
+    """Traduce la ausencia de un recurso direccionado por id a HTTP 404."""
+
+    codigo = CODIGOS_NO_ENCONTRADO.get(type(error))
+    if codigo is None:
+        raise RuntimeError("Tipo de recurso inexistente sin código estable") from error
+    return _respuesta_error(404, codigo, str(error))
+
+
 async def manejar_error_configuracion(_solicitud: Request, error: Exception) -> JSONResponse:
     """503 cuando ``system.toml`` no puede cargarse o validarse.
 
@@ -166,7 +189,13 @@ async def manejar_error_auditoria(_solicitud: Request, error: Exception) -> JSON
 async def manejar_error_servicio_no_disponible(
     _solicitud: Request, error: Exception
 ) -> JSONResponse:
-    """Traduce indisponibilidad/rechazo explícito del bridge a HTTP 503."""
+    """Traduce indisponibilidades técnicas no institucionales a HTTP 503.
+
+    Cubre el rechazo o la caída del device-bridge y, desde WP-055, la
+    biblioteca de mensajes técnicos que no pudo interpretarse o persistirse.
+    En los tres casos el pedido era correcto: lo que falló es un recurso del
+    que depende el backend.
+    """
 
     codigo = CODIGOS_SERVICIO_NO_DISPONIBLE.get(type(error))
     if codigo is None:
@@ -187,6 +216,8 @@ def registrar_manejadores_errores(aplicacion: FastAPI) -> None:
         aplicacion.add_exception_handler(tipo_error, manejar_error_conflicto)
     for tipo_error in CODIGOS_ENTIDAD_NO_PROCESABLE:
         aplicacion.add_exception_handler(tipo_error, manejar_error_entidad_no_procesable)
+    for tipo_error in CODIGOS_NO_ENCONTRADO:
+        aplicacion.add_exception_handler(tipo_error, manejar_error_no_encontrado)
     aplicacion.add_exception_handler(ErrorTomlInvalido, manejar_error_configuracion)
     aplicacion.add_exception_handler(ErrorValidacionConfiguracion, manejar_error_configuracion)
     aplicacion.add_exception_handler(ErrorPadronInvalido, manejar_error_padron)

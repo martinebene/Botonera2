@@ -5,6 +5,9 @@ Expone públicamente la carga, validación y congelamiento de
 
 - ``cargar_configuracion_sistema`` y ``cargar_padron_concejales`` son las dos
   operaciones que usará la futura preparación (WP-005);
+- ``cargar_mensajes_tecnicos`` y ``guardar_mensajes_tecnicos`` administran la
+  biblioteca CSV de Apoyo Técnico incorporada por WP-055, único archivo de
+  ``config`` que el backend escribe;
 - los modelos y errores se reexportan aquí para que el resto del sistema
   importe desde este paquete sin conocer su estructura interna.
 """
@@ -15,16 +18,24 @@ from botonera2_backend.configuracion.cargar_configuracion import cargar_configur
 from botonera2_backend.configuracion.cargar_padron import cargar_padron_concejales
 from botonera2_backend.configuracion.errores import (
     ErrorConfiguracion,
+    ErrorMensajesTecnicosInvalido,
     ErrorPadronInvalido,
     ErrorTomlInvalido,
     ErrorValidacionConfiguracion,
+)
+from botonera2_backend.configuracion.mensajes_tecnicos import (
+    cargar_mensajes_tecnicos,
+    guardar_mensajes_tecnicos,
 )
 from botonera2_backend.configuracion.modelos import Concejal, ConfiguracionSistema, Padron
 
 __all__ = [
     "cargar_configuracion_sistema",
+    "cargar_mensajes_tecnicos",
     "cargar_padron_concejales",
+    "guardar_mensajes_tecnicos",
     "ErrorConfiguracion",
+    "ErrorMensajesTecnicosInvalido",
     "ErrorPadronInvalido",
     "ErrorTomlInvalido",
     "ErrorValidacionConfiguracion",

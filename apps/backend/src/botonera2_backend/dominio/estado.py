@@ -2,14 +2,21 @@
 
 WP-002 estableció el estado que existe al arrancar; WP-005 incorporó la
 preparación, WP-008 agregó el contexto real de sesión y WP-009 tipa la votación
-activa. Las transiciones las ejecutan los servicios de dominio bajo el
-serializador único, nunca este módulo.
+activa. WP-055 suma el plano técnico de Apoyo Técnico, que es deliberadamente
+independiente del ciclo preparación/sesión: la transmisión y los avisos pueden
+operarse también en ``SIN_PREPARAR``. Las transiciones las ejecutan los
+servicios de dominio bajo el serializador único, nunca este módulo.
 """
 
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
 
+from botonera2_backend.dominio.apoyo_tecnico import (
+    AvisoTecnico,
+    BibliotecaMensajesTecnicos,
+    TransmisionTecnica,
+)
 from botonera2_backend.dominio.preparacion import Preparacion
 from botonera2_backend.dominio.remapeo import OperacionRemapeo
 from botonera2_backend.dominio.sesion import Sesion
@@ -53,6 +60,18 @@ class EstadoOperativo:
             el contexto activo: se expone aquí para que CA-001 (backend recién
             iniciado, sin auditoría abierta) sea verificable sin conocer el
             modelo interno.
+        transmision_tecnica: intención vigente del indicador de transmisión, o
+            ``None`` cuando está ``APAGADO``. El estado observable
+            (``CUENTA_REGRESIVA`` / ``EN_VIVO``) se deriva del reloj al
+            proyectar; acá solo vive la frontera temporal absoluta.
+        aviso_tecnico_moderacion: aviso técnico dirigido a Moderación, o
+            ``None``. Es una ranura independiente de la del Recinto: por eso
+            un aviso de un destino nunca puede aparecer en el otro.
+        aviso_tecnico_recinto: aviso técnico dirigido al Recinto, o ``None``.
+        biblioteca_mensajes_tecnicos: copia en memoria del CSV de mensajes
+            precargados, más su condición técnica. Se carga una sola vez al
+            arrancar y se actualiza únicamente después de que una escritura
+            atómica confirmó en disco.
     """
 
     estado_global: EstadoGlobal = field(default=EstadoGlobal.SIN_PREPARAR, init=False)
@@ -63,6 +82,12 @@ class EstadoOperativo:
     remapeo_activo: OperacionRemapeo | None = field(default=None, init=False)
     remapeos_finalizados: dict[str, OperacionRemapeo] = field(
         default_factory=lambda: {}, init=False
+    )
+    transmision_tecnica: TransmisionTecnica | None = field(default=None, init=False)
+    aviso_tecnico_moderacion: AvisoTecnico | None = field(default=None, init=False)
+    aviso_tecnico_recinto: AvisoTecnico | None = field(default=None, init=False)
+    biblioteca_mensajes_tecnicos: BibliotecaMensajesTecnicos = field(
+        default_factory=BibliotecaMensajesTecnicos, init=False
     )
 
     def contexto_operativo_activo(self) -> Preparacion | None:

@@ -1,4 +1,4 @@
-"""Snapshots REST y streams SSE completos de Moderación y Recinto."""
+"""Snapshots REST y streams SSE completos de Moderación, Recinto y Apoyo Técnico."""
 
 from __future__ import annotations
 
@@ -8,7 +8,11 @@ from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse
 
 from botonera2_backend.recursos import obtener_recursos_aplicacion
-from botonera2_backend.servicios.proyecciones import EstadoModeracion, EstadoRecinto
+from botonera2_backend.servicios.proyecciones import (
+    EstadoModeracion,
+    EstadoRecinto,
+    EstadoTecnico,
+)
 from botonera2_backend.servicios.publicacion import CoordinadorPublicacion
 
 enrutador_estado = APIRouter(prefix="/estado", tags=["estado"])
@@ -20,6 +24,11 @@ DESCRIPCION_SSE_MODERACION = (
 DESCRIPCION_SSE_RECINTO = (
     "Stream Server-Sent Events. Cada evento `estado` contiene un EstadoRecinto completo "
     "con el secreto público aplicado en servidor; `id` coincide con su revision."
+)
+DESCRIPCION_SSE_TECNICO = (
+    "Stream Server-Sent Events. Cada evento `estado` contiene un EstadoTecnico completo "
+    "con transmisión, avisos de ambos destinos, biblioteca y eventos seguros; `id` "
+    "coincide con su revision."
 )
 
 
@@ -66,6 +75,18 @@ async def obtener_estado_recinto(solicitud: Request) -> EstadoRecinto:
 
 
 @enrutador_estado.get(
+    "/tecnico",
+    response_model=EstadoTecnico,
+    summary="Obtener snapshot completo del puesto de Apoyo Técnico",
+)
+async def obtener_estado_tecnico(solicitud: Request) -> EstadoTecnico:
+    """Responde en cualquiera de los tres estados globales sin mutar dominio."""
+
+    recursos = obtener_recursos_aplicacion(solicitud.app)
+    return await recursos.servicio_proyecciones.obtener_estado_tecnico()
+
+
+@enrutador_estado.get(
     "/moderacion/stream",
     response_class=StreamingResponse,
     responses=_documentacion_stream(DESCRIPCION_SSE_MODERACION),
@@ -99,6 +120,29 @@ async def transmitir_estado_recinto(solicitud: Request) -> StreamingResponse:
     return _respuesta_sse(flujo)
 
 
+@enrutador_estado.get(
+    "/tecnico/stream",
+    response_class=StreamingResponse,
+    responses=_documentacion_stream(DESCRIPCION_SSE_TECNICO),
+    summary="Seguir estados completos de Apoyo Técnico por SSE",
+)
+async def transmitir_estado_tecnico(solicitud: Request) -> StreamingResponse:
+    """Comparte coordinador y revisiones con los otros dos streams.
+
+    Que las tres proyecciones usen el mismo ``CoordinadorPublicacion`` es lo
+    que garantiza que una cuenta regresiva que vence, o un aviso que expira,
+    despierte a la vez a Moderación, al Recinto y al puesto técnico sin que
+    ninguno pregunte periódicamente.
+    """
+
+    recursos = obtener_recursos_aplicacion(solicitud.app)
+    flujo = generar_stream_estado(
+        recursos.servicio_proyecciones.obtener_estado_tecnico,
+        recursos.coordinador_publicacion,
+    )
+    return _respuesta_sse(flujo)
+
+
 def _respuesta_sse(flujo: AsyncGenerator[str]) -> StreamingResponse:
     """Configura headers que evitan cache/buffering del stream de estado."""
 
@@ -113,7 +157,7 @@ def _respuesta_sse(flujo: AsyncGenerator[str]) -> StreamingResponse:
 
 
 async def generar_stream_estado(
-    obtener_estado: Callable[[], Awaitable[EstadoModeracion | EstadoRecinto]],
+    obtener_estado: Callable[[], Awaitable[EstadoModeracion | EstadoRecinto | EstadoTecnico]],
     coordinador: CoordinadorPublicacion,
 ) -> AsyncGenerator[str]:
     """Produce estados completos con backpressure coalescente y cleanup.
@@ -140,7 +184,7 @@ async def generar_stream_estado(
         suscripcion.cancelar()
 
 
-def codificar_evento_sse(estado: EstadoModeracion | EstadoRecinto) -> str:
+def codificar_evento_sse(estado: EstadoModeracion | EstadoRecinto | EstadoTecnico) -> str:
     """Serializa un DTO Pydantic completo como un evento SSE estable."""
 
     return f"id: {estado.revision}\nevent: estado\ndata: {estado.model_dump_json()}\n\n"

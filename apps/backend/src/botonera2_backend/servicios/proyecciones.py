@@ -15,6 +15,14 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from botonera2_backend.auditoria import EventoAuditoriaReciente, NivelAuditoria
 from botonera2_backend.configuracion.modelos import Concejal, ConfiguracionSistema
+from botonera2_backend.dominio.apoyo_tecnico import (
+    AvisoTecnico,
+    BibliotecaMensajesTecnicos,
+    DestinoAvisoTecnico,
+    EstadoTransmision,
+    TransmisionTecnica,
+    estado_transmision,
+)
 from botonera2_backend.dominio.estado import EstadoGlobal, EstadoOperativo
 from botonera2_backend.dominio.preparacion import Preparacion
 from botonera2_backend.dominio.remapeo import EstadoRemapeo, OperacionRemapeo
@@ -410,6 +418,95 @@ class CapacidadesModeracion(ModeloProyeccion):
     cancelar_remapeo: Capacidad
 
 
+class TransmisionProyectada(ModeloProyeccion):
+    """Estado autoritativo del indicador de transmisión (WP-055).
+
+    El DTO publica a la vez la frontera absoluta y el resto calculado por el
+    backend. El frontend puede animar el contador con ``segundos_restantes``
+    sin decidir nunca por su cuenta cuándo empieza ``EN VIVO``: esa decisión
+    sigue siendo del servidor, que republica al cruzar ``en_vivo_desde``.
+
+    Atributos:
+        estado: ``APAGADO``, ``CUENTA_REGRESIVA`` o ``EN_VIVO``.
+        iniciada_en: instante de la orden humana, o ``None`` si está apagada.
+        en_vivo_desde: frontera absoluta a partir de la cual vale ``EN_VIVO``.
+            Es el dato que permite reconstruir la verdad temporal exacta tras
+            un reload o una reconexión SSE.
+        cuenta_regresiva_segundos: duración solicitada, o ``None`` cuando el
+            inicio fue inmediato.
+        segundos_restantes: faltante para la frontera, nunca negativo. Vale
+            ``None`` fuera de ``CUENTA_REGRESIVA``.
+    """
+
+    estado: EstadoTransmision
+    iniciada_en: datetime | None
+    en_vivo_desde: datetime | None
+    cuenta_regresiva_segundos: int | None
+    segundos_restantes: float | None
+
+
+class AvisoTecnicoProyectado(ModeloProyeccion):
+    """Aviso técnico vigente en una ranura de destino (WP-055).
+
+    Solo se proyecta mientras está vigente: un aviso vencido desaparece del
+    payload sin que ninguna mutación lo haya borrado, porque la vigencia se
+    deriva de ``expira_en`` contra el reloj del backend.
+
+    Atributos:
+        aviso_id: identificador de la publicación. Cuando el destino fue
+            ``AMBOS``, Moderación y Recinto reciben el mismo valor.
+        texto: contenido a mostrar.
+        destino: destino solicitado al publicarlo.
+        publicado_en: instante civil de publicación.
+        expira_en: frontera absoluta de vencimiento, o ``None`` si permanece
+            hasta la cancelación manual.
+        segundos_restantes: faltante para el vencimiento, o ``None`` si no
+            vence.
+    """
+
+    aviso_id: str
+    texto: str
+    destino: DestinoAvisoTecnico
+    publicado_en: datetime
+    expira_en: datetime | None
+    segundos_restantes: float | None
+
+
+class ApoyoTecnicoProyectado(ModeloProyeccion):
+    """Porción del plano técnico que corresponde a **un** destino (WP-055).
+
+    Moderación y Recinto reciben este mismo submodelo, pero cada uno con su
+    propio aviso: la separación se aplica en el servidor, igual que el secreto
+    de voto, de manera que un aviso dirigido a Moderación jamás viaja en el
+    payload del Recinto aunque el frontend público tuviera un error.
+    """
+
+    transmision: TransmisionProyectada
+    aviso: AvisoTecnicoProyectado | None
+
+
+class MensajeTecnicoProyectado(ModeloProyeccion):
+    """Mensaje precargado de la biblioteca CSV (WP-055)."""
+
+    mensaje_id: str
+    texto: str
+    destino: DestinoAvisoTecnico
+
+
+class BibliotecaMensajesProyectada(ModeloProyeccion):
+    """Biblioteca CSV más su condición técnica (WP-055).
+
+    ``disponible=False`` indica que el archivo existe pero no pudo
+    interpretarse. En ese caso la lista viaja vacía y el backend rechaza toda
+    escritura, para no destruir el contenido que el operador quiso conservar.
+    """
+
+    disponible: bool
+    motivo: str | None
+    detalle: str | None
+    mensajes: tuple[MensajeTecnicoProyectado, ...]
+
+
 class EstadoModeracion(ModeloProyeccion):
     """Snapshot completo y reconstruible del frontend de Moderación."""
 
@@ -428,6 +525,7 @@ class EstadoModeracion(ModeloProyeccion):
     auditoria: EstadoAuditoriaProyectado
     remapeo: EstadoRemapeoModeracion | None
     capacidades: CapacidadesModeracion
+    tecnico: ApoyoTecnicoProyectado
 
 
 class EstadoRecinto(ModeloProyeccion):
@@ -444,6 +542,32 @@ class EstadoRecinto(ModeloProyeccion):
     votacion: VotacionPublica | None
     palabra: EstadoPalabraPublico | None
     eventos_publicos: tuple[EventoPublicoProyectado, ...]
+    tecnico: ApoyoTecnicoProyectado
+
+
+class EstadoTecnico(ModeloProyeccion):
+    """Snapshot completo del futuro puesto de Apoyo Técnico (WP-055).
+
+    Reúne todo lo que ese puesto necesita observar y nada más: el estado de
+    transmisión, los avisos vigentes de **ambos** destinos, la biblioteca de
+    mensajes precargados y la misma franja de eventos L1/L2/L3 que ve
+    Moderación.
+
+    ``eventos_recientes`` se construye con el mismo método que la proyección
+    de Moderación, de modo que la frontera de secreto de WP-052 se aplica una
+    sola vez y no puede divergir entre puestos: mientras el sentido individual
+    de un voto siga siendo secreto, tampoco lo ve Apoyo Técnico.
+    """
+
+    revision: int
+    generado_en: datetime
+    estado_global: EstadoGlobal
+    transmision: TransmisionProyectada
+    aviso_moderacion: AvisoTecnicoProyectado | None
+    aviso_recinto: AvisoTecnicoProyectado | None
+    biblioteca: BibliotecaMensajesProyectada
+    eventos_recientes: tuple[EventoRecienteProyectado, ...]
+    auditoria: EstadoAuditoriaProyectado
 
 
 class ServicioProyecciones:
@@ -479,22 +603,36 @@ class ServicioProyecciones:
 
         return await self._ejecutor.leer_coherente(self._construir_recinto)
 
+    async def obtener_estado_tecnico(self) -> EstadoTecnico:
+        """Toma la proyección del puesto técnico bajo el lock compartido."""
+
+        return await self._ejecutor.leer_coherente(self._construir_tecnico)
+
     def demora_hasta_proxima_frontera(self) -> float | None:
         """Calcula bajo lock cuánto falta para el próximo cambio de payload.
 
         El llamador es el temporizador de lifespan y ya utiliza
-        ``leer_coherente``. Se ignora el fin del countdown porque el DTO expone
-        el deadline absoluto y el frontend puede dibujarlo localmente sin una
-        publicación por segundo ni un cambio de payload al llegar a cero.
+        ``leer_coherente``. Se ignora el fin de la cuenta regresiva pública de
+        una votación porque su DTO expone el deadline absoluto y el frontend
+        puede dibujarlo localmente sin una publicación por segundo ni un cambio
+        de payload al llegar a cero.
+
+        Las fronteras del plano técnico (WP-055) sí cambian el payload al
+        cruzarse —``CUENTA_REGRESIVA`` pasa a ``EN_VIVO`` y un aviso vencido
+        desaparece—, por eso se calculan primero y **fuera** de la condición de
+        contexto operativo: Apoyo Técnico opera también en ``SIN_PREPARAR``, y
+        sin esta llamada no habría forma de publicar esas transiciones sin
+        recurrir al polling que el WP prohíbe.
         """
+
+        ahora = self._reloj()
+        demoras: list[float] = self._demoras_tecnicas(ahora)
 
         contexto = self._estado.contexto_operativo_activo()
         if contexto is None:
-            return None
+            return min(demoras) if demoras else None
 
-        ahora = self._reloj()
         ahora_monotono = self._reloj_monotono()
-        demoras: list[float] = []
         demoras.extend(
             expiracion - ahora_monotono
             for expiracion in contexto.expiraciones_test.values()
@@ -547,6 +685,10 @@ class ServicioProyecciones:
             auditoria=self._auditoria(contexto),
             remapeo=self._remapeo(self._estado.remapeo_activo),
             capacidades=self._capacidades(contexto),
+            tecnico=self._apoyo_tecnico(
+                self._estado.aviso_tecnico_moderacion,
+                generado_en,
+            ),
         )
 
     def _construir_recinto(self) -> EstadoRecinto:
@@ -571,7 +713,170 @@ class ServicioProyecciones:
             votacion=self._votacion_publica(contexto, generado_en),
             palabra=self._palabra_publica(sesion, contexto),
             eventos_publicos=self._eventos_publicos(contexto),
+            # El Recinto recibe la ranura del Recinto y nunca la de Moderación:
+            # la separación por destino se decide en servidor, igual que el
+            # secreto de voto, y no depende de que el frontend público filtre.
+            tecnico=self._apoyo_tecnico(self._estado.aviso_tecnico_recinto, generado_en),
         )
+
+    def _construir_tecnico(self) -> EstadoTecnico:
+        """Construye el DTO del puesto técnico con la misma fuente de verdad.
+
+        Reutiliza ``_eventos`` y ``_auditoria`` sin variantes propias: si un WP
+        posterior endurece la frontera de secreto, Apoyo Técnico la hereda
+        automáticamente y no puede quedar como una vía de fuga olvidada.
+        """
+
+        generado_en = self._reloj()
+        contexto = self._estado.contexto_operativo_activo()
+        return EstadoTecnico(
+            revision=self._coordinador.revision,
+            generado_en=generado_en,
+            estado_global=self._estado.estado_global,
+            transmision=self._transmision(generado_en),
+            aviso_moderacion=self._aviso_proyectado(
+                self._estado.aviso_tecnico_moderacion,
+                generado_en,
+            ),
+            aviso_recinto=self._aviso_proyectado(
+                self._estado.aviso_tecnico_recinto,
+                generado_en,
+            ),
+            biblioteca=self.proyectar_biblioteca(self._estado.biblioteca_mensajes_tecnicos),
+            eventos_recientes=self._eventos(contexto, generado_en),
+            auditoria=self._auditoria(contexto),
+        )
+
+    def _apoyo_tecnico(
+        self,
+        aviso: AvisoTecnico | None,
+        generado_en: datetime,
+    ) -> ApoyoTecnicoProyectado:
+        """Arma la porción técnica que corresponde a un único destino."""
+
+        return ApoyoTecnicoProyectado(
+            transmision=self._transmision(generado_en),
+            aviso=self._aviso_proyectado(aviso, generado_en),
+        )
+
+    def _transmision(self, generado_en: datetime) -> TransmisionProyectada:
+        """Deriva el estado observable de la transmisión desde el reloj.
+
+        ``segundos_restantes`` se acota con ``max(0.0, ...)`` para que nunca
+        viaje un valor negativo si el temporizador despierta con unos
+        microsegundos de retraso respecto de la frontera exacta.
+        """
+
+        transmision = self._estado.transmision_tecnica
+        estado = estado_transmision(transmision, generado_en)
+        if transmision is None:
+            return TransmisionProyectada(
+                estado=estado,
+                iniciada_en=None,
+                en_vivo_desde=None,
+                cuenta_regresiva_segundos=None,
+                segundos_restantes=None,
+            )
+        restantes = (
+            max(0.0, (transmision.en_vivo_desde - generado_en).total_seconds())
+            if estado is EstadoTransmision.CUENTA_REGRESIVA
+            else None
+        )
+        return TransmisionProyectada(
+            estado=estado,
+            iniciada_en=transmision.iniciada_en,
+            en_vivo_desde=transmision.en_vivo_desde,
+            cuenta_regresiva_segundos=transmision.cuenta_regresiva_segundos,
+            segundos_restantes=restantes,
+        )
+
+    @staticmethod
+    def _aviso_proyectado(
+        aviso: AvisoTecnico | None,
+        generado_en: datetime,
+    ) -> AvisoTecnicoProyectado | None:
+        """Publica el aviso solamente mientras sigue vigente.
+
+        Un aviso vencido no se elimina del dominio: simplemente deja de
+        proyectarse. Esa es la diferencia entre "expirar" y "cancelar", y es lo
+        que hace que la expiración sea autoritativa aunque nadie ejecute un
+        comando en ese instante.
+        """
+
+        if aviso is None or not aviso.vigente(generado_en):
+            return None
+        restantes = (
+            None
+            if aviso.expira_en is None
+            else max(0.0, (aviso.expira_en - generado_en).total_seconds())
+        )
+        return AvisoTecnicoProyectado(
+            aviso_id=aviso.aviso_id,
+            texto=aviso.texto,
+            destino=aviso.destino,
+            publicado_en=aviso.publicado_en,
+            expira_en=aviso.expira_en,
+            segundos_restantes=restantes,
+        )
+
+    @staticmethod
+    def proyectar_biblioteca(
+        biblioteca: BibliotecaMensajesTecnicos,
+    ) -> BibliotecaMensajesProyectada:
+        """Copia la biblioteca a DTOs inmutables sin exponer el dominio.
+
+        Es público (y estático) porque el recurso REST de la biblioteca
+        devuelve exactamente el mismo submodelo que viaja dentro de
+        ``EstadoTecnico``. Compartir el constructor evita que ambos caminos
+        publiquen formas distintas del mismo dato.
+        """
+
+        return BibliotecaMensajesProyectada(
+            disponible=biblioteca.disponible,
+            motivo=biblioteca.motivo,
+            detalle=biblioteca.detalle,
+            mensajes=tuple(
+                MensajeTecnicoProyectado(
+                    mensaje_id=mensaje.mensaje_id,
+                    texto=mensaje.texto,
+                    destino=mensaje.destino,
+                )
+                for mensaje in biblioteca.mensajes
+            ),
+        )
+
+    def _demoras_tecnicas(self, ahora: datetime) -> list[float]:
+        """Calcula las fronteras temporales del plano técnico pendientes.
+
+        Son dos clases de frontera y ambas cambian el payload observable:
+
+        - el fin de la cuenta regresiva, que convierte ``CUENTA_REGRESIVA`` en
+          ``EN_VIVO``;
+        - el vencimiento de cada aviso con duración, que lo retira del DTO.
+
+        Cuando ``AMBOS`` publicó el mismo aviso en las dos ranuras, ambas
+        aportan la misma demora y ``min`` las colapsa: no genera despertares
+        duplicados.
+        """
+
+        demoras: list[float] = []
+        transmision: TransmisionTecnica | None = self._estado.transmision_tecnica
+        if transmision is not None:
+            faltante = (transmision.en_vivo_desde - ahora).total_seconds()
+            if faltante > 0:
+                demoras.append(faltante)
+
+        for aviso in (
+            self._estado.aviso_tecnico_moderacion,
+            self._estado.aviso_tecnico_recinto,
+        ):
+            if aviso is None or aviso.expira_en is None:
+                continue
+            faltante = (aviso.expira_en - ahora).total_seconds()
+            if faltante > 0:
+                demoras.append(faltante)
+
+        return demoras
 
     def _datos_preparacion(self, contexto: Preparacion | None) -> DatosPreparacion | None:
         """Expone preparación solo durante ``PREPARANDO``."""

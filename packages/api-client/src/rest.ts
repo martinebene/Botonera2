@@ -249,6 +249,10 @@ export class ClienteRest {
     return this.solicitarVacio('POST', ruta, { body, signal })
   }
 
+  async put<T>(ruta: string, body?: unknown, signal?: AbortSignal): Promise<T> {
+    return this.solicitarJson<T>('PUT', ruta, { body, signal })
+  }
+
   async patchVacio(ruta: string, body?: unknown, signal?: AbortSignal): Promise<void> {
     return this.solicitarVacio('PATCH', ruta, { body, signal })
   }

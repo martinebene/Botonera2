@@ -54,6 +54,10 @@ async def test_snapshots_sin_preparar_son_completos_y_sin_contexto(tmp_path: Pat
         "votacion",
         "palabra",
         "eventos_publicos",
+        # WP-055 agrega la porción técnica del Recinto: transmisión más el
+        # aviso de SU destino. Sigue sin existir ninguna clave privada de
+        # Moderación en la allowlist pública.
+        "tecnico",
     }
 
 

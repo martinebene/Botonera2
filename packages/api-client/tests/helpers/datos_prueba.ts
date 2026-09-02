@@ -2,7 +2,26 @@
  * Payloads de prueba tipados para los tests de @botonera2/api-client.
  */
 
-import type { EstadoModeracion, EstadoRecinto } from '../../src/tipos'
+import type { ApoyoTecnicoProyectado, EstadoModeracion, EstadoRecinto } from '../../src/tipos'
+
+/**
+ * Porción técnica en reposo: transmisión APAGADA y sin aviso vigente.
+ *
+ * Es el valor que devuelve el backend mientras Apoyo Técnico no ejecutó ningún
+ * comando, así que sirve de base para cualquier fixture que no ejercite WP-055.
+ */
+export function crearMockApoyoTecnico(): ApoyoTecnicoProyectado {
+  return {
+    transmision: {
+      estado: 'APAGADO',
+      iniciada_en: null,
+      en_vivo_desde: null,
+      cuenta_regresiva_segundos: null,
+      segundos_restantes: null,
+    },
+    aviso: null,
+  }
+}
 
 export function crearMockEstadoModeracion(
   revision = 1,
@@ -80,6 +99,7 @@ export function crearMockEstadoModeracion(
       confirmar_remapeo: { habilitada: false, motivos: ['REMAPEO_NO_COINCIDE'] },
       cancelar_remapeo: { habilitada: false, motivos: ['REMAPEO_NO_COINCIDE'] },
     },
+    tecnico: crearMockApoyoTecnico(),
   }
 }
 
@@ -125,5 +145,6 @@ export function crearMockEstadoRecinto(
     // contrato la declara obligatoria para que el Recinto nunca tenga que
     // distinguir entre "sin eventos" y "campo ausente".
     eventos_publicos: [],
+    tecnico: crearMockApoyoTecnico(),
   }
 }

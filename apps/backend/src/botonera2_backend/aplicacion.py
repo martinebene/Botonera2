@@ -8,6 +8,7 @@ from contextlib import asynccontextmanager, suppress
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
+from botonera2_backend.api.apoyo_tecnico import enrutador_apoyo_tecnico
 from botonera2_backend.api.entradas import enrutador_entradas
 from botonera2_backend.api.errores import registrar_manejadores_errores
 from botonera2_backend.api.estado import enrutador_estado
@@ -98,4 +99,5 @@ def crear_aplicacion() -> FastAPI:
     aplicacion.include_router(enrutador_palabra, prefix="/api/v1")
     aplicacion.include_router(enrutador_estado, prefix="/api/v1")
     aplicacion.include_router(enrutador_remapeos, prefix="/api/v1")
+    aplicacion.include_router(enrutador_apoyo_tecnico, prefix="/api/v1")
     return aplicacion
