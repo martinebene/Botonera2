@@ -202,8 +202,8 @@ WP-033 quedó integrado antes de continuar WP-026 y deja disponible el harness m
 | WP-053 | Atenuar asistencialmente puntos del Orden del Día ya tratados por número | INTEGRADO | WP-040 | - |
 | WP-054 | Refinar cabeceras, quórum, palabra y geometría visual de Moderación/Recinto | INTEGRADO | WP-047, WP-050 | - |
 | WP-055 | Crear backend/contrato autoritativo para Apoyo Técnico, transmisión y avisos | INTEGRADO | WP-052, WP-053 | - |
-| WP-056 | Implementar frontend de Apoyo Técnico e integrar avisos/transmisión en las pantallas | EN_CURSO | WP-052, WP-054, WP-055 | claude |
-| WP-029 | Validar bridge/hardware real, regresión funcional y candidato de producción | BLOQUEADO | WP-019, WP-020, WP-027, WP-028, WP-034, WP-035, WP-036, WP-037, WP-038, WP-039, WP-040, WP-041, WP-043, WP-044, WP-045, WP-046, WP-047, WP-048, WP-049, WP-050, WP-051, WP-052, WP-053, WP-054, WP-055, WP-056 | - |
+| WP-056 | Implementar frontend de Apoyo Técnico e integrar avisos/transmisión en las pantallas | INTEGRADO | WP-052, WP-054, WP-055 | - |
+| WP-029 | Validar bridge/hardware real, regresión funcional y candidato de producción | PENDIENTE | WP-019, WP-020, WP-027, WP-028, WP-034, WP-035, WP-036, WP-037, WP-038, WP-039, WP-040, WP-041, WP-043, WP-044, WP-045, WP-046, WP-047, WP-048, WP-049, WP-050, WP-051, WP-052, WP-053, WP-054, WP-055, WP-056 | - |
 
 HUMAN_GATE seleccionó Codex como implementador y Antigravity/AGY como revisor independiente de WP-047. WP-047 queda `EN_CURSO`; WP-048 y WP-049 permanecen bloqueados por esta dependencia y todavía no tienen agente asignado.
 
@@ -331,3 +331,5 @@ HUMAN_GATE activó WP-055 con Claude Code / Claude Opus 5 (High) como implementa
 WP-055 integrado: PR #62, candidato `5bf51dd77d08e1d03f58e6e611e9d74df584d20a`, revisión independiente 0/0/0 `LISTA PARA INTEGRAR`, squash `60d8d2792e3db040954ccf1e26a557de15966a5f`, tree exacto `2477c19c5a1783ce247dc2f695bb3a4fff851f1f`, CI #398 y #399 `success` 8/8. WP-056 queda habilitado; WP-029 sigue bloqueado hasta completar WP-056.
 
 HUMAN_GATE activó WP-056 con Claude Code / Claude Opus 5 (High) como implementador y Antigravity/AGY / Gemini 3.7 Flash (High) como revisor independiente. WP-056 implementará la SPA `/tecnico/`, reutilizará logs/remapeo existentes, consumirá el backend autoritativo de WP-055 y conectará transmisión/avisos con Recinto y Moderación sin polling, sin autenticación nueva y sin scroll global/overlay en 1366×768 y 1920×1080.
+
+WP-056 integrado: PR #63, candidato `d3ab65a76d241af6c9bc82e7249aec6f982b5845`, revisión independiente 0 BLOQUEANTES / 0 IMPORTANTES / 1 MENOR y veredicto `LISTA PARA INTEGRAR`, squash `6637608879bfd7bb2bc4768f5250196cb742875d`, tree exacto `3c97fc3b4a2687fa00264dcc6e48750c1c193814`, CI candidata #402 y CI post-merge #403 `success` 8/8. MENOR-01 queda registrado como deuda de minimización de datos: la SPA técnica recibe el snapshot completo de Moderación para reutilizar remapeo, sin vulnerar el secreto de voto. Con WP-051..WP-056 cerrados funcionalmente, WP-029 deja de estar bloqueado y vuelve a `PENDIENTE` para la validación final de bridge/hardware real, regresión funcional y candidato de producción.
