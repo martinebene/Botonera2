@@ -1,6 +1,6 @@
 import { defineConfig, devices } from '@playwright/test'
 
-/** Configuración E2E de los dos frontends estáticos del monorepo. */
+/** Configuración E2E de los frontends estáticos del monorepo. */
 export default defineConfig({
   testDir: './tests/playwright',
   timeout: 30000,
@@ -38,6 +38,12 @@ export default defineConfig({
     {
       command: 'pnpm --filter @botonera2/simulador dev --port 3002',
       url: 'http://localhost:3002/simulador/',
+      reuseExistingServer: !process.env.CI,
+      timeout: 120 * 1000,
+    },
+    {
+      command: 'pnpm --filter @botonera2/tecnico dev --port 3003',
+      url: 'http://localhost:3003/tecnico/',
       reuseExistingServer: !process.env.CI,
       timeout: 120 * 1000,
     },

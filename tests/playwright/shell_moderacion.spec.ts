@@ -89,6 +89,18 @@ function crearEstadoFixture(parcial: Record<string, unknown> = {}) {
       cerrar_expediente: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
       registrar_evento_manual: { habilitada: false, motivos: ['ESTADO_INCOMPATIBLE'] },
     },
+    // Porción técnica en su estado inicial (WP-056): sin transmisión ni aviso, que es
+    // lo que publica el backend mientras Apoyo Técnico no interviene.
+    tecnico: {
+      transmision: {
+        estado: 'APAGADO',
+        iniciada_en: null,
+        en_vivo_desde: null,
+        cuenta_regresiva_segundos: null,
+        segundos_restantes: null,
+      },
+      aviso: null,
+    },
     ...parcial,
   }
 }

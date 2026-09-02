@@ -129,6 +129,11 @@ def poblar_release(raiz: Path, destino: Path) -> None:
         destino / "web/simulador",
         "Simulador",
     )
+    copiar_salida_spa(
+        raiz / "apps/tecnico/.output/public",
+        destino / "web/tecnico",
+        "Apoyo Técnico",
+    )
     copiar_arbol_runtime(raiz / "deploy", destino / "deploy")
 
 
@@ -169,6 +174,7 @@ def escribir_manifest(
             "moderacion": "web/moderacion/index.html",
             "recinto": "web/recinto/index.html",
             "simulador": "web/simulador/index.html",
+            "tecnico": "web/tecnico/index.html",
         },
         "paquetes_python": ["botonera2-backend", "botonera2-device-bridge"],
         "archivos": inventariar_archivos(raiz_release),

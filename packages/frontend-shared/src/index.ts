@@ -1,10 +1,19 @@
 /**
- * Punto de entrada del código genuinamente común a ambos frontends.
+ * Punto de entrada del código genuinamente común a los frontends de Botonera2.
  *
- * Solo se publica aquí lo que necesita ser idéntico en Moderación y Recinto.
- * Hoy incluye la semántica visual de una banca (WP-045) y el cálculo temporal
- * backend-backend de la duración de sesión (WP-047). Si estas reglas vivieran
- * duplicadas, una corrección posterior podría aplicarse en una sola interfaz.
+ * Solo se publica aquí lo que necesita ser idéntico en más de una interfaz. Hoy
+ * incluye la semántica visual de una banca (WP-045), el cálculo temporal
+ * backend-backend de la duración de sesión (WP-047) y, desde WP-056, la traducción
+ * de motivos de capacidad, la presentación de la franja segura de eventos y el ajuste
+ * tipográfico de los avisos de Apoyo Técnico. Si estas reglas vivieran duplicadas, una
+ * corrección posterior podría aplicarse en una sola interfaz.
+ *
+ * Los componentes Vue compartidos no se exportan por este índice: se importan por su
+ * subruta (`@botonera2/frontend-shared/componentes/…`) para que cada aplicación cargue
+ * únicamente el que usa y para que este archivo no arrastre plantillas ni estilos.
+ *
+ * Sigue vigente DT-024: acá va sólo código realmente común, no una librería de UI
+ * construida por anticipado.
  */
 export {
   calcularPresentacionBanca,
@@ -20,3 +29,28 @@ export {
 } from './estado_banca'
 
 export { calcularDuracionEnSnapshot, convertirMarcaBackend, formatearDuracion } from './tiempo'
+
+export { traducirMotivo, traducirMotivos, type ContextoMotivo } from './motivos'
+
+export {
+  filtrarEventosPorNivel,
+  hayActividadNueva,
+  NIVELES_POR_FILTRO,
+  seqMaximoEventos,
+  type FiltroNivelEventos,
+} from './eventos_seguros'
+
+export {
+  ajustarTamanoAviso,
+  lineasVisiblesAviso,
+  type OpcionesAjusteAviso,
+  type ResultadoAjusteAviso,
+} from './aviso_adaptable'
+
+export {
+  usePresentacionTecnica,
+  type EntradaPresentacionTecnica,
+  type PresentacionTecnica,
+} from './presentacion_tecnica'
+
+export { extraerMensajeError } from './errores'

@@ -1,6 +1,32 @@
 /** Fixtures públicas completas; nunca incluyen campos privados de Moderación. */
 
-import type { ConcejalPublico, EstadoRecinto, VotacionPublica } from '@botonera2/api-client'
+import type {
+  ApoyoTecnicoProyectado,
+  ConcejalPublico,
+  EstadoRecinto,
+  VotacionPublica,
+} from '@botonera2/api-client'
+
+/**
+ * Porción técnica por defecto: transmisión apagada y sin aviso vigente (WP-056).
+ *
+ * Es el estado en el que arranca el backend, de modo que las fixtures existentes
+ * conservan exactamente el comportamiento que ya verificaban.
+ */
+export function crearApoyoTecnicoPrueba(
+  parcial: Partial<ApoyoTecnicoProyectado> = {},
+): ApoyoTecnicoProyectado {
+  return {
+    transmision: parcial.transmision ?? {
+      estado: 'APAGADO',
+      iniciada_en: null,
+      en_vivo_desde: null,
+      cuenta_regresiva_segundos: null,
+      segundos_restantes: null,
+    },
+    aviso: parcial.aviso ?? null,
+  }
+}
 
 export function crearConcejalesPublicos(cantidad: number): ConcejalPublico[] {
   return Array.from({ length: cantidad }, (_, indice) => {
@@ -31,6 +57,7 @@ export function crearEstadoRecintoPrueba(parcial: Partial<EstadoRecinto> = {}): 
     votacion: parcial.votacion ?? null,
     palabra: parcial.palabra ?? null,
     eventos_publicos: parcial.eventos_publicos ?? [],
+    tecnico: parcial.tecnico ?? crearApoyoTecnicoPrueba(),
   }
 }
 

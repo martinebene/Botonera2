@@ -2,6 +2,14 @@
 /**
  * Gestiona la interfaz del remapeo físico coordinado por FastAPI.
  *
+ * WP-056 lo trasladó desde `apps/moderacion` a `packages/frontend-shared` porque el
+ * puesto de Apoyo Técnico debe ofrecer exactamente el mismo remapeo que Moderación.
+ * Compartir el componente —en lugar de copiarlo— es lo que garantiza que las dos
+ * pantallas usen las mismas capacidades, los mismos comandos y los mismos textos: una
+ * corrección futura no puede quedar aplicada en una sola interfaz. Sigue siendo la
+ * única superficie de remapeo del proyecto y no incorpora reglas propias; lee
+ * `EstadoModeracion.remapeo` y ejecuta `ClienteModeracion`, igual que antes.
+ *
  * La selección de banca y del modo de persistencia son borradores locales del
  * operador. La operación activa, sus fingerprints y su etapa se reconstruyen
  * siempre desde `EstadoModeracion.remapeo`; ningún 201/204 modifica ese estado
@@ -18,7 +26,8 @@
 
 import { computed, ref, watch } from 'vue'
 import type { ClienteModeracion, EstadoModeracion } from '@botonera2/api-client'
-import { traducirMotivos } from '../utils/motivos'
+import { extraerMensajeError } from '../errores'
+import { traducirMotivos } from '../motivos'
 
 const props = defineProps<{
   /** Snapshot completo y autoritativo de Moderación. */
@@ -100,25 +109,6 @@ watch(
     }
   },
 )
-
-/** Extrae mensajes tipados del api-client sin ocultar el rechazo backend. */
-function extraerMensajeError(error: unknown, mensajePredeterminado: string): string {
-  if (typeof error === 'object' && error !== null) {
-    if (
-      'mensajeBackend' in error &&
-      typeof (error as { mensajeBackend: unknown }).mensajeBackend === 'string'
-    ) {
-      return (error as { mensajeBackend: string }).mensajeBackend
-    }
-    if ('mensaje' in error && typeof (error as { mensaje: unknown }).mensaje === 'string') {
-      return (error as { mensaje: string }).mensaje
-    }
-    if ('message' in error && typeof (error as { message: unknown }).message === 'string') {
-      return (error as { message: string }).message
-    }
-  }
-  return mensajePredeterminado
-}
 
 /**
  * Borra el error anterior antes de emitir un comando nuevo, para que un fallo viejo no

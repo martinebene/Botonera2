@@ -52,6 +52,8 @@ def crear_checkout_minimo(raiz: Path) -> None:
         "apps/recinto/.output/public/_nuxt/app.js": "r",
         "apps/simulador/.output/public/index.html": "<!doctype html>Simulador",
         "apps/simulador/.output/public/_nuxt/app.js": "s",
+        "apps/tecnico/.output/public/index.html": "<!doctype html>Apoyo Técnico",
+        "apps/tecnico/.output/public/_nuxt/app.js": "t",
         "deploy/__init__.py": "",
         "deploy/herramienta_despliegue.py": "# herramienta",
         "deploy/validar_configuracion.py": "# validador",
@@ -436,6 +438,7 @@ def crear_release_preparada(gestor: GestorDespliegue, sha: str) -> Path:
         "web/moderacion/index.html",
         "web/recinto/index.html",
         "web/simulador/index.html",
+        "web/tecnico/index.html",
         "deploy/systemd/botonera2-backend.service",
         "deploy/systemd/botonera2-device-bridge.service",
         "deploy/nginx/botonera2.conf",
@@ -829,6 +832,26 @@ def test_plantillas_fijan_loopback_worker_usuarios_y_sse() -> None:
     assert "proxy_pass http://127.0.0.1:8000;" in nginx
     assert "cors" not in nginx.lower()
     assert "ssl" not in nginx.lower()
+
+
+def test_configuracion_nginx_expone_apoyo_tecnico_en_la_red() -> None:
+    """El puesto de Apoyo Técnico se opera desde otro equipo de la LAN (WP-056).
+
+    A diferencia de ``/simulador/``, su bloque no lleva ``deny all``: la decisión humana
+    cerrada es que se acceda sin autenticación adicional desde la red del Concejo. La
+    prueba fija esa diferencia para que un endurecimiento accidental del sitio no deje
+    inoperable al puesto técnico sin que nadie lo advierta.
+    """
+
+    raiz = Path(__file__).resolve().parents[1]
+    nginx = (raiz / "deploy/nginx/botonera2.conf").read_text(encoding="utf-8")
+
+    inicio = nginx.index("location /tecnico/ {")
+    bloque = nginx[inicio : nginx.index("}", inicio)]
+    assert "try_files $uri $uri/ /tecnico/index.html;" in bloque
+    assert "root /opt/botonera2/current/web;" in bloque
+    assert "deny" not in bloque
+    assert "allow" not in bloque
 
 
 def test_configuracion_nginx_restringe_simulador_a_loopback() -> None:

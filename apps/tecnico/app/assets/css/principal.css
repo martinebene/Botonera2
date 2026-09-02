@@ -1,0 +1,8 @@
+@import 'tailwindcss';
+
+/*
+  Igual que en Moderación: el componente compartido de remapeo vive fuera de esta
+  aplicación y la detección automática de Tailwind sólo recorre el directorio del
+  proyecto. Sin esta línea, sus utilidades no se generarían acá.
+*/
+@source '../../../../../packages/frontend-shared/src';
