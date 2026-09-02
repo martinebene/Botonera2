@@ -9,6 +9,7 @@
 // Clientes y fábricas públicas
 export { ClienteModeracion, crearClienteModeracion } from './moderacion'
 export { ClienteRecinto, crearClienteRecinto } from './recinto'
+export { ClienteApoyoTecnico, crearClienteApoyoTecnico } from './apoyo_tecnico'
 export { ClienteSimulador, crearClienteSimulador } from './simulador'
 export { SincronizadorEstado, iniciarSincronizacionEstado } from './sincronizador'
 export { EstrategiaBackoff, temporizadorPredeterminado } from './backoff'
@@ -57,6 +58,14 @@ export type {
   EstadoAuditoriaProyectado,
   EstadoRemapeoModeracion,
   EstadoRemapeoRespuesta,
+  EstadoTecnico,
+  ApoyoTecnicoProyectado,
+  TransmisionProyectada,
+  AvisoTecnicoProyectado,
+  MensajeTecnicoProyectado,
+  BibliotecaMensajesProyectada,
+  EstadoTransmision,
+  DestinoAvisoTecnico,
   Capacidad,
   CapacidadesModeracion,
   EstadoVotacion,
@@ -77,6 +86,9 @@ export type {
   SolicitudDesempate,
   SolicitudIniciarRemapeo,
   SolicitudConfirmarRemapeo,
+  SolicitudIniciarTransmision,
+  SolicitudPublicarAviso,
+  SolicitudMensajeTecnico,
   SolicitudTecla,
   RespuestaTecla,
   // Tipos de cliente y ciclo de vida

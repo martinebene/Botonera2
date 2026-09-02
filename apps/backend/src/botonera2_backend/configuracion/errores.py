@@ -42,3 +42,15 @@ class ErrorPadronInvalido(ErrorConfiguracion):
     ``presente``), campos vacíos o duplicados, bancas inválidas, rutas de
     imagen externas y la correspondencia exacta padrón/disposición.
     """
+
+
+class ErrorMensajesTecnicosInvalido(ErrorConfiguracion):
+    """El CSV de mensajes técnicos precargados no cumple su contrato (WP-055).
+
+    Cubre el encabezado no exacto, la cantidad de columnas, identificadores
+    vacíos/duplicados/con caracteres no permitidos, textos vacíos o con saltos
+    de línea y destinos fuera de ``MODERACION``/``RECINTO``/``AMBOS``.
+
+    A diferencia del padrón, este archivo lo escribe el propio backend: por eso
+    un archivo inválido nunca se sobrescribe, solamente se rechaza.
+    """

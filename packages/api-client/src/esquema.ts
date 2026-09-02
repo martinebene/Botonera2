@@ -266,6 +266,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/estado/tecnico": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Obtener snapshot completo del puesto de Apoyo Técnico
+         * @description Responde en cualquiera de los tres estados globales sin mutar dominio.
+         */
+        get: operations["obtener_estado_tecnico_api_v1_estado_tecnico_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/estado/moderacion/stream": {
         parameters: {
             query?: never;
@@ -298,6 +318,31 @@ export interface paths {
          * @description Usa exactamente el mismo constructor público restrictivo que REST.
          */
         get: operations["transmitir_estado_recinto_api_v1_estado_recinto_stream_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/estado/tecnico/stream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Seguir estados completos de Apoyo Técnico por SSE
+         * @description Comparte coordinador y revisiones con los otros dos streams.
+         *
+         *     Que las tres proyecciones usen el mismo ``CoordinadorPublicacion`` es lo
+         *     que garantiza que una cuenta regresiva que vence, o un aviso que expira,
+         *     despierte a la vez a Moderación, al Recinto y al puesto técnico sin que
+         *     ninguno pregunte periódicamente.
+         */
+        get: operations["transmitir_estado_tecnico_api_v1_estado_tecnico_stream_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -386,6 +431,118 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/apoyo-tecnico/transmision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Iniciar la transmisión de inmediato o con cuenta regresiva
+         * @description Instala la intención de transmitir; el estado observable lo deriva el backend.
+         */
+        post: operations["iniciar_transmision_api_v1_apoyo_tecnico_transmision_post"];
+        /**
+         * Detener la transmisión y volver a APAGADO
+         * @description Apaga el indicador. Es idempotente si ya estaba apagado.
+         */
+        delete: operations["detener_transmision_api_v1_apoyo_tecnico_transmision_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/apoyo-tecnico/avisos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Publicar un aviso técnico hacia Moderación, Recinto o ambos
+         * @description Reemplaza el aviso vigente de cada destino alcanzado.
+         */
+        post: operations["publicar_aviso_api_v1_apoyo_tecnico_avisos_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/apoyo-tecnico/avisos/{destino}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Cancelar el aviso vigente de un destino antes de su vencimiento
+         * @description Retira el aviso de las ranuras alcanzadas. Es idempotente.
+         */
+        delete: operations["cancelar_aviso_api_v1_apoyo_tecnico_avisos__destino__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/apoyo-tecnico/mensajes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Listar la biblioteca de mensajes precargados
+         * @description Devuelve la misma biblioteca que publica ``GET /api/v1/estado/tecnico``.
+         */
+        get: operations["listar_mensajes_api_v1_apoyo_tecnico_mensajes_get"];
+        put?: never;
+        /**
+         * Crear un mensaje precargado y persistirlo en el CSV
+         * @description Persiste primero en disco y devuelve el identificador estable generado.
+         */
+        post: operations["crear_mensaje_api_v1_apoyo_tecnico_mensajes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/apoyo-tecnico/mensajes/{mensaje_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Editar el texto y el destino de un mensaje precargado
+         * @description Conserva el identificador y la posición del mensaje editado.
+         */
+        put: operations["actualizar_mensaje_api_v1_apoyo_tecnico_mensajes__mensaje_id__put"];
+        post?: never;
+        /**
+         * Eliminar un mensaje precargado de la biblioteca
+         * @description Rechaza un identificador desconocido en lugar de simular un borrado.
+         */
+        delete: operations["eliminar_mensaje_api_v1_apoyo_tecnico_mensajes__mensaje_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -397,6 +554,54 @@ export interface components {
          */
         AccionPalabra: "PEDIDO_AGREGADO" | "PEDIDO_RETIRADO" | "USO_FINALIZADO";
         /**
+         * ApoyoTecnicoProyectado
+         * @description Porción del plano técnico que corresponde a **un** destino (WP-055).
+         *
+         *     Moderación y Recinto reciben este mismo submodelo, pero cada uno con su
+         *     propio aviso: la separación se aplica en el servidor, igual que el secreto
+         *     de voto, de manera que un aviso dirigido a Moderación jamás viaja en el
+         *     payload del Recinto aunque el frontend público tuviera un error.
+         */
+        ApoyoTecnicoProyectado: {
+            transmision: components["schemas"]["TransmisionProyectada"];
+            aviso: components["schemas"]["AvisoTecnicoProyectado"] | null;
+        };
+        /**
+         * AvisoTecnicoProyectado
+         * @description Aviso técnico vigente en una ranura de destino (WP-055).
+         *
+         *     Solo se proyecta mientras está vigente: un aviso vencido desaparece del
+         *     payload sin que ninguna mutación lo haya borrado, porque la vigencia se
+         *     deriva de ``expira_en`` contra el reloj del backend.
+         *
+         *     Atributos:
+         *         aviso_id: identificador de la publicación. Cuando el destino fue
+         *             ``AMBOS``, Moderación y Recinto reciben el mismo valor.
+         *         texto: contenido a mostrar.
+         *         destino: destino solicitado al publicarlo.
+         *         publicado_en: instante civil de publicación.
+         *         expira_en: frontera absoluta de vencimiento, o ``None`` si permanece
+         *             hasta la cancelación manual.
+         *         segundos_restantes: faltante para el vencimiento, o ``None`` si no
+         *             vence.
+         */
+        AvisoTecnicoProyectado: {
+            /** Aviso Id */
+            aviso_id: string;
+            /** Texto */
+            texto: string;
+            destino: components["schemas"]["DestinoAvisoTecnico"];
+            /**
+             * Publicado En
+             * Format: date-time
+             */
+            publicado_en: string;
+            /** Expira En */
+            expira_en: string | null;
+            /** Segundos Restantes */
+            segundos_restantes: number | null;
+        };
+        /**
          * BaseMayoria
          * @description Representa el denominador conceptual de una regla de mayoría.
          *
@@ -407,6 +612,24 @@ export interface components {
          * @enum {string}
          */
         BaseMayoria: "VOTOS_COMPUTABLES" | "PRESENTES" | "CUERPO";
+        /**
+         * BibliotecaMensajesProyectada
+         * @description Biblioteca CSV más su condición técnica (WP-055).
+         *
+         *     ``disponible=False`` indica que el archivo existe pero no pudo
+         *     interpretarse. En ese caso la lista viaja vacía y el backend rechaza toda
+         *     escritura, para no destruir el contenido que el operador quiso conservar.
+         */
+        BibliotecaMensajesProyectada: {
+            /** Disponible */
+            disponible: boolean;
+            /** Motivo */
+            motivo: string | null;
+            /** Detalle */
+            detalle: string | null;
+            /** Mensajes */
+            mensajes: components["schemas"]["MensajeTecnicoProyectado"][];
+        };
         /** Body_cargar_orden_del_dia_api_v1_orden_del_dia_post */
         Body_cargar_orden_del_dia_api_v1_orden_del_dia_post: {
             /**
@@ -597,6 +820,17 @@ export interface components {
             secretaria_legislativa: string;
         };
         /**
+         * DestinoAvisoTecnico
+         * @description Destinos posibles de un aviso técnico o de un mensaje precargado.
+         *
+         *     ``AMBOS`` no es un tercer destino con ranura propia: es la orden de
+         *     afectar coherentemente las dos ranuras reales (Moderación y Recinto) en la
+         *     misma mutación. Se conserva en el aviso publicado para que el puesto
+         *     técnico pueda mostrar con qué intención se emitió.
+         * @enum {string}
+         */
+        DestinoAvisoTecnico: "MODERACION" | "RECINTO" | "AMBOS";
+        /**
          * ErrorRespuesta
          * @description Cuerpo JSON estable de toda respuesta de error funcional/técnica.
          *
@@ -663,6 +897,7 @@ export interface components {
             auditoria: components["schemas"]["EstadoAuditoriaProyectado"];
             remapeo: components["schemas"]["EstadoRemapeoModeracion"] | null;
             capacidades: components["schemas"]["CapacidadesModeracion"];
+            tecnico: components["schemas"]["ApoyoTecnicoProyectado"];
         };
         /**
          * EstadoPalabraModeracion
@@ -718,6 +953,7 @@ export interface components {
             palabra: components["schemas"]["EstadoPalabraPublico"] | null;
             /** Eventos Publicos */
             eventos_publicos: components["schemas"]["EventoPublicoProyectado"][];
+            tecnico: components["schemas"]["ApoyoTecnicoProyectado"];
         };
         /**
          * EstadoRemapeoModeracion
@@ -755,6 +991,48 @@ export interface components {
             /** Diagnostico */
             diagnostico: string | null;
         };
+        /**
+         * EstadoTecnico
+         * @description Snapshot completo del futuro puesto de Apoyo Técnico (WP-055).
+         *
+         *     Reúne todo lo que ese puesto necesita observar y nada más: el estado de
+         *     transmisión, los avisos vigentes de **ambos** destinos, la biblioteca de
+         *     mensajes precargados y la misma franja de eventos L1/L2/L3 que ve
+         *     Moderación.
+         *
+         *     ``eventos_recientes`` se construye con el mismo método que la proyección
+         *     de Moderación, de modo que la frontera de secreto de WP-052 se aplica una
+         *     sola vez y no puede divergir entre puestos: mientras el sentido individual
+         *     de un voto siga siendo secreto, tampoco lo ve Apoyo Técnico.
+         */
+        EstadoTecnico: {
+            /** Revision */
+            revision: number;
+            /**
+             * Generado En
+             * Format: date-time
+             */
+            generado_en: string;
+            estado_global: components["schemas"]["EstadoGlobal"];
+            transmision: components["schemas"]["TransmisionProyectada"];
+            aviso_moderacion: components["schemas"]["AvisoTecnicoProyectado"] | null;
+            aviso_recinto: components["schemas"]["AvisoTecnicoProyectado"] | null;
+            biblioteca: components["schemas"]["BibliotecaMensajesProyectada"];
+            /** Eventos Recientes */
+            eventos_recientes: components["schemas"]["EventoRecienteProyectado"][];
+            auditoria: components["schemas"]["EstadoAuditoriaProyectado"];
+        };
+        /**
+         * EstadoTransmision
+         * @description Estados observables del indicador de transmisión.
+         *
+         *     Es un valor *derivado*: el dominio no lo almacena, lo calcula
+         *     :func:`estado_transmision` a partir del instante ``en_vivo_desde``. Que el
+         *     enum exista acá y no en la capa de proyección permite que servicios y
+         *     pruebas razonen con el mismo vocabulario que publica el contrato REST/SSE.
+         * @enum {string}
+         */
+        EstadoTransmision: "APAGADO" | "CUENTA_REGRESIVA" | "EN_VIVO";
         /**
          * EstadoVotacion
          * @description Indica exclusivamente si la recepción todavía admite votos.
@@ -858,6 +1136,17 @@ export interface components {
             apellido: string;
             /** Banca */
             banca: number;
+        };
+        /**
+         * MensajeTecnicoProyectado
+         * @description Mensaje precargado de la biblioteca CSV (WP-055).
+         */
+        MensajeTecnicoProyectado: {
+            /** Mensaje Id */
+            mensaje_id: string;
+            /** Texto */
+            texto: string;
+            destino: components["schemas"]["DestinoAvisoTecnico"];
         };
         NumeroSesionOmitible: number;
         NumeroVotacion: number;
@@ -1140,6 +1429,52 @@ export interface components {
             dispositivo: string;
         };
         /**
+         * SolicitudIniciarTransmision
+         * @description Body del inicio de transmisión.
+         *
+         *     ``cuenta_regresiva_segundos`` ausente o ``null`` significa inicio
+         *     inmediato. Es ``strict`` para que un ``"10"`` textual no se acepte por
+         *     coerción silenciosa: el contrato exige un entero.
+         */
+        SolicitudIniciarTransmision: {
+            /** Cuenta Regresiva Segundos */
+            cuenta_regresiva_segundos?: number | null;
+        };
+        /**
+         * SolicitudMensajeTecnico
+         * @description Body de alta y edición de un mensaje precargado.
+         *
+         *     El identificador nunca viaja en el body: lo genera el backend al crear y se
+         *     toma de la ruta al editar, de modo que un cliente no pueda reasignarlo.
+         */
+        SolicitudMensajeTecnico: {
+            /** Texto */
+            texto: string;
+            /**
+             * Destino
+             * @enum {string}
+             */
+            destino: "MODERACION" | "RECINTO" | "AMBOS";
+        };
+        /**
+         * SolicitudPublicarAviso
+         * @description Body de la publicación de un aviso técnico.
+         *
+         *     ``duracion_segundos`` ausente o ``null`` significa que el aviso permanece
+         *     hasta la cancelación manual.
+         */
+        SolicitudPublicarAviso: {
+            /** Texto */
+            texto: string;
+            /**
+             * Destino
+             * @enum {string}
+             */
+            destino: "MODERACION" | "RECINTO" | "AMBOS";
+            /** Duracion Segundos */
+            duracion_segundos?: number | null;
+        };
+        /**
          * SolicitudTecla
          * @description Body exacto de la pulsación lógica que recibe el backend.
          *
@@ -1209,6 +1544,37 @@ export interface components {
          * @enum {string}
          */
         TipoMayoria: "SIMPLE" | "ESPECIAL";
+        /**
+         * TransmisionProyectada
+         * @description Estado autoritativo del indicador de transmisión (WP-055).
+         *
+         *     El DTO publica a la vez la frontera absoluta y el resto calculado por el
+         *     backend. El frontend puede animar el contador con ``segundos_restantes``
+         *     sin decidir nunca por su cuenta cuándo empieza ``EN VIVO``: esa decisión
+         *     sigue siendo del servidor, que republica al cruzar ``en_vivo_desde``.
+         *
+         *     Atributos:
+         *         estado: ``APAGADO``, ``CUENTA_REGRESIVA`` o ``EN_VIVO``.
+         *         iniciada_en: instante de la orden humana, o ``None`` si está apagada.
+         *         en_vivo_desde: frontera absoluta a partir de la cual vale ``EN_VIVO``.
+         *             Es el dato que permite reconstruir la verdad temporal exacta tras
+         *             un reload o una reconexión SSE.
+         *         cuenta_regresiva_segundos: duración solicitada, o ``None`` cuando el
+         *             inicio fue inmediato.
+         *         segundos_restantes: faltante para la frontera, nunca negativo. Vale
+         *             ``None`` fuera de ``CUENTA_REGRESIVA``.
+         */
+        TransmisionProyectada: {
+            estado: components["schemas"]["EstadoTransmision"];
+            /** Iniciada En */
+            iniciada_en: string | null;
+            /** En Vivo Desde */
+            en_vivo_desde: string | null;
+            /** Cuenta Regresiva Segundos */
+            cuenta_regresiva_segundos: number | null;
+            /** Segundos Restantes */
+            segundos_restantes: number | null;
+        };
         /** ValidationError */
         ValidationError: {
             /** Location */
@@ -2154,6 +2520,26 @@ export interface operations {
             };
         };
     };
+    obtener_estado_tecnico_api_v1_estado_tecnico_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EstadoTecnico"];
+                };
+            };
+        };
+    };
     transmitir_estado_moderacion_api_v1_estado_moderacion_stream_get: {
         parameters: {
             query?: never;
@@ -2184,6 +2570,26 @@ export interface operations {
         requestBody?: never;
         responses: {
             /** @description Stream Server-Sent Events. Cada evento `estado` contiene un EstadoRecinto completo con el secreto público aplicado en servidor; `id` coincide con su revision. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": string;
+                };
+            };
+        };
+    };
+    transmitir_estado_tecnico_api_v1_estado_tecnico_stream_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Stream Server-Sent Events. Cada evento `estado` contiene un EstadoTecnico completo con transmisión, avisos de ambos destinos, biblioteca y eventos seguros; `id` coincide con su revision. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -2422,6 +2828,414 @@ export interface operations {
                 };
             };
             /** @description Indisponibilidad: BRIDGE_NO_DISPONIBLE, APLICACION_BRIDGE_RECHAZADA o AUDITORIA_NO_DISPONIBLE. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorRespuesta"];
+                };
+            };
+        };
+    };
+    iniciar_transmision_api_v1_apoyo_tecnico_transmision_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SolicitudIniciarTransmision"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Body inválido: texto vacío, destino desconocido o duración fuera de rango. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Fallo inesperado (ERROR_INTERNO). */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorRespuesta"];
+                };
+            };
+            /** @description Indisponibilidad técnica: AUDITORIA_NO_DISPONIBLE cuando hay una preparación/sesión activa cuyo escritor está en fallo cerrado. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorRespuesta"];
+                };
+            };
+        };
+    };
+    detener_transmision_api_v1_apoyo_tecnico_transmision_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Body inválido: texto vacío, destino desconocido o duración fuera de rango. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Fallo inesperado (ERROR_INTERNO). */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorRespuesta"];
+                };
+            };
+            /** @description Indisponibilidad técnica: AUDITORIA_NO_DISPONIBLE cuando hay una preparación/sesión activa cuyo escritor está en fallo cerrado. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorRespuesta"];
+                };
+            };
+        };
+    };
+    publicar_aviso_api_v1_apoyo_tecnico_avisos_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SolicitudPublicarAviso"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Body inválido: texto vacío, destino desconocido o duración fuera de rango. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Fallo inesperado (ERROR_INTERNO). */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorRespuesta"];
+                };
+            };
+            /** @description Indisponibilidad técnica: AUDITORIA_NO_DISPONIBLE cuando hay una preparación/sesión activa cuyo escritor está en fallo cerrado. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorRespuesta"];
+                };
+            };
+        };
+    };
+    cancelar_aviso_api_v1_apoyo_tecnico_avisos__destino__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                destino: "MODERACION" | "RECINTO" | "AMBOS";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Body inválido: texto vacío, destino desconocido o duración fuera de rango. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Fallo inesperado (ERROR_INTERNO). */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorRespuesta"];
+                };
+            };
+            /** @description Indisponibilidad técnica: AUDITORIA_NO_DISPONIBLE cuando hay una preparación/sesión activa cuyo escritor está en fallo cerrado. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorRespuesta"];
+                };
+            };
+        };
+    };
+    listar_mensajes_api_v1_apoyo_tecnico_mensajes_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BibliotecaMensajesProyectada"];
+                };
+            };
+            /** @description El identificador no pertenece a la biblioteca (MENSAJE_TECNICO_NO_EXISTENTE). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorRespuesta"];
+                };
+            };
+            /** @description Body inválido: texto vacío/demasiado largo o destino desconocido. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Fallo inesperado (ERROR_INTERNO). */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorRespuesta"];
+                };
+            };
+            /** @description Indisponibilidad de la biblioteca: BIBLIOTECA_MENSAJES_INVALIDA cuando el CSV existe pero no pudo interpretarse, o PERSISTENCIA_MENSAJES_FALLIDA cuando la escritura atómica no pudo confirmarse. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorRespuesta"];
+                };
+            };
+        };
+    };
+    crear_mensaje_api_v1_apoyo_tecnico_mensajes_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SolicitudMensajeTecnico"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MensajeTecnicoProyectado"];
+                };
+            };
+            /** @description El identificador no pertenece a la biblioteca (MENSAJE_TECNICO_NO_EXISTENTE). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorRespuesta"];
+                };
+            };
+            /** @description Body inválido: texto vacío/demasiado largo o destino desconocido. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Fallo inesperado (ERROR_INTERNO). */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorRespuesta"];
+                };
+            };
+            /** @description Indisponibilidad de la biblioteca: BIBLIOTECA_MENSAJES_INVALIDA cuando el CSV existe pero no pudo interpretarse, o PERSISTENCIA_MENSAJES_FALLIDA cuando la escritura atómica no pudo confirmarse. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorRespuesta"];
+                };
+            };
+        };
+    };
+    actualizar_mensaje_api_v1_apoyo_tecnico_mensajes__mensaje_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                mensaje_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SolicitudMensajeTecnico"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MensajeTecnicoProyectado"];
+                };
+            };
+            /** @description El identificador no pertenece a la biblioteca (MENSAJE_TECNICO_NO_EXISTENTE). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorRespuesta"];
+                };
+            };
+            /** @description Body inválido: texto vacío/demasiado largo o destino desconocido. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Fallo inesperado (ERROR_INTERNO). */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorRespuesta"];
+                };
+            };
+            /** @description Indisponibilidad de la biblioteca: BIBLIOTECA_MENSAJES_INVALIDA cuando el CSV existe pero no pudo interpretarse, o PERSISTENCIA_MENSAJES_FALLIDA cuando la escritura atómica no pudo confirmarse. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorRespuesta"];
+                };
+            };
+        };
+    };
+    eliminar_mensaje_api_v1_apoyo_tecnico_mensajes__mensaje_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                mensaje_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description El identificador no pertenece a la biblioteca (MENSAJE_TECNICO_NO_EXISTENTE). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorRespuesta"];
+                };
+            };
+            /** @description Body inválido: texto vacío/demasiado largo o destino desconocido. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Fallo inesperado (ERROR_INTERNO). */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorRespuesta"];
+                };
+            };
+            /** @description Indisponibilidad de la biblioteca: BIBLIOTECA_MENSAJES_INVALIDA cuando el CSV existe pero no pudo interpretarse, o PERSISTENCIA_MENSAJES_FALLIDA cuando la escritura atómica no pudo confirmarse. */
             503: {
                 headers: {
                     [name: string]: unknown;

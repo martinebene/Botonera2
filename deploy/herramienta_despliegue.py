@@ -403,6 +403,13 @@ def plan_permisos() -> tuple[PlanPermiso, ...]:
     hijo: sólo backend lee los archivos institucionales y sólo bridge administra
     su subdirectorio, requisito necesario para reemplazar ``devices.json`` de
     manera atómica.
+
+    ``config/apoyo-tecnico`` aplica exactamente ese mismo patrón para el
+    backend: la biblioteca de mensajes técnicos de WP-055 es el único archivo
+    de configuración que el backend escribe, y reemplazarlo con ``os.replace``
+    exige permiso de escritura sobre el **directorio** que lo contiene, no
+    solamente sobre el archivo. Por eso vive en un subdirectorio propio en
+    lugar de junto a ``system.toml``, que debe seguir siendo de solo lectura.
     """
 
     return (
@@ -413,6 +420,13 @@ def plan_permisos() -> tuple[PlanPermiso, ...]:
         PlanPermiso("config/concejales.csv", "root", "botonera2-backend", 0o640),
         PlanPermiso("config/bridge", "botonera2-bridge", "botonera2-bridge", 0o750),
         PlanPermiso("config/bridge/devices.json", "botonera2-bridge", "botonera2-bridge", 0o640),
+        PlanPermiso("config/apoyo-tecnico", "botonera2-backend", "botonera2-backend", 0o750),
+        PlanPermiso(
+            "config/apoyo-tecnico/mensajes.csv",
+            "botonera2-backend",
+            "botonera2-backend",
+            0o640,
+        ),
         PlanPermiso("logs", "botonera2-backend", "botonera2-backend", 0o750),
     )
 
@@ -490,6 +504,10 @@ class GestorDespliegue:
 
         self.releases.mkdir(parents=True, exist_ok=True)
         (self.config / "bridge").mkdir(parents=True, exist_ok=True)
+        # El backend crea el CSV de mensajes técnicos la primera vez que se
+        # da de alta un mensaje; el directorio, en cambio, debe existir antes
+        # con el dueño correcto para que la escritura atómica sea posible.
+        (self.config / "apoyo-tecnico").mkdir(parents=True, exist_ok=True)
         self.logs.mkdir(parents=True, exist_ok=True)
         plan = plan_permisos()
         if aplicar_usuarios:

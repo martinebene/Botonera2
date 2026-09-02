@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from itertools import count
 from pathlib import Path
 
 from botonera2_backend.auditoria import EscritorAuditoriaCsv
@@ -20,6 +22,7 @@ from botonera2_backend.dominio.votacion import (
     TipoMayoria,
     Votacion,
 )
+from botonera2_backend.servicios.apoyo_tecnico import ServicioApoyoTecnico
 from botonera2_backend.servicios.proyecciones import ServicioProyecciones
 from botonera2_backend.servicios.publicacion import CoordinadorPublicacion
 from botonera2_backend.servicios.serializacion import EjecutorMutaciones
@@ -188,3 +191,32 @@ def abrir_votacion_prueba(
     sesion.votaciones.append(votacion)
     entorno.estado.votacion_activa = votacion
     return votacion
+
+
+def crear_servicio_apoyo_tecnico(
+    entorno: EntornoProyecciones,
+    ruta_mensajes: Path,
+    *,
+    identificadores: Iterable[str] = (),
+) -> ServicioApoyoTecnico:
+    """Construye el servicio técnico atado al reloj y al estado del entorno.
+
+    ``identificadores`` permite fijar los ids generados para que las pruebas
+    puedan afirmar igualdad exacta (por ejemplo, que un aviso ``AMBOS`` deja el
+    mismo ``aviso_id`` en las dos ranuras). Agotada la secuencia se vuelve a
+    numerar de forma determinista, nunca aleatoria.
+    """
+
+    secuencia = iter(identificadores)
+    contador = count(1)
+
+    def generar() -> str:
+        return next(secuencia, None) or f"id-{next(contador)}"
+
+    return ServicioApoyoTecnico(
+        entorno.estado,
+        entorno.ejecutor,
+        ruta_mensajes=ruta_mensajes,
+        reloj=entorno.reloj.ahora,
+        generar_identificador=generar,
+    )

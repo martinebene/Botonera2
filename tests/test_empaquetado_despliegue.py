@@ -483,7 +483,15 @@ def crear_gestor(tmp_path: Path, ejecutor: EjecutorFalso | None = None) -> Gesto
 def crear_config_externa(gestor: GestorDespliegue) -> None:
     """Crea placeholders; el fake confirma que el parser se invoca por subprocess."""
 
-    for relativa in ("system.toml", "concejales.csv", "bridge/devices.json"):
+    # ``apoyo-tecnico/mensajes.csv`` es opcional en producción (el backend lo
+    # crea al dar de alta el primer mensaje), pero la fixture lo incluye para
+    # comprobar que, cuando existe, recibe el dueño y el modo declarados.
+    for relativa in (
+        "system.toml",
+        "concejales.csv",
+        "bridge/devices.json",
+        "apoyo-tecnico/mensajes.csv",
+    ):
         ruta = gestor.config / relativa
         ruta.parent.mkdir(parents=True, exist_ok=True)
         ruta.write_text("fixture externo", encoding="utf-8")

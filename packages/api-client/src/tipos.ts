@@ -111,6 +111,41 @@ export type Capacidad = components['schemas']['Capacidad']
 /** Conjunto de capacidades operativas disponibles para Moderación */
 export type CapacidadesModeracion = components['schemas']['CapacidadesModeracion']
 
+/**
+ * Proyección completa del estado para el puesto de Apoyo Técnico (WP-055).
+ *
+ * Incluye transmisión, los avisos vigentes de AMBOS destinos, la biblioteca de
+ * mensajes precargados y la misma franja segura de eventos L1/L2/L3 que ve
+ * Moderación (la frontera de secreto de WP-052 se aplica en el backend).
+ */
+export type EstadoTecnico = components['schemas']['EstadoTecnico']
+
+/**
+ * Porción técnica que reciben Moderación y Recinto dentro de su propio estado.
+ *
+ * Cada uno recibe la transmisión y únicamente el aviso de SU destino: la
+ * separación la aplica el backend, no el frontend.
+ */
+export type ApoyoTecnicoProyectado = components['schemas']['ApoyoTecnicoProyectado']
+
+/** Estado autoritativo del indicador de transmisión, con su frontera absoluta */
+export type TransmisionProyectada = components['schemas']['TransmisionProyectada']
+
+/** Aviso técnico vigente en una ranura de destino */
+export type AvisoTecnicoProyectado = components['schemas']['AvisoTecnicoProyectado']
+
+/** Mensaje precargado de la biblioteca CSV de Apoyo Técnico */
+export type MensajeTecnicoProyectado = components['schemas']['MensajeTecnicoProyectado']
+
+/** Biblioteca de mensajes precargados más su condición técnica */
+export type BibliotecaMensajesProyectada = components['schemas']['BibliotecaMensajesProyectada']
+
+/** Estado del indicador de transmisión: APAGADO | CUENTA_REGRESIVA | EN_VIVO */
+export type EstadoTransmision = components['schemas']['EstadoTransmision']
+
+/** Destino de un aviso o mensaje técnico: MODERACION | RECINTO | AMBOS */
+export type DestinoAvisoTecnico = components['schemas']['DestinoAvisoTecnico']
+
 /** Estado de recepción de votos en una votación: EN_CURSO | CERRADA */
 export type EstadoVotacion = components['schemas']['EstadoVotacion']
 
@@ -145,6 +180,9 @@ export type SolicitudFinalizarVotacion = components['schemas']['SolicitudFinaliz
 export type SolicitudDesempate = components['schemas']['SolicitudDesempate']
 export type SolicitudIniciarRemapeo = components['schemas']['SolicitudIniciarRemapeo']
 export type SolicitudConfirmarRemapeo = components['schemas']['SolicitudConfirmarRemapeo']
+export type SolicitudIniciarTransmision = components['schemas']['SolicitudIniciarTransmision']
+export type SolicitudPublicarAviso = components['schemas']['SolicitudPublicarAviso']
+export type SolicitudMensajeTecnico = components['schemas']['SolicitudMensajeTecnico']
 export type SolicitudTecla = components['schemas']['SolicitudTecla']
 export type RespuestaTecla = components['schemas']['RespuestaTecla']
 

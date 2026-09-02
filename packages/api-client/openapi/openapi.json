@@ -841,6 +841,28 @@
         }
       }
     },
+    "/api/v1/estado/tecnico": {
+      "get": {
+        "tags": [
+          "estado"
+        ],
+        "summary": "Obtener snapshot completo del puesto de Apoyo Técnico",
+        "description": "Responde en cualquiera de los tres estados globales sin mutar dominio.",
+        "operationId": "obtener_estado_tecnico_api_v1_estado_tecnico_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EstadoTecnico"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/estado/moderacion/stream": {
       "get": {
         "tags": [
@@ -880,6 +902,29 @@
                 "schema": {
                   "type": "string",
                   "description": "Stream Server-Sent Events. Cada evento `estado` contiene un EstadoRecinto completo con el secreto público aplicado en servidor; `id` coincide con su revision."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/estado/tecnico/stream": {
+      "get": {
+        "tags": [
+          "estado"
+        ],
+        "summary": "Seguir estados completos de Apoyo Técnico por SSE",
+        "description": "Comparte coordinador y revisiones con los otros dos streams.\n\nQue las tres proyecciones usen el mismo ``CoordinadorPublicacion`` es lo\nque garantiza que una cuenta regresiva que vence, o un aviso que expira,\ndespierte a la vez a Moderación, al Recinto y al puesto técnico sin que\nninguno pregunte periódicamente.",
+        "operationId": "transmitir_estado_tecnico_api_v1_estado_tecnico_stream_get",
+        "responses": {
+          "200": {
+            "description": "Stream Server-Sent Events. Cada evento `estado` contiene un EstadoTecnico completo con transmisión, avisos de ambos destinos, biblioteca y eventos seguros; `id` coincide con su revision.",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string",
+                  "description": "Stream Server-Sent Events. Cada evento `estado` contiene un EstadoTecnico completo con transmisión, avisos de ambos destinos, biblioteca y eventos seguros; `id` coincide con su revision."
                 }
               }
             }
@@ -1183,6 +1228,443 @@
           }
         }
       }
+    },
+    "/api/v1/apoyo-tecnico/transmision": {
+      "post": {
+        "tags": [
+          "apoyo-tecnico"
+        ],
+        "summary": "Iniciar la transmisión de inmediato o con cuenta regresiva",
+        "description": "Instala la intención de transmitir; el estado observable lo deriva el backend.",
+        "operationId": "iniciar_transmision_api_v1_apoyo_tecnico_transmision_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SolicitudIniciarTransmision"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Body inválido: texto vacío, destino desconocido o duración fuera de rango."
+          },
+          "503": {
+            "description": "Indisponibilidad técnica: AUDITORIA_NO_DISPONIBLE cuando hay una preparación/sesión activa cuyo escritor está en fallo cerrado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Fallo inesperado (ERROR_INTERNO).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "apoyo-tecnico"
+        ],
+        "summary": "Detener la transmisión y volver a APAGADO",
+        "description": "Apaga el indicador. Es idempotente si ya estaba apagado.",
+        "operationId": "detener_transmision_api_v1_apoyo_tecnico_transmision_delete",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Body inválido: texto vacío, destino desconocido o duración fuera de rango."
+          },
+          "503": {
+            "description": "Indisponibilidad técnica: AUDITORIA_NO_DISPONIBLE cuando hay una preparación/sesión activa cuyo escritor está en fallo cerrado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Fallo inesperado (ERROR_INTERNO).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/apoyo-tecnico/avisos": {
+      "post": {
+        "tags": [
+          "apoyo-tecnico"
+        ],
+        "summary": "Publicar un aviso técnico hacia Moderación, Recinto o ambos",
+        "description": "Reemplaza el aviso vigente de cada destino alcanzado.",
+        "operationId": "publicar_aviso_api_v1_apoyo_tecnico_avisos_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SolicitudPublicarAviso"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Body inválido: texto vacío, destino desconocido o duración fuera de rango."
+          },
+          "503": {
+            "description": "Indisponibilidad técnica: AUDITORIA_NO_DISPONIBLE cuando hay una preparación/sesión activa cuyo escritor está en fallo cerrado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Fallo inesperado (ERROR_INTERNO).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/apoyo-tecnico/avisos/{destino}": {
+      "delete": {
+        "tags": [
+          "apoyo-tecnico"
+        ],
+        "summary": "Cancelar el aviso vigente de un destino antes de su vencimiento",
+        "description": "Retira el aviso de las ranuras alcanzadas. Es idempotente.",
+        "operationId": "cancelar_aviso_api_v1_apoyo_tecnico_avisos__destino__delete",
+        "parameters": [
+          {
+            "name": "destino",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "enum": [
+                "MODERACION",
+                "RECINTO",
+                "AMBOS"
+              ],
+              "type": "string",
+              "title": "Destino"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Body inválido: texto vacío, destino desconocido o duración fuera de rango."
+          },
+          "503": {
+            "description": "Indisponibilidad técnica: AUDITORIA_NO_DISPONIBLE cuando hay una preparación/sesión activa cuyo escritor está en fallo cerrado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Fallo inesperado (ERROR_INTERNO).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/apoyo-tecnico/mensajes": {
+      "get": {
+        "tags": [
+          "apoyo-tecnico"
+        ],
+        "summary": "Listar la biblioteca de mensajes precargados",
+        "description": "Devuelve la misma biblioteca que publica ``GET /api/v1/estado/tecnico``.",
+        "operationId": "listar_mensajes_api_v1_apoyo_tecnico_mensajes_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BibliotecaMensajesProyectada"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Body inválido: texto vacío/demasiado largo o destino desconocido."
+          },
+          "404": {
+            "description": "El identificador no pertenece a la biblioteca (MENSAJE_TECNICO_NO_EXISTENTE).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Indisponibilidad de la biblioteca: BIBLIOTECA_MENSAJES_INVALIDA cuando el CSV existe pero no pudo interpretarse, o PERSISTENCIA_MENSAJES_FALLIDA cuando la escritura atómica no pudo confirmarse.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Fallo inesperado (ERROR_INTERNO).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "apoyo-tecnico"
+        ],
+        "summary": "Crear un mensaje precargado y persistirlo en el CSV",
+        "description": "Persiste primero en disco y devuelve el identificador estable generado.",
+        "operationId": "crear_mensaje_api_v1_apoyo_tecnico_mensajes_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SolicitudMensajeTecnico"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MensajeTecnicoProyectado"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Body inválido: texto vacío/demasiado largo o destino desconocido."
+          },
+          "404": {
+            "description": "El identificador no pertenece a la biblioteca (MENSAJE_TECNICO_NO_EXISTENTE).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Indisponibilidad de la biblioteca: BIBLIOTECA_MENSAJES_INVALIDA cuando el CSV existe pero no pudo interpretarse, o PERSISTENCIA_MENSAJES_FALLIDA cuando la escritura atómica no pudo confirmarse.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Fallo inesperado (ERROR_INTERNO).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/apoyo-tecnico/mensajes/{mensaje_id}": {
+      "put": {
+        "tags": [
+          "apoyo-tecnico"
+        ],
+        "summary": "Editar el texto y el destino de un mensaje precargado",
+        "description": "Conserva el identificador y la posición del mensaje editado.",
+        "operationId": "actualizar_mensaje_api_v1_apoyo_tecnico_mensajes__mensaje_id__put",
+        "parameters": [
+          {
+            "name": "mensaje_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Mensaje Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SolicitudMensajeTecnico"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MensajeTecnicoProyectado"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Body inválido: texto vacío/demasiado largo o destino desconocido."
+          },
+          "404": {
+            "description": "El identificador no pertenece a la biblioteca (MENSAJE_TECNICO_NO_EXISTENTE).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Indisponibilidad de la biblioteca: BIBLIOTECA_MENSAJES_INVALIDA cuando el CSV existe pero no pudo interpretarse, o PERSISTENCIA_MENSAJES_FALLIDA cuando la escritura atómica no pudo confirmarse.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Fallo inesperado (ERROR_INTERNO).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "apoyo-tecnico"
+        ],
+        "summary": "Eliminar un mensaje precargado de la biblioteca",
+        "description": "Rechaza un identificador desconocido en lugar de simular un borrado.",
+        "operationId": "eliminar_mensaje_api_v1_apoyo_tecnico_mensajes__mensaje_id__delete",
+        "parameters": [
+          {
+            "name": "mensaje_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Mensaje Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Body inválido: texto vacío/demasiado largo o destino desconocido."
+          },
+          "404": {
+            "description": "El identificador no pertenece a la biblioteca (MENSAJE_TECNICO_NO_EXISTENTE).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Indisponibilidad de la biblioteca: BIBLIOTECA_MENSAJES_INVALIDA cuando el CSV existe pero no pudo interpretarse, o PERSISTENCIA_MENSAJES_FALLIDA cuando la escritura atómica no pudo confirmarse.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Fallo inesperado (ERROR_INTERNO).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRespuesta"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1197,6 +1679,84 @@
         "title": "AccionPalabra",
         "description": "Acciones estables que puede producir una tecla física ``7``."
       },
+      "ApoyoTecnicoProyectado": {
+        "properties": {
+          "transmision": {
+            "$ref": "#/components/schemas/TransmisionProyectada"
+          },
+          "aviso": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AvisoTecnicoProyectado"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "transmision",
+          "aviso"
+        ],
+        "title": "ApoyoTecnicoProyectado",
+        "description": "Porción del plano técnico que corresponde a **un** destino (WP-055).\n\nModeración y Recinto reciben este mismo submodelo, pero cada uno con su\npropio aviso: la separación se aplica en el servidor, igual que el secreto\nde voto, de manera que un aviso dirigido a Moderación jamás viaja en el\npayload del Recinto aunque el frontend público tuviera un error."
+      },
+      "AvisoTecnicoProyectado": {
+        "properties": {
+          "aviso_id": {
+            "type": "string",
+            "title": "Aviso Id"
+          },
+          "texto": {
+            "type": "string",
+            "title": "Texto"
+          },
+          "destino": {
+            "$ref": "#/components/schemas/DestinoAvisoTecnico"
+          },
+          "publicado_en": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Publicado En"
+          },
+          "expira_en": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expira En"
+          },
+          "segundos_restantes": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Segundos Restantes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "aviso_id",
+          "texto",
+          "destino",
+          "publicado_en",
+          "expira_en",
+          "segundos_restantes"
+        ],
+        "title": "AvisoTecnicoProyectado",
+        "description": "Aviso técnico vigente en una ranura de destino (WP-055).\n\nSolo se proyecta mientras está vigente: un aviso vencido desaparece del\npayload sin que ninguna mutación lo haya borrado, porque la vigencia se\nderiva de ``expira_en`` contra el reloj del backend.\n\nAtributos:\n    aviso_id: identificador de la publicación. Cuando el destino fue\n        ``AMBOS``, Moderación y Recinto reciben el mismo valor.\n    texto: contenido a mostrar.\n    destino: destino solicitado al publicarlo.\n    publicado_en: instante civil de publicación.\n    expira_en: frontera absoluta de vencimiento, o ``None`` si permanece\n        hasta la cancelación manual.\n    segundos_restantes: faltante para el vencimiento, o ``None`` si no\n        vence."
+      },
       "BaseMayoria": {
         "type": "string",
         "enum": [
@@ -1206,6 +1766,52 @@
         ],
         "title": "BaseMayoria",
         "description": "Representa el denominador conceptual de una regla de mayoría.\n\n``VOTOS_COMPUTABLES`` cuenta positivos y negativos. ``PRESENTES`` es el\ntérmino institucional para quienes emitieron voto ordinario en esa\nvotación, incluidas abstenciones. ``CUERPO`` es el total del padrón\ncongelado. La elección se almacena al abrir y WP-011 la consume al cerrar."
+      },
+      "BibliotecaMensajesProyectada": {
+        "properties": {
+          "disponible": {
+            "type": "boolean",
+            "title": "Disponible"
+          },
+          "motivo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Motivo"
+          },
+          "detalle": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detalle"
+          },
+          "mensajes": {
+            "items": {
+              "$ref": "#/components/schemas/MensajeTecnicoProyectado"
+            },
+            "type": "array",
+            "title": "Mensajes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "disponible",
+          "motivo",
+          "detalle",
+          "mensajes"
+        ],
+        "title": "BibliotecaMensajesProyectada",
+        "description": "Biblioteca CSV más su condición técnica (WP-055).\n\n``disponible=False`` indica que el archivo existe pero no pudo\ninterpretarse. En ese caso la lista viaja vacía y el backend rechaza toda\nescritura, para no destruir el contenido que el operador quiso conservar."
       },
       "Body_cargar_orden_del_dia_api_v1_orden_del_dia_post": {
         "properties": {
@@ -1677,6 +2283,16 @@
         "title": "DatosSesion",
         "description": "Identifica la sesión formal y sus autoridades vigentes."
       },
+      "DestinoAvisoTecnico": {
+        "type": "string",
+        "enum": [
+          "MODERACION",
+          "RECINTO",
+          "AMBOS"
+        ],
+        "title": "DestinoAvisoTecnico",
+        "description": "Destinos posibles de un aviso técnico o de un mensaje precargado.\n\n``AMBOS`` no es un tercer destino con ranura propia: es la orden de\nafectar coherentemente las dos ranuras reales (Moderación y Recinto) en la\nmisma mutación. Se conserva en el aviso publicado para que el puesto\ntécnico pueda mostrar con qué intención se emitió."
+      },
       "ErrorRespuesta": {
         "properties": {
           "codigo": {
@@ -1857,6 +2473,9 @@
           },
           "capacidades": {
             "$ref": "#/components/schemas/CapacidadesModeracion"
+          },
+          "tecnico": {
+            "$ref": "#/components/schemas/ApoyoTecnicoProyectado"
           }
         },
         "type": "object",
@@ -1875,7 +2494,8 @@
           "eventos_recientes",
           "auditoria",
           "remapeo",
-          "capacidades"
+          "capacidades",
+          "tecnico"
         ],
         "title": "EstadoModeracion",
         "description": "Snapshot completo y reconstruible del frontend de Moderación."
@@ -2051,6 +2671,9 @@
             },
             "type": "array",
             "title": "Eventos Publicos"
+          },
+          "tecnico": {
+            "$ref": "#/components/schemas/ApoyoTecnicoProyectado"
           }
         },
         "type": "object",
@@ -2065,7 +2688,8 @@
           "quorum",
           "votacion",
           "palabra",
-          "eventos_publicos"
+          "eventos_publicos",
+          "tecnico"
         ],
         "title": "EstadoRecinto",
         "description": "Snapshot público por allowlist, sin capacidades ni auditoría cruda."
@@ -2189,6 +2813,82 @@
         ],
         "title": "EstadoRemapeoRespuesta",
         "description": "Estado físico seguro que la futura UI obtiene por snapshot/SSE."
+      },
+      "EstadoTecnico": {
+        "properties": {
+          "revision": {
+            "type": "integer",
+            "title": "Revision"
+          },
+          "generado_en": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Generado En"
+          },
+          "estado_global": {
+            "$ref": "#/components/schemas/EstadoGlobal"
+          },
+          "transmision": {
+            "$ref": "#/components/schemas/TransmisionProyectada"
+          },
+          "aviso_moderacion": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AvisoTecnicoProyectado"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "aviso_recinto": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AvisoTecnicoProyectado"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "biblioteca": {
+            "$ref": "#/components/schemas/BibliotecaMensajesProyectada"
+          },
+          "eventos_recientes": {
+            "items": {
+              "$ref": "#/components/schemas/EventoRecienteProyectado"
+            },
+            "type": "array",
+            "title": "Eventos Recientes"
+          },
+          "auditoria": {
+            "$ref": "#/components/schemas/EstadoAuditoriaProyectado"
+          }
+        },
+        "type": "object",
+        "required": [
+          "revision",
+          "generado_en",
+          "estado_global",
+          "transmision",
+          "aviso_moderacion",
+          "aviso_recinto",
+          "biblioteca",
+          "eventos_recientes",
+          "auditoria"
+        ],
+        "title": "EstadoTecnico",
+        "description": "Snapshot completo del futuro puesto de Apoyo Técnico (WP-055).\n\nReúne todo lo que ese puesto necesita observar y nada más: el estado de\ntransmisión, los avisos vigentes de **ambos** destinos, la biblioteca de\nmensajes precargados y la misma franja de eventos L1/L2/L3 que ve\nModeración.\n\n``eventos_recientes`` se construye con el mismo método que la proyección\nde Moderación, de modo que la frontera de secreto de WP-052 se aplica una\nsola vez y no puede divergir entre puestos: mientras el sentido individual\nde un voto siga siendo secreto, tampoco lo ve Apoyo Técnico."
+      },
+      "EstadoTransmision": {
+        "type": "string",
+        "enum": [
+          "APAGADO",
+          "CUENTA_REGRESIVA",
+          "EN_VIVO"
+        ],
+        "title": "EstadoTransmision",
+        "description": "Estados observables del indicador de transmisión.\n\nEs un valor *derivado*: el dominio no lo almacena, lo calcula\n:func:`estado_transmision` a partir del instante ``en_vivo_desde``. Que el\nenum exista acá y no en la capa de proyección permite que servicios y\npruebas razonen con el mismo vocabulario que publica el contrato REST/SSE."
       },
       "EstadoVotacion": {
         "type": "string",
@@ -2379,6 +3079,29 @@
         ],
         "title": "IdentidadConcejalRespuesta",
         "description": "Identidad pública mínima de un concejal asociado al dispositivo."
+      },
+      "MensajeTecnicoProyectado": {
+        "properties": {
+          "mensaje_id": {
+            "type": "string",
+            "title": "Mensaje Id"
+          },
+          "texto": {
+            "type": "string",
+            "title": "Texto"
+          },
+          "destino": {
+            "$ref": "#/components/schemas/DestinoAvisoTecnico"
+          }
+        },
+        "type": "object",
+        "required": [
+          "mensaje_id",
+          "texto",
+          "destino"
+        ],
+        "title": "MensajeTecnicoProyectado",
+        "description": "Mensaje precargado de la biblioteca CSV (WP-055)."
       },
       "NumeroSesionOmitible": {
         "type": "integer",
@@ -2896,6 +3619,94 @@
         "title": "SolicitudIniciarRemapeo",
         "description": "Body cerrado para seleccionar un devXX existente del padrón activo."
       },
+      "SolicitudIniciarTransmision": {
+        "properties": {
+          "cuenta_regresiva_segundos": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 3600.0,
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cuenta Regresiva Segundos"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "SolicitudIniciarTransmision",
+        "description": "Body del inicio de transmisión.\n\n``cuenta_regresiva_segundos`` ausente o ``null`` significa inicio\ninmediato. Es ``strict`` para que un ``\"10\"`` textual no se acepte por\ncoerción silenciosa: el contrato exige un entero."
+      },
+      "SolicitudMensajeTecnico": {
+        "properties": {
+          "texto": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Texto"
+          },
+          "destino": {
+            "type": "string",
+            "enum": [
+              "MODERACION",
+              "RECINTO",
+              "AMBOS"
+            ],
+            "title": "Destino"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "texto",
+          "destino"
+        ],
+        "title": "SolicitudMensajeTecnico",
+        "description": "Body de alta y edición de un mensaje precargado.\n\nEl identificador nunca viaja en el body: lo genera el backend al crear y se\ntoma de la ruta al editar, de modo que un cliente no pueda reasignarlo."
+      },
+      "SolicitudPublicarAviso": {
+        "properties": {
+          "texto": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Texto"
+          },
+          "destino": {
+            "type": "string",
+            "enum": [
+              "MODERACION",
+              "RECINTO",
+              "AMBOS"
+            ],
+            "title": "Destino"
+          },
+          "duracion_segundos": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 86400.0,
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duracion Segundos"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "texto",
+          "destino"
+        ],
+        "title": "SolicitudPublicarAviso",
+        "description": "Body de la publicación de un aviso técnico.\n\n``duracion_segundos`` ausente o ``null`` significa que el aviso permanece\nhasta la cancelación manual."
+      },
       "SolicitudTecla": {
         "properties": {
           "dispositivo": {
@@ -3013,6 +3824,69 @@
         ],
         "title": "TipoMayoria",
         "description": "Distingue la regla de decisión declarada por Moderación.\n\nEl tipo es autoritativo: nunca se deduce una mayoría simple o especial a\npartir del factor. Los valores coinciden con el contrato REST de DEC-009."
+      },
+      "TransmisionProyectada": {
+        "properties": {
+          "estado": {
+            "$ref": "#/components/schemas/EstadoTransmision"
+          },
+          "iniciada_en": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Iniciada En"
+          },
+          "en_vivo_desde": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "En Vivo Desde"
+          },
+          "cuenta_regresiva_segundos": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cuenta Regresiva Segundos"
+          },
+          "segundos_restantes": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Segundos Restantes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "estado",
+          "iniciada_en",
+          "en_vivo_desde",
+          "cuenta_regresiva_segundos",
+          "segundos_restantes"
+        ],
+        "title": "TransmisionProyectada",
+        "description": "Estado autoritativo del indicador de transmisión (WP-055).\n\nEl DTO publica a la vez la frontera absoluta y el resto calculado por el\nbackend. El frontend puede animar el contador con ``segundos_restantes``\nsin decidir nunca por su cuenta cuándo empieza ``EN VIVO``: esa decisión\nsigue siendo del servidor, que republica al cruzar ``en_vivo_desde``.\n\nAtributos:\n    estado: ``APAGADO``, ``CUENTA_REGRESIVA`` o ``EN_VIVO``.\n    iniciada_en: instante de la orden humana, o ``None`` si está apagada.\n    en_vivo_desde: frontera absoluta a partir de la cual vale ``EN_VIVO``.\n        Es el dato que permite reconstruir la verdad temporal exacta tras\n        un reload o una reconexión SSE.\n    cuenta_regresiva_segundos: duración solicitada, o ``None`` cuando el\n        inicio fue inmediato.\n    segundos_restantes: faltante para la frontera, nunca negativo. Vale\n        ``None`` fuera de ``CUENTA_REGRESIVA``."
       },
       "ValidationError": {
         "properties": {

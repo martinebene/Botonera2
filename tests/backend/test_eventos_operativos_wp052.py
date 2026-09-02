@@ -476,6 +476,59 @@ async def test_el_recinto_no_recibe_hechos_ni_sentido_individual(
     assert "hecho" not in revelado.model_dump_json()
 
 
+async def test_apoyo_tecnico_hereda_la_misma_frontera_de_secreto(
+    tmp_path: Path,
+) -> None:
+    """WP-055: el puesto técnico ve los mismos eventos seguros que Moderación.
+
+    La decisión humana 7 de WP-055 le concede a Apoyo Técnico "los mismos
+    niveles L1/L2/L3 seguros que Moderación". Reutilizar el constructor de
+    eventos, en lugar de escribir una variante propia, es lo que impide que ese
+    puesto se convierta en una vía alternativa para conocer el sentido de un
+    voto todavía secreto.
+    """
+
+    entorno = await preparar_votacion_con_voto(tmp_path, "1")
+
+    tecnico = await entorno.proyecciones.obtener_estado_tecnico()
+    moderacion = await entorno.proyecciones.obtener_estado_moderacion()
+    payload = tecnico.model_dump_json()
+
+    assert tecnico.eventos_recientes == moderacion.eventos_recientes
+    for prohibido in SENTIDOS_PROHIBIDOS:
+        assert prohibido not in payload
+    for icono in ICONOS_DE_SENTIDO:
+        assert icono not in payload
+
+    # Vencida la frontera, ambos puestos se enriquecen a la vez y con el mismo
+    # ``seq``: nunca uno antes que el otro.
+    entorno.reloj.avanzar(SEGUNDOS_REVELADO)
+    tecnico_revelado = await entorno.proyecciones.obtener_estado_tecnico()
+    moderacion_revelada = await entorno.proyecciones.obtener_estado_moderacion()
+    assert tecnico_revelado.eventos_recientes == moderacion_revelada.eventos_recientes
+    assert "POSITIVO" in tecnico_revelado.model_dump_json()
+
+
+async def test_el_recinto_no_recibe_biblioteca_ni_aviso_ajeno(
+    tmp_path: Path,
+) -> None:
+    """WP-055: la porción técnica del Recinto no amplía su allowlist pública.
+
+    El Recinto recibe transmisión y su propio aviso, nada más: ni la biblioteca
+    de mensajes precargados, ni el aviso dirigido a Moderación, ni los eventos
+    operativos que ese puesto sí puede leer.
+    """
+
+    entorno = await preparar_votacion_con_voto(tmp_path, "1")
+
+    recinto = await entorno.proyecciones.obtener_estado_recinto()
+    claves_tecnico = set(recinto.tecnico.model_dump().keys())
+
+    assert claves_tecnico == {"transmision", "aviso"}
+    assert "biblioteca" not in recinto.model_dump_json()
+    assert "aviso_moderacion" not in recinto.model_dump_json()
+
+
 async def test_los_niveles_y_el_orden_ascendente_se_conservan(
     tmp_path: Path,
 ) -> None:
