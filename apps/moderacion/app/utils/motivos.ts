@@ -1,94 +1,14 @@
 /**
- * Utilidades para la traducción y presentación comprensible de motivos de capacidades.
+ * Punto de acceso local de Moderación a la traducción de motivos de capacidad.
  *
- * El backend expone en cada `Capacidad` un listado de códigos de motivo estables
- * legibles por máquina (ej: 'QUORUM_INSUFICIENTE', 'PRESIDENCIA_REQUERIDA').
+ * La tabla de traducciones vive ahora en `packages/frontend-shared` porque el puesto de
+ * Apoyo Técnico (WP-056) comparte el componente de remapeo y necesita exactamente las
+ * mismas redacciones. Duplicar el diccionario habría permitido que una corrección de
+ * texto quedara aplicada en una sola pantalla.
  *
- * Este módulo traduce esos códigos a explicaciones claras y pedagógicas en español
- * para el operador institucional, sin alterar la autoridad funcional del backend.
- *
- * WP-051 agrega una segunda dimensión: el **contexto**. Un mismo código puede aparecer
- * en capacidades distintas y significar impedimentos distintos para el operador. El caso
- * concreto que motivó el cambio es `QUORUM_INSUFICIENTE`: el backend lo publica tanto en
- * `abrir_sesion` (durante PREPARANDO) como en `abrir_votacion` (con la sesión ya abierta).
- * Traducirlo siempre como "para abrir la sesión" confundía al operador durante una sesión
- * en curso, porque la sesión ya estaba abierta y lo que quedaba impedido era votar.
- *
- * El contexto solo cambia la **redacción**: no agrega, quita ni reinterpreta motivos. La
- * autoridad sobre qué está permitido sigue siendo exclusivamente del backend.
+ * Este archivo se conserva como reexportación por la misma razón que `utils/tiempo.ts`:
+ * los componentes y las pruebas de Moderación siguen importando `../utils/motivos` y no
+ * necesitan conocer la estructura interna del paquete compartido.
  */
 
-const DICCIONARIO_MOTIVOS: Record<string, string> = {
-  QUORUM_INSUFICIENTE: 'Quórum insuficiente para abrir la sesión.',
-  NUMERO_SESION_REQUERIDO: 'Debe ingresar el número de sesión antes de abrir.',
-  PRESIDENCIA_REQUERIDA: 'Debe designar la Presidencia antes de abrir.',
-  SECRETARIA_LEGISLATIVA_REQUERIDA: 'Debe designar la Secretaría Legislativa antes de abrir.',
-  AUDITORIA_NO_DISPONIBLE: 'El sistema de auditoría institucional no está disponible.',
-  ESTADO_INCOMPATIBLE: 'El estado actual del sistema no permite ejecutar esta acción.',
-  VOTACION_PENDIENTE:
-    'No se puede cerrar la sesión con una votación en curso o pendiente de desempate.',
-  VOTACION_EN_CURSO: 'Existe una votación en curso.',
-  VOTACION_NO_EN_CURSO: 'No existe una votación en curso que pueda finalizarse.',
-  VOTACION_NO_EMPATADA: 'No existe una mayoría simple empatada pendiente de desempate.',
-  DESEMPATE_YA_EMITIDO: 'El voto presidencial ya fue emitido y no puede repetirse.',
-  PADRON_NO_DISPONIBLE: 'El padrón de concejales no se encuentra disponible.',
-  SESION_YA_INICIADA: 'La sesión ya se encuentra abierta.',
-  DESEMPATE_NO_REQUERIDO: 'La votación no se encuentra en condición de empate.',
-  ORADOR_NO_PRESENTE: 'El concejal seleccionado no se encuentra presente.',
-  COLA_VACIA: 'No hay pedidos de palabra registrados en la cola.',
-  REMAPEO_YA_ACTIVO: 'Ya existe un remapeo en curso.',
-  REMAPEO_NO_COINCIDE: 'No existe una operación de remapeo aplicable.',
-  REMAPEO_SIN_CANDIDATO: 'Todavía no hay un teclado candidato para confirmar.',
-}
-
-/**
- * Capacidad concreta desde la que se está leyendo un motivo.
- *
- * Solo se enumeran los contextos que realmente necesitan una redacción propia. Para el
- * resto alcanza el texto general del diccionario, así que no se declaran contextos
- * preventivos que después nadie mantendría.
- */
-export type ContextoMotivo = 'abrir_votacion'
-
-/**
- * Redacciones específicas por contexto.
- *
- * Se lee como: "cuando el motivo `X` viene de la capacidad `C`, decilo así". Si un código
- * no figura acá para el contexto pedido, se usa la traducción general.
- */
-const MOTIVOS_POR_CONTEXTO: Record<ContextoMotivo, Record<string, string>> = {
-  // Con la sesión ya abierta, la falta de quórum no impide "abrir la sesión": impide
-  // poner una votación en marcha. Es el texto que pidió la prueba humana del 01/09/2026.
-  abrir_votacion: {
-    QUORUM_INSUFICIENTE: 'Quórum insuficiente para abrir una votación.',
-  },
-}
-
-/**
- * Traduce un código de motivo backend a una descripción humana en español.
- *
- * @param codigo Identificador de motivo retornado por el backend (ej: "QUORUM_INSUFICIENTE")
- * @param contexto Capacidad desde la que se lee el motivo. Cuando existe una redacción
- *   específica para ese contexto se prefiere; si no, se usa la traducción general.
- * @returns Mensaje explicativo legible para el operador
- */
-export function traducirMotivo(codigo: string, contexto?: ContextoMotivo): string {
-  if (!codigo) return ''
-  if (contexto) {
-    const especifico = MOTIVOS_POR_CONTEXTO[contexto][codigo]
-    if (especifico) return especifico
-  }
-  return DICCIONARIO_MOTIVOS[codigo] || `Motivo técnico: ${codigo}`
-}
-
-/**
- * Traduce una lista de motivos del backend.
- *
- * @param motivos Lista de códigos de motivo
- * @param contexto Capacidad desde la que se leen todos esos motivos
- * @returns Lista de mensajes traducidos
- */
-export function traducirMotivos(motivos?: string[] | null, contexto?: ContextoMotivo): string[] {
-  if (!motivos || motivos.length === 0) return []
-  return motivos.map((codigo) => traducirMotivo(codigo, contexto))
-}
+export { traducirMotivo, traducirMotivos, type ContextoMotivo } from '@botonera2/frontend-shared'

@@ -21,6 +21,7 @@ PUERTO_BACKEND_PREDETERMINADO = 8001
 PUERTO_MODERACION_PREDETERMINADO = 8002
 PUERTO_RECINTO_PREDETERMINADO = 8003
 PUERTO_SIMULADOR_PREDETERMINADO = 8004
+PUERTO_TECNICO_PREDETERMINADO = 8005
 
 RAIZ_REPOSITORIO = Path(__file__).resolve().parents[1]
 RUTA_SCRIPT_NODE = RAIZ_REPOSITORIO / "scripts" / "iniciar_stack_hot.mjs"
@@ -203,6 +204,15 @@ def crear_analizador_argumentos() -> argparse.ArgumentParser:
         help=(
             "puerto interno auxiliar para Simulador "
             f"(predeterminado: {PUERTO_SIMULADOR_PREDETERMINADO})"
+        ),
+    )
+    analizador.add_argument(
+        "--tecnico-port",
+        type=convertir_puerto,
+        default=PUERTO_TECNICO_PREDETERMINADO,
+        help=(
+            "puerto interno auxiliar para Apoyo Técnico "
+            f"(predeterminado: {PUERTO_TECNICO_PREDETERMINADO})"
         ),
     )
     analizador.add_argument(

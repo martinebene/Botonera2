@@ -22,6 +22,7 @@ from scripts.iniciar_stack_hot import (
     PUERTO_MODERACION_PREDETERMINADO,
     PUERTO_RECINTO_PREDETERMINADO,
     PUERTO_SIMULADOR_PREDETERMINADO,
+    PUERTO_TECNICO_PREDETERMINADO,
     RAIZ_REPOSITORIO,
     ErrorStackHot,
     crear_analizador_argumentos,
@@ -105,6 +106,7 @@ def test_analizador_argumentos_predeterminados_y_personalizados() -> None:
     assert opciones_defecto.moderacion_port == PUERTO_MODERACION_PREDETERMINADO == 8002
     assert opciones_defecto.recinto_port == PUERTO_RECINTO_PREDETERMINADO == 8003
     assert opciones_defecto.simulador_port == PUERTO_SIMULADOR_PREDETERMINADO == 8004
+    assert opciones_defecto.tecnico_port == PUERTO_TECNICO_PREDETERMINADO == 8005
     assert opciones_defecto.allow_non_main is False
 
     # Opciones personalizadas
@@ -122,6 +124,8 @@ def test_analizador_argumentos_predeterminados_y_personalizados() -> None:
             "8883",
             "--simulador-port",
             "8884",
+            "--tecnico-port",
+            "8885",
             "--allow-non-main",
         ]
     )
@@ -131,6 +135,7 @@ def test_analizador_argumentos_predeterminados_y_personalizados() -> None:
     assert opciones_personalizadas.moderacion_port == 8882
     assert opciones_personalizadas.recinto_port == 8883
     assert opciones_personalizadas.simulador_port == 8884
+    assert opciones_personalizadas.tecnico_port == 8885
     assert opciones_personalizadas.allow_non_main is True
 
 
@@ -352,6 +357,7 @@ async function ejecutar() {
   const moderacion = await crearServidorAuxiliar('Moderacion');
   const recinto = await crearServidorAuxiliar('Recinto');
   const simulador = await crearServidorAuxiliar('Simulador');
+  const tecnico = await crearServidorAuxiliar('Tecnico');
 
   const proxy = crearServidorProxy({
     host: '127.0.0.1',
@@ -360,6 +366,7 @@ async function ejecutar() {
     puertoModeracion: moderacion.port,
     puertoRecinto: recinto.port,
     puertoSimulador: simulador.port,
+    puertoTecnico: tecnico.port,
   });
 
   await new Promise((resolve) => proxy.listen(0, '127.0.0.1', resolve));
@@ -397,6 +404,13 @@ async function ejecutar() {
   const textoSim = await rSim.text();
   if (!textoSim.includes('Respuesta de Simulador: /simulador/panel')) {
     throw new Error('Fallo en Simulador: ' + textoSim);
+  }
+
+  // E bis. Probar enrutamiento a Apoyo Técnico
+  const rTec = await fetch(base + '/tecnico/consola');
+  const textoTec = await rTec.text();
+  if (!textoTec.includes('Respuesta de Tecnico: /tecnico/consola')) {
+    throw new Error('Fallo en Apoyo Técnico: ' + textoTec);
   }
 
   // F. Probar enrutamiento a Backend (/api/v1/health y /docs)
@@ -455,6 +469,7 @@ async function ejecutar() {
   moderacion.srv.close();
   recinto.srv.close();
   simulador.srv.close();
+  tecnico.srv.close();
 
   console.log('OK_PROXY_PRUEBAS');
 }
@@ -520,6 +535,7 @@ async function correr() {
   const pMod = await buscarPuerto();
   const pRec = await buscarPuerto();
   const pSim = await buscarPuerto();
+  const pTec = await buscarPuerto();
 
   const stack = spawn('node', [
     'scripts/iniciar_stack_hot.mjs',
@@ -529,6 +545,7 @@ async function correr() {
     '--moderacion-port', String(pMod),
     '--recinto-port', String(pRec),
     '--simulador-port', String(pSim),
+    '--tecnico-port', String(pTec),
     '--allow-non-main'
   ], {
     stdio: 'pipe'
@@ -545,15 +562,16 @@ async function correr() {
   const mListo = await esperarOk(base + '/moderacion/');
   const rListo = await esperarOk(base + '/recinto/');
   const sListo = await esperarOk(base + '/simulador/');
-  if (!bListo || !mListo || !rListo || !sListo) {
+  const tListo = await esperarOk(base + '/tecnico/');
+  if (!bListo || !mListo || !rListo || !sListo || !tListo) {
     stack.kill('SIGTERM');
     throw new Error(
       'Timeout esperando readiness en ' + base + '\\n' +
-      JSON.stringify({ bListo, mListo, rListo, sListo }) + '\\nSalida:\\n' + salida
+      JSON.stringify({ bListo, mListo, rListo, sListo, tListo }) + '\\nSalida:\\n' + salida
     );
   }
 
-  // 2. Verificar las 3 SPA y Swagger
+  // 2. Verificar las 4 SPA y Swagger
   const rMod = await fetch(base + '/moderacion/');
   if (!rMod.ok || !(await rMod.text()).includes('data-nuxt-data')) {
     throw new Error('Fallo al obtener Moderación desde proxy');
@@ -567,6 +585,11 @@ async function correr() {
   const rSim = await fetch(base + '/simulador/');
   if (!rSim.ok || !(await rSim.text()).includes('data-nuxt-data')) {
     throw new Error('Fallo al obtener Simulador desde proxy');
+  }
+
+  const rTec = await fetch(base + '/tecnico/');
+  if (!rTec.ok || !(await rTec.text()).includes('data-nuxt-data')) {
+    throw new Error('Fallo al obtener Apoyo Técnico desde proxy');
   }
 
   const rDocs = await fetch(base + '/docs');

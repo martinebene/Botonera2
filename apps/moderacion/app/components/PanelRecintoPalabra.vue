@@ -33,7 +33,7 @@ import {
 import PanelContenedor from './PanelContenedor.vue'
 import GrillaRecinto from './GrillaRecinto.vue'
 import GestionPalabra from './GestionPalabra.vue'
-import GestionRemapeo from './GestionRemapeo.vue'
+import GestionRemapeo from '@botonera2/frontend-shared/componentes/GestionRemapeo.vue'
 import { usePresentacionBancas } from '../composables/usePresentacionBancas'
 
 const props = defineProps<{

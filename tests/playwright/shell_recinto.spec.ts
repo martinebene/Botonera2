@@ -38,6 +38,18 @@ function crearEstado(parcial: Record<string, unknown> = {}) {
     votacion: null,
     palabra: null,
     eventos_publicos: [],
+    // Porción técnica en su estado inicial (WP-056): sin transmisión ni aviso, que es
+    // exactamente lo que publica el backend antes de que Apoyo Técnico intervenga.
+    tecnico: {
+      transmision: {
+        estado: 'APAGADO',
+        iniciada_en: null,
+        en_vivo_desde: null,
+        cuenta_regresiva_segundos: null,
+        segundos_restantes: null,
+      },
+      aviso: null,
+    },
     ...parcial,
   }
 }

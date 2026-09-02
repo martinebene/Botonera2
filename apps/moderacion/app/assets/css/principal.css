@@ -1,1 +1,10 @@
 @import 'tailwindcss';
+
+/*
+  Los componentes compartidos viven fuera de esta aplicación y la detección automática de
+  Tailwind sólo recorre el directorio del proyecto. Sin esta línea, las utilidades usadas
+  por `GestionRemapeo.vue` no se generarían y el panel de remapeo perdería sus estilos.
+  Se apunta a la ruta real del monorepo, no al enlace de `node_modules`, para no depender
+  de cómo pnpm materialice el workspace.
+*/
+@source '../../../../../packages/frontend-shared/src';

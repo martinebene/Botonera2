@@ -1,10 +1,25 @@
 <script setup lang="ts">
-/** Vista pública compacta; representa sus props y nunca emite comandos. */
+/**
+ * Vista pública compacta; representa sus props y nunca emite comandos.
+ *
+ * WP-056 suma el plano técnico sin alterar la geometría validada en WP-054:
+ *
+ * - la columna derecha se divide verticalmente en 1/5 para el indicador de transmisión
+ *   y 4/5 para los pedidos de palabra. Las dos porciones son fracciones de grilla, no
+ *   alturas en píxeles, así que la proporción se conserva en cualquier resolución;
+ * - un aviso dirigido al Recinto reemplaza **toda** la franja superior de
+ *   votación/tema/estado, sin tocar la cabecera, las bancas ni la columna derecha;
+ * - al vencer o cancelarse el aviso, el backend republica y la franja original vuelve
+ *   sola. La pantalla no guarda ni restaura nada por su cuenta.
+ */
 
 import { computed, toRefs } from 'vue'
 import type { EstadoRecinto } from '@botonera2/api-client'
+import { usePresentacionTecnica } from '@botonera2/frontend-shared'
+import AvisoSuperficie from '@botonera2/frontend-shared/componentes/AvisoSuperficie.vue'
 import type { EstadoConexionRecinto } from '../composables/useEstadoRecinto'
 import { usePresentacionVotacion } from '../composables/usePresentacionVotacion'
+import BloqueTransmisionPublico from './BloqueTransmisionPublico.vue'
 import CabeceraRecinto from './CabeceraRecinto.vue'
 import GrillaBancas from './GrillaBancas.vue'
 import IndicadorQuorumPublico from './IndicadorQuorumPublico.vue'
@@ -43,6 +58,26 @@ const votosIndividualesVisibles = computed(() => {
   if (votacion?.estado_recepcion === 'EN_CURSO') return null
   return votacion?.votos_individuales ?? null
 })
+
+/**
+ * Porción técnica del snapshot público.
+ *
+ * `EstadoRecinto.tecnico.aviso` sólo puede traer un aviso dirigido a RECINTO o a AMBOS:
+ * el backend separa las ranuras por destino, de modo que un aviso publicado únicamente
+ * hacia Moderación jamás viaja en este payload. La pantalla pública no vuelve a filtrar.
+ */
+const transmision = computed(() => estado.value?.tecnico?.transmision ?? null)
+const avisoTecnico = computed(() => estado.value?.tecnico?.aviso ?? null)
+
+const { segundosTransmision } = usePresentacionTecnica(
+  computed(() => ({
+    transmision: transmision.value,
+    // El Recinto no cronometra el aviso: su desaparición la publica el backend. Pasar la
+    // lista vacía mantiene el reloj local apagado cuando no hay transmisión en cuenta.
+    avisos: [],
+    generadoEn: estado.value?.generado_en ?? null,
+  })),
+)
 </script>
 
 <template>
@@ -76,12 +111,23 @@ const votosIndividualesVisibles = computed(() => {
 
     <main v-else class="contenido-recinto" :class="{ 'contenido-preparando': !sesionAbierta }">
       <!--
-        La primera franja reproduce la relación espacial probada en producción:
-        tres renglones de votación a la izquierda y quórum grande a la derecha.
-        Su alto está reservado incluso sin votación, por lo que ningún texto
-        variable puede desplazar las bancas.
+        Primera franja de la grilla. Su alto lo fija `grid-template-rows` y está
+        reservado incluso sin votación, por lo que ningún texto variable puede desplazar
+        las bancas. Mientras hay un aviso de Apoyo Técnico dirigido al Recinto, esa misma
+        celda la ocupa el aviso: es un reemplazo real (`v-if`/`v-else`) y no una capa
+        superpuesta, de modo que la franja original no queda por detrás ocupando espacio.
       -->
-      <section data-testid="franja-votacion-quorum" class="franja-votacion-quorum">
+      <AvisoSuperficie
+        v-if="avisoTecnico"
+        :texto="avisoTecnico.texto"
+        data-testid="aviso-tecnico-recinto"
+        rotulo="Aviso de Apoyo Técnico"
+      />
+      <!--
+        Franja normal: tres renglones de votación a la izquierda y quórum grande a la
+        derecha, con la relación espacial probada en producción.
+      -->
+      <section v-else data-testid="franja-votacion-quorum" class="franja-votacion-quorum">
         <PanelVotacionPublica :votacion="votacionPresentada" />
         <IndicadorQuorumPublico :quorum="estado.quorum" :total="totalConcejales" />
       </section>
@@ -117,6 +163,10 @@ const votosIndividualesVisibles = computed(() => {
         </section>
 
         <aside data-testid="columna-palabra-publica" class="columna-palabra-publica">
+          <BloqueTransmisionPublico
+            :transmision="transmision"
+            :segundos-restantes="segundosTransmision"
+          />
           <PanelPalabraPublico :palabra="estado.palabra" />
         </aside>
       </div>
@@ -292,9 +342,22 @@ const votosIndividualesVisibles = computed(() => {
   text-shadow: 0 0 32px rgba(56, 189, 248, 0.45);
 }
 
+/*
+  División vertical acordada por HUMAN_GATE (WP-056): un quinto superior para el
+  indicador de transmisión y cuatro quintos inferiores para los pedidos de palabra.
+
+  Se expresa con fracciones (`1fr` sobre `4fr`) y no con alturas fijas para que la
+  proporción se mantenga igual a 1366×768 y a 1920×1080. `minmax(0, …)` es lo que
+  permite que ambos hijos recorten su propio contenido en lugar de crecer y empujar la
+  columna, que es la condición para que la lista de pedidos no gane scroll horizontal.
+*/
 .columna-palabra-publica {
   min-height: 0;
-  display: flex;
+  min-width: 0;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) minmax(0, 4fr);
+  gap: clamp(0.35rem, 0.6vw, 0.6rem);
+  overflow: hidden;
 }
 
 @keyframes pulso {
@@ -322,7 +385,10 @@ const votosIndividualesVisibles = computed(() => {
   }
 
   .columna-palabra-publica {
-    min-height: 220px;
+    min-height: 260px;
+    /* Debajo de 900 px la columna se apila y la proporción 1/5 dejaría el indicador
+       ilegible, así que el bloque de transmisión toma el alto que necesita. */
+    grid-template-rows: auto minmax(0, 1fr);
   }
 }
 </style>

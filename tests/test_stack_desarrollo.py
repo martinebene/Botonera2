@@ -40,7 +40,7 @@ def crear_salida_spa(ruta: Path, titulo: str) -> Path:
     return ruta
 
 
-async def test_aplicacion_integrada_conserva_fastapi_y_sirve_las_tres_spa(
+async def test_aplicacion_integrada_conserva_fastapi_y_sirve_las_cuatro_spa(
     tmp_path: Path,
 ) -> None:
     """REST, OpenAPI y los assets conviven realmente bajo un único origen."""
@@ -48,7 +48,8 @@ async def test_aplicacion_integrada_conserva_fastapi_y_sirve_las_tres_spa(
     moderacion = crear_salida_spa(tmp_path / "moderacion", "Moderación real")
     recinto = crear_salida_spa(tmp_path / "recinto", "Recinto real")
     simulador = crear_salida_spa(tmp_path / "simulador", "Simulador real")
-    aplicacion = crear_aplicacion_integrada(moderacion, recinto, simulador)
+    tecnico = crear_salida_spa(tmp_path / "tecnico", "Apoyo Técnico real")
+    aplicacion = crear_aplicacion_integrada(moderacion, recinto, simulador, tecnico)
 
     async with aplicacion.router.lifespan_context(aplicacion):
         transporte = ASGITransport(app=aplicacion)
@@ -62,6 +63,8 @@ async def test_aplicacion_integrada_conserva_fastapi_y_sirve_las_tres_spa(
             asset_recinto = await cliente.get("/recinto/_nuxt/entrada.js")
             pagina_simulador = await cliente.get("/simulador/")
             asset_simulador = await cliente.get("/simulador/_nuxt/entrada.js")
+            pagina_tecnico = await cliente.get("/tecnico/")
+            asset_tecnico = await cliente.get("/tecnico/_nuxt/entrada.js")
 
     assert salud.status_code == 200
     assert salud.json() == {"estado": "ok"}
@@ -69,6 +72,7 @@ async def test_aplicacion_integrada_conserva_fastapi_y_sirve_las_tres_spa(
     assert "/moderacion/" in indice.text
     assert "/recinto/" in indice.text
     assert "/simulador/" in indice.text
+    assert "/tecnico/" in indice.text
     assert pagina_moderacion.status_code == 200
     assert "Moderación real" in pagina_moderacion.text
     assert asset_moderacion.text == "console.log('Moderación real')"
@@ -78,6 +82,9 @@ async def test_aplicacion_integrada_conserva_fastapi_y_sirve_las_tres_spa(
     assert pagina_simulador.status_code == 200
     assert "Simulador real" in pagina_simulador.text
     assert asset_simulador.text == "console.log('Simulador real')"
+    assert pagina_tecnico.status_code == 200
+    assert "Apoyo Técnico real" in pagina_tecnico.text
+    assert asset_tecnico.text == "console.log('Apoyo Técnico real')"
 
 
 async def test_aplicacion_productiva_no_adquiere_los_mounts_del_harness(tmp_path: Path) -> None:
@@ -87,6 +94,7 @@ async def test_aplicacion_productiva_no_adquiere_los_mounts_del_harness(tmp_path
         crear_salida_spa(tmp_path / "moderacion", "Moderación"),
         crear_salida_spa(tmp_path / "recinto", "Recinto"),
         crear_salida_spa(tmp_path / "simulador", "Simulador"),
+        crear_salida_spa(tmp_path / "tecnico", "Apoyo Técnico"),
     )
     productiva = crear_aplicacion()
 
@@ -94,9 +102,11 @@ async def test_aplicacion_productiva_no_adquiere_los_mounts_del_harness(tmp_path
     async with AsyncClient(transport=transporte, base_url="http://pruebas") as cliente:
         respuesta_moderacion = await cliente.get("/moderacion/")
         respuesta_simulador = await cliente.get("/simulador/")
+        respuesta_tecnico = await cliente.get("/tecnico/")
 
     assert respuesta_moderacion.status_code == 404
     assert respuesta_simulador.status_code == 404
+    assert respuesta_tecnico.status_code == 404
     # Los mounts y el índice del tooling están fuera de OpenAPI, por lo que el
     # contrato técnico canónico sigue siendo exactamente el del backend.
     assert integrada.openapi() == productiva.openapi()
@@ -126,9 +136,10 @@ def test_rechaza_salidas_estaticas_ausentes_o_incompletas(
         (moderacion / "index.html").write_text("ok", encoding="utf-8")
     recinto = crear_salida_spa(tmp_path / "recinto", "Recinto")
     simulador = crear_salida_spa(tmp_path / "simulador", "Simulador")
+    tecnico = crear_salida_spa(tmp_path / "tecnico", "Apoyo Técnico")
 
     with pytest.raises(ErrorSalidaSpa, match=fragmento):
-        crear_aplicacion_integrada(moderacion, recinto, simulador)
+        crear_aplicacion_integrada(moderacion, recinto, simulador, tecnico)
 
 
 def test_configuracion_predeterminada_usa_loopback_y_puerto_8000() -> None:

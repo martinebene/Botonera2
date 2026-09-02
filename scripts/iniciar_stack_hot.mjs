@@ -6,7 +6,8 @@
  * 2. El servidor de desarrollo de Moderación (Nuxt/Vite con HMR).
  * 3. El servidor de desarrollo de la Pantalla del Recinto (Nuxt/Vite con HMR).
  * 4. El servidor de desarrollo del Simulador de dispositivos (Nuxt/Vite con HMR).
- * 5. Una superficie HTTP y WebSocket de mismo origen que unifica todos los servicios
+ * 5. El servidor de desarrollo del puesto de Apoyo Técnico (Nuxt/Vite con HMR).
+ * 6. Una superficie HTTP y WebSocket de mismo origen que unifica todos los servicios
  *    en un único puerto loopback (por defecto 8000), compatible con túneles SSH.
  */
 
@@ -23,6 +24,7 @@ export const PUERTO_BACKEND_PREDETERMINADO = 8001
 export const PUERTO_MODERACION_PREDETERMINADO = 8002
 export const PUERTO_RECINTO_PREDETERMINADO = 8003
 export const PUERTO_SIMULADOR_PREDETERMINADO = 8004
+export const PUERTO_TECNICO_PREDETERMINADO = 8005
 export const TIEMPO_ESPERA_APAGADO_MS = 5000
 export const TIMEOUT_INICIO_MS = 60000
 
@@ -168,6 +170,7 @@ export function generarIndiceHtml() {
       <li><a href="/moderacion/">Moderación <span class="badge">HMR</span></a></li>
       <li><a href="/recinto/">Pantalla del Recinto <span class="badge">HMR</span></a></li>
       <li><a href="/simulador/">Simulador de dispositivos <span class="badge">HMR</span></a></li>
+      <li><a href="/tecnico/">Apoyo Técnico <span class="badge">HMR</span></a></li>
       <li><a href="/docs">Documentación de API (Swagger)</a></li>
       <li><a href="/api/v1/health">Estado de salud del backend (/api/v1/health)</a></li>
     </ul>
@@ -191,6 +194,9 @@ export function resolverPuertoDestino(urlRelativa, puertos) {
   if (urlRelativa.startsWith('/simulador/') || urlRelativa === '/simulador') {
     return puertos.puertoSimulador
   }
+  if (urlRelativa.startsWith('/tecnico/') || urlRelativa === '/tecnico') {
+    return puertos.puertoTecnico
+  }
 
   // Rutas del backend institucional FastAPI
   if (
@@ -212,13 +218,21 @@ export function resolverPuertoDestino(urlRelativa, puertos) {
  *
  * Preserva:
  * - Streaming continuo para Server-Sent Events (SSE) sin buffering ni compresión intermedia.
- * - Conexiones bidireccionales WebSocket para Vite HMR (Moderación, Recinto y Simulador).
- * - Mismo origen (/moderacion/, /recinto/, /simulador/, /api/v1/, /docs) en un único puerto.
+ * - Conexiones bidireccionales WebSocket para Vite HMR de las cuatro SPA.
+ * - Mismo origen (/moderacion/, /recinto/, /simulador/, /tecnico/, /api/v1/, /docs) en un
+ *   único puerto.
  */
 export function crearServidorProxy(opciones) {
-  const { host, puertoExterno, puertoBackend, puertoModeracion, puertoRecinto, puertoSimulador } =
-    opciones
-  const puertos = { puertoBackend, puertoModeracion, puertoRecinto, puertoSimulador }
+  const {
+    host,
+    puertoExterno,
+    puertoBackend,
+    puertoModeracion,
+    puertoRecinto,
+    puertoSimulador,
+    puertoTecnico,
+  } = opciones
+  const puertos = { puertoBackend, puertoModeracion, puertoRecinto, puertoSimulador, puertoTecnico }
 
   const servidor = http.createServer((solicitud, respuesta) => {
     const urlOriginal = solicitud.url || '/'
@@ -236,6 +250,11 @@ export function crearServidorProxy(opciones) {
     }
     if (urlOriginal === '/simulador') {
       respuesta.writeHead(302, { Location: '/simulador/' })
+      respuesta.end()
+      return
+    }
+    if (urlOriginal === '/tecnico') {
+      respuesta.writeHead(302, { Location: '/tecnico/' })
       respuesta.end()
       return
     }
@@ -354,11 +373,18 @@ export async function esperarServicio(url, tiempoLimiteMs = TIMEOUT_INICIO_MS) {
 }
 
 /**
- * Inicia los 4 procesos hijos coordinados y gestiona sus ciclos de vida.
+ * Inicia los 5 procesos hijos coordinados y gestiona sus ciclos de vida.
  */
 export function lanzarProcesosHijos(configuracion) {
-  const { host, puertoBackend, puertoModeracion, puertoRecinto, puertoSimulador, raiz } =
-    configuracion
+  const {
+    host,
+    puertoBackend,
+    puertoModeracion,
+    puertoRecinto,
+    puertoSimulador,
+    puertoTecnico,
+    raiz,
+  } = configuracion
 
   const comandoPnpm = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm'
   const comandoUv = process.platform === 'win32' ? 'uv.exe' : 'uv'
@@ -463,6 +489,30 @@ export function lanzarProcesosHijos(configuracion) {
   conectarSalidaProceso(procesoSimulador, 'Simulador')
   procesos.push({ nombre: 'Simulador (Nuxt)', proceso: procesoSimulador })
 
+  // 5. Apoyo Técnico (Nuxt / Vite HMR)
+  const procesoTecnico = spawn(
+    comandoPnpm,
+    [
+      '--filter',
+      '@botonera2/tecnico',
+      'exec',
+      'nuxt',
+      'dev',
+      '--port',
+      String(puertoTecnico),
+      '--host',
+      host,
+      '--no-fork',
+    ],
+    {
+      cwd: raiz,
+      detached: process.platform !== 'win32',
+      stdio: 'pipe',
+    },
+  )
+  conectarSalidaProceso(procesoTecnico, 'Apoyo Técnico')
+  procesos.push({ nombre: 'Apoyo Técnico (Nuxt)', proceso: procesoTecnico })
+
   return procesos
 }
 
@@ -564,6 +614,7 @@ export function parsearArgumentos(argumentos = process.argv.slice(2)) {
     puertoModeracion: PUERTO_MODERACION_PREDETERMINADO,
     puertoRecinto: PUERTO_RECINTO_PREDETERMINADO,
     puertoSimulador: PUERTO_SIMULADOR_PREDETERMINADO,
+    puertoTecnico: PUERTO_TECNICO_PREDETERMINADO,
     permitirRamaNoMain: false,
     ayuda: false,
   }
@@ -596,6 +647,10 @@ export function parsearArgumentos(argumentos = process.argv.slice(2)) {
       opciones.puertoSimulador = Number.parseInt(argumentos[++i], 10)
     } else if (arg.startsWith('--simulador-port=')) {
       opciones.puertoSimulador = Number.parseInt(arg.slice(17), 10)
+    } else if (arg === '--tecnico-port') {
+      opciones.puertoTecnico = Number.parseInt(argumentos[++i], 10)
+    } else if (arg.startsWith('--tecnico-port=')) {
+      opciones.puertoTecnico = Number.parseInt(arg.slice(15), 10)
     } else if (arg === '--allow-non-main' || arg === '--permitir-rama-no-main') {
       opciones.permitirRamaNoMain = true
     }
@@ -613,7 +668,7 @@ Uso: pnpm dev:stack:hot [OPCIONES]
 
 Levanta el stack de desarrollo interactivo de Botonera2 con HMR y autoreload:
   - FastAPI real con recarga automática por cambios en apps/backend/src o config/
-  - Servidores Nuxt/Vite en desarrollo con Hot Module Replacement (HMR) para Moderación, Recinto y Simulador
+  - Servidores Nuxt/Vite en desarrollo con Hot Module Replacement (HMR) para las cuatro SPA
   - Superficie HTTP y WebSocket unificada bajo el mismo origen en una única interfaz loopback
 
 Opciones:
@@ -623,6 +678,7 @@ Opciones:
   --moderacion-port <puerto>   Puerto interno auxiliar para Moderación (predeterminado: ${PUERTO_MODERACION_PREDETERMINADO})
   --recinto-port <puerto>      Puerto interno auxiliar para Recinto (predeterminado: ${PUERTO_RECINTO_PREDETERMINADO})
   --simulador-port <puerto>    Puerto interno auxiliar para Simulador (predeterminado: ${PUERTO_SIMULADOR_PREDETERMINADO})
+  --tecnico-port <puerto>      Puerto interno auxiliar para Apoyo Técnico (predeterminado: ${PUERTO_TECNICO_PREDETERMINADO})
   --allow-non-main             Permite ejecutar en una rama distinta de main (solo para tests/smoke del WP)
   -h, --help                   Muestra esta ayuda y finaliza
 `)
@@ -667,6 +723,7 @@ export async function main(argumentos = process.argv.slice(2)) {
   const puertoModeracion = await obtenerPuertoLibre(opciones.puertoModeracion, opciones.host)
   const puertoRecinto = await obtenerPuertoLibre(opciones.puertoRecinto, opciones.host)
   const puertoSimulador = await obtenerPuertoLibre(opciones.puertoSimulador, opciones.host)
+  const puertoTecnico = await obtenerPuertoLibre(opciones.puertoTecnico, opciones.host)
 
   console.log('Iniciando servicios interactivos de Botonera2...')
   console.log(`- Host loopback:       ${opciones.host}`)
@@ -675,14 +732,16 @@ export async function main(argumentos = process.argv.slice(2)) {
   console.log(`- Puerto Moderación:   ${puertoModeracion} (interno)`)
   console.log(`- Puerto Recinto:      ${puertoRecinto} (interno)`)
   console.log(`- Puerto Simulador:    ${puertoSimulador} (interno)`)
+  console.log(`- Puerto Apoyo Técnico: ${puertoTecnico} (interno)`)
 
-  // 5. Lanzar los 4 procesos hijos
+  // 5. Lanzar los 5 procesos hijos
   const procesos = lanzarProcesosHijos({
     host: opciones.host,
     puertoBackend,
     puertoModeracion,
     puertoRecinto,
     puertoSimulador,
+    puertoTecnico,
     raiz: RAIZ_REPOSITORIO,
   })
 
@@ -729,6 +788,7 @@ export async function main(argumentos = process.argv.slice(2)) {
     puertoModeracion,
     puertoRecinto,
     puertoSimulador,
+    puertoTecnico,
   })
 
   await new Promise((resolver, rechazar) => {
@@ -736,7 +796,7 @@ export async function main(argumentos = process.argv.slice(2)) {
     servidorProxy.on('error', rechazar)
   })
 
-  // 7. Esperar a que los 4 servicios alcancen readiness
+  // 7. Esperar a que los 5 servicios alcancen readiness
   console.log('Esperando inicialización de los servidores...')
   const backendListo = esperarServicio(
     `http://${opciones.host}:${puertoBackend}/api/v1/health`,
@@ -754,12 +814,17 @@ export async function main(argumentos = process.argv.slice(2)) {
     `http://${opciones.host}:${puertoSimulador}/simulador/`,
     TIMEOUT_INICIO_MS,
   )
+  const tecnicoListo = esperarServicio(
+    `http://${opciones.host}:${puertoTecnico}/tecnico/`,
+    TIMEOUT_INICIO_MS,
+  )
 
   const resultados = await Promise.all([
     backendListo,
     moderacionLista,
     recintoListo,
     simuladorListo,
+    tecnicoListo,
   ])
   if (!resultados.every(Boolean)) {
     console.error('❌ Uno o más componentes no alcanzaron estado saludable a tiempo.')
@@ -776,6 +841,7 @@ export async function main(argumentos = process.argv.slice(2)) {
   console.log(`  ├── Moderación (HMR):            ${urlBase}/moderacion/`)
   console.log(`  ├── Pantalla del Recinto (HMR):  ${urlBase}/recinto/`)
   console.log(`  ├── Simulador (HMR):             ${urlBase}/simulador/`)
+  console.log(`  ├── Apoyo Técnico (HMR):         ${urlBase}/tecnico/`)
   console.log(`  ├── Documentación API (Swagger): ${urlBase}/docs`)
   console.log(`  └── Verificación de salud:       ${urlBase}/api/v1/health\n`)
   console.log('Túnel SSH desde Windows (ejemplo con puerto 18080):')

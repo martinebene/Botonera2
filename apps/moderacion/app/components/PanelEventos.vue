@@ -38,24 +38,47 @@
 
 import { computed, nextTick, ref, watch } from 'vue'
 import type { EstadoModeracion } from '@botonera2/api-client'
+import {
+  filtrarEventosPorNivel,
+  hayActividadNueva,
+  seqMaximoEventos,
+  type FiltroNivelEventos,
+} from '@botonera2/frontend-shared'
 import PanelContenedor from './PanelContenedor.vue'
 
-const props = defineProps<{
-  /** Estado de moderación recibido desde el backend */
-  estado: EstadoModeracion | null
-}>()
+const props = withDefaults(
+  defineProps<{
+    /** Estado de moderación recibido desde el backend */
+    estado: EstadoModeracion | null
+    /**
+     * Nivel con el que abre el panel.
+     *
+     * Existe por WP-056: cuando un aviso de Apoyo Técnico reemplaza el cuadrante 4, este
+     * componente se desmonta por completo —no queda oculto detrás— y al volver debe
+     * reaparecer con el nivel que el operador había elegido. El shell recuerda ese valor
+     * y lo devuelve por acá. Sigue siendo un dato puramente visual: no altera la
+     * colección autoritativa ni lo que el backend decide publicar.
+     */
+    nivelInicial?: FiltroNivelEventos
+  }>(),
+  { nivelInicial: 'L3' },
+)
 
-type FiltroEventos = 'L3' | 'L2' | 'L1'
+const emit = defineEmits<{
+  /** Informa al shell el nivel elegido, para poder restaurarlo tras un aviso. */
+  (evento: 'cambiar-nivel', nivel: FiltroNivelEventos): void
+}>()
 
 // El filtro es deliberadamente local: no acumula eventos ni modifica la
 // auditoría. L3 es la vista inicial acordada para la operación cotidiana.
-const filtroSeleccionado = ref<FiltroEventos>('L3')
+//
+// WP-056: la tabla de niveles acumulativos y las derivaciones sobre la colección
+// viven en `@botonera2/frontend-shared` porque el puesto de Apoyo Técnico muestra
+// exactamente la misma franja segura. Compartir las funciones puras evita que las
+// dos pantallas puedan divergir en qué considera visible cada nivel.
+const filtroSeleccionado = ref<FiltroNivelEventos>(props.nivelInicial)
 
-const nivelesPorFiltro: Record<FiltroEventos, readonly string[]> = {
-  L3: ['L3'],
-  L2: ['L2', 'L3'],
-  L1: ['L1', 'L2', 'L3'],
-}
+watch(filtroSeleccionado, (nivel) => emit('cambiar-nivel', nivel))
 
 /**
  * Referencia DOM al único contenedor con scroll del panel.
@@ -67,24 +90,19 @@ const nivelesPorFiltro: Record<FiltroEventos, readonly string[]> = {
 const contenedorLista = ref<HTMLElement | null>(null)
 
 /**
- * Colección visual derivada: primero filtra por nivel y después ordena por
- * `seq` descendente.
+ * Colección visual derivada: filtra por nivel acumulativo y ordena por `seq`
+ * descendente. La derivación completa vive en la función compartida, que trabaja
+ * siempre sobre una copia y jamás reordena `props.estado.eventos_recientes`.
  *
- * `filter` ya devuelve un arreglo nuevo, así que el `sort` posterior opera
- * sobre esa copia y jamás reordena `props.estado.eventos_recientes`. Esto
- * mantiene la invariante de WP-041: el frontend no muta ni acumula la
- * baseline autoritativa, solo la proyecta.
- *
- * Al derivarse siempre del snapshot vigente, el resultado es determinista
- * aunque el backend envíe los eventos en orden ascendente, descendente o
- * reemplace por completo la colección tras una reconexión.
+ * Eso mantiene la invariante de WP-041: el frontend no muta ni acumula la
+ * baseline autoritativa, solo la proyecta. Al derivarse siempre del snapshot
+ * vigente, el resultado es determinista aunque el backend envíe los eventos en
+ * orden ascendente, descendente o reemplace por completo la colección tras una
+ * reconexión.
  */
-const eventosVisibles = computed(() => {
-  const permitidos = nivelesPorFiltro[filtroSeleccionado.value]
-  return (props.estado?.eventos_recientes ?? [])
-    .filter((evento) => permitidos.includes(evento.nivel))
-    .sort((primero, segundo) => segundo.seq - primero.seq)
-})
+const eventosVisibles = computed(() =>
+  filtrarEventosPorNivel(props.estado?.eventos_recientes, filtroSeleccionado.value),
+)
 
 /**
  * Mayor `seq` presente en el snapshot completo, sin aplicar el filtro visual.
@@ -93,14 +111,7 @@ const eventosVisibles = computed(() => {
  * visible no debe interpretarse como la llegada de un evento nuevo, porque
  * eso movería el scroll del operador sin que haya ocurrido nada en la sala.
  */
-const seqMaximoSnapshot = computed(() => {
-  const eventos = props.estado?.eventos_recientes ?? []
-  let maximo: number | null = null
-  for (const evento of eventos) {
-    if (maximo === null || evento.seq > maximo) maximo = evento.seq
-  }
-  return maximo
-})
+const seqMaximoSnapshot = computed(() => seqMaximoEventos(props.estado?.eventos_recientes))
 
 /**
  * Último `seq` máximo efectivamente observado por este panel.
@@ -120,8 +131,7 @@ watch(seqMaximoSnapshot, async (maximoActual) => {
   // hacia valores menores: nunca se mezcla con el anterior.
   seqMaximoObservado.value = maximoActual
 
-  if (maximoActual === null) return
-  if (maximoPrevio !== null && maximoActual <= maximoPrevio) return
+  if (!hayActividadNueva(maximoActual, maximoPrevio)) return
 
   // `nextTick` espera a que Vue haya renderizado la colección derivada; solo
   // entonces el contenedor contiene ya el evento nuevo en su primera fila.

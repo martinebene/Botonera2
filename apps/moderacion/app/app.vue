@@ -10,6 +10,20 @@
  *    en el viewport a 1366×768 y a 1920×1080, sin scroll de página.
  * 4. Garantizar que el crecimiento interno de cualquier panel quede confinado a su propio
  *    scroll sin deformar ni empujar la altura de los demás paneles.
+ * 5. Sustituir por completo el cuadrante 4 cuando Apoyo Técnico publica un aviso dirigido
+ *    a Moderación, y devolver el panel de Eventos intacto cuando ese aviso expira o se
+ *    cancela (WP-056).
+ *
+ * Sobre la sustitución de Q4 (WP-056): se usa `v-if`/`v-else`, no una superposición. Un
+ * overlay dejaría el panel original ocupando su celda por detrás y podría seguir
+ * generando scroll o capturando el cursor; el reemplazo real garantiza que la superficie
+ * sea exactamente una de las dos: mientras hay aviso, el panel de Eventos no existe en el
+ * árbol y por lo tanto no puede ocupar espacio, capturar el cursor ni generar scroll.
+ *
+ * Para que el panel vuelva "sin perder su estado anterior", el shell recuerda el único
+ * dato local que el operador había elegido —el nivel visible— y se lo devuelve al
+ * remontarlo. Todo lo demás (los eventos) vuelve del snapshot autoritativo del backend,
+ * que es donde debe vivir.
  *
  * Sobre el dimensionado (WP-036): el shell no fija alturas ni anchos absolutos en píxeles.
  * La altura total la aporta `h-dvh`, el reparto vertical lo resuelve Flexbox con `flex-1`
@@ -18,14 +32,16 @@
  * de una resolución concreta.
  */
 
-import { computed, shallowRef } from 'vue'
+import { computed, ref, shallowRef } from 'vue'
 import type { PuntoOrdenDelDiaProyectado } from '@botonera2/api-client'
+import type { FiltroNivelEventos } from '@botonera2/frontend-shared'
 import { useEstadoModeracion } from './composables/useEstadoModeracion'
 import CabeceraModeracion from './components/CabeceraModeracion.vue'
 import PanelSesionVotacion from './components/PanelSesionVotacion.vue'
 import PanelOrdenDelDia from './components/PanelOrdenDelDia.vue'
 import PanelRecintoPalabra from './components/PanelRecintoPalabra.vue'
 import PanelEventos from './components/PanelEventos.vue'
+import AvisoSuperficie from '@botonera2/frontend-shared/componentes/AvisoSuperficie.vue'
 
 // Conectamos con el composable reactivo de moderación
 const { estado, estadoConexion, estadoGlobal, revision, desactualizado, conectado, cliente } =
@@ -79,8 +95,32 @@ const numeroSesion = computed(
  */
 const puntoSeleccionado = shallowRef<PuntoOrdenDelDiaProyectado | null>(null)
 
+/**
+ * Aviso técnico vigente para esta pantalla, o `null` si no hay ninguno.
+ *
+ * El backend ya separó los destinos: en `EstadoModeracion.tecnico.aviso` sólo puede
+ * llegar un aviso dirigido a MODERACION o a AMBOS. Un aviso publicado sólo hacia el
+ * Recinto jamás viaja en este snapshot, así que acá no hace falta —ni sería correcto—
+ * volver a filtrar por destino. También desaparece solo al vencer: la vigencia la
+ * decide el reloj del backend, que republica una revisión nueva al cruzar la frontera.
+ */
+const avisoTecnico = computed(() => estado.value?.tecnico?.aviso ?? null)
+
+/**
+ * Nivel visible elegido por el operador en el panel de Eventos.
+ *
+ * Vive en el shell y no en el panel porque el panel se desmonta mientras hay un aviso.
+ * Es una preferencia de presentación, nunca un filtro sobre lo que el backend publica.
+ */
+const nivelEventos = ref<FiltroNivelEventos>('L3')
+
 function seleccionarPuntoOrdenDelDia(punto: PuntoOrdenDelDiaProyectado): void {
   puntoSeleccionado.value = { ...punto }
+}
+
+/** Recuerda el nivel elegido para devolverlo al panel cuando se remonta. */
+function recordarNivelEventos(nivel: FiltroNivelEventos): void {
+  nivelEventos.value = nivel
 }
 </script>
 
@@ -118,8 +158,22 @@ function seleccionarPuntoOrdenDelDia(punto: PuntoOrdenDelDiaProyectado): void {
         <!-- Cuadrante 3 (abajo izquierda): Recinto y palabra -->
         <PanelRecintoPalabra :estado="estado" :cliente="cliente" :conectado="conectado" />
 
-        <!-- Cuadrante 4 (abajo derecha): Eventos -->
-        <PanelEventos :estado="estado" />
+        <!--
+          Cuadrante 4 (abajo derecha): Eventos, o el aviso de Apoyo Técnico que lo
+          reemplaza por completo mientras está vigente (WP-056).
+        -->
+        <PanelEventos
+          v-if="!avisoTecnico"
+          :estado="estado"
+          :nivel-inicial="nivelEventos"
+          @cambiar-nivel="recordarNivelEventos"
+        />
+        <AvisoSuperficie
+          v-if="avisoTecnico"
+          :texto="avisoTecnico.texto"
+          data-testid="aviso-tecnico-moderacion"
+          rotulo="Aviso de Apoyo Técnico para Moderación"
+        />
       </div>
     </main>
   </div>
