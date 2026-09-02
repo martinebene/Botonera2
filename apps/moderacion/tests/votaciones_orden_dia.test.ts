@@ -76,6 +76,7 @@ const puntoSimple: PuntoOrdenDelDiaProyectado = {
   tipo_mayoria: 'SIMPLE',
   factor: 0,
   base: 'VOTOS_COMPUTABLES',
+  tratado: false,
 }
 
 const puntoEspecial: PuntoOrdenDelDiaProyectado = {
@@ -85,6 +86,7 @@ const puntoEspecial: PuntoOrdenDelDiaProyectado = {
   tipo_mayoria: 'ESPECIAL',
   factor: 0.66,
   base: 'CUERPO',
+  tratado: false,
 }
 
 function crearVotacion(parcial: Partial<VotacionModeracion> = {}): VotacionModeracion {

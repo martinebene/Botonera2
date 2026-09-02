@@ -158,13 +158,22 @@ def abrir_votacion_prueba(
     *,
     id_votacion: str = "votacion-prueba",
     tipo_mayoria: TipoMayoria = TipoMayoria.SIMPLE,
+    numero_votacion: int | None = None,
 ) -> Votacion:
-    """Agrega al historial y publica una única votación ``EN_CURSO``."""
+    """Agrega al historial y publica una única votación ``EN_CURSO``.
+
+    ``numero_votacion`` permite fijar el número externo exacto. Sin él se sigue
+    usando la posición en el historial, que es lo que necesitaban las pruebas
+    anteriores; con él, WP-053 puede demostrar que la ayuda del Orden del Día
+    compara ese número y no el orden de apertura.
+    """
 
     sesion = entorno.estado.sesion_activa or abrir_sesion_prueba(entorno)
     votacion = Votacion(
         id=id_votacion,
-        numero_votacion=len(sesion.votaciones) + 1,
+        numero_votacion=(
+            numero_votacion if numero_votacion is not None else len(sesion.votaciones) + 1
+        ),
         tipo="Otro",
         tema="Tema de prueba",
         tipo_mayoria=tipo_mayoria,

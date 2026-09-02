@@ -45,6 +45,15 @@ CSV_VALIDO = (
     b"2,Mocion,Tema 2,ESPECIAL,0.6666666667,PRESENTES\n"
 )
 
+# WP-053: dos filas comparten el número 1 para demostrar que la ayuda visual se
+# apoya sólo en ``nro_votacion`` y marca todas las coincidencias a la vez.
+CSV_CON_NUMERO_REPETIDO = (
+    b"nro_votacion,tipo,tema,tipo_mayoria,factor,base\n"
+    b"1,Despacho OP,Primera lectura,SIMPLE,0,VOTOS_COMPUTABLES\n"
+    b"2,Mocion,Otro asunto,SIMPLE,0,VOTOS_COMPUTABLES\n"
+    b"1,Otro,Segunda lectura,SIMPLE,0,VOTOS_COMPUTABLES\n"
+)
+
 CSV_HISTORICO_CINCO_COLUMNAS = (
     b"nro_votacion,tipo,tema,factor_de_mayoria,respecto\n1,Despacho,Tema 1,0,votos_computables\n"
 )
@@ -451,3 +460,87 @@ async def test_esquema_openapi_orden_del_dia(
 
         # 3. GET NO existe
         assert "get" not in operaciones, "GET /api/v1/orden-del-dia NO debe existir"
+
+
+# ==============================================================================
+# PRUEBAS DE LA AYUDA "NÚMERO YA TRATADO" (WP-053)
+# ==============================================================================
+
+
+async def test_estado_moderacion_marca_tratados_desde_la_apertura_real(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Recorre por HTTP el camino completo que verá el operador.
+
+    Se carga un Orden del Día con un número repetido, se abre la sesión y se
+    abre una votación Nº 1 sin finalizarla. El snapshot de Moderación debe
+    devolver ``tratado`` verdadero en las dos filas Nº 1 y falso en la Nº 2, y
+    debe seguir haciéndolo en una segunda lectura del mismo endpoint, que es lo
+    que ocurre cuando el frontend se reconecta o el operador recarga.
+    """
+    async with cliente_de_prueba(tmp_path, monkeypatch) as (cliente, _aplicacion):
+        await preparar_sala_valida(cliente)
+        archivos = {"archivo": ("orden.csv", CSV_CON_NUMERO_REPETIDO, "text/csv")}
+        assert (await cliente.post("/api/v1/orden-del-dia", files=archivos)).status_code == 200
+
+        # Antes de abrir cualquier votación no puede haber ningún punto tratado.
+        antes = await cliente.get("/api/v1/estado/moderacion")
+        assert antes.status_code == 200
+        assert [punto["tratado"] for punto in antes.json()["orden_del_dia"]] == [
+            False,
+            False,
+            False,
+        ]
+
+        assert (
+            await cliente.post(
+                "/api/v1/entradas/tecla",
+                json={"dispositivo": "D-01", "tecla": "9"},
+            )
+        ).status_code == 200
+        assert (
+            await cliente.patch(
+                "/api/v1/preparacion",
+                json={
+                    "numero_sesion": 59,
+                    "presidencia": "Presidencia",
+                    "secretaria_legislativa": "Secretaría",
+                },
+            )
+        ).status_code == 204
+        assert (await cliente.post("/api/v1/sesion")).status_code == 204
+
+        apertura = await cliente.post(
+            "/api/v1/votaciones",
+            json={
+                "numero_votacion": 1,
+                "tipo": "Otro",
+                "tema": "Tema decidido en el recinto",
+                "tipo_mayoria": "SIMPLE",
+            },
+        )
+        assert apertura.status_code == 201
+
+        despues = await cliente.get("/api/v1/estado/moderacion")
+        assert despues.status_code == 200
+        puntos = despues.json()["orden_del_dia"]
+        assert [(punto["nro_votacion"], punto["tratado"]) for punto in puntos] == [
+            (1, True),
+            (2, False),
+            (1, True),
+        ]
+
+        # La votación sigue abierta y la lectura es reproducible: ningún snapshot
+        # consume la marca ni depende del anterior.
+        repetido = await cliente.get("/api/v1/estado/moderacion")
+        assert [punto["tratado"] for punto in repetido.json()["orden_del_dia"]] == [
+            True,
+            False,
+            True,
+        ]
+        assert repetido.json()["votacion"]["estado_recepcion"] == "EN_CURSO"
+
+        # La proyección pública no gana la ayuda asistencial en ningún momento.
+        recinto = await cliente.get("/api/v1/estado/recinto")
+        assert recinto.status_code == 200
+        assert "orden_del_dia" not in recinto.json()

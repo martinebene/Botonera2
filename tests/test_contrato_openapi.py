@@ -22,6 +22,23 @@ def test_generacion_esquema_openapi_valida() -> None:
     assert "filas_bancas" in propiedades_recinto
 
 
+def test_punto_orden_del_dia_publica_la_marca_de_tratado() -> None:
+    """WP-053: la ayuda viaja en el contrato como booleano obligatorio.
+
+    Que sea obligatorio importa: el frontend recibe siempre un valor explícito y
+    nunca tiene que interpretar la ausencia del campo como "no tratado".
+    """
+    esquema = generar_esquema_openapi()
+    punto = esquema["components"]["schemas"]["PuntoOrdenDelDiaProyectado"]
+    assert punto["properties"]["tratado"]["type"] == "boolean"
+    assert "tratado" in punto["required"]
+
+    # La ayuda es exclusiva de Moderación: el punto proyectado sólo aparece allí
+    # y el DTO de la respuesta de carga no gana ningún campo derivado de sesión.
+    respuesta_carga = esquema["components"]["schemas"]["PuntoOrdenDelDiaRespuesta"]
+    assert "tratado" not in respuesta_carga["properties"]
+
+
 def test_snapshot_versionado_coincide_con_backend() -> None:
     """Demuestra que el snapshot versionado en packages/api-client coincide con FastAPI."""
     assert RUTA_OPENAPI_PREDETERMINADA.exists()

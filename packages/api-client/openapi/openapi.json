@@ -2466,6 +2466,10 @@
           "base": {
             "type": "string",
             "title": "Base"
+          },
+          "tratado": {
+            "type": "boolean",
+            "title": "Tratado"
           }
         },
         "type": "object",
@@ -2475,10 +2479,11 @@
           "tema",
           "tipo_mayoria",
           "factor",
-          "base"
+          "base",
+          "tratado"
         ],
         "title": "PuntoOrdenDelDiaProyectado",
-        "description": "Punto asistencial normalizado disponible solo para Moderación."
+        "description": "Punto asistencial normalizado disponible solo para Moderación.\n\n``tratado`` es la ayuda visual que introduce WP-053. Vale ``True`` cuando el\nhistorial autoritativo de la sesión ya contiene una votación **abierta** con\nese mismo ``nro_votacion``. Se calcula en el backend, y no en Vue, por dos\nrazones: el frontend nunca decide reglas y, al viajar ya resuelto, cualquier\nreconexión o recarga reconstruye la marca desde el snapshot sin guardar\nestado local. La marca es puramente asistencial: no bloquea el punto, no lo\nconsume y no impide volver a usar el mismo número."
       },
       "PuntoOrdenDelDiaRespuesta": {
         "properties": {

@@ -8,8 +8,16 @@
  *
  * La existencia de puntos define dos vistas mutuamente excluyentes: carga compacta o
  * colección confirmada. Al quitar, los puntos permanecen visibles hasta que un snapshot
- * vacío llegue desde backend. Seleccionar un punto emite una copia para precargar Q1,
- * sin marcarlo como tratado ni modificar la colección autoritativa.
+ * vacío llegue desde backend. Seleccionar un punto solo emite una copia para precargar Q1:
+ * no muta la colección autoritativa ni marca nada por su cuenta.
+ *
+ * WP-053 agrega la única ayuda de seguimiento del cuadrante. El backend informa por punto
+ * el campo `tratado`, verdadero cuando ya se abrió una votación con ese mismo
+ * `nro_votacion` durante la sesión. Este componente se limita a atenuarlo: no lo calcula,
+ * no lo recuerda entre snapshots y no lo deshabilita. Un punto atenuado conserva hover,
+ * click, toast y precarga exactamente igual que cualquier otro, porque la marca es
+ * asistencial y Botonera2 permite reutilizar un número. Como el dato llega en cada
+ * snapshot, una reconexión o un reload reconstruyen la atenuación sin estado local.
  *
  * WP-044 concentra en este cuadrante el único acuse visual de la copia asistencial:
  * un toast flotante de ~1 segundo. El toast se dibuja superpuesto (position absolute)
@@ -302,11 +310,24 @@ function seleccionarPunto(punto: PuntoOrdenDelDiaProyectado): void {
             :key="`${punto.nro_votacion}-${indice}`"
             type="button"
             data-testid="punto-orden-dia"
-            class="block w-full rounded border border-slate-800 bg-slate-950/60 px-2.5 py-2 text-left text-xs hover:border-cyan-700 hover:bg-cyan-950/20"
+            :data-tratado="punto.tratado ? 'true' : 'false'"
+            class="block w-full rounded border px-2.5 py-2 text-left text-xs hover:border-cyan-700 hover:bg-cyan-950/20"
+            :class="
+              punto.tratado
+                ? 'border-slate-900 bg-slate-950/30 opacity-50'
+                : 'border-slate-800 bg-slate-950/60'
+            "
             @click="seleccionarPunto(punto)"
           >
             <span class="flex items-center justify-between gap-2">
-              <strong class="text-slate-200">#{{ punto.nro_votacion }} · {{ punto.tipo }}</strong>
+              <strong class="text-slate-200">
+                #{{ punto.nro_votacion }} · {{ punto.tipo }}
+                <!--
+                  La atenuación es una señal visual; sola no llega a un lector de pantalla.
+                  Este texto oculto da el mismo dato sin ocupar alto ni cambiar el diseño.
+                -->
+                <span v-if="punto.tratado" class="sr-only">(número ya tratado en esta sesión)</span>
+              </strong>
               <span class="rounded bg-slate-800 px-1.5 py-0.5 text-[10px] text-slate-300">
                 {{ punto.tipo_mayoria }}
               </span>
