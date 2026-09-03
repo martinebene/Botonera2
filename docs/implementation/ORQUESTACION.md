@@ -290,6 +290,26 @@ El coordinador debe usar, cuando sea razonablemente posible, una fuente de cuota
 
 Un timeout, TUI idle o falta temporal de mensajes no prueba agotamiento. Para suspender/reanudar por cuota debe existir evidencia explícita o estructurada.
 
+## Lotes nocturnos con transición mecánica preautorizada
+
+DEC-018 permite una excepción acotada para aprovechar periodos prolongados sin presencia del operador.
+
+El ORCHESTRATOR puede preparar un manifiesto de lote que autorice al COORDINADOR_LOCAL a pasar automáticamente de una asignación IMPLEMENTER/SYNC ya autorizada a una REVIEWER ya decidida por HUMAN_GATE, **sin decidir nada por sí mismo**, cuando se cumplan condiciones objetivas verificables de PR/SHA/main/CI/handoff y no exista escalamiento.
+
+En ese caso el COORDINADOR_LOCAL puede publicar la asignación REVIEWER exacta y actualizar únicamente el estado operativo necesario de Botonera2-Control para volver elegible al revisor fijado. Esa autoridad debe estar expresamente listada en el manifiesto del lote.
+
+Esta excepción no alcanza a:
+
+- interpretar el informe del REVIEWER;
+- ordenar correcciones;
+- re-revisiones;
+- merge;
+- cierre documental;
+- cleanup;
+- deploy.
+
+Ante cualquier hallazgo o desviación material, el lote termina y vuelve al ORCHESTRATOR/HUMAN_GATE.
+
 ## Turno de implementación
 
 IMPLEMENTER:
