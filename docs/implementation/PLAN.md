@@ -208,7 +208,7 @@ WP-033 quedó integrado antes de continuar WP-026 y deja disponible el harness m
 | WP-059 | Reorganizar la interfaz de Apoyo Técnico según prueba humana | INTEGRADO | WP-056 | - |
 | WP-060 | Corregir geometría y ajuste tipográfico de avisos compartidos | INTEGRADO | WP-056 | - |
 | WP-061 | Incorporar indicador de carga pre-hidratación en todos los frontends | INTEGRADO | WP-057, WP-058, WP-059, WP-060 | - |
-| WP-062 | Adoptar identidad SISLeg y terminología de Recinto | PENDIENTE | WP-061 | - |
+| WP-062 | Adoptar identidad SISLeg y terminología de Recinto | EN_CURSO | WP-061 | claude |
 | WP-063 | Formatear visualmente el factor a dos decimales truncados | PENDIENTE | WP-062 | - |
 | WP-064 | Aumentar legibilidad de nombres en la cola de palabra del Recinto | PENDIENTE | WP-062 | - |
 | WP-065 | Incorporar configuración y assets de sonidos del Recinto | PENDIENTE | WP-062 | - |
@@ -355,3 +355,6 @@ WP-061 quedó integrado mediante PR #68 sobre el candidato `84e5ea9553fd5a074e83
 
 
 Nueva iteración de prueba humana del 03/09/2026: HUMAN_GATE aprobó WP-062..WP-067. La secuencia acordada es WP-062 primero; luego WP-063, WP-064 y WP-065 pueden ejecutarse en paralelo en worktrees independientes; WP-066 depende de WP-065; WP-067 se ejecuta al final para documentar el comportamiento ya integrado. Las decisiones humanas fijan marca SISLeg, logo completo en carga y estado SIN_PREPARAR, favicon suministrado, derivados gráficos transparentes/recortados autorizados, terminología visible/documental «recinto», factor con exactamente dos decimales truncados sin redondeo y audio del Recinto sin control visible de activación, con autoplay resuelto por el entorno y reproducción simultánea permitida. WP-029 permanece BLOQUEADO y sólo podrá reactivarse con autorización humana explícita luego de completar esta campaña y una nueva validación humana.
+
+
+HUMAN_GATE activó WP-062 el 03/09/2026 con Claude Code / Claude Opus 5 (High) como IMPLEMENTER y Antigravity/AGY / Gemini 3.8 Flash (High) como REVIEWER independiente. El WP parte del main que ya contiene los assets canónicos SISLeg en `assets/branding/`. WP-063, WP-064 y WP-065 permanecen PENDIENTES hasta integrar WP-062; WP-029 continúa BLOQUEADO.
