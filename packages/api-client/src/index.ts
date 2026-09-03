@@ -64,6 +64,8 @@ export type {
   AvisoTecnicoProyectado,
   MensajeTecnicoProyectado,
   BibliotecaMensajesProyectada,
+  SonidoRecintoProyectado,
+  SonidosRecintoProyectados,
   EstadoTransmision,
   DestinoAvisoTecnico,
   Capacidad,

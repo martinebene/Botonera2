@@ -12,8 +12,11 @@ from botonera2_backend.auditoria import EscritorAuditoriaCsv
 from botonera2_backend.configuracion.modelos import (
     Concejal,
     ConfiguracionSistema,
+    ConfiguracionSonidosRecinto,
     Padron,
+    SonidoRecinto,
 )
+from botonera2_backend.configuracion.sonidos_recinto import EVENTOS_SONIDO_RECINTO
 from botonera2_backend.dominio.estado import EstadoGlobal, EstadoOperativo
 from botonera2_backend.dominio.preparacion import Preparacion
 from botonera2_backend.dominio.sesion import Sesion
@@ -26,6 +29,27 @@ from botonera2_backend.servicios.apoyo_tecnico import ServicioApoyoTecnico
 from botonera2_backend.servicios.proyecciones import ServicioProyecciones
 from botonera2_backend.servicios.publicacion import CoordinadorPublicacion
 from botonera2_backend.servicios.serializacion import EjecutorMutaciones
+
+
+def sonidos_de_prueba() -> ConfiguracionSonidosRecinto:
+    """Construye los quince sonidos obligatorios de WP-065 para una prueba.
+
+    Se derivan del contrato real ``EVENTOS_SONIDO_RECINTO`` en lugar de una
+    lista copiada: si el contrato cambiara, las pruebas de proyección lo
+    reflejan sin edición manual. El volumen es distinto para cada evento, de
+    modo que una proyección que mezclara dos entradas sea detectable.
+    """
+
+    return ConfiguracionSonidosRecinto(
+        sonidos=tuple(
+            SonidoRecinto(
+                evento=evento,
+                ruta=f"assets/sonidos/{evento.replace('_', '-')}.wav",
+                volumen=(indice * 7) % 101,
+            )
+            for indice, evento in enumerate(EVENTOS_SONIDO_RECINTO)
+        )
+    )
 
 
 @dataclass(slots=True)
@@ -90,6 +114,7 @@ def crear_entorno_proyecciones(
         recinto_cuenta_regresiva_inicial_segundos=cuenta_regresiva,
         recinto_resultado_publico_segundos=resultado_publico,
         directorio_registros=str(tmp_path / "logs"),
+        sonidos_recinto=sonidos_de_prueba(),
     )
     concejales = tuple(
         Concejal(
@@ -117,6 +142,9 @@ def crear_entorno_proyecciones(
         escritor_auditoria=escritor,
     )
     estado = EstadoOperativo()
+    # Los sonidos viven en el estado operativo, no en el contexto: es lo que
+    # permite proyectarlos también en SIN_PREPARAR (WP-065).
+    estado.sonidos_recinto = configuracion.sonidos_recinto
     estado.preparacion_activa = contexto
     estado.estado_global = EstadoGlobal.PREPARANDO
     estado.archivos_auditoria_activos = contexto.rutas_auditoria()

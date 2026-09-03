@@ -58,6 +58,9 @@ async def test_snapshots_sin_preparar_son_completos_y_sin_contexto(tmp_path: Pat
         # aviso de SU destino. Sigue sin existir ninguna clave privada de
         # Moderación en la allowlist pública.
         "tecnico",
+        # WP-065 agrega la configuración de audio, que viaja también en
+        # SIN_PREPARAR porque la pantalla suena fuera de una sesión.
+        "sonidos",
     }
 
 

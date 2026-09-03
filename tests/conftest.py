@@ -19,7 +19,12 @@ from pathlib import Path
 
 import pytest
 from botonera2_backend.configuracion.cargar_configuracion import cargar_configuracion_sistema
-from botonera2_backend.configuracion.modelos import ConfiguracionSistema
+from botonera2_backend.configuracion.modelos import (
+    ConfiguracionSistema,
+    ConfiguracionSonidosRecinto,
+    SonidoRecinto,
+)
+from botonera2_backend.configuracion.sonidos_recinto import EVENTOS_SONIDO_RECINTO
 
 # Encabezado canónico exacto del padrón aprobado en WP-003.
 ENCABEZADO_CANONICO = "dni,nombre,apellido,bloque,banca,dispositivo_votacion,ruta_imagen"
@@ -38,6 +43,25 @@ LINEA_TIMER_CUENTA_REGRESIVA = "public_initial_countdown_seconds = 4"
 LINEA_TIMER_RESULTADO = "public_result_display_seconds = 6"
 LINEA_LOGS = 'logs_dir = "logs"'
 
+# Sección [sonidos] de WP-065. Se construye a partir del contrato real
+# ``EVENTOS_SONIDO_RECINTO`` para que agregar o quitar un evento obligatorio
+# rompa las pruebas en lugar de pasar inadvertido. El volumen de cada evento se
+# elige determinísticamente dentro de 0..100 y varía entre eventos, de modo que
+# una proyección que confundiera dos sonidos sea detectable.
+SONIDOS_DE_PRUEBA: tuple[SonidoRecinto, ...] = tuple(
+    SonidoRecinto(
+        evento=evento,
+        ruta=f"assets/sonidos/{evento.replace('_', '-')}.wav",
+        volumen=(indice * 7) % 101,
+    )
+    for indice, evento in enumerate(EVENTOS_SONIDO_RECINTO)
+)
+
+LINEAS_SONIDOS = "\n".join(
+    f'[sonidos.{sonido.evento}]\nruta = "{sonido.ruta}"\nvolumen = {sonido.volumen}\n'
+    for sonido in SONIDOS_DE_PRUEBA
+)
+
 TOML_CANONICO = f"""[session]
 {LINEA_QUORUM}
 
@@ -55,7 +79,8 @@ TOML_CANONICO = f"""[session]
 
 [paths]
 {LINEA_LOGS}
-"""
+
+{LINEAS_SONIDOS}"""
 
 # Nombres de fantasía para el padrón de prueba. Dos filas dejan el bloque
 # vacío (fila 5 y 9) para demostrar que el bloque vacío es válido (CA-003).
@@ -136,6 +161,12 @@ def filas_padron_valido() -> list[list[str]]:
     return filas
 
 
+def sonidos_de_prueba() -> ConfiguracionSonidosRecinto:
+    """Devuelve los quince sonidos de prueba ya envueltos y disponibles."""
+
+    return ConfiguracionSonidosRecinto(sonidos=SONIDOS_DE_PRUEBA)
+
+
 def configuracion_de_prueba(*, filas_bancas: tuple[int, ...] = (3, 4, 5)) -> ConfiguracionSistema:
     """Construye una configuración válida directamente, sin leer TOML.
 
@@ -151,6 +182,7 @@ def configuracion_de_prueba(*, filas_bancas: tuple[int, ...] = (3, 4, 5)) -> Con
         recinto_cuenta_regresiva_inicial_segundos=4,
         recinto_resultado_publico_segundos=6,
         directorio_registros="logs",
+        sonidos_recinto=sonidos_de_prueba(),
     )
 
 

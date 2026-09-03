@@ -36,9 +36,56 @@ Debe poder definir, como mínimo:
 - temporizador/efecto visual inicial de votación;
 - tiempo de permanencia del resultado público;
 - directorio de registros CSV;
-- assets de bancas/recinto cuando corresponda.
+- assets de bancas/recinto cuando corresponda;
+- sonidos de la Pantalla del Recinto: archivo y volumen `0..100` por evento.
 
 Cada parámetro debe tener nombre semántico explícito. No reutilizar una única constante para temporizadores que representen comportamientos distintos aunque inicialmente compartan valor.
+
+### Sección `[sonidos]`
+
+WP-065 agrega a `system.toml` una sección con **quince** subtablas
+obligatorias, una por evento sonoro del Recinto. Cada una declara exactamente
+`ruta` y `volumen`:
+
+```toml
+[sonidos.sesion_abierta]
+ruta = "assets/sonidos/sesion-abierta.wav"
+volumen = 90
+```
+
+Eventos, en su orden canónico: `preparacion_iniciada`,
+`aviso_tecnico_publicado`, `aviso_tecnico_retirado`,
+`pedido_palabra_registrado`, `pedido_palabra_retirado`, `uso_palabra_otorgado`,
+`transmision_iniciada`, `transmision_detenida`,
+`transmision_cuenta_regresiva_tic`, `sesion_abierta`, `sesion_cerrada`,
+`votacion_abierta`, `votacion_cerrada`, `concejal_ausente`,
+`concejal_presente`.
+
+Reglas del contrato:
+
+- `volumen` es un entero de `0` a `100`; `0` silencia sin borrar la
+  configuración. Decimales y booleanos se rechazan.
+- `ruta` debe empezar por `assets/sonidos/` y terminar en `.wav`. Se rechazan
+  URLs, rutas absolutas, barras invertidas y segmentos `..`: la ruta viaja al
+  navegador y sólo puede referirse a un asset versionado y servido por la
+  propia Pantalla del Recinto.
+- Los quince eventos son obligatorios y no se admiten nombres desconocidos: un
+  nombre mal escrito falla la carga en lugar de perder un sonido en silencio.
+- Los nombres de esta sección están en español. Las secciones anteriores
+  conservan sus claves en inglés por compatibilidad con WP-003; ésta es nueva
+  y aplica la regla general de DEC-001.
+
+A diferencia del resto del archivo, esta sección se lee **también al arrancar
+el backend**, porque transmisión y avisos técnicos operan fuera de una sesión y
+la Pantalla del Recinto debe poder sonar ya en `SIN_PREPARAR`. Esa lectura de
+arranque es tolerante: un archivo inválido publica la configuración de audio
+como no disponible con su motivo, sin impedir el arranque ni afectar
+votaciones, presencia o auditoría. La lectura de `Preparar recinto` sigue
+siendo estricta y congela la sección junto con el resto de la configuración,
+que es la que el Recinto recibe durante esa preparación o sesión.
+
+La proyección pública `EstadoRecinto` incluye por eso el bloque `sonidos` en
+los tres estados globales.
 
 ## 4. Valores actuales de referencia
 
@@ -174,6 +221,35 @@ Incluye imágenes `1.png` a `12.png` usadas para representación de bancas.
 SISLeg no debe hardcodear la imagen por número de banca. La ruta interna correspondiente a cada concejal se declara en `ruta_imagen` dentro de `concejales.csv`.
 
 Los agentes pueden copiar esos assets cuando implementen la interfaz. No deben copiar el frontend histórico completo para obtenerlos.
+
+## 11 bis. Assets de sonido del Recinto
+
+Los 22 archivos WAV del Recinto están versionados en
+`apps/recinto/public/assets/sonidos/`: 15 asignados a los eventos obligatorios
+y 7 alternativas sin asignar, que permiten cambiar un sonido editando sólo
+`system.toml`.
+
+Los 22 son **originales de SISLeg**: los sintetiza de forma determinista
+`scripts/generar_sonidos_recinto.py` usando únicamente la biblioteca estándar
+de Python, sin grabaciones ni bibliotecas de terceros. No hay obra ajena
+involucrada, de modo que se redistribuyen bajo la misma licencia que el resto
+del repositorio y no arrastran atribuciones externas. Una prueba regenera los
+22 archivos y los compara byte a byte contra los versionados, así que la
+procedencia es verificable y no una afirmación.
+
+Formato: WAV PCM sin comprimir, monofónico, 16 bits, 44 100 Hz; ningún archivo
+supera los dos segundos.
+
+`assets/sonidos/README.md` documenta duración, descripción y SHA-256 de cada
+archivo, y qué evento usa cada uno. Vive fuera de `public/` para que la salida
+servida contenga sólo los assets, igual que `assets/branding/`.
+
+Los archivos viven bajo `public/` de la Pantalla del Recinto porque es la única
+aplicación que los reproducirá y porque cada SPA se sirve bajo su propio
+prefijo, igual que ya ocurre con las imágenes de banca y la marca.
+
+La reproducción efectiva en el navegador corresponde a WP-066; WP-065 sólo
+configura y versiona.
 
 ## 12. Mapeo físico
 

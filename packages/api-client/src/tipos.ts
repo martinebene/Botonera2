@@ -140,6 +140,21 @@ export type MensajeTecnicoProyectado = components['schemas']['MensajeTecnicoProy
 /** Biblioteca de mensajes precargados más su condición técnica */
 export type BibliotecaMensajesProyectada = components['schemas']['BibliotecaMensajesProyectada']
 
+/**
+ * Sonido configurado para un evento de la Pantalla del Recinto (WP-065).
+ *
+ * `ruta` siempre es relativa a la raíz pública del Recinto y apunta a un asset
+ * versionado; el backend rechaza cualquier otra forma antes de proyectarla.
+ */
+export type SonidoRecintoProyectado = components['schemas']['SonidoRecintoProyectado']
+
+/**
+ * Configuración de audio completa del Recinto más su condición técnica.
+ *
+ * Viaja en los tres estados globales, también en `SIN_PREPARAR`.
+ */
+export type SonidosRecintoProyectados = components['schemas']['SonidosRecintoProyectados']
+
 /** Estado del indicador de transmisión: APAGADO | CUENTA_REGRESIVA | EN_VIVO */
 export type EstadoTransmision = components['schemas']['EstadoTransmision']
 

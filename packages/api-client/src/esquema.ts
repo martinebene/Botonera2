@@ -954,6 +954,7 @@ export interface components {
             /** Eventos Publicos */
             eventos_publicos: components["schemas"]["EventoPublicoProyectado"][];
             tecnico: components["schemas"]["ApoyoTecnicoProyectado"];
+            sonidos: components["schemas"]["SonidosRecintoProyectados"];
         };
         /**
          * EstadoRemapeoModeracion
@@ -1533,6 +1534,45 @@ export interface components {
              * @constant
              */
             base: "VOTOS_COMPUTABLES";
+        };
+        /**
+         * SonidoRecintoProyectado
+         * @description Sonido configurado para un evento de la Pantalla del Recinto (WP-065).
+         *
+         *     ``ruta`` es siempre una referencia relativa a un asset servido por la
+         *     propia Pantalla del Recinto (``assets/sonidos/…``), validada en servidor:
+         *     el navegador nunca recibe una ruta arbitraria del sistema de archivos.
+         */
+        SonidoRecintoProyectado: {
+            /** Evento */
+            evento: string;
+            /** Ruta */
+            ruta: string;
+            /** Volumen */
+            volumen: number;
+        };
+        /**
+         * SonidosRecintoProyectados
+         * @description Configuración de audio completa del Recinto y su condición técnica.
+         *
+         *     ``disponible=False`` indica que la sección ``[sonidos]`` de
+         *     ``system.toml`` no pudo interpretarse al arrancar el backend. En ese caso
+         *     la lista viaja vacía y ``motivo``/``detalle`` explican el problema, en
+         *     lugar de dejar a la pantalla sin sonidos y sin razón.
+         *
+         *     Viaja en los tres estados globales, también en ``SIN_PREPARAR``: la
+         *     transmisión en vivo y los avisos de Apoyo Técnico funcionan fuera de una
+         *     sesión y necesitan sonar igual.
+         */
+        SonidosRecintoProyectados: {
+            /** Disponible */
+            disponible: boolean;
+            /** Motivo */
+            motivo: string | null;
+            /** Detalle */
+            detalle: string | null;
+            /** Sonidos */
+            sonidos: components["schemas"]["SonidoRecintoProyectado"][];
         };
         TextoOmitible: string;
         /**

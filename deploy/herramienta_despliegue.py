@@ -705,7 +705,12 @@ class GestorDespliegue:
         return python_base
 
     def validar_configuracion(self, release: Path) -> None:
-        """Usa parsers propietarios instalados y exige logs externos exactos."""
+        """Usa parsers propietarios instalados y exige logs y sonidos exactos.
+
+        La release se pasa como segundo argumento porque las rutas de la
+        sección ``[sonidos]`` (WP-065) resuelven contra la SPA del Recinto que
+        esa release publica, no contra la raíz de la instalación.
+        """
 
         rutas = (
             self.config / "system.toml",
@@ -721,6 +726,7 @@ class GestorDespliegue:
                 release.joinpath(".venv/bin/python").as_posix(),
                 str(release / "deploy/validar_configuracion.py"),
                 str(self.raiz),
+                str(release),
             ],
             directorio=self.raiz,
         )

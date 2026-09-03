@@ -4,6 +4,7 @@ import type {
   ApoyoTecnicoProyectado,
   ConcejalPublico,
   EstadoRecinto,
+  SonidosRecintoProyectados,
   VotacionPublica,
 } from '@botonera2/api-client'
 
@@ -44,6 +45,49 @@ export function crearConcejalesPublicos(cantidad: number): ConcejalPublico[] {
   })
 }
 
+/**
+ * Configuración de audio por defecto de las fixtures (WP-065).
+ *
+ * Trae los quince eventos obligatorios con un volumen distinto cada uno, de
+ * modo que una prueba que confundiera dos sonidos se note. La lista vive acá y
+ * no dentro de `crearEstadoRecintoPrueba` para que cualquier prueba pueda
+ * partir de ella y sobreescribir sólo lo que necesita.
+ */
+export const EVENTOS_SONIDO_RECINTO = [
+  'preparacion_iniciada',
+  'aviso_tecnico_publicado',
+  'aviso_tecnico_retirado',
+  'pedido_palabra_registrado',
+  'pedido_palabra_retirado',
+  'uso_palabra_otorgado',
+  'transmision_iniciada',
+  'transmision_detenida',
+  'transmision_cuenta_regresiva_tic',
+  'sesion_abierta',
+  'sesion_cerrada',
+  'votacion_abierta',
+  'votacion_cerrada',
+  'concejal_ausente',
+  'concejal_presente',
+] as const
+
+export function crearSonidosRecintoPrueba(
+  parcial: Partial<SonidosRecintoProyectados> = {},
+): SonidosRecintoProyectados {
+  return {
+    disponible: parcial.disponible ?? true,
+    motivo: parcial.motivo ?? null,
+    detalle: parcial.detalle ?? null,
+    sonidos:
+      parcial.sonidos ??
+      EVENTOS_SONIDO_RECINTO.map((evento, indice) => ({
+        evento,
+        ruta: `assets/sonidos/${evento.replaceAll('_', '-')}.wav`,
+        volumen: (indice * 7) % 101,
+      })),
+  }
+}
+
 export function crearEstadoRecintoPrueba(parcial: Partial<EstadoRecinto> = {}): EstadoRecinto {
   return {
     revision: parcial.revision ?? 1,
@@ -58,6 +102,7 @@ export function crearEstadoRecintoPrueba(parcial: Partial<EstadoRecinto> = {}): 
     palabra: parcial.palabra ?? null,
     eventos_publicos: parcial.eventos_publicos ?? [],
     tecnico: parcial.tecnico ?? crearApoyoTecnicoPrueba(),
+    sonidos: parcial.sonidos ?? crearSonidosRecintoPrueba(),
   }
 }
 

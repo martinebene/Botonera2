@@ -590,3 +590,51 @@ async def test_preparar_y_cancelar_concurrentes_dejan_un_estado_coherente(
         assert estado.preparacion_activa is not None
     # En ambos casos hay exactamente un conjunto de auditoría, sin corrupción.
     assert len(csv_auditoria(tmp_path)) == 3
+
+
+async def test_preparar_refresca_los_sonidos_del_recinto(tmp_path: Path) -> None:
+    """La preparación alinea el audio publicado con la configuración congelada.
+
+    Los sonidos (WP-065) se leen al arrancar el proceso para estar disponibles
+    en ``SIN_PREPARAR``. Si el archivo cambió entre ese arranque y esta
+    preparación, lo que ve la Pantalla del Recinto durante la sesión debe ser
+    el snapshot recién congelado y no la copia vieja del arranque.
+    """
+
+    estado = EstadoOperativo()
+    contenido = toml_con_logs_en(tmp_path / "logs").replace("volumen = 0\n", "volumen = 11\n")
+    servicio = crear_servicio(tmp_path, estado=estado, contenido_toml=contenido)
+
+    await servicio.preparar_sala()
+
+    preparacion = estado.preparacion_activa
+    assert preparacion is not None
+    assert estado.sonidos_recinto == preparacion.configuracion.sonidos_recinto
+    assert estado.sonidos_recinto.sonidos[0].volumen == 11
+
+
+async def test_una_configuracion_invalida_no_toca_los_sonidos_vigentes(tmp_path: Path) -> None:
+    """Fallo cerrado: si la preparación falla, el audio anterior sigue vigente."""
+
+    estado = EstadoOperativo()
+    directorio_valido = tmp_path / "valido"
+    directorio_valido.mkdir()
+    servicio_valido = crear_servicio(directorio_valido, estado=estado)
+    await servicio_valido.preparar_sala()
+    sonidos_vigentes = estado.sonidos_recinto
+
+    # Se vuelve a SIN_PREPARAR sin tocar el audio y se intenta preparar con un
+    # TOML cuyo volumen está fuera de rango.
+    await servicio_valido.cancelar_preparacion()
+    directorio_invalido = tmp_path / "invalido"
+    directorio_invalido.mkdir()
+    # El salto de línea evita que el reemplazo alcance también a "volumen = 70"
+    # o "volumen = 77": la prueba debe alterar exactamente una entrada.
+    invalido = toml_con_logs_en(tmp_path / "logs").replace("volumen = 7\n", "volumen = 700\n")
+    servicio_invalido = crear_servicio(directorio_invalido, estado=estado, contenido_toml=invalido)
+
+    with pytest.raises(ErrorValidacionConfiguracion):
+        await servicio_invalido.preparar_sala()
+
+    assert estado.estado_global is EstadoGlobal.SIN_PREPARAR
+    assert estado.sonidos_recinto == sonidos_vigentes

@@ -2674,6 +2674,9 @@
           },
           "tecnico": {
             "$ref": "#/components/schemas/ApoyoTecnicoProyectado"
+          },
+          "sonidos": {
+            "$ref": "#/components/schemas/SonidosRecintoProyectados"
           }
         },
         "type": "object",
@@ -2689,7 +2692,8 @@
           "votacion",
           "palabra",
           "eventos_publicos",
-          "tecnico"
+          "tecnico",
+          "sonidos"
         ],
         "title": "EstadoRecinto",
         "description": "Snapshot público por allowlist, sin capacidades ni auditoría cruda."
@@ -3812,6 +3816,76 @@
         ],
         "title": "SolicitudVotacionSimple",
         "description": "Variante SIMPLE con factor/base opcionales y salida normalizada.\n\nUn factor omitido, nulo o numéricamente cero es equivalente. Toda base\ndistinta de ``VOTOS_COMPUTABLES`` queda fuera del propio esquema de esta\nvariante y por eso FastAPI responde 422 antes de invocar el servicio."
+      },
+      "SonidoRecintoProyectado": {
+        "properties": {
+          "evento": {
+            "type": "string",
+            "title": "Evento"
+          },
+          "ruta": {
+            "type": "string",
+            "title": "Ruta"
+          },
+          "volumen": {
+            "type": "integer",
+            "title": "Volumen"
+          }
+        },
+        "type": "object",
+        "required": [
+          "evento",
+          "ruta",
+          "volumen"
+        ],
+        "title": "SonidoRecintoProyectado",
+        "description": "Sonido configurado para un evento de la Pantalla del Recinto (WP-065).\n\n``ruta`` es siempre una referencia relativa a un asset servido por la\npropia Pantalla del Recinto (``assets/sonidos/…``), validada en servidor:\nel navegador nunca recibe una ruta arbitraria del sistema de archivos."
+      },
+      "SonidosRecintoProyectados": {
+        "properties": {
+          "disponible": {
+            "type": "boolean",
+            "title": "Disponible"
+          },
+          "motivo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Motivo"
+          },
+          "detalle": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detalle"
+          },
+          "sonidos": {
+            "items": {
+              "$ref": "#/components/schemas/SonidoRecintoProyectado"
+            },
+            "type": "array",
+            "title": "Sonidos"
+          }
+        },
+        "type": "object",
+        "required": [
+          "disponible",
+          "motivo",
+          "detalle",
+          "sonidos"
+        ],
+        "title": "SonidosRecintoProyectados",
+        "description": "Configuración de audio completa del Recinto y su condición técnica.\n\n``disponible=False`` indica que la sección ``[sonidos]`` de\n``system.toml`` no pudo interpretarse al arrancar el backend. En ese caso\nla lista viaja vacía y ``motivo``/``detalle`` explican el problema, en\nlugar de dejar a la pantalla sin sonidos y sin razón.\n\nViaja en los tres estados globales, también en ``SIN_PREPARAR``: la\ntransmisión en vivo y los avisos de Apoyo Técnico funcionan fuera de una\nsesión y necesitan sonar igual."
       },
       "TextoOmitible": {
         "type": "string"

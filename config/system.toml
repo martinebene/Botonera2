@@ -22,3 +22,89 @@ public_result_display_seconds = 6
 
 [paths]
 logs_dir = "logs"
+
+# -----------------------------------------------------------------------------
+# Sonidos de la Pantalla del Recinto (WP-065)
+# -----------------------------------------------------------------------------
+#
+# Cada evento sonoro declara exactamente dos claves:
+#
+#   ruta    -> archivo servido por la Pantalla del Recinto, relativo a la raíz
+#              pública de esa aplicación. Debe empezar por "assets/sonidos/" y
+#              terminar en ".wav". No se admiten URLs, rutas absolutas ni
+#              segmentos ".." : el navegador nunca recibe una ruta arbitraria
+#              del sistema de archivos.
+#   volumen -> entero de 0 a 100. 0 silencia el evento sin borrar su
+#              configuración; 100 es el volumen máximo del archivo.
+#
+# Las quince entradas son obligatorias y sus nombres son estables: coinciden
+# con los códigos de auditoría equivalentes cuando existen. Cambiar un sonido
+# es editar "ruta" y apuntar a otro archivo ya versionado (hay siete
+# alternativas sin asignar en el mismo directorio); no requiere tocar código.
+#
+# A diferencia del resto de este archivo, esta sección también se lee al
+# arrancar el backend, porque la Pantalla del Recinto debe poder reproducir
+# avisos técnicos y de transmisión incluso en SIN_PREPARAR. Ver config/README.md.
+#
+# El catálogo completo, con duración, descripción y SHA-256 de cada archivo,
+# está en assets/sonidos/README.md.
+
+[sonidos.preparacion_iniciada]
+ruta = "assets/sonidos/preparacion-iniciada.wav"
+volumen = 70
+
+[sonidos.aviso_tecnico_publicado]
+ruta = "assets/sonidos/aviso-tecnico-publicado.wav"
+volumen = 75
+
+[sonidos.aviso_tecnico_retirado]
+ruta = "assets/sonidos/aviso-tecnico-retirado.wav"
+volumen = 60
+
+[sonidos.pedido_palabra_registrado]
+ruta = "assets/sonidos/pedido-palabra-registrado.wav"
+volumen = 65
+
+[sonidos.pedido_palabra_retirado]
+ruta = "assets/sonidos/pedido-palabra-retirado.wav"
+volumen = 55
+
+[sonidos.uso_palabra_otorgado]
+ruta = "assets/sonidos/uso-palabra-otorgado.wav"
+volumen = 75
+
+[sonidos.transmision_iniciada]
+ruta = "assets/sonidos/transmision-iniciada.wav"
+volumen = 80
+
+[sonidos.transmision_detenida]
+ruta = "assets/sonidos/transmision-detenida.wav"
+volumen = 70
+
+[sonidos.transmision_cuenta_regresiva_tic]
+ruta = "assets/sonidos/transmision-cuenta-regresiva-tic.wav"
+volumen = 35
+
+[sonidos.sesion_abierta]
+ruta = "assets/sonidos/sesion-abierta.wav"
+volumen = 90
+
+[sonidos.sesion_cerrada]
+ruta = "assets/sonidos/sesion-cerrada.wav"
+volumen = 85
+
+[sonidos.votacion_abierta]
+ruta = "assets/sonidos/votacion-abierta.wav"
+volumen = 85
+
+[sonidos.votacion_cerrada]
+ruta = "assets/sonidos/votacion-cerrada.wav"
+volumen = 80
+
+[sonidos.concejal_ausente]
+ruta = "assets/sonidos/concejal-ausente.wav"
+volumen = 50
+
+[sonidos.concejal_presente]
+ruta = "assets/sonidos/concejal-presente.wav"
+volumen = 50

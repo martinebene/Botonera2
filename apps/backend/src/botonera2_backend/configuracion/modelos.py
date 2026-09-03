@@ -23,6 +23,51 @@ from dataclasses import dataclass
 
 
 @dataclass(frozen=True, slots=True)
+class SonidoRecinto:
+    """Sonido configurado para un evento de la Pantalla del Recinto (WP-065).
+
+    ``evento`` es el nombre canónico del hecho que dispara el sonido (por
+    ejemplo ``sesion_abierta``); ``ruta`` es una referencia a un asset
+    versionado y servido por la propia Pantalla del Recinto, nunca una ruta
+    arbitraria del sistema de archivos; ``volumen`` es un entero de 0 a 100,
+    donde 0 silencia el evento sin borrar su configuración.
+    """
+
+    evento: str
+    ruta: str
+    volumen: int
+
+
+@dataclass(frozen=True, slots=True)
+class ConfiguracionSonidosRecinto:
+    """Conjunto congelado de sonidos del Recinto y su condición técnica (WP-065).
+
+    ``disponible=False`` significa que la sección ``[sonidos]`` existe pero no
+    pudo interpretarse al arrancar el backend. En ese caso la tupla viaja vacía
+    y ``motivo``/``detalle`` explican el problema, igual que hace la biblioteca
+    de mensajes de Apoyo Técnico: un archivo mal escrito degrada el audio, no
+    impide votar ni auditar.
+
+    El valor por defecto —vacío y disponible— existe para que las pruebas que
+    no ejercitan audio construyan una ``ConfiguracionSistema`` sin declararlo.
+    El cargador canónico siempre lo completa con los quince sonidos.
+    """
+
+    sonidos: tuple[SonidoRecinto, ...] = ()
+    disponible: bool = True
+    motivo: str | None = None
+    detalle: str | None = None
+
+    def buscar(self, evento: str) -> SonidoRecinto | None:
+        """Devuelve el sonido de un evento, o ``None`` si no está configurado."""
+
+        for sonido in self.sonidos:
+            if sonido.evento == evento:
+                return sonido
+        return None
+
+
+@dataclass(frozen=True, slots=True)
 class ConfiguracionSistema:
     """Configuración funcional congelada cargada desde ``config/system.toml``.
 
@@ -73,6 +118,17 @@ class ConfiguracionSistema:
 
     directorio_registros: str
     """Directorio donde se escribirán los CSV de auditoría en el futuro."""
+
+    sonidos_recinto: ConfiguracionSonidosRecinto = ConfiguracionSonidosRecinto()
+    """Sonidos configurados para la Pantalla del Recinto (WP-065).
+
+    Forman parte del mismo archivo y del mismo snapshot congelado que el resto
+    de la configuración, de modo que una sección ``[sonidos]`` inválida impide
+    preparar el recinto igual que un ``quorum`` inválido. La disponibilidad
+    permanente que exige WP-065 —incluso en ``SIN_PREPARAR``— se resuelve
+    releyendo el archivo al arrancar el proceso, no relajando este
+    congelamiento.
+    """
 
     @property
     def capacidad_total(self) -> int:

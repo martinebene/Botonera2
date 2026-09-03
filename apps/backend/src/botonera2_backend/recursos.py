@@ -6,12 +6,14 @@ from pathlib import Path
 
 from fastapi import FastAPI
 
+from botonera2_backend.configuracion.sonidos_recinto import leer_sonidos_recinto
 from botonera2_backend.dominio.estado import EstadoOperativo
 from botonera2_backend.servicios.apoyo_tecnico import (
     RUTA_MENSAJES_TECNICOS_POR_DEFECTO,
     leer_biblioteca_mensajes_tecnicos,
 )
 from botonera2_backend.servicios.cliente_bridge import ClienteControlBridge
+from botonera2_backend.servicios.preparacion import RUTA_CONFIGURACION_POR_DEFECTO
 from botonera2_backend.servicios.proyecciones import ServicioProyecciones
 from botonera2_backend.servicios.publicacion import CoordinadorPublicacion
 from botonera2_backend.servicios.serializacion import EjecutorMutaciones
@@ -38,22 +40,29 @@ class RecursosAplicacion:
 def crear_recursos_aplicacion(
     *,
     ruta_mensajes_tecnicos: Path = RUTA_MENSAJES_TECNICOS_POR_DEFECTO,
+    ruta_configuracion: Path = RUTA_CONFIGURACION_POR_DEFECTO,
 ) -> RecursosAplicacion:
     """Construye recursos nuevos y sin recuperación del estado operativo.
 
-    La única lectura de disco es la biblioteca de mensajes precargados de
-    Apoyo Técnico (WP-055), que es configuración persistente y no estado de
-    sesión: RN-GLOBAL-03 prohíbe restaurar presencia, votaciones o sesión
-    después de una caída, no impide releer un archivo de configuración.
+    Las únicas lecturas de disco son de **configuración persistente**, no de
+    estado de sesión: RN-GLOBAL-03 prohíbe restaurar presencia, votaciones o
+    sesión después de una caída, no impide releer un archivo de configuración.
+    Son dos:
 
-    Un CSV inválido no impide arrancar: la biblioteca queda marcada como no
-    disponible y solamente se rechazan sus propias escrituras.
+    - la biblioteca de mensajes precargados de Apoyo Técnico (WP-055);
+    - los sonidos de la Pantalla del Recinto (WP-065), que deben estar
+      disponibles ya en ``SIN_PREPARAR`` porque transmisión y avisos técnicos
+      operan fuera de una sesión.
+
+    Ninguna de las dos puede impedir el arranque: un archivo inválido deja esa
+    porción marcada como no disponible y degrada solamente su funcionalidad.
     """
 
     estado_operativo = EstadoOperativo()
     estado_operativo.biblioteca_mensajes_tecnicos = leer_biblioteca_mensajes_tecnicos(
         ruta_mensajes_tecnicos
     )
+    estado_operativo.sonidos_recinto = leer_sonidos_recinto(ruta_configuracion)
     coordinador = CoordinadorPublicacion()
     # La llamada ocurre todavía dentro del lock del ejecutor. Por eso el número
     # de revisión y la memoria proyectada pertenecen a la misma frontera.
