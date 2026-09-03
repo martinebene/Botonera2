@@ -237,6 +237,28 @@ No puede evaluar el contenido del review, convertir hallazgos en correcciones, h
 
 La transición mecánica preautorizada debe aparecer además en un manifiesto de lote append-only en Botonera2-Control. Si falta el manifiesto, los datos no coinciden o la condición objetiva no se cumple, el coordinador se detiene.
 
+### 12. Sincronización Git mecánica delegada
+
+Un manifiesto nocturno puede autorizar además al COORDINADOR_LOCAL a realizar personalmente una sincronización Git **puramente mecánica** sobre una rama WP ya existente, sin convertirse en implementador funcional.
+
+Sólo está permitido cuando:
+
+- el worktree está limpio al comenzar;
+- la PR/rama ya existe;
+- el único objetivo es incorporar `origin/main` vigente mediante merge normal;
+- el merge es limpio, sin conflictos;
+- no se editan archivos manualmente;
+- no se reescribe historia;
+- se ejecutan los gates fijados por el manifiesto;
+- se hace push normal y se exige CI verde del nuevo SHA.
+
+El commit de merge puede ser creado por el COORDINADOR_LOCAL porque no contiene una decisión de producto ni una corrección funcional: sólo materializa una sincronización ya ordenada.
+
+Si Git presenta conflictos, si el árbol estaba sucio, si el merge exige editar contenido o si aparece cualquier duda sobre qué lado preservar, esta autorización caduca para ese WP: el coordinador no resuelve el conflicto y debe detener esa rama o devolverla al IMPLEMENTER autorizado.
+
+El manifiesto debe identificar expresamente en qué WPs está habilitada esta excepción. No se presume para todo lote.
+
+
 ## Consecuencias
 
 - Se mantiene el aislamiento por worktree.
