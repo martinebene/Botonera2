@@ -203,11 +203,11 @@ WP-033 quedó integrado antes de continuar WP-026 y deja disponible el harness m
 | WP-054 | Refinar cabeceras, quórum, palabra y geometría visual de Moderación/Recinto | INTEGRADO | WP-047, WP-050 | - |
 | WP-055 | Crear backend/contrato autoritativo para Apoyo Técnico, transmisión y avisos | INTEGRADO | WP-052, WP-053 | - |
 | WP-056 | Implementar frontend de Apoyo Técnico e integrar avisos/transmisión en las pantallas | INTEGRADO | WP-052, WP-054, WP-055 | - |
-| WP-057 | Corregir Moderación: estado de transmisión y compactación operativa de Q1 | EN_CURSO | WP-056 | claude |
-| WP-058 | Mejorar legibilidad y estados de la Pantalla del Recinto | EN_CURSO | WP-056 | claude |
-| WP-059 | Reorganizar la interfaz de Apoyo Técnico según prueba humana | EN_CURSO | WP-056 | claude |
-| WP-060 | Corregir geometría y ajuste tipográfico de avisos compartidos | EN_CURSO | WP-056 | claude |
-| WP-061 | Incorporar indicador de carga pre-hidratación en todos los frontends | BLOQUEADO | WP-057, WP-058, WP-059, WP-060 | - |
+| WP-057 | Corregir Moderación: estado de transmisión y compactación operativa de Q1 | INTEGRADO | WP-056 | - |
+| WP-058 | Mejorar legibilidad y estados de la Pantalla del Recinto | INTEGRADO | WP-056 | - |
+| WP-059 | Reorganizar la interfaz de Apoyo Técnico según prueba humana | INTEGRADO | WP-056 | - |
+| WP-060 | Corregir geometría y ajuste tipográfico de avisos compartidos | INTEGRADO | WP-056 | - |
+| WP-061 | Incorporar indicador de carga pre-hidratación en todos los frontends | EN_CURSO | WP-057, WP-058, WP-059, WP-060 | claude |
 | WP-029 | Validar bridge/hardware real, regresión funcional y candidato de producción | BLOQUEADO | WP-019, WP-020, WP-027, WP-028, WP-034, WP-035, WP-036, WP-037, WP-038, WP-039, WP-040, WP-041, WP-043, WP-044, WP-045, WP-046, WP-047, WP-048, WP-049, WP-050, WP-051, WP-052, WP-053, WP-054, WP-055, WP-056, WP-057, WP-058, WP-059, WP-060, WP-061 | - |
 
 HUMAN_GATE seleccionó Codex como implementador y Antigravity/AGY como revisor independiente de WP-047. WP-047 queda `EN_CURSO`; WP-048 y WP-049 permanecen bloqueados por esta dependencia y todavía no tienen agente asignado.
@@ -342,3 +342,5 @@ WP-056 integrado: PR #63, candidato `d3ab65a76d241af6c9bc82e7249aec6f982b5845`, 
 Nueva iteración de prueba humana del 02/09/2026: HUMAN_GATE aprobó WP-057..WP-061 antes de retomar WP-029. WP-057..WP-060 se autorizan como primer lote paralelo, cada uno en worktree independiente, con Claude Code / Claude Opus 5 (High) como IMPLEMENTER y Antigravity/AGY / Gemini 3.7 Flash (High) como REVIEWER independiente por WP. WP-061 queda bloqueado hasta integrar los cuatro, porque su solución de carga inicial puede tocar shells/configuración transversal. WP-029 vuelve a BLOQUEADO y no debe iniciarse sin autorización humana posterior.
 
 La evidencia de origen son capturas reales y observaciones HUMAN_GATE del 02/09/2026. Las capturas se usan como referencia de proporciones y defectos observados, no como declaración automática del viewport. En cambios geométricos se exige evidencia medible con bounding boxes, scrollWidth/scrollHeight/clientWidth/clientHeight cuando corresponda.
+
+HUMAN_GATE continuó la campaña el 03/09/2026 tras verificar la integración y CI post-merge de WP-057..WP-060. Se registran como INTEGRADOS: WP-057 squash `a2f88135593fc81f76219986a108b803bac22742` + CI #430 success; WP-058 squash `b3fa437801d4bac50289ed0a18d814e3b02e9a96` + CI #432 success; WP-059 squash `55b747662c8f0ec2cf46bc3bc4cc8b89d7fe6f92` + CI #433 success; WP-060 squash `086ca95cbc3a9c1d1f711da1f719893e4d455c7b` + CI #434 success. Conforme DEC-004 actualizado, WP-058..WP-060 se integraron preservando sus SHA revisados mediante clasificación de staleness material `NO_MATERIAL_DISJUNTO`, con equivalencia de blobs del aporte revisado verificada tras cada squash. Con las cuatro dependencias satisfechas, HUMAN_GATE habilita WP-061 con Claude Code / Claude Opus 5 (High) como implementador y Antigravity/AGY / Gemini 3.8 Flash (High) como revisor independiente. WP-029 permanece BLOQUEADO hasta integrar WP-061 y completar la nueva prueba humana.
