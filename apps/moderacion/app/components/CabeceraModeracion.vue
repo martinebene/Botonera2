@@ -14,7 +14,8 @@
  * 5. Presidencia y Secretaría Legislativa, desde que fueron cargadas (también en PREPARANDO).
  * 6. Tiempo transcurrido desde la apertura formal, solo durante SESION_ABIERTA.
  * 7. Fecha y hora local, calculada en el propio equipo.
- * 8. Estado técnico de la conexión.
+ * 8. Estado binario de transmisión hacia el público.
+ * 9. Estado técnico de la conexión.
  *
  * Agrupación por origen del dato (WP-054):
  * - A la izquierda queda el contexto *institucional del backend*: pantalla, número de
@@ -25,6 +26,21 @@
  * - Las etiquetas `Tiempo de sesión` y `Fecha` son explícitas: antes decían sólo
  *   `Tiempo` y la fecha no tenía rótulo, lo que obligaba a deducir cada valor por su
  *   formato. El texto extra crece a lo ancho, nunca a lo alto.
+ *
+ * Indicador binario de transmisión (WP-057):
+ * - Moderación no opera la transmisión; sólo necesita saber si lo que hace está
+ *   saliendo al aire. Por eso su indicador es binario y no reproduce los tres
+ *   estados que sí muestra el puesto de Apoyo Técnico: `EN_VIVO` se lee `En vivo`
+ *   y tanto `APAGADO` como `CUENTA_REGRESIVA` se leen `Sin transmisión`. Mientras
+ *   la cuenta regresiva corre todavía no hay emisión pública, así que agruparla
+ *   con el apagado es lo que evita que el operador crea que ya está al aire.
+ * - La verdad es siempre del backend: llega en `EstadoModeracion.tecnico.transmision.estado`
+ *   dentro del mismo snapshot que el resto de la pantalla. Acá no hay reloj, timer
+ *   ni cálculo local que decida la transición: cuando el backend cruza la frontera
+ *   publica una revisión nueva y esta cabecera se limita a mostrarla.
+ * - Se ubica inmediatamente antes del indicador de conexión, con exactamente la
+ *   misma caja (`text-[11px]`, `py-0.5`, píldora redondeada), de modo que la
+ *   cabecera crece a lo ancho y nunca a lo alto.
  *
  * Decisiones de densidad:
  * - Se retiró el estado global visible: Q1 ya representa la etapa operativa y repetir
@@ -38,7 +54,7 @@
 
 import { computed } from 'vue'
 import type { EstadoConexion } from '../composables/useEstadoModeracion'
-import type { EstadoGlobal, EstadoQuorum } from '@botonera2/api-client'
+import type { EstadoGlobal, EstadoQuorum, EstadoTransmision } from '@botonera2/api-client'
 import { useRelojLocal } from '../composables/useRelojLocal'
 import { formatearFechaHoraLocal } from '../utils/tiempo'
 
@@ -66,6 +82,11 @@ const props = withDefaults(
     generadoEn?: string | null
     /** Número confirmado de sesión o valor provisorio ya cargado durante PREPARANDO */
     numeroSesion?: number | null
+    /**
+     * Estado autoritativo de transmisión proyectado por el backend, o `null`
+     * mientras todavía no llegó ningún snapshot. Nunca se deduce en el frontend.
+     */
+    estadoTransmision?: EstadoTransmision | null
   }>(),
   {
     quorum: null,
@@ -75,6 +96,7 @@ const props = withDefaults(
     fechaHoraApertura: null,
     generadoEn: null,
     numeroSesion: null,
+    estadoTransmision: null,
   },
 )
 
@@ -133,6 +155,37 @@ const detalleConexion = computed(() =>
   props.revision !== null
     ? `${etiquetaConexion.value} · revisión ${props.revision}`
     : `${etiquetaConexion.value} · sin revisión adoptada`,
+)
+
+/**
+ * Lectura binaria de la transmisión para esta cabecera (WP-057).
+ *
+ * Devuelve `null` mientras no hay estado autoritativo: la cabecera prefiere no
+ * mostrar nada antes que afirmar `Sin transmisión` sin haber recibido el dato.
+ * Con estado recibido sólo existen dos textos posibles, porque la decisión
+ * institucional es binaria: o está saliendo al aire, o no.
+ */
+const etiquetaTransmision = computed(() => {
+  switch (props.estadoTransmision) {
+    case 'EN_VIVO':
+      return 'En vivo'
+    case 'APAGADO':
+    case 'CUENTA_REGRESIVA':
+      return 'Sin transmisión'
+    default:
+      return null
+  }
+})
+
+/**
+ * Color del indicador binario. El rojo de `EN_VIVO` es la convención de estudio
+ * ya usada en el puesto técnico; el gris apagado corresponde a los dos estados
+ * que aquí se agrupan como `Sin transmisión`.
+ */
+const claseTransmision = computed(() =>
+  props.estadoTransmision === 'EN_VIVO'
+    ? 'bg-rose-950 text-rose-200 border-rose-700'
+    : 'bg-slate-800 text-slate-400 border-slate-700',
 )
 
 /**
@@ -250,6 +303,28 @@ const claseQuorum = computed(() =>
       >
         <span class="font-sans text-slate-500">Fecha&nbsp;</span>
         {{ fechaHoraLocal }}
+      </span>
+
+      <!--
+        Indicador binario de transmisión (WP-057). Comparte caja y tipografía con
+        el indicador de conexión que lo sigue, así que se suma a la misma línea
+        sin alterar la altura de la cabecera. `data-estado-transmision` publica el
+        estado autoritativo crudo para que las pruebas verifiquen el mapeo exacto
+        sin depender del texto visible.
+      -->
+      <span
+        v-if="etiquetaTransmision"
+        data-testid="cabecera-transmision"
+        :data-estado-transmision="estadoTransmision"
+        class="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border px-1.5 py-0.5 font-semibold"
+        :class="claseTransmision"
+        :title="`Transmisión: ${etiquetaTransmision}`"
+      >
+        <span
+          class="h-1.5 w-1.5 rounded-full"
+          :class="estadoTransmision === 'EN_VIVO' ? 'bg-rose-400' : 'bg-slate-500'"
+        />
+        <span>{{ etiquetaTransmision }}</span>
       </span>
 
       <!-- Indicador de conexión técnica -->
