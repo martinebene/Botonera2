@@ -124,30 +124,52 @@ DEC-002 mantiene autoridad para automatizar estas verificaciones dentro del lanz
 
 #### Antes de publicar o revisar un candidato
 
-El worktree del WP debe:
+El worktree del WP debe estar limpio, ejecutar `git fetch origin`, verificar la base real y dejar un SHA remoto exacto con CI aplicable identificable.
 
-1. estar limpio antes de integrar cambios remotos;
-2. ejecutar `git fetch origin`;
-3. comprobar si `origin/main` avanzó desde la base del WP;
-4. si avanzó, incorporar `origin/main` mediante **merge normal**, sin rebase ni force-push;
-5. resolver solamente conflictos mecánicos dentro de la autoridad del WP; cualquier decisión reservada por DT-038 se escala;
-6. volver a ejecutar todas las validaciones aplicables sobre el estado combinado;
-7. pushear la rama;
-8. verificar que el SHA local coincide con el HEAD remoto de la PR.
+Si `origin/main` avanzó **antes de congelar el candidato que será revisado**, el implementador incorpora ese avance mediante merge normal, sin rebase ni force-push, y ejecuta las validaciones aplicables sobre el estado combinado.
 
-El candidato que recibe revisión independiente debe incluir el `main` vigente a ese punto de control.
+La revisión independiente siempre se realiza sobre un SHA exacto. Una vez emitido un dictamen satisfactorio, un avance posterior de `main` **no invalida automáticamente** esa revisión.
+
+#### Staleness material después de la revisión
+
+Cuando `main` avanza después de que un candidato ya fue revisado, el ORQUESTADOR debe clasificar el delta entre la base revisada y el `main` vigente por **riesgo material**, no por mera diferencia de SHA.
+
+Se distinguen tres casos:
+
+1. **Avance no material documental/operativo**: sólo documentación, gobernanza o metadatos no ejecutables; no cambia código, tests, contratos, dependencias, lockfiles, configuración funcional, CI/tooling ejecutable ni assets de producto.  
+   - No requiere merge de `main` en la rama.
+   - No requiere repetir CI del candidato.
+   - No requiere re-revisión.
+   - Antes del merge se verifica que el HEAD de la PR siga siendo exactamente el SHA revisado, que la PR sea mergeable y que la contribución funcional revisada permanezca idéntica.
+   - El post-merge CI sobre `main` continúa siendo la validación del árbol combinado.
+
+2. **Avance no material funcionalmente disjunto**: `main` cambió código/tests, pero el cambio es objetivamente independiente del WP revisado: no comparte archivos ni contratos/dependencias relevantes, no modifica una superficie o componente consumido por el candidato y no existe dependencia semántica razonable.  
+   - Puede conservarse el SHA revisado sin re-review.
+   - El ORQUESTADOR debe documentar la comparación de conjuntos de archivos y la ausencia de interacción material.
+   - La PR debe seguir mergeable sin resolución manual.
+   - Se exige CI post-merge verde antes de considerar estable la integración y antes de encadenar un cambio dependiente.
+
+3. **Avance material o dudoso**: existe solapamiento de archivos, contratos, componentes compartidos, dependencias, configuración, tests relevantes, superficie funcional común, conflicto Git, o la independencia no puede demostrarse con confianza.  
+   - La rama debe sincronizarse con `main` mediante merge normal.
+   - Se ejecutan las validaciones proporcionales al riesgo; si el cambio afecta ampliamente el producto, se usan gates completos.
+   - El nuevo SHA se somete a re-revisión proporcional al delta/interacción. No es obligatorio repetir análisis ajeno al cambio, pero el revisor debe validar expresamente la interacción nueva.
+
+Ante duda entre 2 y 3, prevalece 3.
+
+La evidencia de “no material” debe poder reconstruirse desde GitHub: SHA base/revisado, SHA de `main`, archivos cambiados y razonamiento de independencia. No alcanza con afirmar “merge limpio”.
 
 #### Antes de integrar una PR
 
 El orquestador debe verificar directamente en GitHub:
 
 - que la PR sigue abierta y mergeable;
-- que el SHA revisado sigue siendo el HEAD de la PR;
-- que la CI aplicable está verde;
+- que el SHA revisado sigue siendo el HEAD de la PR, salvo que exista una re-revisión explícita sobre un SHA posterior;
+- que la CI aplicable del candidato revisado está verde;
 - que no quedan hallazgos BLOQUEANTES o IMPORTANTES;
-- que la revisión registrada corresponde al SHA candidato vigente.
+- que la revisión registrada corresponde al SHA candidato vigente;
+- si `main` avanzó después de la revisión, que exista una clasificación de staleness material según la regla anterior.
 
-Si el HEAD cambia después de la revisión, el nuevo candidato debe volver a validarse y revisarse en la medida necesaria.
+Un cambio del HEAD de la PR después de la revisión sigue invalidando el dictamen sobre ese HEAD nuevo. Lo que deja de exigir re-review automática es **el avance externo de `main` cuando el SHA revisado de la PR no cambió y la no-materialidad está demostrada**.
 
 #### Después de integrar una PR o hacer un commit administrativo en `main`
 
@@ -181,10 +203,12 @@ ChatGPT Web orquestador
   -> garantiza main local sincronizado
   -> operador ejecuta scripts/iniciar_wp.py
   -> implementador trabaja en worktree del WP
-  -> candidato se sincroniza con origin/main
-  -> validaciones completas + push
+  -> candidato se sincroniza con origin/main antes de congelarse para revisión
+  -> validaciones aplicables + push
   -> revisor independiente usa secuencialmente el mismo worktree en solo lectura
   -> correcciones vuelven al implementador si existen
+  -> si main avanzó después de la revisión, orquestador clasifica staleness material
+  -> sólo sincroniza/revalida/re-revisa cuando el avance es material o dudoso
   -> orquestador verifica SHA + CI + revisión en GitHub
   -> operador realiza squash merge de la PR productiva
   -> orquestador verifica merge
@@ -240,6 +264,7 @@ Se rechaza para la orquestación. El orquestador debe contrastar de forma indepe
 - La revisión independiente conserva su separación real sin aislamiento redundante.
 - Los cierres/autorizaciones puramente administrativos pueden registrarse con menos burocracia.
 - La sincronización entre GitHub y el clon local deja de depender de memoria o costumbre.
+- Un cambio documental o funcionalmente disjunto en `main` ya no obliga por sí solo a repetir suites y revisiones costosas; la repetición se decide por staleness material demostrable.
 - Una conversación nueva de orquestación puede reconstruir el estado desde GitHub sin cargar el historial de conversaciones anteriores.
 - Los cambios sustantivos continúan protegidos por rama, PR, CI y revisión independiente.
 

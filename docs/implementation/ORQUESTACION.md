@@ -337,9 +337,9 @@ El operador informa al ORCHESTRATOR que terminó el implementador.
 
 El ORCHESTRATOR verifica GitHub real y no toma el autorreporte como autoridad suficiente.
 
-## Sincronización final antes de revisión
+## Sincronización final y staleness material
 
-Desde el worktree real:
+Antes de congelar el candidato para revisión, desde el worktree real:
 
 ```bash
 git status --short
@@ -347,9 +347,19 @@ git fetch origin
 git merge origin/main
 ```
 
-No usar rebase ni force-push. Si `origin/main` avanzó, se incorpora mediante merge normal y se repiten las validaciones antes de publicar el candidato final.
+No usar rebase ni force-push. Si `origin/main` avanzó **antes de la revisión**, se incorpora mediante merge normal y se ejecutan las validaciones aplicables antes de publicar el candidato final.
 
-El candidato debe tener PR, SHA exacto, árbol limpio y CI aplicable identificable.
+Después de que el REVIEWER aprobó un SHA exacto, un avance externo de `main` no obliga automáticamente a modificar esa rama ni a repetir pruebas.
+
+El ORCHESTRATOR clasifica el avance posterior de `main`:
+
+- **documental/operativo no ejecutable**: no sync, no nueva CI de candidato, no re-review;
+- **código funcionalmente disjunto y con independencia demostrable**: puede conservarse el SHA revisado, documentando archivos/diferencias y exigiendo merge limpio + CI post-merge;
+- **material o dudoso** —solapamiento de archivos, contratos, dependencias, componentes compartidos, misma superficie funcional, conflicto o interacción razonable—: sync normal + validaciones proporcionales + re-review proporcional sobre el SHA nuevo.
+
+Ante duda se trata como material.
+
+La evidencia mínima de no-materialidad incluye SHA revisado, `main` anterior/actual, archivos intervenientes, mergeabilidad y explicación de por qué el cambio no puede alterar el comportamiento revisado.
 
 ## Turno de revisión independiente
 
@@ -398,10 +408,13 @@ Antes de indicar que una PR puede integrarse, el ORCHESTRATOR verifica directame
 - PR abierta y base `main`;
 - mergeable;
 - SHA revisado igual al HEAD actual;
-- CI aplicable verde;
+- CI aplicable del candidato revisado verde;
 - revisión independiente procesada;
 - cero hallazgos BLOQUEANTES pendientes;
-- cero hallazgos IMPORTANTES pendientes.
+- cero hallazgos IMPORTANTES pendientes;
+- si `main` avanzó después de la revisión, clasificación explícita de staleness material.
+
+Un avance no material de `main` no cambia el SHA revisado y no exige por sí mismo re-review. Un avance material exige sincronización y validación proporcional antes de integrar.
 
 La integración productiva se realiza mediante squash merge.
 
