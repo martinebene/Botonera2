@@ -8,6 +8,10 @@
  * para que ningún panel tenga que repetirlos y la grilla conserve la mayor superficie
  * útil posible a 1366×768.
  *
+ * WP-059 retiró la marca "Botonera2" del título, igual que ya se había hecho en
+ * Moderación. No se quitó ningún indicador: la decisión humana del WP fue explícita en
+ * que el puesto técnico conserva todas sus capacidades e información.
+ *
  * Muestra el estado global del backend porque en este puesto sí es información nueva: la
  * transmisión y los avisos funcionan también en `SIN_PREPARAR`, y el operador técnico
  * necesita saber si además hay una preparación o una sesión en curso.
@@ -98,11 +102,13 @@ const claseTransmision = computed(() =>
     class="flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-slate-800 bg-slate-900/90 px-3 py-1.5 text-slate-200"
   >
     <div class="flex min-w-0 items-center gap-2">
-      <h1 class="flex items-center gap-2 truncate text-sm font-bold tracking-tight text-white">
-        <span class="text-sky-400">Botonera2</span>
-        <span class="text-slate-600">·</span>
-        <span>Apoyo Técnico</span>
-      </h1>
+      <!--
+        WP-059 quitó la marca "Botonera2": el operador ya sabe en qué sistema está y ese
+        texto sólo consumía ancho de una cabecera que debe quedar en una sola línea.
+        El nombre del puesto se conserva porque sí distingue esta pantalla de Moderación,
+        del Recinto y del Simulador.
+      -->
+      <h1 class="truncate text-sm font-bold tracking-tight text-white">Apoyo Técnico</h1>
       <span
         v-if="etiquetaEstadoGlobal"
         data-testid="estado-global-tecnico"

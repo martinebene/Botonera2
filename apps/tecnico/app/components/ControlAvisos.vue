@@ -168,136 +168,173 @@ function rotuloVigencia(aviso: AvisoTecnicoProyectado): string {
 </script>
 
 <template>
-  <div data-testid="control-avisos" class="space-y-3 text-xs">
-    <div class="space-y-1">
-      <label for="texto-aviso-tecnico" class="block font-semibold text-slate-300">
-        Texto del aviso
-      </label>
-      <textarea
-        id="texto-aviso-tecnico"
-        v-model="texto"
-        data-testid="input-texto-aviso"
-        rows="2"
-        :maxlength="LARGO_MAXIMO_TEXTO"
-        class="w-full resize-none rounded border border-slate-700 bg-slate-950 px-2 py-1.5 text-slate-100 disabled:opacity-50"
-        placeholder="Mensaje que verán las pantallas elegidas"
-        :disabled="!conectado"
-      />
-    </div>
+  <!--
+    WP-059: este panel ocupa la fila inferior completa de los dos tercios izquierdos, así
+    que la superficie disponible es ancha y baja. La composición aprovecha esa forma:
 
-    <div class="space-y-1">
-      <label for="destino-aviso-tecnico" class="block font-semibold text-slate-300">Destino</label>
-      <select
-        id="destino-aviso-tecnico"
-        v-model="destino"
-        data-testid="select-destino-aviso"
-        class="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1.5 text-slate-100 disabled:opacity-50"
-        :disabled="!conectado"
-      >
-        <option v-for="opcion in DESTINOS" :key="opcion.valor" :value="opcion.valor">
-          {{ opcion.etiqueta }}
-        </option>
-      </select>
-    </div>
+    - la redacción vive en la columna ancha de la izquierda y el textarea es el único
+      elemento elástico, de modo que se queda con todo el alto sobrante;
+    - los avisos vigentes por ranura viven en la columna angosta de la derecha, donde
+      antes obligaban a bajar y ahora se leen de un vistazo.
 
-    <div class="flex flex-wrap items-end gap-2">
-      <div class="space-y-1">
-        <label for="duracion-aviso-tecnico" class="block font-semibold text-slate-300">
-          Duración (segundos)
+    La raíz mide exactamente el alto del cuerpo del panel (`h-full` + `min-h-0`) y ningún
+    hijo puede empujarla: por eso el panel no adquiere scroll propio y el desborde queda
+    confinado al textarea, que es lo único que el operador puede hacer crecer a voluntad.
+  -->
+  <div data-testid="control-avisos" class="flex h-full min-h-0 flex-col gap-2 text-xs">
+    <div
+      data-testid="cuerpo-avisos"
+      class="grid min-h-0 flex-1 grid-cols-1 gap-3 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]"
+    >
+      <!-- Columna de redacción -->
+      <div class="flex min-h-0 flex-col gap-2">
+        <label for="texto-aviso-tecnico" class="shrink-0 font-semibold text-slate-300">
+          Texto del aviso
         </label>
-        <input
-          id="duracion-aviso-tecnico"
-          v-model="duracion"
-          data-testid="input-duracion-aviso"
-          type="number"
-          inputmode="numeric"
-          :min="DURACION_MINIMA"
-          :max="DURACION_MAXIMA"
-          step="1"
-          placeholder="Sin límite"
-          class="w-28 rounded border border-slate-700 bg-slate-950 px-2 py-1.5 text-slate-100 disabled:opacity-50"
+        <!--
+          `flex-1` reparte al textarea todo el alto que sobra y `min-h-20` impide que se
+          reduzca a nada cuando aparecen mensajes de error. El scroll propio del textarea
+          sólo se activa cuando el texto ingresado supera físicamente esa superficie: es el
+          único desborde autorizado dentro de Avisos.
+        -->
+        <textarea
+          id="texto-aviso-tecnico"
+          v-model="texto"
+          data-testid="input-texto-aviso"
+          :maxlength="LARGO_MAXIMO_TEXTO"
+          class="w-full min-h-20 flex-1 resize-none overflow-y-auto rounded border border-slate-700 bg-slate-950 px-2 py-1.5 text-slate-100 disabled:opacity-50"
+          placeholder="Mensaje que verán las pantallas elegidas"
           :disabled="!conectado"
         />
-      </div>
-      <p data-testid="rotulo-duracion" class="pb-2 text-[11px] text-slate-400">
-        {{
-          duracionSolicitada === null
-            ? 'Vacío = permanece hasta cancelarlo manualmente'
-            : `Se retira solo a los ${duracion} segundos`
-        }}
-      </p>
-      <button
-        type="button"
-        data-testid="btn-publicar-aviso"
-        class="ml-auto rounded-lg border border-amber-600 bg-amber-950 px-3 py-2 font-bold text-amber-200 disabled:cursor-not-allowed disabled:opacity-40"
-        :disabled="!puedePublicar"
-        @click="publicar"
-      >
-        {{ accionEnVuelo === 'PUBLICAR' ? 'Publicando...' : 'Publicar aviso' }}
-      </button>
-    </div>
 
-    <p
-      v-if="!duracionValida"
-      data-testid="duracion-invalida"
-      class="rounded border border-amber-800 bg-amber-950/40 px-2 py-1 text-amber-200"
-    >
-      La duración debe ser un número entero entre {{ DURACION_MINIMA }} y
-      {{ DURACION_MAXIMA }} segundos, o quedar vacía.
-    </p>
+        <div class="flex shrink-0 flex-wrap items-end gap-2">
+          <div class="space-y-1">
+            <label for="destino-aviso-tecnico" class="block font-semibold text-slate-300">
+              Destino
+            </label>
+            <select
+              id="destino-aviso-tecnico"
+              v-model="destino"
+              data-testid="select-destino-aviso"
+              class="w-36 rounded border border-slate-700 bg-slate-950 px-2 py-1.5 text-slate-100 disabled:opacity-50"
+              :disabled="!conectado"
+            >
+              <option v-for="opcion in DESTINOS" :key="opcion.valor" :value="opcion.valor">
+                {{ opcion.etiqueta }}
+              </option>
+            </select>
+          </div>
 
-    <!-- Avisos vigentes por ranura. Cada uno se cancela por separado. -->
-    <div class="space-y-2">
-      <div
-        v-for="ranura in [
-          {
-            destino: 'MODERACION' as DestinoAvisoTecnico,
-            aviso: avisoModeracion,
-            rotulo: 'Moderación',
-          },
-          { destino: 'RECINTO' as DestinoAvisoTecnico, aviso: avisoRecinto, rotulo: 'Recinto' },
-        ]"
-        :key="ranura.destino"
-        :data-testid="`ranura-${ranura.destino.toLowerCase()}`"
-        class="rounded border border-slate-800 bg-slate-950/70 px-2 py-1.5"
-      >
-        <div class="flex items-center justify-between gap-2">
-          <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-            {{ ranura.rotulo }}
-          </span>
+          <div class="space-y-1">
+            <label for="duracion-aviso-tecnico" class="block font-semibold text-slate-300">
+              Duración (segundos)
+            </label>
+            <input
+              id="duracion-aviso-tecnico"
+              v-model="duracion"
+              data-testid="input-duracion-aviso"
+              type="number"
+              inputmode="numeric"
+              :min="DURACION_MINIMA"
+              :max="DURACION_MAXIMA"
+              step="1"
+              placeholder="Sin límite"
+              class="w-28 rounded border border-slate-700 bg-slate-950 px-2 py-1.5 text-slate-100 disabled:opacity-50"
+              :disabled="!conectado"
+            />
+          </div>
+
+          <p data-testid="rotulo-duracion" class="pb-2 text-[11px] text-slate-400">
+            {{
+              duracionSolicitada === null
+                ? 'Vacío = permanece hasta cancelarlo manualmente'
+                : `Se retira solo a los ${duracion} segundos`
+            }}
+          </p>
+
           <button
-            v-if="ranura.aviso"
             type="button"
-            :data-testid="`btn-cancelar-${ranura.destino.toLowerCase()}`"
-            class="rounded border border-slate-600 bg-slate-900 px-2 py-1 font-bold text-slate-200 disabled:cursor-not-allowed disabled:opacity-40"
-            :disabled="!conectado || accionEnVuelo !== null"
-            @click="cancelar(ranura.destino)"
+            data-testid="btn-publicar-aviso"
+            class="ml-auto rounded-lg border border-amber-600 bg-amber-950 px-3 py-2 font-bold text-amber-200 disabled:cursor-not-allowed disabled:opacity-40"
+            :disabled="!puedePublicar"
+            @click="publicar"
           >
-            Cancelar
+            {{ accionEnVuelo === 'PUBLICAR' ? 'Publicando...' : 'Publicar aviso' }}
           </button>
         </div>
+
         <p
-          v-if="ranura.aviso"
-          :data-testid="`texto-vigente-${ranura.destino.toLowerCase()}`"
-          class="mt-0.5 break-words text-slate-200"
+          v-if="!duracionValida"
+          data-testid="duracion-invalida"
+          class="shrink-0 rounded border border-amber-800 bg-amber-950/40 px-2 py-1 text-amber-200"
         >
-          {{ ranura.aviso.texto }}
+          La duración debe ser un número entero entre {{ DURACION_MINIMA }} y
+          {{ DURACION_MAXIMA }} segundos, o quedar vacía.
         </p>
-        <p
-          v-if="ranura.aviso"
-          :data-testid="`vigencia-${ranura.destino.toLowerCase()}`"
-          class="text-[11px] text-slate-400"
-        >
-          {{ rotuloVigencia(ranura.aviso) }}
-        </p>
-        <p v-else class="mt-0.5 text-slate-500">Sin aviso vigente</p>
+      </div>
+
+      <!-- Columna de avisos vigentes por ranura. Cada uno se cancela por separado. -->
+      <div class="flex min-h-0 flex-col gap-2">
+        <p class="shrink-0 font-semibold text-slate-300">Avisos vigentes</p>
+        <!--
+          Contención defensiva, no scroll de diseño: con avisos de largo habitual esta
+          lista entra entera. Sólo puede desplazarse si alguien publica en las dos ranuras
+          textos cercanos al máximo de 500 caracteres, y en ese caso el desborde muere acá
+          en lugar de empujar al panel entero.
+        -->
+        <div data-testid="ranuras-avisos" class="min-h-0 flex-1 space-y-2 overflow-y-auto">
+          <div
+            v-for="ranura in [
+              {
+                destino: 'MODERACION' as DestinoAvisoTecnico,
+                aviso: avisoModeracion,
+                rotulo: 'Moderación',
+              },
+              { destino: 'RECINTO' as DestinoAvisoTecnico, aviso: avisoRecinto, rotulo: 'Recinto' },
+            ]"
+            :key="ranura.destino"
+            :data-testid="`ranura-${ranura.destino.toLowerCase()}`"
+            class="rounded border border-slate-800 bg-slate-950/70 px-2 py-1.5"
+          >
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                {{ ranura.rotulo }}
+              </span>
+              <button
+                v-if="ranura.aviso"
+                type="button"
+                :data-testid="`btn-cancelar-${ranura.destino.toLowerCase()}`"
+                class="rounded border border-slate-600 bg-slate-900 px-2 py-1 font-bold text-slate-200 disabled:cursor-not-allowed disabled:opacity-40"
+                :disabled="!conectado || accionEnVuelo !== null"
+                @click="cancelar(ranura.destino)"
+              >
+                Cancelar
+              </button>
+            </div>
+            <p
+              v-if="ranura.aviso"
+              :data-testid="`texto-vigente-${ranura.destino.toLowerCase()}`"
+              class="mt-0.5 break-words text-slate-200"
+            >
+              {{ ranura.aviso.texto }}
+            </p>
+            <p
+              v-if="ranura.aviso"
+              :data-testid="`vigencia-${ranura.destino.toLowerCase()}`"
+              class="text-[11px] text-slate-400"
+            >
+              {{ rotuloVigencia(ranura.aviso) }}
+            </p>
+            <p v-else class="mt-0.5 text-slate-500">Sin aviso vigente</p>
+          </div>
+        </div>
       </div>
     </div>
 
     <p
       v-if="!conectado"
       data-testid="avisos-sin-conexion"
-      class="rounded border border-amber-800 bg-amber-950/40 px-2 py-1 text-amber-200"
+      class="shrink-0 rounded border border-amber-800 bg-amber-950/40 px-2 py-1 text-amber-200"
     >
       Publicar o cancelar avisos requiere conexión confirmada con FastAPI.
     </p>
@@ -305,7 +342,7 @@ function rotuloVigencia(aviso: AvisoTecnicoProyectado): string {
     <p
       v-if="mensajeError"
       data-testid="error-avisos"
-      class="rounded border border-rose-700 bg-rose-950/60 px-2 py-1 text-rose-200"
+      class="shrink-0 rounded border border-rose-700 bg-rose-950/60 px-2 py-1 text-rose-200"
       role="alert"
     >
       {{ mensajeError }}

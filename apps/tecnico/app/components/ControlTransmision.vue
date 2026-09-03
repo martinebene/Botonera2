@@ -147,7 +147,13 @@ function detener(): void {
         {{ accionEnVuelo === 'INSTANTANEA' ? 'Iniciando...' : 'Iniciar ahora' }}
       </button>
 
-      <div class="flex items-center gap-1">
+      <!--
+        WP-059 angostó esta columna a dos novenos del ancho útil. Sin `flex-wrap` el grupo
+        "Cuenta / N / Iniciar con cuenta" mide más que la columna y produciría scroll
+        horizontal dentro del panel; envolviendo, el botón baja de línea y el panel sigue
+        sin desbordar en ninguna de las dos resoluciones de referencia.
+      -->
+      <div class="flex flex-wrap items-center gap-1">
         <label for="segundos-cuenta-regresiva" class="text-slate-400">Cuenta</label>
         <input
           id="segundos-cuenta-regresiva"
