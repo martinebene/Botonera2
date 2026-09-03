@@ -200,6 +200,43 @@ Ese prompt debe identificar:
 - stop conditions;
 - prohibición expresa de cruzar al siguiente gate del ORCHESTRATOR.
 
+### 11. Transición mecánica preautorizada dentro de un lote nocturno
+
+Por autorización HUMAN_GATE explícita y acotada, el ORCHESTRATOR puede preparar un lote en el que el COORDINADOR_LOCAL atraviese **una transición mecánica ya decidida** sin esperar una nueva intervención humana, siempre que todos estos elementos hayan sido fijados antes de iniciar el lote:
+
+- WP y fase exacta;
+- siguiente rol ya aprobado;
+- harness/modelo exacto del siguiente rol;
+- criterios de elegibilidad;
+- plantilla de asignación;
+- condición objetiva de paso;
+- condición de detención.
+
+Esta excepción existe para aprovechar ventanas nocturnas o ausencias prolongadas del operador y no convierte al COORDINADOR_LOCAL en ORCHESTRATOR general.
+
+La condición objetiva normal para pasar de una sincronización/implementación ya autorizada a una revisión ya autorizada es:
+
+1. existe el handoff esperado del IMPLEMENTER;
+2. la PR exacta sigue abierta contra `main`;
+3. el HEAD remoto coincide con el candidate SHA informado;
+4. el candidato contiene el `main` requerido mediante merge normal cuando correspondía;
+5. el worktree quedó limpio;
+6. la CI del SHA exacto terminó `success`;
+7. no hubo `escalation`, conflicto no trivial, decisión DT-038 ni desviación material;
+8. el revisor y modelo fueron fijados por HUMAN_GATE antes de iniciar el lote.
+
+Sólo en ese caso el COORDINADOR_LOCAL puede, si el lote lo autoriza expresamente:
+
+- reconstruir la asignación REVIEWER desde la plantilla preaprobada;
+- fijar en ella PR/base/candidate/tree SHA y CI exactos;
+- publicarla en Botonera2-Control;
+- actualizar exclusivamente los campos operativos de `CURRENT.json` necesarios para volver elegible a ese REVIEWER;
+- iniciar el REVIEWER y esperar su handoff.
+
+No puede evaluar el contenido del review, convertir hallazgos en correcciones, habilitar re-revisión ni mergear. Esas decisiones vuelven al ORCHESTRATOR/HUMAN_GATE.
+
+La transición mecánica preautorizada debe aparecer además en un manifiesto de lote append-only en Botonera2-Control. Si falta el manifiesto, los datos no coinciden o la condición objetiva no se cumple, el coordinador se detiene.
+
 ## Consecuencias
 
 - Se mantiene el aislamiento por worktree.
