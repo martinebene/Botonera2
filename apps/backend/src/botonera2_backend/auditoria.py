@@ -1,6 +1,6 @@
 """Persistencia durable de la auditoría institucional en tres CSV acumulativos.
 
-Este módulo se ocupa solamente de archivos: no conoce estados de sala, votaciones
+Este módulo se ocupa solamente de archivos: no conoce estados del recinto, votaciones
 ni códigos concretos de eventos. Los Work Packages funcionales posteriores
 decidirán cuándo registrar cada hecho y ejecutarán este escritor dentro del
 serializador global del backend.

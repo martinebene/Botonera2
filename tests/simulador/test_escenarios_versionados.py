@@ -53,7 +53,7 @@ def filas_padron_dispositivos_dev() -> list[list[str]]:
 
 
 def preparar_entorno_backend(directorio: Path) -> None:
-    """Genera los archivos canonicos necesarios para preparar sala."""
+    """Genera los archivos canonicos necesarios para preparar el recinto."""
     carpeta_configuracion = directorio / "config"
     carpeta_configuracion.mkdir(parents=True, exist_ok=True)
     escribir_system_toml(
@@ -116,7 +116,7 @@ async def test_ejecucion_escenario_versionado_contra_backend_real(
             transport=transporte,
             base_url="http://testserver",
         ) as cliente_httpx:
-            # 1. Preparar la sala para satisfacer la precondicion de PREPARANDO
+            # 1. Preparar el recinto para satisfacer la precondicion de PREPARANDO
             respuesta_prep = await cliente_httpx.post("/api/v1/preparacion")
             assert respuesta_prep.status_code == 204
 

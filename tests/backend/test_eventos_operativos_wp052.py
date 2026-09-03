@@ -133,7 +133,7 @@ async def crear_entorno(
     quorum: int = 2,
     fabrica_escritor: Callable[[Path, datetime], EscritorAuditoriaCsv] | None = None,
 ) -> EntornoEventos:
-    """Prepara la sala real y construye todos los servicios compartidos."""
+    """Prepara el recinto real y construye todos los servicios compartidos."""
 
     directorio.mkdir(parents=True, exist_ok=True)
     ruta_configuracion = escribir_system_toml(
@@ -548,7 +548,7 @@ async def test_los_niveles_y_el_orden_ascendente_se_conservan(
 async def test_la_frontera_de_revelado_programa_una_republicacion(
     tmp_path: Path,
 ) -> None:
-    """El enriquecimiento no depende de que ocurra otra mutación en la sala.
+    """El enriquecimiento no depende de que ocurra otra mutación en el recinto.
 
     ``demora_hasta_proxima_frontera`` es lo que hace que el stream vuelva a
     publicar exactamente cuando vence el secreto. Sin esa demora, la tarjeta

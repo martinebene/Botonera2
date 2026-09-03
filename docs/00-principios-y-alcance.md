@@ -2,7 +2,7 @@
 
 ## 1. Producto
 
-Botonera2 es el sistema que asiste la preparación, desarrollo, votación, uso de la palabra y registro electrónico de una sesión del Concejo Deliberante de Puerto Madryn.
+SISLeg es el sistema que asiste la preparación, desarrollo, votación, uso de la palabra y registro electrónico de una sesión del Concejo Deliberante de Puerto Madryn.
 
 No reemplaza la documentación oficial del Concejo ni interpreta su contenido. Su función es gestionar interacciones operativas y registrar lo ocurrido.
 
@@ -12,7 +12,7 @@ No reemplaza la documentación oficial del Concejo ni interpreta su contenido. S
 
 Operador único, sin identificación individual en esta versión. Utiliza el frontend de Moderación para:
 
-- preparar/cancelar sala;
+- preparar/cancelar recinto;
 - indicar número de sesión;
 - informar Presidencia y Secretaría Legislativa;
 - abrir/cerrar sesión;
@@ -43,7 +43,7 @@ El sistema solo necesita saber quién preside y permitir el voto extraordinario 
 
 ### Secretaría Legislativa
 
-Rol institucional informativo. Debe identificarse y sus cambios registrarse, pero no ejecuta acciones funcionales dentro de Botonera2.
+Rol institucional informativo. Debe identificarse y sus cambios registrarse, pero no ejecuta acciones funcionales dentro de SISLeg.
 
 ### Pantalla del Recinto
 
@@ -105,7 +105,7 @@ El estado operativo se conserva solamente en memoria.
 
 Una caída del backend durante preparación o sesión provoca pérdida del estado. Al reiniciar se vuelve a `SIN_PREPARAR`.
 
-Esto es intencional: ante una interrupción técnica de una sesión, el reglamento exige preparar nuevamente la sala y abrir una nueva sesión; las presencias no deben suponerse iguales a las anteriores.
+Esto es intencional: ante una interrupción técnica de una sesión, el reglamento exige preparar nuevamente el recinto y abrir una nueva sesión; las presencias no deben suponerse iguales a las anteriores.
 
 Los CSV persistidos hasta la caída permanecen como evidencia histórica y no se modifican retrospectivamente.
 
@@ -113,7 +113,7 @@ Los CSV persistidos hasta la caída permanecen como evidencia histórica y no se
 
 Número de sesión, número de votación, contenido y orden del Orden del Día son responsabilidad de la documentación oficial/física del Concejo.
 
-Botonera2:
+SISLeg:
 
 - recibe esos datos;
 - no valida secuencia ni unicidad;

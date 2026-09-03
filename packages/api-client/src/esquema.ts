@@ -35,7 +35,7 @@ export interface paths {
         put?: never;
         /**
          * Preparar Sala
-         * @description Inicia una nueva preparación de sala (CU-01).
+         * @description Inicia una nueva preparación del recinto (CU-01).
          *
          *     Carga y congela ``config/system.toml`` y ``config/concejales.csv``, crea
          *     el conjunto de auditoría L1/L2/L3, persiste ``PREPARACION_INICIADA`` y

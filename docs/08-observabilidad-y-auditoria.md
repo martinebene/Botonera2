@@ -26,7 +26,7 @@ La asignación concreta de cada evento debe conservar el espíritu de producció
 
 ## 3. Formato CSV canónico
 
-Botonera2 utiliza **CSV** con:
+SISLeg utiliza **CSV** con:
 
 ```text
 seq;timestamp;level;tag;event_code;message
@@ -47,7 +47,7 @@ Los códigos estructurados no reemplazan la descripción humana.
 
 ## 4. Ciclo y nombres de archivos
 
-Al ejecutar `Preparar sala` se toma fecha/hora local real del servidor y se crea un conjunto nuevo:
+Al ejecutar `Preparar recinto` se toma fecha/hora local real del servidor y se crea un conjunto nuevo:
 
 ```text
 logs/
@@ -67,7 +67,7 @@ Al cancelar preparación o cerrar sesión:
 
 - se escribe el evento final;
 - se cierra el conjunto;
-- Botonera2 no vuelve a modificar esos archivos.
+- SISLeg no vuelve a modificar esos archivos.
 
 ## 5. Persistencia inmediata y durabilidad
 
@@ -182,7 +182,7 @@ Si falla el primer evento, no se almacena voto presidencial. Si falla el segundo
 
 La implementación histórica usa principalmente nombre, apellido y banca en mensajes funcionales.
 
-Botonera2 conserva como mínimo esa legibilidad humana en `message`. Los códigos/estructuras internas no deben reducir el registro a identificadores opacos.
+SISLeg conserva como mínimo esa legibilidad humana en `message`. Los códigos/estructuras internas no deben reducir el registro a identificadores opacos.
 
 Las seis columnas canónicas son suficientes para la primera versión; información adicional del evento puede expresarse de forma consistente en `message` y mediante `event_code`.
 
@@ -238,9 +238,9 @@ memoria y la auditoría histórica no se reescribe.
 
 ## 14. Edición posterior
 
-Botonera2 no ofrece edición de archivos cerrados.
+SISLeg no ofrece edición de archivos cerrados.
 
-Una corrección externa institucional puede existir fuera del sistema, pero Botonera2 no reabre ni reescribe automáticamente registros históricos.
+Una corrección externa institucional puede existir fuera del sistema, pero SISLeg no reabre ni reescribe automáticamente registros históricos.
 
 ## 15. Referencia histórica
 
@@ -252,4 +252,4 @@ La implementación actual usa:
 - líneas `HH:MM:SS | Lx | TAG | mensaje`;
 - escritura inmediata.
 
-Botonera2 conserva esa semántica de profundidad y la adapta al formato CSV estructurado definido aquí.
+SISLeg conserva esa semántica de profundidad y la adapta al formato CSV estructurado definido aquí.

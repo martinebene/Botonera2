@@ -96,7 +96,7 @@ async def cliente_de_prueba(
 
 
 async def preparar_sala_valida(cliente: AsyncClient) -> None:
-    """Inicia preparación de sala."""
+    """Inicia la preparación del recinto."""
     respuesta = await cliente.post("/api/v1/preparacion")
     assert respuesta.status_code == 204
 

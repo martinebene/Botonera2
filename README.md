@@ -1,6 +1,8 @@
-# Botonera2
+# SISLeg
 
 Reimplementación desde cero del sistema de votación del Concejo Deliberante de Puerto Madryn.
+
+**SISLeg** es el nombre del producto: es lo que ve una persona en las pantallas, en el título de cada pestaña y en el logo institucional. `Botonera2` sigue siendo el nombre del repositorio, de los paquetes `@botonera2/*`, de los módulos Python y de las unidades de servicio; esos identificadores técnicos no se renombran porque sostienen la compatibilidad y la trazabilidad del proyecto (WP-062).
 
 ## Objetivo
 
@@ -11,7 +13,7 @@ Construir una nueva versión mantenible y verificable compuesta por:
 - frontend Nuxt.js de Pantalla del Recinto;
 - servicio/bridge independiente para capturar los teclados físicos y enviar sus pulsaciones al backend.
 
-La documentación de este repositorio es la especificación canónica para Botonera2 y debe permitir que agentes de programación implementen el sistema sin reinterpretar las reglas institucionales ni técnicas ya decididas.
+La documentación de este repositorio es la especificación canónica para SISLeg y debe permitir que agentes de programación implementen el sistema sin reinterpretar las reglas institucionales ni técnicas ya decididas.
 
 ## Fuentes históricas
 
@@ -27,7 +29,7 @@ Existe además una rama histórica `v2`, no validada en producción. Puede aport
 
 ### Regla de autoridad
 
-1. La documentación vigente de **Botonera2** manda para la nueva implementación.
+1. La documentación vigente de **SISLeg** (repositorio `Botonera2`) manda para la nueva implementación.
 2. Para reglas extraídas del sistema anterior, se tomó como fuente de verdad el **código ejecutable de `Botonera/main`**, no su documentación antigua.
 3. `Botonera/v2`, README, manuales, comentarios y documentación histórica sirven solo como contexto salvo referencia expresa.
 4. El repositorio histórico solo debe consultarse en el futuro para descargar assets o validar explícitamente una regla dudosa.
@@ -43,7 +45,7 @@ El sistema tiene tres estados globales:
 - `SESION_ABIERTA`: se habilitan votaciones y uso de la palabra.
 - Cancelar preparación o cerrar sesión devuelve el sistema a `SIN_PREPARAR`.
 
-El estado operativo es deliberadamente **volátil y en memoria**. Una interrupción técnica no se recupera: reglamentariamente corresponde preparar nuevamente la sala y abrir una nueva sesión.
+El estado operativo es deliberadamente **volátil y en memoria**. Una interrupción técnica no se recupera: reglamentariamente corresponde preparar nuevamente el recinto y abrir una nueva sesión.
 
 ## Principios funcionales centrales
 
@@ -61,7 +63,7 @@ El estado operativo es deliberadamente **volátil y en memoria**. Una interrupci
 
 ## Arquitectura técnica base aprobada
 
-Botonera2 será un **monorepo** con separación entre backend, los dos frontends y el bridge físico.
+SISLeg será un **monorepo** con separación entre backend, los dos frontends y el bridge físico.
 
 Decisiones ya cerradas:
 
@@ -219,7 +221,7 @@ transporta el loopback del contenedor por la conexión SSH existente.
 
 ### Recorrido manual recomendado
 
-1. En Moderación, elegí `Preparar sala` e informá número de sesión,
+1. En Moderación, elegí `Preparar recinto` e informá número de sesión,
    Presidencia y Secretaría Legislativa.
 2. En otra terminal de `agent-dev`, iniciá el simulador real:
 

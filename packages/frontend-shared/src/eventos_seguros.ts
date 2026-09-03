@@ -60,8 +60,8 @@ export function filtrarEventosPorNivel(
 /**
  * Calcula el `seq` máximo del snapshot completo, sin aplicar el filtro visual.
  *
- * Se ignora el filtro a propósito: cambiar el nivel visible no es actividad nueva en la
- * sala y no debe interpretarse como tal. Devuelve `null` cuando todavía no hay ningún
+ * Se ignora el filtro a propósito: cambiar el nivel visible no es actividad nueva en el
+ * recinto y no debe interpretarse como tal. Devuelve `null` cuando todavía no hay ningún
  * evento, para poder distinguir "no llegó nada" de "llegó el evento número cero".
  *
  * @param eventos Colección `eventos_recientes` del snapshot vigente.

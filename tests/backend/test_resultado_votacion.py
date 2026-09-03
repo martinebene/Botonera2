@@ -97,7 +97,7 @@ async def crear_entorno(
     *,
     quorum: int,
 ) -> EntornoResultado:
-    """Prepara la sala real con padrón de doce concejales y auditoría durable."""
+    """Prepara el recinto real con padrón de doce concejales y auditoría durable."""
 
     ruta_configuracion = escribir_system_toml(
         tmp_path / "system.toml",

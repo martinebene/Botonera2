@@ -6,7 +6,7 @@ Estos criterios deben convertirse progresivamente en pruebas automáticas. Son i
 
 Dado un backend recién iniciado, el estado debe ser `SIN_PREPARAR`, sin sesión activa, votación activa ni CSV abiertos.
 
-## CA-002 Preparar sala
+## CA-002 Preparar recinto
 
 Al preparar correctamente:
 

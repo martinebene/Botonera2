@@ -77,7 +77,7 @@ async def crear_contexto_entrada(
     reloj_monotono: Callable[[], float] | None = None,
     fabrica_escritor: Callable[[Path, datetime], EscritorAuditoriaCsv] | None = None,
 ) -> tuple[EstadoOperativo, ServicioEntradaTecla]:
-    """Prepara una sala ficticia y devuelve estado/servicio ya listos.
+    """Prepara un recinto ficticio y devuelve estado/servicio ya listos.
 
     La preparación usa exactamente las interfaces públicas de WP-003 y WP-005.
     La fábrica opcional permite provocar fallos de ``fsync`` sin reemplazar el

@@ -104,7 +104,7 @@ test.describe.serial('WP-027 · recorridos críticos sobre el stack real', () =>
     let csvPrimeraPreparacion: string[] = []
 
     try {
-      await test.step('A · inicia limpio y prepara la sala desde Moderación', async () => {
+      await test.step('A · inicia limpio y prepara el recinto desde Moderación', async () => {
         await Promise.all([
           moderacion.goto(`${URL_STACK}/moderacion/`),
           recinto.goto(`${URL_STACK}/recinto/`),
@@ -115,7 +115,7 @@ test.describe.serial('WP-027 · recorridos críticos sobre el stack real', () =>
 
         await moderacion.getByTestId('btn-preparar-sala').click()
         await expect(moderacion.getByTestId('vista-preparando')).toBeVisible()
-        await expect(recinto.getByTestId('cabecera-sesion')).toHaveText('Sala en preparación')
+        await expect(recinto.getByTestId('cabecera-sesion')).toHaveText('Recinto en preparación')
         await expect(moderacion.getByTestId('banca-concejal')).toHaveCount(12)
         await expect(recinto.getByTestId('banca-publica')).toHaveCount(12)
 

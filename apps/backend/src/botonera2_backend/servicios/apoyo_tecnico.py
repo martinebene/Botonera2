@@ -16,7 +16,7 @@ Independencia del ciclo preparación/sesión
 
 El plano técnico funciona en los tres estados globales, incluido
 ``SIN_PREPARAR``: Apoyo Técnico puede encender el indicador de transmisión
-antes de que Moderación prepare la sala. Por eso ningún comando de este módulo
+antes de que Moderación prepare el recinto. Por eso ningún comando de este módulo
 exige un contexto operativo.
 
 Auditoría

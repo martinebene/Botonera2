@@ -44,7 +44,7 @@ def sin_preparacion(entorno: EntornoProyecciones) -> None:
     """Deja el entorno en ``SIN_PREPARAR``, sin contexto ni auditoría abierta.
 
     El plano técnico debe funcionar igual en ese estado: Apoyo Técnico puede
-    encender el indicador antes de que Moderación prepare la sala.
+    encender el indicador antes de que Moderación prepare el recinto.
     """
 
     entorno.estado.preparacion_activa = None

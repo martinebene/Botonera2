@@ -79,7 +79,7 @@ async def crear_contexto(
     ServicioSesion,
     ServicioEntradaTecla,
 ]:
-    """Prepara una sala ficticia y comparte estado/ejecutor entre servicios."""
+    """Prepara un recinto ficticio y comparte estado/ejecutor entre servicios."""
 
     ruta_configuracion = escribir_system_toml(
         tmp_path / "system.toml",

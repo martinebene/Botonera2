@@ -4,7 +4,7 @@
  *
  * Responsabilidades:
  * 1. Presentar el ciclo de vida institucional completo:
- *    - SIN_PREPARAR: Preparación de sala como acción principal.
+ *    - SIN_PREPARAR: Preparación del recinto como acción principal.
  *    - PREPARANDO: Carga y edición de número de sesión, Presidencia y Secretaría Legislativa,
  *      apertura formal de sesión cuando se cumplan las capacidades, o cancelación de la preparación.
  *    - SESION_ABIERTA: votación como único contenido del cuerpo, autoridades mediante modal
@@ -34,7 +34,7 @@
  *    (`Editar autoridades` y `Cerrar sesión`) viven en el área de acciones del encabezado
  *    del cuadrante, no en una franja propia del cuerpo. El número de sesión ya se publica
  *    una sola vez en la cabecera global del shell, así que Q1 deja de reservar altura para
- *    repetirlo. El badge de estado de sala sí permanece acá: tras WP-047 este cuadrante es
+ *    repetirlo. El badge de estado del recinto sí permanece acá: tras WP-047 este cuadrante es
  *    su única sede visible. El cuerpo queda íntegramente disponible para la votación, que
  *    es el trabajo real del operador durante una sesión abierta.
  */
@@ -337,7 +337,11 @@ function limpiarMensajes(): void {
 }
 
 /**
- * Ejecuta el comando de preparar sala (CU-01).
+ * Ejecuta el comando de preparación del recinto (CU-01).
+ *
+ * WP-062 cambió el texto visible a «Preparar recinto», pero la capacidad del backend
+ * sigue llamándose `preparar_sala` y el `data-testid` conserva su nombre histórico: son
+ * contrato e identificadores de prueba, no terminología dirigida a personas.
  */
 async function ejecutarPrepararSala(): Promise<void> {
   if (!puedePrepararSala.value) return
@@ -348,7 +352,7 @@ async function ejecutarPrepararSala(): Promise<void> {
     await cliente.value.prepararSala()
     // Éxito: el nuevo snapshot SSE reflejará PREPARANDO
   } catch (error: unknown) {
-    mensajeError.value = extraerMensajeError(error, 'Error al preparar la sala')
+    mensajeError.value = extraerMensajeError(error, 'Error al preparar el recinto')
   } finally {
     enviando.value = false
   }
@@ -407,7 +411,7 @@ async function ejecutarCancelarPreparacion(): Promise<void> {
   try {
     await cliente.value.cancelarPreparacion()
   } catch (error: unknown) {
-    mensajeError.value = extraerMensajeError(error, 'Error al cancelar la preparación de sala')
+    mensajeError.value = extraerMensajeError(error, 'Error al cancelar la preparación del recinto')
   } finally {
     enviando.value = false
   }
@@ -540,7 +544,7 @@ const textoBadge = computed(() => {
     case 'SESION_ABIERTA':
       return 'Sesión activa'
     case 'PREPARANDO':
-      return 'Preparando sala'
+      return 'Preparando el recinto'
     case 'SIN_PREPARAR':
       return 'Sin preparar'
     default:
@@ -640,7 +644,7 @@ const claseBadge = computed(() => {
         class="flex h-full flex-col justify-center gap-3 rounded-lg border border-slate-800 bg-slate-950/50 p-3"
       >
         <div>
-          <h3 class="text-sm font-bold text-slate-100">Sala sin preparar</h3>
+          <h3 class="text-sm font-bold text-slate-100">Recinto sin preparar</h3>
           <p class="mt-0.5 text-xs text-slate-400">Iniciá la preparación para operar la sesión.</p>
         </div>
         <button
@@ -654,7 +658,7 @@ const claseBadge = computed(() => {
             v-if="enviando"
             class="inline-block h-3 w-3 animate-spin rounded-full border-2 border-slate-950 border-t-transparent"
           />
-          {{ enviando ? 'Preparando sala...' : 'Preparar sala' }}
+          {{ enviando ? 'Preparando recinto...' : 'Preparar recinto' }}
         </button>
         <!--
           WP-044: cada requisito pendiente ocupa su propia línea. Concatenarlos con

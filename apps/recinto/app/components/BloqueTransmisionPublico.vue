@@ -9,7 +9,7 @@
  *   reservada por la grilla; si desapareciera, los pedidos de palabra se moverían cada
  *   vez que Apoyo Técnico enciende o apaga la transmisión. Es la misma razón por la que
  *   la franja de votación conserva su alto aunque no haya votación.
- * - `CUENTA_REGRESIVA`: número grande, legible desde el fondo de la sala.
+ * - `CUENTA_REGRESIVA`: número grande, legible desde el fondo del recinto.
  * - `EN_VIVO`: rótulo `● EN VIVO` claramente visible.
  *
  * El número que baja lo calcula `usePresentacionTransmision` a partir de la frontera

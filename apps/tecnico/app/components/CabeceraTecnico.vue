@@ -8,7 +8,7 @@
  * para que ningún panel tenga que repetirlos y la grilla conserve la mayor superficie
  * útil posible a 1366×768.
  *
- * WP-059 retiró la marca "Botonera2" del título, igual que ya se había hecho en
+ * WP-059 retiró la marca del producto del título, igual que ya se había hecho en
  * Moderación. No se quitó ningún indicador: la decisión humana del WP fue explícita en
  * que el puesto técnico conserva todas sus capacidades e información.
  *
@@ -64,9 +64,9 @@ const claseConexion = computed(() => {
 const etiquetaEstadoGlobal = computed(() => {
   switch (props.estadoGlobal) {
     case 'SIN_PREPARAR':
-      return 'Sala sin preparar'
+      return 'Recinto sin preparar'
     case 'PREPARANDO':
-      return 'Sala en preparación'
+      return 'Recinto en preparación'
     case 'SESION_ABIERTA':
       return 'Sesión abierta'
     default:
@@ -103,7 +103,7 @@ const claseTransmision = computed(() =>
   >
     <div class="flex min-w-0 items-center gap-2">
       <!--
-        WP-059 quitó la marca "Botonera2": el operador ya sabe en qué sistema está y ese
+        WP-059 quitó la marca del producto: el operador ya sabe en qué sistema está y ese
         texto sólo consumía ancho de una cabecera que debe quedar en una sola línea.
         El nombre del puesto se conserva porque sí distingue esta pantalla de Moderación,
         del Recinto y del Simulador.

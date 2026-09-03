@@ -172,7 +172,7 @@ async def test_evento_iniciada_aparece_en_los_tres_niveles_con_el_mismo_seq(
         assert filas[1][2] == "L3"
         assert filas[1][3] == "PREPARACION"
         assert filas[1][4] == "PREPARACION_INICIADA"
-        assert filas[1][5] == "Preparación de sala iniciada"
+        assert filas[1][5] == "Preparación del recinto iniciada"
 
 
 async def test_preparar_fuera_de_sin_preparar_se_rechaza_sin_efectos(tmp_path: Path) -> None:
@@ -348,7 +348,7 @@ async def test_cancelacion_exitosa_registra_cierra_y_limpia_el_contexto(tmp_path
         assert filas[2][2] == "L3"
         assert filas[2][3] == "PREPARACION"
         assert filas[2][4] == "PREPARACION_CANCELADA"
-        assert filas[2][5] == "Preparación de sala cancelada"
+        assert filas[2][5] == "Preparación del recinto cancelada"
 
     # CA-056: los archivos cerrados no vuelven a modificarse por el backend.
     contenidos = {ruta: ruta.read_bytes() for ruta in rutas}
@@ -553,7 +553,7 @@ async def test_preparar_y_cancelar_concurrentes_dejan_un_estado_coherente(
     """CA-058: la mezcla de comandos concurrentes nunca corrompe el estado.
 
     Cualquiera de los dos órdenes posibles es válido, pero el resultado final
-    debe ser consistente: o la cancelación llegó primero (rechazada) y la sala
+    debe ser consistente: o la cancelación llegó primero (rechazada) y el recinto
     quedó preparada, o preparó primero y luego se canceló.
     """
 

@@ -109,7 +109,7 @@ const eventosVisibles = computed(() =>
  *
  * Se calcula sobre la colección sin filtrar a propósito: cambiar el nivel
  * visible no debe interpretarse como la llegada de un evento nuevo, porque
- * eso movería el scroll del operador sin que haya ocurrido nada en la sala.
+ * eso movería el scroll del operador sin que haya ocurrido nada en el recinto.
  */
 const seqMaximoSnapshot = computed(() => seqMaximoEventos(props.estado?.eventos_recientes))
 

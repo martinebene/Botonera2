@@ -2,7 +2,7 @@
 
 Los casos de uso describen comportamiento observable. Los nombres de endpoints, componentes o clases se decidirán después.
 
-## CU-01 Preparar sala
+## CU-01 Preparar recinto
 
 **Actor:** Moderación.
 

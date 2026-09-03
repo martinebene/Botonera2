@@ -20,6 +20,7 @@ import AvisoSuperficie from '@botonera2/frontend-shared/componentes/AvisoSuperfi
 import IndicadorCargaInicial from '@botonera2/frontend-shared/componentes/IndicadorCargaInicial.vue'
 import type { EstadoConexionRecinto } from '../composables/useEstadoRecinto'
 import { usePresentacionVotacion } from '../composables/usePresentacionVotacion'
+import { resolverRutaAsset } from '../utils/rutas'
 import BloqueTransmisionPublico from './BloqueTransmisionPublico.vue'
 import CabeceraRecinto from './CabeceraRecinto.vue'
 import GrillaBancas from './GrillaBancas.vue'
@@ -33,6 +34,15 @@ const props = defineProps<{
   desactualizado: boolean
 }>()
 const { estado, estadoConexion, desactualizado } = toRefs(props)
+
+/**
+ * URL pública del logo institucional usado en `SIN_PREPARAR` (WP-062).
+ *
+ * Se resuelve con el mismo helper que las fotos de banca porque el problema es idéntico:
+ * el archivo vive en `public/` y la aplicación se sirve bajo el prefijo `/recinto/`, así
+ * que la ruta final depende del `baseURL` configurado y no puede escribirse a mano.
+ */
+const urlLogoInstitucional = resolverRutaAsset('assets/marca/sisleg-logo.png')
 
 const sesionAbierta = computed(() => estado.value?.estado_global === 'SESION_ABIERTA')
 const bancaOrador = computed(() => estado.value?.palabra?.orador?.banca ?? null)
@@ -112,9 +122,25 @@ const { segundosTransmision } = usePresentacionTecnica(
       class="estado-sin-preparar"
       data-testid="estado-sin-preparar"
     >
-      <span class="isotipo-neutro" aria-hidden="true">CD</span>
+      <!--
+        Identidad institucional en reposo (WP-062).
+
+        HUMAN_GATE decidió que el estado público sin sesión muestre el logo completo de
+        SISLeg. Reemplaza al monograma «CD» dibujado con CSS que ocupaba este lugar: era un
+        marcador provisional, no una marca aprobada. Donde está el logo no se repite
+        «SISLeg» como texto, así que el `alt` describe la marca para lectores de pantalla y
+        los dos renglones de abajo siguen explicando qué pantalla es y por qué está vacía.
+      -->
+      <img
+        class="logo-institucional"
+        data-testid="logo-sin-preparar"
+        :src="urlLogoInstitucional"
+        alt="SISLeg"
+        width="448"
+        height="158"
+      />
       <p class="sobrelinea">Pantalla del Recinto</p>
-      <h2>Sala sin preparar</h2>
+      <h2>Recinto sin preparar</h2>
       <p>La próxima sesión todavía no fue preparada.</p>
     </main>
 
@@ -218,25 +244,32 @@ const { segundosTransmision } = usePresentacionTecnica(
   color: #94a3b8;
 }
 
-.pulso-carga,
-.isotipo-neutro {
+.pulso-carga {
   width: 5rem;
   height: 5rem;
   border: 1px solid rgba(125, 211, 252, 0.55);
   border-radius: 50%;
-}
-
-.pulso-carga {
   box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.35);
   animation: pulso 1.6s infinite;
 }
 
-.isotipo-neutro {
-  display: grid;
-  place-items: center;
-  color: #7dd3fc;
-  font-size: 1.4rem;
-  font-weight: 900;
+/*
+  Logo institucional del estado `SIN_PREPARAR` (WP-062).
+
+  El ancho se expresa en `vw` acotado por `clamp` en lugar de fijarse en píxeles: la
+  pantalla del recinto se proyecta en monitores de tamaños distintos y el logo debe
+  conservar la misma presencia relativa. Los límites se eligieron para que a 1366×768
+  ocupe ~300 px y a 1920×1080 llegue al tope de 384 px, proporción equivalente a la de la
+  ventana de carga. `height: auto` conserva la relación 448×158 del archivo aprobado, de
+  modo que la marca nunca se deforma.
+
+  El bloque contenedor es un `place-content: center` sin altura fija, así que esta imagen
+  no puede empujar geometría ajena: `SIN_PREPARAR` no dibuja bancas ni franjas.
+*/
+.logo-institucional {
+  width: clamp(200px, 22vw, 384px);
+  height: auto;
+  margin-bottom: 0.75rem;
 }
 
 .sobrelinea {

@@ -1,5 +1,5 @@
 /**
- * Cliente TypeScript para la interfaz de Moderación de Botonera2.
+ * Cliente TypeScript para la interfaz de Moderación de SISLeg.
  *
  * Expone la superficie completa de lectura/sincronización y comandos mutantes
  * permitidos para el operador único de Moderación, encapsulando las rutas REST y SSE.
@@ -70,11 +70,11 @@ export class ClienteModeracion {
   }
 
   // ===========================================================================
-  // 2. Comandos de Preparación de Sala
+  // 2. Comandos de Preparación del Recinto
   // ===========================================================================
 
   /**
-   * Inicia una nueva preparación de sala (CU-01).
+   * Inicia una nueva preparación del recinto (CU-01).
    *
    * Endpoint: POST /api/v1/preparacion
    */

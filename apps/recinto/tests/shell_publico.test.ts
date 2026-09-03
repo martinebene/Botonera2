@@ -43,7 +43,9 @@ describe('Shell público del Recinto', () => {
       }),
     })
 
-    expect(wrapper.get('[data-testid="estado-sin-preparar"]').text()).toContain('Sala sin preparar')
+    expect(wrapper.get('[data-testid="estado-sin-preparar"]').text()).toContain(
+      'Recinto sin preparar',
+    )
     expect(wrapper.find('[data-testid="grilla-bancas"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="panel-quorum"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="panel-palabra"]').exists()).toBe(false)
