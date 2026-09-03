@@ -209,9 +209,9 @@ WP-033 quedó integrado antes de continuar WP-026 y deja disponible el harness m
 | WP-060 | Corregir geometría y ajuste tipográfico de avisos compartidos | INTEGRADO | WP-056 | - |
 | WP-061 | Incorporar indicador de carga pre-hidratación en todos los frontends | INTEGRADO | WP-057, WP-058, WP-059, WP-060 | - |
 | WP-062 | Adoptar identidad SISLeg y terminología de Recinto | INTEGRADO | WP-061 | claude |
-| WP-063 | Formatear visualmente el factor a dos decimales truncados | PENDIENTE | WP-062 | - |
-| WP-064 | Aumentar legibilidad de nombres en la cola de palabra del Recinto | PENDIENTE | WP-062 | - |
-| WP-065 | Incorporar configuración y assets de sonidos del Recinto | PENDIENTE | WP-062 | - |
+| WP-063 | Formatear visualmente el factor a dos decimales truncados | EN_CURSO | WP-062 | claude |
+| WP-064 | Aumentar legibilidad de nombres en la cola de palabra del Recinto | EN_CURSO | WP-062 | claude |
+| WP-065 | Incorporar configuración y assets de sonidos del Recinto | EN_CURSO | WP-062 | claude |
 | WP-066 | Implementar motor de reproducción de sonidos del Recinto | PENDIENTE | WP-065 | - |
 | WP-067 | Publicar manual de usuario y ayuda integrada de SISLeg | PENDIENTE | WP-062, WP-063, WP-064, WP-065, WP-066 | - |
 | WP-029 | Validar bridge/hardware real, regresión funcional y candidato de producción | BLOQUEADO | WP-019, WP-020, WP-027, WP-028, WP-034, WP-035, WP-036, WP-037, WP-038, WP-039, WP-040, WP-041, WP-043, WP-044, WP-045, WP-046, WP-047, WP-048, WP-049, WP-050, WP-051, WP-052, WP-053, WP-054, WP-055, WP-056, WP-057, WP-058, WP-059, WP-060, WP-061, WP-062, WP-063, WP-064, WP-065, WP-066, WP-067 | - |
@@ -361,3 +361,6 @@ HUMAN_GATE activó WP-062 el 03/09/2026 con Claude Code / Claude Opus 5 (High) c
 
 
 WP-062 quedó integrado mediante PR #69 sobre el candidato `4278ea5a19be33712a5bd8aa58d377ede1c35a01`, con revisión independiente 0 BLOQUEANTES / 0 IMPORTANTES / 0 MENORES y veredicto `LISTA PARA INTEGRAR`. El squash `8f6804b71ea950223fbab57b9137fc35756ccc63` conserva exactamente el tree revisado `78d6d59e106b148a482e05988a6d8ebf30662af3`; CI candidata #444 y post-merge #445 terminaron `success` 8/8. Quedan habilitadas por dependencias WP-063, WP-064 y WP-065 para su lote lógico paralelo/secuencial local. WP-029 continúa BLOQUEADO.
+
+
+HUMAN_GATE habilita el lote lógico paralelo WP-063/WP-064/WP-065 después del cierre de WP-062. Los tres WPs usan Claude Code / Claude Opus 5 (High) como IMPLEMENTER y Antigravity/AGY / Gemini 3.8 Flash (High) como REVIEWER independiente. Se ejecutarán físicamente de forma secuencial mediante COORDINADOR_LOCAL Codex con `max_concurrency=1`, priorizando WP-065 -> WP-063 -> WP-064 para adelantar el camino crítico hacia WP-066. La transición IMPLEMENTER -> REVIEWER queda preautorizada únicamente si se satisfacen los gates objetivos de DEC-018. Integración, correcciones, re-revisión, cleanup y WP-029 permanecen fuera de autoridad del COORDINADOR_LOCAL.
