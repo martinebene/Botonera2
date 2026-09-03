@@ -222,6 +222,14 @@ La activación valida configuración, units y Nginx; cambia `current`
 atómicamente; reinicia backend/bridge; comprueba health y ambas SPA por Nginx;
 y recién entonces actualiza `previous`.
 
+La validación de configuración recibe dos rutas: la raíz de la instalación
+—donde viven `config/` y `logs/`— y la release que se está activando. La
+segunda es necesaria desde WP-065 porque las rutas de la sección `[sonidos]`
+resuelven contra la Pantalla del Recinto publicada por esa release
+(`<release>/web/recinto/`). Si un archivo de sonido configurado no está
+publicado, la activación falla antes de tocar el servicio. Los assets viajan
+dentro de la release, como el resto de la SPA; `config/` no los contiene.
+
 Durante `preparar`, `uv sync` recibe explícitamente la ruta resuelta de ese
 Python 3.14 mediante `--python` y deshabilita descargas automáticas. De esta
 manera la venv no puede seleccionar por preferencia un Python administrado en

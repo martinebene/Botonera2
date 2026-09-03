@@ -146,5 +146,17 @@ export function crearMockEstadoRecinto(
     // distinguir entre "sin eventos" y "campo ausente".
     eventos_publicos: [],
     tecnico: crearMockApoyoTecnico(),
+    // La configuración de audio (WP-065) también es obligatoria y viaja en los
+    // tres estados globales. Este mock declara sólo dos eventos porque el
+    // cliente API no interpreta la lista: la transporta.
+    sonidos: {
+      disponible: true,
+      motivo: null,
+      detalle: null,
+      sonidos: [
+        { evento: 'sesion_abierta', ruta: 'assets/sonidos/sesion-abierta.wav', volumen: 90 },
+        { evento: 'sesion_cerrada', ruta: 'assets/sonidos/sesion-cerrada.wav', volumen: 85 },
+      ],
+    },
   }
 }

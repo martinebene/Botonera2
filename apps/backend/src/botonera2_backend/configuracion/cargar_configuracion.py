@@ -6,7 +6,8 @@ Flujo principal paso a paso:
 2. ``tomllib`` (biblioteca estándar de Python desde 3.11) lo convierte a un
    diccionario: cada sección ``[nombre]`` se vuelve un dict anidado.
 3. Se extraen las cinco secciones canónicas y se validan sus claves una por
-   una con los validadores privados de este módulo.
+   una con los validadores privados de este módulo. La sección ``[sonidos]``
+   incorporada por WP-065 se delega a ``configuracion.sonidos_recinto``.
 4. Con los valores ya validados se construye ``ConfiguracionSistema``, un
    ``dataclass`` congelado: al ser inmutable y no guardar ninguna referencia
    al archivo ni a su contenido, queda congelado para toda la sesión
@@ -30,6 +31,7 @@ from botonera2_backend.configuracion.errores import (
     ErrorValidacionConfiguracion,
 )
 from botonera2_backend.configuracion.modelos import ConfiguracionSistema
+from botonera2_backend.configuracion.sonidos_recinto import exigir_sonidos_recinto
 
 
 def cargar_configuracion_sistema(ruta: Path) -> ConfiguracionSistema:
@@ -85,6 +87,10 @@ def cargar_configuracion_sistema(ruta: Path) -> ConfiguracionSistema:
             timers, "timers.public_result_display_seconds"
         ),
         directorio_registros=_exigir_texto_no_vacio(paths, "paths.logs_dir"),
+        # La sección [sonidos] la valida su propio módulo: son quince entradas
+        # con reglas propias de ruta y volumen, y ese detalle no pertenece al
+        # esquema mínimo de WP-003.
+        sonidos_recinto=exigir_sonidos_recinto(datos),
     )
 
 

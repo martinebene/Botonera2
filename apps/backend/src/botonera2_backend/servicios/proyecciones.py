@@ -14,7 +14,11 @@ from datetime import datetime, timedelta
 from pydantic import BaseModel, ConfigDict, Field
 
 from botonera2_backend.auditoria import EventoAuditoriaReciente, NivelAuditoria
-from botonera2_backend.configuracion.modelos import Concejal, ConfiguracionSistema
+from botonera2_backend.configuracion.modelos import (
+    Concejal,
+    ConfiguracionSistema,
+    ConfiguracionSonidosRecinto,
+)
 from botonera2_backend.dominio.apoyo_tecnico import (
     AvisoTecnico,
     BibliotecaMensajesTecnicos,
@@ -507,6 +511,38 @@ class BibliotecaMensajesProyectada(ModeloProyeccion):
     mensajes: tuple[MensajeTecnicoProyectado, ...]
 
 
+class SonidoRecintoProyectado(ModeloProyeccion):
+    """Sonido configurado para un evento de la Pantalla del Recinto (WP-065).
+
+    ``ruta`` es siempre una referencia relativa a un asset servido por la
+    propia Pantalla del Recinto (``assets/sonidos/…``), validada en servidor:
+    el navegador nunca recibe una ruta arbitraria del sistema de archivos.
+    """
+
+    evento: str
+    ruta: str
+    volumen: int
+
+
+class SonidosRecintoProyectados(ModeloProyeccion):
+    """Configuración de audio completa del Recinto y su condición técnica.
+
+    ``disponible=False`` indica que la sección ``[sonidos]`` de
+    ``system.toml`` no pudo interpretarse al arrancar el backend. En ese caso
+    la lista viaja vacía y ``motivo``/``detalle`` explican el problema, en
+    lugar de dejar a la pantalla sin sonidos y sin razón.
+
+    Viaja en los tres estados globales, también en ``SIN_PREPARAR``: la
+    transmisión en vivo y los avisos de Apoyo Técnico funcionan fuera de una
+    sesión y necesitan sonar igual.
+    """
+
+    disponible: bool
+    motivo: str | None
+    detalle: str | None
+    sonidos: tuple[SonidoRecintoProyectado, ...]
+
+
 class EstadoModeracion(ModeloProyeccion):
     """Snapshot completo y reconstruible del frontend de Moderación."""
 
@@ -543,6 +579,7 @@ class EstadoRecinto(ModeloProyeccion):
     palabra: EstadoPalabraPublico | None
     eventos_publicos: tuple[EventoPublicoProyectado, ...]
     tecnico: ApoyoTecnicoProyectado
+    sonidos: SonidosRecintoProyectados
 
 
 class EstadoTecnico(ModeloProyeccion):
@@ -717,6 +754,11 @@ class ServicioProyecciones:
             # la separación por destino se decide en servidor, igual que el
             # secreto de voto, y no depende de que el frontend público filtre.
             tecnico=self._apoyo_tecnico(self._estado.aviso_tecnico_recinto, generado_en),
+            # Los sonidos no dependen de ``contexto``: se leen del estado
+            # operativo, que los conserva desde el arranque del proceso. Por eso
+            # viajan también en SIN_PREPARAR, que es exactamente lo que pide
+            # WP-065.
+            sonidos=self._sonidos(self._estado.sonidos_recinto),
         )
 
     def _construir_tecnico(self) -> EstadoTecnico:
@@ -745,6 +787,29 @@ class ServicioProyecciones:
             biblioteca=self.proyectar_biblioteca(self._estado.biblioteca_mensajes_tecnicos),
             eventos_recientes=self._eventos(contexto, generado_en),
             auditoria=self._auditoria(contexto),
+        )
+
+    @staticmethod
+    def _sonidos(configuracion: ConfiguracionSonidosRecinto) -> SonidosRecintoProyectados:
+        """Copia la configuración de audio a DTOs inmutables (WP-065).
+
+        No filtra ni reordena: publica los quince sonidos en el orden canónico
+        del contrato para que dos snapshots con la misma configuración sean
+        idénticos byte a byte.
+        """
+
+        return SonidosRecintoProyectados(
+            disponible=configuracion.disponible,
+            motivo=configuracion.motivo,
+            detalle=configuracion.detalle,
+            sonidos=tuple(
+                SonidoRecintoProyectado(
+                    evento=sonido.evento,
+                    ruta=sonido.ruta,
+                    volumen=sonido.volumen,
+                )
+                for sonido in configuracion.sonidos
+            ),
         )
 
     def _apoyo_tecnico(

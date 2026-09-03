@@ -186,6 +186,14 @@ class ServicioPreparacion:
         )
         self._estado.preparacion_activa = preparacion
         self._estado.archivos_auditoria_activos = preparacion.rutas_auditoria()
+        # Los sonidos del Recinto (WP-065) viven fuera del ciclo
+        # preparación/sesión porque la Pantalla del Recinto también suena en
+        # SIN_PREPARAR. Aun así se refrescan aquí desde la configuración recién
+        # congelada: si el archivo cambió entre el arranque del proceso y esta
+        # preparación, lo que ve el Recinto durante la sesión es exactamente el
+        # snapshot congelado y no una copia vieja. No puede fallar ni revertir
+        # nada, porque la configuración ya se validó unas líneas más arriba.
+        self._estado.sonidos_recinto = configuracion.sonidos_recinto
         self._estado.estado_global = EstadoGlobal.PREPARANDO
 
     async def _cancelar_bajo_lock(self) -> None:

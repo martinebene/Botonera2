@@ -4,7 +4,8 @@ WP-002 estableció el estado que existe al arrancar; WP-005 incorporó la
 preparación, WP-008 agregó el contexto real de sesión y WP-009 tipa la votación
 activa. WP-055 suma el plano técnico de Apoyo Técnico, que es deliberadamente
 independiente del ciclo preparación/sesión: la transmisión y los avisos pueden
-operarse también en ``SIN_PREPARAR``. Las transiciones las ejecutan los
+operarse también en ``SIN_PREPARAR``. WP-065 agrega por el mismo motivo los
+sonidos configurados de la Pantalla del Recinto. Las transiciones las ejecutan los
 servicios de dominio bajo el serializador único, nunca este módulo.
 """
 
@@ -12,6 +13,7 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
 
+from botonera2_backend.configuracion.modelos import ConfiguracionSonidosRecinto
 from botonera2_backend.dominio.apoyo_tecnico import (
     AvisoTecnico,
     BibliotecaMensajesTecnicos,
@@ -72,6 +74,13 @@ class EstadoOperativo:
             precargados, más su condición técnica. Se carga una sola vez al
             arrancar y se actualiza únicamente después de que una escritura
             atómica confirmó en disco.
+        sonidos_recinto: sonidos configurados para la Pantalla del Recinto
+            (WP-065). Igual que el plano técnico, es deliberadamente
+            independiente del ciclo preparación/sesión: se lee al arrancar el
+            proceso para que la Pantalla del Recinto pueda sonar también en
+            ``SIN_PREPARAR``, y se refresca desde la configuración congelada
+            cada vez que una preparación la vuelve a cargar, de modo que
+            durante una sesión coincida exactamente con el snapshot congelado.
     """
 
     estado_global: EstadoGlobal = field(default=EstadoGlobal.SIN_PREPARAR, init=False)
@@ -88,6 +97,9 @@ class EstadoOperativo:
     aviso_tecnico_recinto: AvisoTecnico | None = field(default=None, init=False)
     biblioteca_mensajes_tecnicos: BibliotecaMensajesTecnicos = field(
         default_factory=BibliotecaMensajesTecnicos, init=False
+    )
+    sonidos_recinto: ConfiguracionSonidosRecinto = field(
+        default_factory=ConfiguracionSonidosRecinto, init=False
     )
 
     def contexto_operativo_activo(self) -> Preparacion | None:
