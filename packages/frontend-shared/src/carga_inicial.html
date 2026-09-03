@@ -1,0 +1,148 @@
+<!--
+  Indicador de carga inicial compartido por las cuatro SPA de Botonera2 (WP-061).
+
+  No es un componente Vue: es HTML crudo que Nuxt incrusta dentro del `index.html` de cada
+  aplicación, en el hueco `spaLoadingTemplate`. Las cuatro `nuxt.config.ts` apuntan a este
+  mismo archivo, así que existe un único indicador y no cuatro copias que puedan divergir.
+
+  Hace falta porque las SPA se sirven con `ssr: false`: el HTML estático llega con un
+  `<div id="__nuxt">` vacío y, hasta que el navegador descarga y evalúa el bundle de Vue,
+  no hay nada dibujado. En una LAN lenta eso se ve como un viewport blanco. Este bloque,
+  en cambio, viaja dentro del propio HTML y no depende de JavaScript ni de la hoja de
+  estilos de la aplicación —sus estilos van en línea, más abajo—, de modo que cubre la
+  ventana previa a la hidratación, que ningún estado de Vue alcanza a cubrir.
+
+  Desaparece solo: Nuxt lo envuelve en `<div id="__nuxt-loader">` fuera del contenedor de
+  la aplicación (`experimental.spaLoadingTemplateLocation` vale `body` por defecto en
+  Nuxt 4) y elimina ese nodo cuando el árbol de Vue termina de montarse. Como todo acá
+  está posicionado `fixed`, nunca ocupó lugar en el flujo: al quitarse no deja hueco, no
+  produce salto de layout y no puede generar scroll. El relevo lo toma entonces
+  `IndicadorCargaInicial.vue`, con la misma barra, mientras se espera el primer snapshot.
+
+  Decisiones cerradas por el WP que se respetan acá: barra indeterminada sin porcentaje
+  inventado, fondo nunca blanco y sin splash de duración artificial —esto vive exactamente
+  lo que tarda la carga real—. Las clases llevan el prefijo `carga-inicial` para no
+  colisionar con las utilidades de Tailwind de las aplicaciones que sí lo usan.
+-->
+<div
+  class="carga-inicial"
+  role="status"
+  aria-live="polite"
+  aria-label="Cargando la interfaz de Botonera2"
+  data-testid="carga-inicial-previa"
+>
+  <div class="carga-inicial__barra">
+    <div class="carga-inicial__avance"></div>
+  </div>
+  <div class="carga-inicial__leyenda">
+    <p class="carga-inicial__marca">Botonera2</p>
+    <p class="carga-inicial__detalle">Cargando la interfaz…</p>
+  </div>
+</div>
+
+<style>
+  /*
+    Capa de fondo. `position: fixed` con `inset: 0` la saca del flujo del documento: cubre
+    el viewport entero sin empujar nada y, al eliminarse el nodo, no deja hueco.
+    El color es el mismo azul profundo institucional que usa la Pantalla del Recinto, para
+    que el relevo hacia la interfaz real no se perciba como un cambio de pantalla.
+  */
+  .carga-inicial {
+    position: fixed;
+    inset: 0;
+    z-index: 2147483000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    color: #f8fafc;
+    background: #07111f;
+    font-family:
+      Inter,
+      ui-sans-serif,
+      system-ui,
+      -apple-system,
+      BlinkMacSystemFont,
+      'Segoe UI',
+      sans-serif;
+  }
+
+  /*
+    Riel de la barra, anclado al borde superior. Es la misma geometría que reproduce
+    `IndicadorCargaInicial.vue` después del montaje, de modo que el usuario ve una única
+    barra continua durante toda la espera.
+  */
+  .carga-inicial__barra {
+    position: absolute;
+    top: 0;
+    right: 0;
+    left: 0;
+    height: 4px;
+    overflow: hidden;
+    background: rgba(148, 163, 184, 0.22);
+  }
+
+  /*
+    Tramo que se desplaza. La animación mueve un segmento del 40 % del ancho de un extremo
+    al otro: eso es lo que comunica "estoy trabajando" sin afirmar ningún avance concreto.
+    Se anima `transform` —y no `left`— porque el compositor puede resolverlo sin recalcular
+    layout, que es exactamente lo que no conviene hacer mientras el navegador está ocupado
+    descargando y evaluando el bundle.
+  */
+  .carga-inicial__avance {
+    width: 40%;
+    height: 100%;
+    background: linear-gradient(90deg, rgba(56, 189, 248, 0), #38bdf8, rgba(56, 189, 248, 0));
+    animation: carga-inicial-avance 1.4s ease-in-out infinite;
+  }
+
+  .carga-inicial__leyenda {
+    text-align: center;
+  }
+
+  .carga-inicial__marca {
+    margin: 0;
+    color: #7dd3fc;
+    font-size: 0.72rem;
+    font-weight: 900;
+    letter-spacing: 0.34em;
+    text-transform: uppercase;
+  }
+
+  .carga-inicial__detalle {
+    margin: 0.4rem 0 0;
+    color: #94a3b8;
+    font-size: 0.95rem;
+  }
+
+  @keyframes carga-inicial-avance {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(250%);
+    }
+  }
+
+  /*
+    Accesibilidad: quien pidió menos movimiento igual necesita saber que algo está
+    ocurriendo. Se sustituye el desplazamiento por un latido de opacidad, que sigue siendo
+    indeterminado pero no arrastra un elemento por la pantalla.
+  */
+  @media (prefers-reduced-motion: reduce) {
+    .carga-inicial__avance {
+      width: 100%;
+      animation: carga-inicial-latido 2s ease-in-out infinite;
+    }
+
+    @keyframes carga-inicial-latido {
+      0%,
+      100% {
+        opacity: 0.35;
+      }
+      50% {
+        opacity: 1;
+      }
+    }
+  }
+</style>
