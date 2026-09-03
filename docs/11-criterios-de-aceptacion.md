@@ -275,7 +275,7 @@ Después de una interacción aceptada relevante, el registro correspondiente deb
 
 ## CA-056 Cierre de archivos
 
-Tras cancelar preparación/cerrar sesión, esos CSV no deben volver a modificarse por Botonera2.
+Tras cancelar preparación/cerrar sesión, esos CSV no deben volver a modificarse por SISLeg.
 
 ## CA-057 Caída técnica
 
