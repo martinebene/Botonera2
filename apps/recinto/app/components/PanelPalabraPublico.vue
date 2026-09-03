@@ -15,6 +15,19 @@
  *   le robaría ancho al nombre, que es el dato que se necesita leer;
  * - nada de esto puede producir scroll horizontal: el ancho de la columna es
  *   fijo y ambos textos se recortan con elipsis dentro de él.
+ *
+ * Segundo salto de legibilidad (WP-064). HUMAN_GATE volvió a mirar la pantalla
+ * desde el recinto y decidió que el nombre todavía era chico, así que se lo
+ * agranda **aproximadamente un 80 %** respecto de lo que dejó WP-054. La
+ * decisión se aplica sólo al nombre:
+ *
+ * - la banca, el círculo de orden y el ancho de la columna quedan intactos, de
+ *   modo que todo el crecimiento se traduce en jerarquía a favor del nombre;
+ * - el renglón se vuelve más alto y entran menos pedidos a la vez en la parte
+ *   visible de la lista; eso es un costo aceptado, porque la lista ya nació con
+ *   desplazamiento vertical propio y el orden FIFO no cambia;
+ * - el recorte con elipsis sigue siendo la única respuesta a un nombre que no
+ *   entra, que es lo que mantiene la promesa de "nunca scroll horizontal".
  */
 
 import type { EstadoPalabraPublico } from '@botonera2/api-client'
@@ -135,15 +148,30 @@ defineProps<{ palabra: EstadoPalabraPublico | null }>()
 }
 
 /*
-  Nombre: dato dominante del renglón. Pasa de 0,76 rem fijos a un rango elástico
-  que arranca por encima del máximo anterior, de modo que crece con la pantalla
-  sin depender de una resolución concreta. El recorte por elipsis se conserva:
-  es lo que impide que un apellido largo empuje el ancho de la columna.
+  Nombre: dato dominante del renglón. Es un rango elástico, no un tamaño fijo,
+  para que crezca con la pantalla sin depender de una resolución concreta. El
+  recorte por elipsis se conserva: es lo que impide que un apellido largo empuje
+  el ancho de la columna.
+
+  WP-064 multiplica por 1,8 los tres términos del `clamp` que había fijado
+  WP-054 —`0,92rem / 1,02vw / 1,28rem`—. Multiplicar los tres por el mismo
+  factor, en vez de elegir números nuevos "a ojo", tiene una consecuencia útil:
+  cualquiera sea el término que gane en una resolución dada, el resultado es
+  exactamente 1,8 veces el anterior. Por eso el aumento del 80 % se puede medir
+  y se cumple igual en Full HD, donde manda el término `vw`, que en 1366×768,
+  donde manda el mínimo en `rem`.
+
+  Medición real en Chromium sobre el commit base, con raíz de 16 px:
+
+  | resolución | antes     | ahora     | factor |
+  |------------|-----------|-----------|--------|
+  | 1920×1080  | 19,584 px | 35,251 px | 1,80   |
+  | 1366×768   | 14,720 px | 26,496 px | 1,80   |
 */
 .persona-cola strong {
   display: block;
   overflow: hidden;
-  font-size: clamp(0.92rem, 1.02vw, 1.28rem);
+  font-size: clamp(1.656rem, 1.836vw, 2.304rem);
   line-height: 1.2;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -152,6 +180,11 @@ defineProps<{ palabra: EstadoPalabraPublico | null }>()
 /*
   Banca: dato de identificación institucional. También crece respecto de la
   baseline (0,63 rem) y se recorta igual que el nombre.
+
+  WP-064 la deja deliberadamente donde estaba. El pedido humano era agrandar el
+  nombre, y no tocar la banca hace dos cosas a la vez: ensancha la diferencia de
+  jerarquía entre el dato que se lee de lejos y el que se consulta de cerca, y
+  evita gastar en la segunda línea el alto vertical que ahora necesita el nombre.
 */
 .persona-cola small {
   display: block;

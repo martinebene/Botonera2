@@ -130,6 +130,8 @@ Debe mostrar claramente:
 - concejal en uso;
 - cola de solicitudes de forma adecuada para público.
 
+En la cola de solicitudes, el nombre de cada concejal es el dato dominante del renglón y debe dimensionarse para lectura a distancia desde el recinto, por encima del número de banca y del indicador de orden. Ocupa casi todo el ancho útil del renglón, se mantiene siempre en una sola línea y los nombres que no entran se recortan de forma determinista con elipsis, conservando el nombre completo como texto accesible. Ese tamaño no puede ensanchar la columna de palabra, alterar la grilla principal ni producir desplazamiento horizontal; cuando los pedidos superan la altura disponible, la propia lista se desplaza en vertical sin generar scroll global.
+
 La palabra puede coexistir con votación en curso.
 
 ## 11. Presencia y quórum
