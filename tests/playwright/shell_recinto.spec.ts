@@ -748,11 +748,21 @@ for (const viewport of [
     expect(cajaCabecera.height).toBeLessThanOrEqual(60)
     expect(cajaCabecera.height).toBeLessThan(viewport.height === 1080 ? 76 : 62)
 
-    // Una sola línea: el bloque central mide un renglón (≈18 px con esta
-    // tipografía) y sus datos caben enteros dentro de ese renglón. Si alguno
-    // pasara a una segunda fila, su caja sobresaldría del contenedor. Desde
-    // WP-054 las autoridades ya no viven acá: se miden en su propio bloque.
-    expect(cajaContexto.height).toBeLessThanOrEqual(26)
+    // Una sola línea: el bloque central mide un renglón y sus datos caben
+    // enteros dentro de ese renglón. Si alguno pasara a una segunda fila, su
+    // caja sobresaldría del contenedor. Desde WP-054 las autoridades ya no
+    // viven acá: se miden en su propio bloque.
+    //
+    // El umbral subió de 26 px a 36 px en WP-058 porque el cuerpo del centro se
+    // duplicó por decisión de HUMAN_GATE: el renglón pasó de ~17 px a ~34 px en
+    // Full HD y a ~23 px en 1366×768. Lo que se sigue exigiendo es lo mismo de
+    // antes —una única línea— y ahora además que ese renglón entre dentro de la
+    // altura fija de la cabecera, que no creció.
+    expect(cajaContexto.height).toBeLessThanOrEqual(36)
+    expect(cajaContexto.y).toBeGreaterThanOrEqual(cajaCabecera.y)
+    expect(cajaContexto.y + cajaContexto.height).toBeLessThanOrEqual(
+      cajaCabecera.y + cajaCabecera.height,
+    )
     for (const caja of [cajaSesion, cajaTiempo]) {
       expect(caja.y).toBeGreaterThanOrEqual(cajaContexto.y - 1)
       expect(caja.y + caja.height).toBeLessThanOrEqual(cajaContexto.y + cajaContexto.height + 1)
@@ -923,7 +933,7 @@ for (const viewport of [
     // `white-space` lo hereda el contenedor de la cabecera; se verifica el
     // resultado observable: una sola línea, sin segunda fila.
     const cajaContextoLargo = (await page.getByTestId('cabecera-contexto').boundingBox())!
-    expect(cajaContextoLargo.height).toBeLessThanOrEqual(26)
+    expect(cajaContextoLargo.height).toBeLessThanOrEqual(36)
 
     const geometriaDespues = await Promise.all(
       selectoresEstructurales.map((selector) => page.getByTestId(selector).boundingBox()),
@@ -1047,8 +1057,9 @@ for (const viewport of [
       expect(caja.y + caja.height).toBeLessThanOrEqual(cajaCabecera.y + cajaCabecera.height + 1)
     }
 
-    // El centro sigue midiendo un solo renglón.
-    expect(cajaContexto.height).toBeLessThanOrEqual(26)
+    // El centro sigue midiendo un solo renglón, con el cuerpo ampliado por
+    // WP-058 (≈34 px en Full HD y ≈23 px en 1366×768).
+    expect(cajaContexto.height).toBeLessThanOrEqual(36)
 
     // Jerarquía uniforme: institución, sesión y duración comparten tamaño.
     const tamanosCentro = await page
@@ -1159,7 +1170,9 @@ for (const viewport of [
     await expect(page.getByTestId('cantidad-presentes')).toHaveText('7/12')
     const quorumLimite = await medirQuorum()
     expect(quorumLimite.nivel).toBe('limite')
-    await expect(page.getByTestId('estado-quorum')).toHaveText('Quórum alcanzado')
+    // WP-058: el empate exacto con el mínimo tiene texto propio. El quórum sigue
+    // alcanzado; lo que la pantalla agrega es que no queda margen.
+    await expect(page.getByTestId('estado-quorum')).toHaveText('Quórum límite')
 
     // Por debajo del mínimo: rojo y sin quórum.
     await publicar(page, {
@@ -1207,5 +1220,385 @@ for (const viewport of [
     }))
     expect(desbordes.vertical).toBeLessThanOrEqual(1)
     expect(desbordes.horizontal).toBeLessThanOrEqual(1)
+  })
+}
+
+/**
+ * Evidencia geométrica de legibilidad a distancia (WP-058).
+ *
+ * HUMAN_GATE pidió textos mucho mayores sin agrandar ningún contenedor y sin
+ * generar scroll. Eso no se puede comprobar mirando clases CSS: hay que medir
+ * cuerpos tipográficos calculados, bounding boxes y la relación
+ * `scrollWidth/clientWidth` y `scrollHeight/clientHeight` de cada contenedor
+ * crítico, en las resoluciones canónicas y también en una intermedia.
+ *
+ * Baselines medidas en Chromium sobre el commit base de este WP:
+ *
+ * | dato                      | 1920×1080 | 1366×768 |
+ * |---------------------------|-----------|----------|
+ * | alto de la cabecera       | 59,4 px   | 47,0 px  |
+ * | cuerpo del centro         | 16,00 px  | 14,34 px |
+ * | cuerpo de la fecha/hora   | 13,12 px  | 12,29 px |
+ * | cuenta de transmisión     | 45,36 px  | 32,26 px |
+ * | rótulo EN VIVO            | 17,28 px  | 15,20 px |
+ *
+ * La resolución intermedia de 1440×768 no tiene baseline propia: se exige que
+ * el resultado quede entre las dos canónicas y que tampoco desborde.
+ */
+const BASELINES_WP058 = {
+  1920: { altoCabecera: 59.4, centro: 16.0, reloj: 13.12, cuenta: 45.36, enVivo: 17.28 },
+  1366: { altoCabecera: 47.0, centro: 14.343, reloj: 12.294, cuenta: 32.256, enVivo: 15.2 },
+} as const
+
+/** Devuelve la baseline de la resolución, o `null` para la intermedia. */
+function baselineWp058(ancho: number) {
+  if (ancho === 1920) return BASELINES_WP058[1920]
+  if (ancho === 1366) return BASELINES_WP058[1366]
+  return null
+}
+
+for (const viewport of [
+  { width: 1920, height: 1080 },
+  { width: 1440, height: 768 },
+  { width: 1366, height: 768 },
+]) {
+  test(`aplica la legibilidad WP-058 en ${viewport.width}×${viewport.height}`, async ({ page }) => {
+    const baseline = baselineWp058(viewport.width)
+
+    await page.setViewportSize(viewport)
+    await page.clock.install({ time: new Date('2026-08-28T09:59:00Z') })
+    await instalarBackendPublico(page, crearEstado())
+    await page.goto('http://localhost:3001/recinto/')
+    await page.getByTestId('estado-conexion').waitFor()
+    await page.clock.runFor(20)
+    await page.clock.pauseAt(HORA_RELOJ_E2E)
+
+    const datosSesion = {
+      fecha_hora_inicio_preparacion: '2026-08-28T09:30:00',
+      fecha_hora_apertura: '2026-08-28T09:45:00',
+      numero_sesion: 59,
+      presidencia: 'Ana Presidencia',
+      secretaria_legislativa: 'Luis Secretaría',
+    }
+    /** Transmisión en cuenta regresiva: el número grande de la columna derecha. */
+    const transmisionEnCuenta = {
+      transmision: {
+        estado: 'CUENTA_REGRESIVA',
+        iniciada_en: '2026-08-28T09:59:00',
+        en_vivo_desde: '2026-08-28T10:02:00',
+        cuenta_regresiva_segundos: 180,
+        segundos_restantes: 120,
+      },
+      aviso: null,
+    }
+    const sesion = crearEstado({
+      revision: 1,
+      generado_en: '2026-08-28T10:00:00',
+      estado_global: 'SESION_ABIERTA',
+      sesion: datosSesion,
+      filas_bancas: [3, 4, 5],
+      concejales: crearConcejales(12),
+      quorum: { cantidad_presentes: 8, requerido: 7, alcanzado: true },
+      palabra: { orador: { nombre: 'Andrea', apellido: 'Rueda', banca: 3 }, cola: [] },
+      votacion: crearVotacion({ tema: 'Expediente breve', cuenta_regresiva_hasta: null }),
+      tecnico: transmisionEnCuenta,
+    })
+    await publicar(page, sesion)
+    await expect(page.getByTestId('cabecera-sesion')).toContainText('59')
+    await expect(page.getByTestId('imagen-concejal').first()).toBeVisible()
+    await page.waitForFunction(() =>
+      Array.from(document.querySelectorAll('img')).every((imagen) => imagen.complete),
+    )
+
+    /**
+     * Mide un elemento: caja, cuerpo tipográfico y desbordes propios.
+     *
+     * `scrollWidth > clientWidth` o `scrollHeight > clientHeight` significan que
+     * el contenido no entra en su propia caja, que es exactamente lo que este WP
+     * no puede permitir.
+     */
+    async function medir(selector: string) {
+      return page.locator(selector).evaluate((elemento) => {
+        const caja = elemento.getBoundingClientRect()
+        const estilo = getComputedStyle(elemento)
+        return {
+          x: caja.x,
+          y: caja.y,
+          ancho: caja.width,
+          alto: caja.height,
+          cuerpo: Number.parseFloat(estilo.fontSize),
+          desbordeHorizontal: elemento.scrollWidth - elemento.clientWidth,
+          desbordeVertical: elemento.scrollHeight - elemento.clientHeight,
+        }
+      })
+    }
+
+    /** Content box real de un contenedor: su caja interior menos borde y relleno. */
+    async function medirContentBox(selector: string) {
+      return page.locator(selector).evaluate((elemento) => {
+        const caja = elemento.getBoundingClientRect()
+        const estilo = getComputedStyle(elemento)
+        const izquierda =
+          caja.x + Number.parseFloat(estilo.borderLeftWidth) + Number.parseFloat(estilo.paddingLeft)
+        const arriba =
+          caja.y + Number.parseFloat(estilo.borderTopWidth) + Number.parseFloat(estilo.paddingTop)
+        const derecha =
+          caja.right -
+          Number.parseFloat(estilo.borderRightWidth) -
+          Number.parseFloat(estilo.paddingRight)
+        const abajo =
+          caja.bottom -
+          Number.parseFloat(estilo.borderBottomWidth) -
+          Number.parseFloat(estilo.paddingBottom)
+        return { izquierda, arriba, derecha, abajo }
+      })
+    }
+
+    // -----------------------------------------------------------------------
+    // 1 · Cabecera: mismo alto físico, cuerpo mucho mayor y una sola línea
+    // -----------------------------------------------------------------------
+    const cabecera = await medir('[data-testid="cabecera-recinto"]')
+    const reloj = await medir('[data-testid="cabecera-fecha-hora"]')
+    const contexto = await medir('[data-testid="cabecera-contexto"]')
+    const titulo = await medir('.titulo-institucional')
+    const sectorDerecho = await medir('.sector-derecho')
+
+    // El cuerpo del centro se lee en sus datos, no en el contenedor flex: la
+    // caja `.marca-institucional` conserva el tamaño heredado y sólo aporta la
+    // geometría del renglón.
+    const sesionTexto = await medir('[data-testid="cabecera-sesion"]')
+    const duracion = await medir('[data-testid="cabecera-tiempo-sesion"]')
+
+    if (baseline) {
+      // Criterio 1: la altura física de la cabecera no crece ni un píxel.
+      expect(cabecera.alto).toBeCloseTo(baseline.altoCabecera, 1)
+      // Criterio 2: el centro se acerca al doble del cuerpo anterior.
+      expect(titulo.cuerpo / baseline.centro).toBeGreaterThan(1.35)
+      // La fecha/hora crece todavía más porque partía de un cuerpo menor.
+      expect(reloj.cuerpo / baseline.reloj).toBeGreaterThan(1.6)
+    }
+    // Nunca por encima del techo físico de la franja.
+    expect(cabecera.alto).toBeLessThanOrEqual(60)
+
+    // Institución, sesión y duración conservan una única jerarquía (WP-054) y la
+    // fecha/hora alcanza exactamente ese mismo alto tipográfico (WP-058).
+    expect(sesionTexto.cuerpo).toBeCloseTo(titulo.cuerpo, 2)
+    expect(duracion.cuerpo).toBeCloseTo(titulo.cuerpo, 2)
+    expect(reloj.cuerpo).toBeCloseTo(titulo.cuerpo, 2)
+    // La fecha/hora conserva su fuente monoespaciada y su lugar a la izquierda.
+    const familiaReloj = await page
+      .getByTestId('cabecera-fecha-hora')
+      .evaluate((elemento) => getComputedStyle(elemento).fontFamily)
+    expect(familiaReloj).toContain('monospace')
+    expect(reloj.x).toBeLessThan(contexto.x)
+
+    // Una sola línea, sin recortes y sin desbordar la cabecera.
+    expect(reloj.desbordeHorizontal).toBeLessThanOrEqual(0)
+    expect(contexto.desbordeHorizontal).toBeLessThanOrEqual(0)
+    expect(cabecera.desbordeVertical).toBeLessThanOrEqual(0)
+    // Y ningún renglón desborda su propia caja: al duplicar el cuerpo, un
+    // interlineado apenas corto dejaba la tinta 1 px fuera del renglón. No se
+    // veía, pero es la definición misma del recorte silencioso que este WP
+    // tiene que descartar, así que se fija acá.
+    for (const renglon of [reloj, contexto, titulo, sesionTexto, duracion]) {
+      expect(renglon.desbordeVertical).toBeLessThanOrEqual(0)
+    }
+    expect(contexto.alto).toBeLessThanOrEqual(cabecera.alto)
+    for (const caja of [reloj, contexto, sectorDerecho]) {
+      expect(caja.y).toBeGreaterThanOrEqual(cabecera.y - 1)
+      expect(caja.y + caja.alto).toBeLessThanOrEqual(cabecera.y + cabecera.alto + 1)
+    }
+
+    // Sin colisión entre las tres zonas: el crecimiento no invadió a nadie.
+    expect(reloj.x + reloj.ancho).toBeLessThanOrEqual(contexto.x)
+    expect(contexto.x + contexto.ancho).toBeLessThanOrEqual(sectorDerecho.x)
+    // Y el centro sigue estando realmente centrado (tolerancia de subpíxel).
+    expect(Math.abs(contexto.x + contexto.ancho / 2 - viewport.width / 2)).toBeLessThanOrEqual(2)
+
+    // -----------------------------------------------------------------------
+    // 2 · Transmisión en cuenta regresiva: el texto entra en el content box
+    // -----------------------------------------------------------------------
+    const bloque = await medir('[data-testid="bloque-transmision"]')
+    const contenidoBloque = await medirContentBox('[data-testid="bloque-transmision"]')
+    const rotulo = await medir('.rotulo-transmision')
+    const numero = await medir('[data-testid="cuenta-regresiva-transmision"]')
+
+    if (baseline) {
+      // Criterio 3: la cuenta se acerca al máximo razonable del contenedor.
+      expect(numero.cuerpo / baseline.cuenta).toBeGreaterThan(1.9)
+    }
+    // Ninguno de los dos textos sale del content box del bloque, que es la
+    // demostración que exige el WP: no alcanza con que "se vea bien".
+    for (const texto of [rotulo, numero]) {
+      expect(texto.x).toBeGreaterThanOrEqual(contenidoBloque.izquierda - 0.5)
+      expect(texto.x + texto.ancho).toBeLessThanOrEqual(contenidoBloque.derecha + 0.5)
+      expect(texto.y).toBeGreaterThanOrEqual(contenidoBloque.arriba - 0.5)
+      expect(texto.y + texto.alto).toBeLessThanOrEqual(contenidoBloque.abajo + 0.5)
+      expect(texto.desbordeHorizontal).toBeLessThanOrEqual(0)
+      expect(texto.desbordeVertical).toBeLessThanOrEqual(0)
+    }
+    // El contenedor no ganó scroll propio en ninguna dirección.
+    expect(bloque.desbordeHorizontal).toBeLessThanOrEqual(0)
+    expect(bloque.desbordeVertical).toBeLessThanOrEqual(0)
+
+    // -----------------------------------------------------------------------
+    // 3 · Bancas: tarjetas uniformes y más escala útil sin recortar contenido
+    // -----------------------------------------------------------------------
+    const tarjetas = await page.getByTestId('banca-publica').evaluateAll((nodos) =>
+      nodos.map((nodo) => {
+        const caja = nodo.getBoundingClientRect()
+        const imagen = nodo.querySelector('[data-testid="imagen-concejal"]') as HTMLImageElement
+        const area = nodo.querySelector('.area-imagen') as HTMLElement
+        const cajaArea = area.getBoundingClientRect()
+        const estilo = getComputedStyle(imagen)
+        return {
+          ancho: Math.round(caja.width),
+          alto: Math.round(caja.height),
+          areaAncho: cajaArea.width,
+          areaAlto: cajaArea.height,
+          ajuste: estilo.objectFit,
+          recorte: estilo.objectViewBox,
+          naturalAlto: imagen.naturalHeight,
+          naturalAncho: imagen.naturalWidth,
+          cargada: imagen.naturalWidth > 0,
+          dentro:
+            cajaArea.left >= caja.left - 1 &&
+            cajaArea.right <= caja.right + 1 &&
+            cajaArea.top >= caja.top - 1 &&
+            cajaArea.bottom <= caja.bottom + 1,
+        }
+      }),
+    )
+    expect(tarjetas).toHaveLength(12)
+    for (const tarjeta of tarjetas) {
+      // Criterio 4, primera mitad: todas las tarjetas siguen midiendo lo mismo.
+      expect(tarjeta.ancho).toBe(tarjetas[0]!.ancho)
+      expect(tarjeta.alto).toBe(tarjetas[0]!.alto)
+      expect(tarjeta.cargada).toBe(true)
+      expect(tarjeta.dentro).toBe(true)
+      // El ajuste sigue siendo `contain`: nada del lienzo visible se recorta.
+      expect(tarjeta.ajuste).toBe('contain')
+      // Criterio 4, segunda mitad: el recorte de margen inerte está aplicado.
+      // `assets_bancas_wp058.test.ts` demuestra que ese marco no tiene contenido.
+      expect(tarjeta.recorte).toBe('inset(12px 33px 3px)')
+      expect(tarjeta.naturalAlto).toBe(300)
+      expect(tarjeta.naturalAncho).toBe(300)
+    }
+
+    // La tarjeta es más ancha que alta, así que `contain` ajusta por altura: la
+    // escala útil pasa de alto/300 a alto/285 px de lienzo. Se comprueba la
+    // premisa (tarjeta apaisada) y la ganancia resultante.
+    const primera = tarjetas[0]!
+    expect(primera.areaAncho / primera.areaAlto).toBeGreaterThan(234 / 285)
+    const escalaAntes = primera.areaAlto / 300
+    const escalaDespues = primera.areaAlto / (300 - 12 - 3)
+    expect(escalaDespues).toBeGreaterThan(escalaAntes)
+    expect(escalaDespues / escalaAntes).toBeCloseTo(1.053, 2)
+
+    // -----------------------------------------------------------------------
+    // 4 · Quórum: las tres redacciones sobre números ya proyectados
+    // -----------------------------------------------------------------------
+    await expect(page.getByTestId('estado-quorum')).toHaveText('Quórum alcanzado')
+
+    await publicar(page, {
+      ...sesion,
+      revision: 2,
+      quorum: { cantidad_presentes: 7, requerido: 7, alcanzado: true },
+    })
+    await expect(page.getByTestId('cantidad-presentes')).toHaveText('7/12')
+    await expect(page.getByTestId('estado-quorum')).toHaveText('Quórum límite')
+    // El backend sigue declarando alcanzado: la pantalla no cambió la regla.
+    await expect(page.getByTestId('panel-quorum')).toHaveAttribute('data-nivel-quorum', 'limite')
+
+    await publicar(page, {
+      ...sesion,
+      revision: 3,
+      quorum: { cantidad_presentes: 6, requerido: 7, alcanzado: false },
+    })
+    await expect(page.getByTestId('estado-quorum')).toHaveText('Sin quórum')
+
+    // -----------------------------------------------------------------------
+    // 5 · EN VIVO: mismo contenedor, texto mucho mayor, sin desbordes
+    // -----------------------------------------------------------------------
+    await publicar(page, {
+      ...sesion,
+      revision: 4,
+      tecnico: {
+        transmision: {
+          estado: 'EN_VIVO',
+          iniciada_en: '2026-08-28T09:59:00',
+          en_vivo_desde: '2026-08-28T09:59:30',
+          cuenta_regresiva_segundos: 30,
+          segundos_restantes: 0,
+        },
+        aviso: null,
+      },
+    })
+    await expect(page.getByTestId('en-vivo')).toBeVisible()
+    const bloqueEnVivo = await medir('[data-testid="bloque-transmision"]')
+    const contenidoEnVivo = await medirContentBox('[data-testid="bloque-transmision"]')
+    const enVivo = await medir('[data-testid="en-vivo"]')
+
+    if (baseline) {
+      expect(enVivo.cuerpo / baseline.enVivo).toBeGreaterThan(1.9)
+    }
+    // El contenedor no cambió de tamaño al cambiar de estado.
+    expect(bloqueEnVivo.ancho).toBeCloseTo(bloque.ancho, 1)
+    expect(bloqueEnVivo.alto).toBeCloseTo(bloque.alto, 1)
+    expect(enVivo.x).toBeGreaterThanOrEqual(contenidoEnVivo.izquierda - 0.5)
+    expect(enVivo.x + enVivo.ancho).toBeLessThanOrEqual(contenidoEnVivo.derecha + 0.5)
+    expect(enVivo.y).toBeGreaterThanOrEqual(contenidoEnVivo.arriba - 0.5)
+    expect(enVivo.y + enVivo.alto).toBeLessThanOrEqual(contenidoEnVivo.abajo + 0.5)
+    expect(enVivo.desbordeHorizontal).toBeLessThanOrEqual(0)
+    expect(enVivo.desbordeVertical).toBeLessThanOrEqual(0)
+    expect(bloqueEnVivo.desbordeHorizontal).toBeLessThanOrEqual(0)
+    expect(bloqueEnVivo.desbordeVertical).toBeLessThanOrEqual(0)
+
+    // -----------------------------------------------------------------------
+    // 6 · Countdown de votación: el rótulo correcto no puede volver atrás
+    // -----------------------------------------------------------------------
+    const ahoraCountdown = await page.evaluate(() => Date.now())
+    await publicar(page, {
+      ...sesion,
+      revision: 5,
+      generado_en: new Date(ahoraCountdown).toISOString(),
+      votacion: crearVotacion({
+        tema: 'Expediente con cuenta regresiva',
+        fecha_hora_apertura: new Date(ahoraCountdown).toISOString(),
+        cuenta_regresiva_hasta: new Date(ahoraCountdown + 5000).toISOString(),
+      }),
+    })
+    const countdown = page.getByTestId('countdown-votacion')
+    await expect(countdown).toBeVisible()
+    await expect(countdown).toContainText('Votación en curso')
+    await expect(countdown).not.toContainText('Comienza en')
+
+    // -----------------------------------------------------------------------
+    // 7 · Contenedores críticos sin scroll propio ni scroll global
+    // -----------------------------------------------------------------------
+    const criticos = [
+      'cabecera-recinto',
+      'franja-votacion-quorum',
+      'panel-quorum',
+      'zona-principal-recinto',
+      'area-bancas-publica',
+      'columna-palabra-publica',
+      'bloque-transmision',
+      'grilla-bancas',
+    ] as const
+    for (const selector of criticos) {
+      const desbordes = await page.getByTestId(selector).evaluate((elemento) => ({
+        horizontal: elemento.scrollWidth - elemento.clientWidth,
+        vertical: elemento.scrollHeight - elemento.clientHeight,
+      }))
+      expect({ selector, ...desbordes }).toEqual({ selector, horizontal: 0, vertical: 0 })
+    }
+
+    const desbordeGlobal = await page.evaluate(() => ({
+      vertical: document.documentElement.scrollHeight - window.innerHeight,
+      horizontal: document.documentElement.scrollWidth - window.innerWidth,
+    }))
+    expect(desbordeGlobal.vertical).toBeLessThanOrEqual(1)
+    expect(desbordeGlobal.horizontal).toBeLessThanOrEqual(1)
   })
 }

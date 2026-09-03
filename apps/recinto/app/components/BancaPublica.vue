@@ -190,6 +190,53 @@ watch(claveImagen, () => {
   object-fit: contain;
 }
 
+/*
+  Recorte del marco inerte del bitmap institucional (WP-058).
+
+  HUMAN_GATE pidió que la identidad se vea con mayor escala. Nombre, apellido y
+  bloque viven *dentro* del bitmap, así que no se pueden agrandar por CSS ni
+  duplicar como texto (eso último está explícitamente fuera de alcance). Lo
+  único que sí puede recuperarse es el margen que el propio archivo desperdicia.
+
+  Los doce archivos miden 300x300 px y se midió su contenido píxel a píxel,
+  contando como inerte únicamente lo totalmente transparente o blanco puro. Con
+  ese criterio estricto —que incluye el antialias casi invisible del borde de
+  las letras— el marco garantizado sin contenido en *todos* ellos es:
+
+  | borde     | margen inerte mínimo entre los 12 archivos |
+  |-----------|--------------------------------------------|
+  | superior  | 12 px                                      |
+  | inferior  | 3 px                                       |
+  | izquierdo | 33 px                                      |
+  | derecho   | 34 px                                      |
+
+  `object-view-box` recorta exactamente ese marco —12/33/3/33, todos menores o
+  iguales al mínimo medido— y `object-fit: contain` sigue aplicándose después,
+  ahora sobre una caja de 234x285 px en lugar de 300x300. Como la tarjeta es más
+  ancha que alta, el ajuste lo decide la altura: la identidad pasa a dibujarse
+  300/285 = 1,053 veces más grande, es decir +5,3 % lineal y +11 % de superficie,
+  sin recortar ni un píxel de nombre, foto o logo.
+
+  La regresión `assets_bancas_wp058.test.ts` vuelve a medir los doce archivos y
+  falla si un asset nuevo tuviera contenido dentro de ese marco.
+
+  Queda escrito acá con toda claridad: esta ganancia es la máxima posible sin
+  recortar contenido. La tarjeta pública es más ancha que alta y el contenido
+  del bitmap es más alto que ancho, así que `contain` siempre ajusta por altura;
+  cualquier aumento mayor exigiría recortar foto, nombre o logo. Ese límite se
+  elevó al ORCHESTRATOR junto con esta implementación.
+
+  Se declara bajo `@supports` a propósito: donde el motor no conozca la
+  propiedad, la tarjeta vuelve exactamente al encuadre anterior en lugar de
+  quedar rota. La ganancia es una mejora progresiva, nunca un requisito de
+  render.
+*/
+@supports (object-view-box: inset(0)) {
+  .imagen-banca {
+    object-view-box: inset(12px 33px 3px 33px);
+  }
+}
+
 .banca-publica[data-estado-banca='AUSENTE'] .imagen-banca {
   filter: grayscale(1);
   opacity: 0.72;

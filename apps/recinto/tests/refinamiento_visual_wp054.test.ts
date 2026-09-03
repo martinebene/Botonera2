@@ -79,7 +79,9 @@ describe('Quórum público como presentes/total (WP-054)', () => {
     const limite = montarQuorum(7, 7, 12)
     expect(nivelDeclarado(limite)).toBe('limite')
     // La condición reglamentaria no cambia: igualar el mínimo alcanza quórum.
-    expect(limite.get('[data-testid="estado-quorum"]').text()).toBe('Quórum alcanzado')
+    // Lo que cambió en WP-058 es la redacción, que ahora distingue ese caso del
+    // caso holgado en palabras y no sólo con el color introducido acá.
+    expect(limite.get('[data-testid="estado-quorum"]').text()).toBe('Quórum límite')
 
     // Por debajo del mínimo: sin quórum.
     const insuficiente = montarQuorum(6, 7, 12)
