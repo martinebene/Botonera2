@@ -208,7 +208,7 @@ WP-033 quedó integrado antes de continuar WP-026 y deja disponible el harness m
 | WP-059 | Reorganizar la interfaz de Apoyo Técnico según prueba humana | INTEGRADO | WP-056 | - |
 | WP-060 | Corregir geometría y ajuste tipográfico de avisos compartidos | INTEGRADO | WP-056 | - |
 | WP-061 | Incorporar indicador de carga pre-hidratación en todos los frontends | INTEGRADO | WP-057, WP-058, WP-059, WP-060 | - |
-| WP-062 | Adoptar identidad SISLeg y terminología de Recinto | EN_CURSO | WP-061 | claude |
+| WP-062 | Adoptar identidad SISLeg y terminología de Recinto | INTEGRADO | WP-061 | claude |
 | WP-063 | Formatear visualmente el factor a dos decimales truncados | PENDIENTE | WP-062 | - |
 | WP-064 | Aumentar legibilidad de nombres en la cola de palabra del Recinto | PENDIENTE | WP-062 | - |
 | WP-065 | Incorporar configuración y assets de sonidos del Recinto | PENDIENTE | WP-062 | - |
@@ -358,3 +358,6 @@ Nueva iteración de prueba humana del 03/09/2026: HUMAN_GATE aprobó WP-062..WP-
 
 
 HUMAN_GATE activó WP-062 el 03/09/2026 con Claude Code / Claude Opus 5 (High) como IMPLEMENTER y Antigravity/AGY / Gemini 3.8 Flash (High) como REVIEWER independiente. El WP parte del main que ya contiene los assets canónicos SISLeg en `assets/branding/`. WP-063, WP-064 y WP-065 permanecen PENDIENTES hasta integrar WP-062; WP-029 continúa BLOQUEADO.
+
+
+WP-062 quedó integrado mediante PR #69 sobre el candidato `4278ea5a19be33712a5bd8aa58d377ede1c35a01`, con revisión independiente 0 BLOQUEANTES / 0 IMPORTANTES / 0 MENORES y veredicto `LISTA PARA INTEGRAR`. El squash `8f6804b71ea950223fbab57b9137fc35756ccc63` conserva exactamente el tree revisado `78d6d59e106b148a482e05988a6d8ebf30662af3`; CI candidata #444 y post-merge #445 terminaron `success` 8/8. Quedan habilitadas por dependencias WP-063, WP-064 y WP-065 para su lote lógico paralelo/secuencial local. WP-029 continúa BLOQUEADO.
