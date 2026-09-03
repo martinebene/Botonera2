@@ -87,7 +87,7 @@ async def crear_servicios(
     ServicioEntradaTecla,
     ServicioVotacion,
 ]:
-    """Prepara una sala real y comparte un único serializador entre servicios."""
+    """Prepara un recinto real y comparte un único serializador entre servicios."""
 
     ruta_configuracion = escribir_system_toml(
         tmp_path / "system.toml",

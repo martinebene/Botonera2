@@ -1,5 +1,5 @@
 /**
- * Punto de entrada del código genuinamente común a los frontends de Botonera2.
+ * Punto de entrada del código genuinamente común a los frontends de SISLeg.
  *
  * Solo se publica aquí lo que necesita ser idéntico en más de una interfaz. Hoy
  * incluye la semántica visual de una banca (WP-045), el cálculo temporal

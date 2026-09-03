@@ -12,7 +12,7 @@ from __future__ import annotations
 class ErrorEstadoIncompatible(Exception):
     """La operación solicitada no es válida para el estado global actual.
 
-    Por ejemplo: preparar la sala cuando el sistema no está en
+    Por ejemplo: preparar el recinto cuando el sistema no está en
     ``SIN_PREPARAR``, o cancelar la preparación cuando no hay una activa.
     Corresponde al código estable ``ESTADO_INCOMPATIBLE`` con HTTP 409.
     """

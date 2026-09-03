@@ -21,7 +21,7 @@ la conexión no se pierde. La UI conserva la versión de igual o mayor revisión
 ## 2. Estados globales
 
 ### SIN_PREPARAR
-Debe ofrecer como acción principal `Preparar sala`.
+Debe ofrecer como acción principal `Preparar recinto`.
 
 No debe mostrar controles de votación, palabra o presencia manual.
 
@@ -107,7 +107,7 @@ Debe permitir:
 - crear una votación manual;
 - seleccionar puntos en cualquier orden.
 
-No debe advertir por números repetidos, secuencia u otras cuestiones institucionales que Botonera2 no valida.
+No debe advertir por números repetidos, secuencia u otras cuestiones institucionales que SISLeg no valida.
 
 ## 8. Formulario de votación
 

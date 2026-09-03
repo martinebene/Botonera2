@@ -1,6 +1,6 @@
 # 13 - Despliegue y operación
 
-Este documento registra las decisiones técnicas cerradas para el despliegue inicial de Botonera2.
+Este documento registra las decisiones técnicas cerradas para el despliegue inicial de SISLeg.
 
 Complementa `12-decisiones-tecnicas.md`. Las decisiones todavía abiertas permanecen en `10-preguntas-abiertas.md`.
 
@@ -35,7 +35,7 @@ Principios:
 - no habrá servidores Node/Nitro permanentes en producción para estos frontends;
 - Nginx servirá los archivos HTML/CSS/JS generados;
 - Moderación y Recinto consumirán FastAPI mediante REST + SSE;
-- no se necesita SSR para el objetivo institucional de Botonera2.
+- no se necesita SSR para el objetivo institucional de SISLeg.
 
 La configuración concreta de build debe respetar Nuxt 4 y el funcionamiento bajo subrutas definido en DT-030.
 
@@ -90,7 +90,7 @@ Procedimiento general:
 6. ejecutar verificaciones de salud;
 7. si la nueva versión falla, volver al enlace de la release anterior y reiniciar.
 
-No se despliega ni reinicia deliberadamente Botonera2 durante `PREPARANDO` o `SESION_ABIERTA`, porque el estado activo es volátil y una interrupción obliga reglamentariamente a comenzar nuevamente.
+No se despliega ni reinicia deliberadamente SISLeg durante `PREPARANDO` o `SESION_ABIERTA`, porque el estado activo es volátil y una interrupción obliga reglamentariamente a comenzar nuevamente.
 
 Configuración y registros viven fuera de `releases/` para que actualización y rollback no los sustituyan ni eliminen.
 

@@ -231,7 +231,7 @@ for (const viewport of [
     await page.clock.runFor(20)
     await page.clock.pauseAt(HORA_RELOJ_E2E)
 
-    await expect(page.getByTestId('estado-sin-preparar')).toContainText('Sala sin preparar')
+    await expect(page.getByTestId('estado-sin-preparar')).toContainText('Recinto sin preparar')
     await expect(page.getByTestId('estado-conexion')).toContainText('En línea')
 
     const preparando = crearEstado({

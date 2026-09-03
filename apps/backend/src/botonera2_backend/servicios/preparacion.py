@@ -1,8 +1,8 @@
-"""Servicio de dominio para preparar la sala y cancelar la preparación (WP-005).
+"""Servicio de dominio para preparar el recinto y cancelar la preparación (WP-005).
 
 Implementa las dos primeras transiciones del ciclo de vida:
 
-- ``SIN_PREPARAR -> PREPARANDO`` (``Preparar sala``, CU-01);
+- ``SIN_PREPARAR -> PREPARANDO`` (``Preparar recinto``, CU-01);
 - ``PREPARANDO -> SIN_PREPARAR`` (cancelar preparación, CU-02).
 
 Ambas operaciones se ejecutan por completo dentro del ``EjecutorMutaciones``
@@ -49,7 +49,7 @@ from botonera2_backend.dominio.estado import EstadoGlobal, EstadoOperativo
 from botonera2_backend.dominio.preparacion import Preparacion
 from botonera2_backend.servicios.serializacion import EjecutorMutaciones
 
-# Rutas canónicas de los archivos que carga ``Preparar sala``. El cliente no
+# Rutas canónicas de los archivos que carga ``Preparar recinto``. El cliente no
 # las suministra: el contrato REST fija que el backend carga siempre estos
 # archivos propios, resueltos contra el directorio de trabajo del proceso.
 RUTA_CONFIGURACION_POR_DEFECTO = Path("config/system.toml")
@@ -58,9 +58,9 @@ RUTA_PADRON_POR_DEFECTO = Path("config/concejales.csv")
 # Datos canónicos del evento institucional de inicio de preparación.
 ETIQUETA_PREPARACION = "PREPARACION"
 CODIGO_PREPARACION_INICIADA = "PREPARACION_INICIADA"
-MENSAJE_PREPARACION_INICIADA = "Preparación de sala iniciada"
+MENSAJE_PREPARACION_INICIADA = "Preparación del recinto iniciada"
 CODIGO_PREPARACION_CANCELADA = "PREPARACION_CANCELADA"
-MENSAJE_PREPARACION_CANCELADA = "Preparación de sala cancelada"
+MENSAJE_PREPARACION_CANCELADA = "Preparación del recinto cancelada"
 
 
 class ServicioPreparacion:
@@ -94,7 +94,7 @@ class ServicioPreparacion:
         self._fabrica_escritor = fabrica_escritor
 
     async def preparar_sala(self) -> None:
-        """Ejecuta ``Preparar sala`` completo bajo el serializador único.
+        """Ejecuta ``Preparar recinto`` completo bajo el serializador único.
 
         Errores:
             ErrorEstadoIncompatible: si el sistema no está en ``SIN_PREPARAR``.
@@ -134,7 +134,7 @@ class ServicioPreparacion:
 
         if self._estado.estado_global is not EstadoGlobal.SIN_PREPARAR:
             raise ErrorEstadoIncompatible(
-                "Solo puede prepararse la sala desde SIN_PREPARAR "
+                "Solo puede prepararse el recinto desde SIN_PREPARAR "
                 f"(estado actual: {self._estado.estado_global.value})"
             )
 

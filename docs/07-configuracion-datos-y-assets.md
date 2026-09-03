@@ -52,7 +52,7 @@ Son configuración de instalación y no constantes de negocio.
 
 ## 5. Padrón de concejales
 
-Contrato canónico de Botonera2:
+Contrato canónico de SISLeg:
 
 ```text
 dni,nombre,apellido,bloque,banca,dispositivo_votacion,ruta_imagen
@@ -70,11 +70,11 @@ Reglas:
 
 La presencia **no forma parte del archivo de padrón**: es un dato operativo dinámico y toda preparación comienza con todos los concejales ausentes.
 
-El padrón actualmente versionado contiene los datos de instalación tomados del sistema histórico en producción (`martinebene/Botonera`, SHA `537823b4a0045853c74a388058fa3739cf7457a5`). Esa procedencia determina las identidades, bloques, bancas y dispositivos lógicos instalados, pero no modifica el contrato estable de Botonera2: las filas se ordenan por banca, `ruta_imagen` permanece explícita y la columna histórica `presente` se omite porque la presencia sigue siendo estado dinámico.
+El padrón actualmente versionado contiene los datos de instalación tomados del sistema histórico en producción (`martinebene/Botonera`, SHA `537823b4a0045853c74a388058fa3739cf7457a5`). Esa procedencia determina las identidades, bloques, bancas y dispositivos lógicos instalados, pero no modifica el contrato estable de SISLeg: las filas se ordenan por banca, `ruta_imagen` permanece explícita y la columna histórica `presente` se omite porque la presencia sigue siendo estado dinámico.
 
 La cantidad de filas del padrón debe coincidir exactamente con la cantidad total de bancas definida por la disposición configurada en `system.toml` (suma de `room.rows`). Las bancas deben ser únicas, estar dentro de esa capacidad y cubrir completamente la disposición configurada.
 
-Un padrón inválido bloquea `Preparar sala`.
+Un padrón inválido bloquea `Preparar recinto`.
 
 ## 6. Congelamiento del padrón
 
@@ -124,9 +124,9 @@ Valores iniciales acordados:
 
 Su función es exclusivamente asistencial. Moderación envía el archivo al backend y el backend es el único componente que lo parsea.
 
-### Formato canónico Botonera2
+### Formato canónico de SISLeg
 
-Botonera2 acepta **únicamente** el nuevo CSV explícito:
+SISLeg acepta **únicamente** el nuevo CSV explícito:
 
 ```text
 nro_votacion,tipo,tema,tipo_mayoria,factor,base
@@ -157,7 +157,7 @@ El formato histórico de producción utilizaba cinco columnas:
 nro_votacion,tipo,tema,factor_de_mayoria,respecto
 ```
 
-Ese formato **no es aceptado por Botonera2**. Debe convertirse al formato canónico antes de la importación.
+Ese formato **no es aceptado por SISLeg**. Debe convertirse al formato canónico antes de la importación.
 
 No se implementará un adaptador automático que interprete `factor=0` o vacío como mayoría simple. Esta incompatibilidad evita reintroducir en la nueva arquitectura la semántica histórica implícita que DT-039 decidió eliminar.
 
@@ -171,7 +171,7 @@ Fuente autorizada para descargar imágenes existentes:
 
 Incluye imágenes `1.png` a `12.png` usadas para representación de bancas.
 
-Botonera2 no debe hardcodear la imagen por número de banca. La ruta interna correspondiente a cada concejal se declara en `ruta_imagen` dentro de `concejales.csv`.
+SISLeg no debe hardcodear la imagen por número de banca. La ruta interna correspondiente a cada concejal se declara en `ruta_imagen` dentro de `concejales.csv`.
 
 Los agentes pueden copiar esos assets cuando implementen la interfaz. No deben copiar el frontend histórico completo para obtenerlos.
 
@@ -209,3 +209,22 @@ Presidencia y Secretaría Legislativa no forman parte del padrón ni de la confi
 - Estilos: Tailwind CSS v4 + componentes propios.
 
 Las actualizaciones de dependencias deben ser deliberadas y revisadas; nunca una actualización automática de producción.
+
+## 15. Assets de marca institucional
+
+El nombre visible del producto es **SISLeg** (WP-062). Los archivos aprobados por HUMAN_GATE están versionados en `assets/branding/`:
+
+| Archivo | Medidas | Uso |
+| --- | --- | --- |
+| `assets/branding/sisleg-logo.png` | 448×158 | Logo completo: pantalla de carga de las cuatro SPA y estado `SIN_PREPARAR` de la Pantalla del Recinto. |
+| `assets/branding/sisleg-isotipo.png` | 256×250 | Isotipo: favicon de las cuatro SPA. |
+
+`assets/branding/README.md` documenta la procedencia de los originales y la derivación autorizada (recorte de márgenes y conversión del fondo blanco a transparencia). Ambos PNG tienen canal de transparencia, de modo que no dibujan un rectángulo blanco sobre las superficies oscuras.
+
+Cada SPA consume una copia idéntica bajo `apps/<aplicacion>/public/assets/marca/`, igual que ya ocurre con las imágenes de banca. La duplicación es deliberada: cada aplicación se sirve bajo su propio prefijo (`/moderacion/`, `/recinto/`, `/tecnico/`, `/simulador/`) y publica su propio directorio estático, así que un único archivo compartido no sería alcanzable desde las cuatro sin introducir una ruta de servidor adicional.
+
+Reglas de uso:
+
+- donde se muestra el logo completo no se repite «SISLeg» como texto;
+- la marca no se redibuja, recolorea ni se le agrega fondo;
+- `Botonera2` se conserva como nombre de repositorio, paquetes, módulos, unidades systemd y contrato OpenAPI, pero no debe presentarse como marca a las personas usuarias.

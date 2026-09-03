@@ -102,7 +102,7 @@ async def test_post_preparacion_exitoso_devuelve_204_sin_body(
                 "L3",
                 "PREPARACION",
                 "PREPARACION_INICIADA",
-                "Preparación de sala iniciada",
+                "Preparación del recinto iniciada",
             ]
 
 

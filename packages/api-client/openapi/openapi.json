@@ -33,7 +33,7 @@
           "preparacion"
         ],
         "summary": "Preparar Sala",
-        "description": "Inicia una nueva preparación de sala (CU-01).\n\nCarga y congela ``config/system.toml`` y ``config/concejales.csv``, crea\nel conjunto de auditoría L1/L2/L3, persiste ``PREPARACION_INICIADA`` y\nrecién entonces deja el sistema en ``PREPARANDO`` con todos los\nconcejales ausentes. Si algún paso obligatorio falla, no se confirma\néxito y el sistema permanece en ``SIN_PREPARAR``.",
+        "description": "Inicia una nueva preparación del recinto (CU-01).\n\nCarga y congela ``config/system.toml`` y ``config/concejales.csv``, crea\nel conjunto de auditoría L1/L2/L3, persiste ``PREPARACION_INICIADA`` y\nrecién entonces deja el sistema en ``PREPARANDO`` con todos los\nconcejales ausentes. Si algún paso obligatorio falla, no se confirma\néxito y el sistema permanece en ``SIN_PREPARAR``.",
         "operationId": "preparar_sala_api_v1_preparacion_post",
         "responses": {
           "204": {

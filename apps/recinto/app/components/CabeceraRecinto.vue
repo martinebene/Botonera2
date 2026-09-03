@@ -57,9 +57,9 @@ const contextoCentral = computed(() => {
   if (props.estado?.estado_global === 'PREPARANDO') {
     return props.estado.preparacion?.numero_sesion
       ? `Preparando sesión N.º ${props.estado.preparacion.numero_sesion}`
-      : 'Sala en preparación'
+      : 'Recinto en preparación'
   }
-  return 'Sala sin preparar'
+  return 'Recinto sin preparar'
 })
 
 /**

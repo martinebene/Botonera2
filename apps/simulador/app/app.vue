@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * Aplicación principal del Simulador Web de Dispositivos Lógicos (Botonera2).
+ * Aplicación principal del Simulador Web de Dispositivos Lógicos (SISLeg).
  *
  * Responsabilidades (WP-034 y WP-035):
  * 1. Inicializar la sincronización diagnóstica mediante useSimulador().

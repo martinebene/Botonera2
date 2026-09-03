@@ -40,7 +40,7 @@ import { ProcesoStackIntegrado, URL_STACK, puertoOcupado, pulsarSecuencia } from
 const RUTA_BIBLIOTECA = resolve(__dirname, '../../config/apoyo-tecnico/mensajes.csv')
 
 /**
- * Deja la sala en sesión abierta para poder observar la franja completa del Recinto.
+ * Deja el recinto en sesión abierta para poder observar la franja completa del Recinto.
  *
  * Es idempotente porque las pruebas de este archivo comparten un único proceso FastAPI y
  * su estado vive en memoria: la primera abre la sesión y las siguientes la encuentran ya

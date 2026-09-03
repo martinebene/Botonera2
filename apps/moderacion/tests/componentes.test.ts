@@ -97,7 +97,7 @@ function crearEstadoFixture(parcial: Partial<EstadoModeracion> = {}): EstadoMode
         nivel: 'L3',
         etiqueta: 'SESION',
         codigo_evento: 'PREPARACION_INICIADA',
-        mensaje: 'Preparación de sala iniciada',
+        mensaje: 'Preparación del recinto iniciada',
       },
     ],
     auditoria: parcial.auditoria ?? {
@@ -208,7 +208,7 @@ describe('Componentes del Shell de Moderación', () => {
 
       expect(html).toContain('data-testid="panel-sesion-votacion"')
       expect(html).toContain('Sesión y votación')
-      expect(html).toContain('Preparando sala')
+      expect(html).toContain('Preparando el recinto')
       expect(html).toContain('Dra. García')
     })
   })
@@ -292,7 +292,7 @@ describe('Componentes del Shell de Moderación', () => {
       expect(html).toContain('Eventos')
       expect(html).toContain('#101')
       expect(html).toContain('PREPARACION_INICIADA')
-      expect(html).toContain('Preparación de sala iniciada')
+      expect(html).toContain('Preparación del recinto iniciada')
     })
   })
 })

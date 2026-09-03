@@ -12,7 +12,7 @@ Valores válidos:
 
 Transiciones:
 
-- `SIN_PREPARAR -> PREPARANDO`: `Preparar sala`.
+- `SIN_PREPARAR -> PREPARANDO`: `Preparar recinto`.
 - `PREPARANDO -> SIN_PREPARAR`: cancelar preparación.
 - `PREPARANDO -> SESION_ABIERTA`: abrir sesión con quórum y datos obligatorios.
 - `SESION_ABIERTA -> SIN_PREPARAR`: cerrar sesión.

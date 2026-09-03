@@ -95,7 +95,9 @@ describe('Cabecera sin la marca del sistema', () => {
       estadoTransmision: 'EN_VIVO',
     })
 
-    expect(wrapper.get('[data-testid="estado-global-tecnico"]').text()).toBe('Sala en preparación')
+    expect(wrapper.get('[data-testid="estado-global-tecnico"]').text()).toBe(
+      'Recinto en preparación',
+    )
     expect(wrapper.get('[data-testid="resumen-transmision"]').text()).toBe('En vivo')
     expect(wrapper.get('[data-testid="estado-conexion"]').text()).toBe('Reconectando')
     expect(wrapper.find('[data-testid="aviso-desactualizado"]').exists()).toBe(true)

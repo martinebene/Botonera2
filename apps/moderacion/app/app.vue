@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * Vista principal y Shell de la aplicación de Moderación de Botonera2.
+ * Vista principal y Shell de la aplicación de Moderación de SISLeg.
  *
  * Responsabilidades:
  * 1. Inicializar y consumir la frontera reactiva de sincronización (useEstadoModeracion).

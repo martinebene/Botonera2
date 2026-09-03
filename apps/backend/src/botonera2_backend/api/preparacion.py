@@ -3,7 +3,7 @@
 Expone los comandos del ciclo de preparación definidos por el contrato
 (documento 04, sección 6):
 
-- ``POST /api/v1/preparacion``: ``Preparar sala`` desde ``SIN_PREPARAR``;
+- ``POST /api/v1/preparacion``: ``Preparar recinto`` desde ``SIN_PREPARAR``;
 - ``PATCH /api/v1/preparacion``: actualizar número y autoridades desde
   ``PREPARANDO``;
 - ``DELETE /api/v1/preparacion``: cancelar la preparación desde
@@ -94,7 +94,7 @@ def _crear_servicio_sesion(solicitud: Request) -> ServicioSesion:
     responses=RESPUESTAS_ERROR_PREPARACION,
 )
 async def preparar_sala(solicitud: Request) -> Response:
-    """Inicia una nueva preparación de sala (CU-01).
+    """Inicia una nueva preparación del recinto (CU-01).
 
     Carga y congela ``config/system.toml`` y ``config/concejales.csv``, crea
     el conjunto de auditoría L1/L2/L3, persiste ``PREPARACION_INICIADA`` y

@@ -12,7 +12,7 @@ Los frontends y el bridge físico envían comandos/intenciones y reciben estado/
 
 La implementación histórica envía pulsaciones al backend mediante `POST /entradas/tecla` con un identificador lógico de dispositivo y tecla.
 
-Botonera2 debe preservar inicialmente una vía compatible o proveer una migración explícita para no bloquear el hardware existente.
+SISLeg debe preservar inicialmente una vía compatible o proveer una migración explícita para no bloquear el hardware existente.
 
 ### Responsabilidades del bridge
 

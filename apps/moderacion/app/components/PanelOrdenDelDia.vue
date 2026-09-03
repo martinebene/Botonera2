@@ -16,7 +16,7 @@
  * `nro_votacion` durante la sesión. Este componente se limita a atenuarlo: no lo calcula,
  * no lo recuerda entre snapshots y no lo deshabilita. Un punto atenuado conserva hover,
  * click, toast y precarga exactamente igual que cualquier otro, porque la marca es
- * asistencial y Botonera2 permite reutilizar un número. Como el dato llega en cada
+ * asistencial y SISLeg permite reutilizar un número. Como el dato llega en cada
  * snapshot, una reconexión o un reload reconstruyen la atenuación sin estado local.
  *
  * WP-044 concentra en este cuadrante el único acuse visual de la copia asistencial:

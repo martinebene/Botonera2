@@ -6,7 +6,7 @@ Estos criterios deben convertirse progresivamente en pruebas automáticas. Son i
 
 Dado un backend recién iniciado, el estado debe ser `SIN_PREPARAR`, sin sesión activa, votación activa ni CSV abiertos.
 
-## CA-002 Preparar sala
+## CA-002 Preparar recinto
 
 Al preparar correctamente:
 
@@ -275,7 +275,7 @@ Después de una interacción aceptada relevante, el registro correspondiente deb
 
 ## CA-056 Cierre de archivos
 
-Tras cancelar preparación/cerrar sesión, esos CSV no deben volver a modificarse por Botonera2.
+Tras cancelar preparación/cerrar sesión, esos CSV no deben volver a modificarse por SISLeg.
 
 ## CA-057 Caída técnica
 

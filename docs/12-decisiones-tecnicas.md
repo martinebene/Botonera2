@@ -1,12 +1,12 @@
 # 12 - Decisiones técnicas
 
-Este documento registra decisiones técnicas ya aprobadas para Botonera2. Complementa las reglas de negocio y evita que los agentes vuelvan a decidir aspectos ya cerrados.
+Este documento registra decisiones técnicas ya aprobadas para SISLeg. Complementa las reglas de negocio y evita que los agentes vuelvan a decidir aspectos ya cerrados.
 
 Las decisiones aún no resueltas permanecen en `10-preguntas-abiertas.md`.
 
 ## DT-001 - Monorepo
 
-Botonera2 será un **monorepo**.
+SISLeg será un **monorepo**.
 
 Estructura objetivo inicial:
 
@@ -284,7 +284,7 @@ En CI estas herramientas verifican; no autocorrigen ni modifican código.
 
 ## DT-039 - Formato canónico del CSV de Orden del Día
 
-Botonera2 utilizará exclusivamente un **nuevo contrato explícito** de Orden del Día:
+SISLeg utilizará exclusivamente un **nuevo contrato explícito** de Orden del Día:
 
 ```text
 nro_votacion,tipo,tema,tipo_mayoria,factor,base
@@ -299,7 +299,7 @@ Reglas:
 - el parser backend puede normalizar mayúsculas/minúsculas de valores enumerados, pero el modelo interno utiliza los valores canónicos;
 - no se infiere el tipo de mayoría desde `factor=0`, factor vacío ni otro valor: `tipo_mayoria` siempre es explícito y autoritativo;
 - el formato histórico de cinco columnas `nro_votacion,tipo,tema,factor_de_mayoria,respecto` **no es aceptado** y debe convertirse externamente antes de importar;
-- Botonera2 no implementará adaptador automático de compatibilidad para ese formato histórico.
+- SISLeg no implementará adaptador automático de compatibilidad para ese formato histórico.
 
 El detalle del contrato vive en `docs/07-configuracion-datos-y-assets.md` y debe regir WP-016 y la UI de Orden del Día.
 

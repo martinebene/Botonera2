@@ -4,6 +4,16 @@ const shaConstruccion = process.env.BOTONERA2_SHA_CONSTRUCCION
 const instanteConstruccion = Number(process.env.BOTONERA2_INSTANTE_CONSTRUCCION ?? Date.now())
 const patronInstantePrerender = /(\[\{"prerenderedAt":\d+,"serverRendered":\d+\},)\d+(,false\])/g
 
+/**
+ * Prefijo público de la aplicación (WP-062).
+ *
+ * Antes estaba escrito directamente en `app.baseURL`. Ahora se declara una sola vez
+ * porque el favicon lo necesita también: Nuxt no antepone el `baseURL` a los `href` de
+ * `app.head.link`, así que la ruta del icono debe construirse con el mismo prefijo o el
+ * navegador lo buscaría en la raíz del servidor, donde no existe.
+ */
+const rutaBase = '/moderacion/'
+
 export default defineNuxtConfig({
   // Estas opciones fuerzan una SPA generable como archivos estáticos. En
   // producción Nginx servirá el resultado y no habrá un proceso Node/Nitro.
@@ -29,7 +39,17 @@ export default defineNuxtConfig({
     // automáticamente la conexión WebSocket HMR desde la URL de origen (import.meta.url),
     // permitiendo que el hot reload funcione a través del puerto único del reverse proxy
     // y de túneles SSH sin hardcodear puertos internos.
-    baseURL: '/moderacion/',
+    baseURL: rutaBase,
+    // Identidad visible de la pestaña del navegador (WP-062). El título nombra al
+    // producto —SISLeg— y a la pantalla concreta, porque el operador suele tener varias
+    // superficies abiertas a la vez. El icono es el isotipo aprobado, servido desde
+    // `public/assets/marca/` de esta misma aplicación.
+    head: {
+      title: 'SISLeg · Moderación',
+      link: [
+        { rel: 'icon', type: 'image/png', href: `${rutaBase}assets/marca/sisleg-isotipo.png` },
+      ],
+    },
   },
   modules: ['@nuxt/eslint'],
   css: ['~/assets/css/principal.css'],

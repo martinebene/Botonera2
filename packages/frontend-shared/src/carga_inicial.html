@@ -1,5 +1,5 @@
 <!--
-  Indicador de carga inicial compartido por las cuatro SPA de Botonera2 (WP-061).
+  Indicador de carga inicial compartido por las cuatro SPA del sistema (WP-061, WP-062).
 
   No es un componente Vue: es HTML crudo que Nuxt incrusta dentro del `index.html` de cada
   aplicación, en el hueco `spaLoadingTemplate`. Las cuatro `nuxt.config.ts` apuntan a este
@@ -23,19 +23,39 @@
   inventado, fondo nunca blanco y sin splash de duración artificial —esto vive exactamente
   lo que tarda la carga real—. Las clases llevan el prefijo `carga-inicial` para no
   colisionar con las utilidades de Tailwind de las aplicaciones que sí lo usan.
+
+  WP-062 reemplaza la palabra «Botonera2» que se mostraba como marca por el logo completo
+  de SISLeg. Dos consecuencias de diseño que conviene entender:
+
+  1. La imagen se pide con una URL **relativa** (`assets/marca/sisleg-logo.png`). Este
+     mismo archivo lo incrustan las cuatro aplicaciones, y cada una se sirve bajo su
+     propio prefijo (`/moderacion/`, `/recinto/`, `/tecnico/`, `/simulador/`). Una ruta
+     absoluta obligaría a escribir cuatro variantes; una relativa se resuelve sola contra
+     el documento que la contiene. Por eso el PNG está copiado en el `public/assets/marca/`
+     de cada aplicación: es el mismo archivo canónico de `assets/branding/`.
+  2. Donde se ve el logo no se repite «SISLeg» como texto, según decidió HUMAN_GATE. El
+     nombre accesible lo aporta el `aria-label` del contenedor, así que la imagen va con
+     `alt` vacío para que un lector de pantalla no lo anuncie dos veces.
 -->
 <div
   class="carga-inicial"
   role="status"
   aria-live="polite"
-  aria-label="Cargando la interfaz de Botonera2"
+  aria-label="Cargando la interfaz de SISLeg"
   data-testid="carga-inicial-previa"
 >
   <div class="carga-inicial__barra">
     <div class="carga-inicial__avance"></div>
   </div>
   <div class="carga-inicial__leyenda">
-    <p class="carga-inicial__marca">Botonera2</p>
+    <img
+      class="carga-inicial__marca"
+      data-testid="carga-inicial-logo"
+      src="assets/marca/sisleg-logo.png"
+      alt=""
+      width="448"
+      height="158"
+    />
     <p class="carga-inicial__detalle">Cargando la interfaz…</p>
   </div>
 </div>
@@ -100,13 +120,22 @@
     text-align: center;
   }
 
+  /*
+    Logo institucional (WP-062).
+
+    Los atributos `width`/`height` del HTML declaran la proporción real del archivo
+    (448×158) para que el navegador reserve la caja correcta antes de descargar el PNG y
+    no se produzca un salto de layout cuando llega. El tamaño mostrado, en cambio, lo
+    decide el `clamp`: crece con el ancho de la ventana pero nunca supera los 320 px, de
+    modo que en 1366×768 y en 1920×1080 el logo ocupa una porción equivalente del
+    viewport. `height: auto` conserva la proporción y `display: block` evita el hueco que
+    el navegador reserva bajo una imagen en línea.
+  */
   .carga-inicial__marca {
-    margin: 0;
-    color: #7dd3fc;
-    font-size: 0.72rem;
-    font-weight: 900;
-    letter-spacing: 0.34em;
-    text-transform: uppercase;
+    display: block;
+    width: clamp(180px, 22vw, 320px);
+    height: auto;
+    margin: 0 auto;
   }
 
   .carga-inicial__detalle {

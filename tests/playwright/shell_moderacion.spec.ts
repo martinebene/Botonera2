@@ -9,7 +9,7 @@
  *    - Alineación precisa por filas y columnas sin solapamientos horizontales ni verticales.
  *    - Ausencia de scroll de página en ambas resoluciones.
  * 2. Estado SIN_PREPARAR (1920×1080 y 1366×768):
- *    - Vista de sala sin preparar con botón 'Preparar sala'.
+ *    - Vista de recinto sin preparar con botón 'Preparar recinto'.
  *    - Ausencia de todo indicador de quórum mientras el backend no lo proyecta.
  * 3. Estado PREPARANDO (1920×1080 y 1366×768):
  *    - Inputs de número de sesión y autoridades institucionales.
@@ -1049,7 +1049,7 @@ test.describe('UI de Moderación - Estados Institucionales y Contrato de Shell (
   // ===========================================================================
   // 1. ESTADO SIN_PREPARAR (1920×1080 y 1366×768)
   // ===========================================================================
-  test('Estado SIN_PREPARAR: verifica contrato 2×2, sala sin preparar y ausencia total de indicadores de quórum (1920×1080 y 1366×768)', async ({
+  test('Estado SIN_PREPARAR: verifica contrato 2×2, recinto sin preparar y ausencia total de indicadores de quórum (1920×1080 y 1366×768)', async ({
     page,
   }) => {
     const estado = crearEstadoFixture({
@@ -1077,7 +1077,7 @@ test.describe('UI de Moderación - Estados Institucionales y Contrato de Shell (
       // Cuadrante 1: Sesión y votación
       const vistaSinPreparar = page.locator('[data-testid="vista-sin-preparar"]')
       await expect(vistaSinPreparar).toBeVisible()
-      await expect(vistaSinPreparar).toContainText('Sala sin preparar')
+      await expect(vistaSinPreparar).toContainText('Recinto sin preparar')
       await expect(page.locator('[data-testid="btn-preparar-sala"]')).toBeVisible()
       await expect(page.locator('[data-testid="vista-preparando"]')).toHaveCount(0)
       await expect(page.locator('[data-testid="vista-sesion-abierta"]')).toHaveCount(0)
@@ -2991,7 +2991,7 @@ test.describe('WP-048 - Q1 compacto y Q2 sin acuse persistente', () => {
       await expect(cuerpo.locator('[data-testid="btn-editar-autoridades"]')).toHaveCount(0)
       await expect(cuerpo.locator('[data-testid="btn-cerrar-sesion"]')).toHaveCount(0)
 
-      // El badge de estado de sala permanece en Q1: tras WP-047 es su única sede.
+      // El badge de estado del recinto permanece en Q1: tras WP-047 es su única sede.
       await expect(encabezado).toContainText('Sesión activa')
 
       // Ninguna franja interior repite el número de sesión, que ya publica la cabecera.

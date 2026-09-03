@@ -16,10 +16,10 @@ El estado activo no se persiste para recuperación. Tras un reinicio se vuelve a
 ### RN-GLOBAL-04
 Una interrupción técnica no permite continuar la sesión anterior. Debe realizarse una nueva preparación y apertura reglamentaria.
 
-## RN-PREP - Preparación de sala
+## RN-PREP - Preparación del recinto
 
 ### RN-PREP-01
-`Preparar sala` carga configuración y padrón, inicia tres CSV, deja a todos los concejales ausentes y habilita únicamente presencia y test físico.
+`Preparar recinto` carga configuración y padrón, inicia tres CSV, deja a todos los concejales ausentes y habilita únicamente presencia y test físico.
 
 ### RN-PREP-02
 Durante `PREPARANDO` deben informarse número de sesión, Presidencia y Secretaría Legislativa.
@@ -54,7 +54,7 @@ Si una persona que es concejal también ejerce la Presidencia, ambos roles funci
 El estado presente/ausente de esa persona como concejal no afecta su rol de Presidente.
 
 ### RN-AUT-06
-Secretaría Legislativa no tiene acciones funcionales en Botonera2 y no puede ser reemplazada por un concejal según el caso de negocio contemplado.
+Secretaría Legislativa no tiene acciones funcionales en SISLeg y no puede ser reemplazada por un concejal según el caso de negocio contemplado.
 
 ## RN-CON - Concejales y padrón
 
@@ -77,7 +77,7 @@ Cada concejal debe tener una `ruta_imagen` interna al sistema. No se utiliza una
 La presencia es un dato exclusivamente dinámico y no forma parte del archivo de padrón. Toda preparación comienza con todos los concejales ausentes.
 
 ### RN-CON-07
-El padrón se carga al preparar sala y queda congelado hasta finalizar la preparación/sesión.
+El padrón se carga al preparar el recinto y queda congelado hasta finalizar la preparación/sesión.
 
 ### RN-CON-08
 La única excepción futura será el remapeo rápido de dispositivo en memoria, que no modifica el padrón base.
@@ -108,7 +108,7 @@ Moderación no puede emitir presencia ni votos ordinarios en nombre de un concej
 ## RN-PRE - Presencia y quórum
 
 ### RN-PRE-01
-Todos los concejales comienzan ausentes al preparar sala.
+Todos los concejales comienzan ausentes al preparar el recinto.
 
 ### RN-PRE-02
 La presencia solo puede alternarse desde el dispositivo asignado al concejal mediante tecla `9`.
@@ -356,7 +356,7 @@ Cancelar preparación y cerrar sesión escriben un evento final y cierran defini
 Ante caída abrupta, los CSV quedan hasta el último evento persistido y no se modifican retrospectivamente.
 
 ### RN-LOG-09
-Los archivos cerrados no son editables desde Botonera2. Pueden ser corregidos externamente si el procedimiento institucional lo requiere.
+Los archivos cerrados no son editables desde SISLeg. Pueden ser corregidos externamente si el procedimiento institucional lo requiere.
 
 ### RN-LOG-10
 La profundidad y categorías de eventos deben conservar la lógica funcional de la implementación vigente, adaptada a CSV y extendida con las nuevas reglas documentadas.

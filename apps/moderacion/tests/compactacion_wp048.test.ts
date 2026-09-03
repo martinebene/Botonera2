@@ -7,7 +7,7 @@
  * - Q1 presenta cada requisito pendiente de `abrir_sesion` en su propio renglón.
  * - Q1 ubica `Editar autoridades` y `Cerrar sesión` en el área de acciones del encabezado
  *   del cuadrante y deja de reservar una franja interior para repetir `Sesión Nº N`.
- * - Q1 conserva su badge de estado de sala, que tras WP-047 solo vive acá.
+ * - Q1 conserva su badge de estado del recinto, que tras WP-047 solo vive acá.
  * - El cuerpo de la votación deja de informar de forma permanente orador y cola, sin tocar
  *   la advertencia CA-062 que aparece al intentar abrir con palabra pendiente.
  * - Los conteos agregados se leen en una sola fila secundaria y el cartel de resultado
@@ -305,7 +305,7 @@ describe('WP-048 · Q1 encabezado operativo y requisitos de apertura', () => {
     expect(wrapper.text()).not.toContain('Sesión Nº 42')
   })
 
-  it('el badge de estado de sala permanece en Q1 en los tres estados globales', async () => {
+  it('el badge de estado del recinto permanece en Q1 en los tres estados globales', async () => {
     const wrapper = montar(PanelSesionVotacion, {
       estado: crearEstado({ estado_global: 'SIN_PREPARAR', sesion: null }),
       clienteInyectado: crearCliente(),
@@ -315,7 +315,7 @@ describe('WP-048 · Q1 encabezado operativo y requisitos de apertura', () => {
     await wrapper.setProps({
       estado: crearEstadoPreparando(['QUORUM_INSUFICIENTE']),
     })
-    expect(wrapper.get('header').text()).toContain('Preparando sala')
+    expect(wrapper.get('header').text()).toContain('Preparando el recinto')
 
     await wrapper.setProps({ estado: crearEstado({ revision: 3 }) })
     expect(wrapper.get('header').text()).toContain('Sesión activa')

@@ -1,11 +1,11 @@
-"""Contexto operativo que nace durante la preparación de sala.
+"""Contexto operativo que nace durante la preparación del recinto.
 
 La preparación es la entidad que existe mientras el sistema está en
 ``PREPARANDO``. WP-008 agrega los datos institucionales y, al abrir, entrega
 este mismo objeto a :class:`Sesion` por composición. Así el contexto deja de
 estar publicado como preparación activa, pero configuración, padrón, presencia,
 tests y auditoría conservan identidad y siguen teniendo una única fuente de
-verdad. Reúne en un solo lugar todo lo que ``Preparar sala`` deja congelado o
+verdad. Reúne en un solo lugar todo lo que ``Preparar recinto`` deja congelado o
 inicializado:
 
 - la fecha/hora local real de inicio;

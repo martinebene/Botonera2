@@ -42,9 +42,13 @@ const emit = defineEmits<{
     class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-slate-800 bg-slate-900/90 px-4 py-2 text-slate-200 shrink-0"
   >
     <div class="flex items-center gap-3">
+      <!--
+        WP-062 retiró la marca del título, igual que WP-059 ya había hecho en Moderación y
+        en Apoyo Técnico: la identidad del producto se publica ahora en el título de la
+        pestaña y en el logo de la pantalla de carga, no repetida en cada cabecera. Lo que
+        queda es el dato que sí distingue esta pantalla de las otras tres.
+      -->
       <h1 class="text-base sm:text-lg font-bold tracking-tight text-white flex items-center gap-2">
-        <span class="text-sky-400">Botonera2</span>
-        <span class="text-slate-500">·</span>
         <span>Simulador de Dispositivos Lógicos</span>
       </h1>
       <span

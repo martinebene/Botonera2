@@ -240,12 +240,12 @@ describe('WP-022: Preparación, presencia, autoridades, sesión y advertencia de
   // 1. ESTADO SIN_PREPARAR (SSR Y COMPONENTES)
   // ===========================================================================
   describe('1. Estado SIN_PREPARAR', () => {
-    it('muestra vista de sala sin preparar con botón de Preparar sala y sin resumen de quórum en Q3', async () => {
+    it('muestra vista de recinto sin preparar con botón de Preparar recinto y sin resumen de quórum en Q3', async () => {
       const estado = crearEstadoBase({ estado_global: 'SIN_PREPARAR', quorum: null })
       const htmlSesion = await renderizarSSR(PanelSesionVotacion, { estado })
 
       expect(htmlSesion).toContain('data-testid="vista-sin-preparar"')
-      expect(htmlSesion).toContain('Sala sin preparar')
+      expect(htmlSesion).toContain('Recinto sin preparar')
       expect(htmlSesion).toContain('data-testid="btn-preparar-sala"')
       expect(htmlSesion).not.toContain('data-testid="vista-preparando"')
       expect(htmlSesion).not.toContain('data-testid="vista-sesion-abierta"')
@@ -498,7 +498,7 @@ describe('WP-022: Preparación, presencia, autoridades, sesión y advertencia de
       // Las dos acciones institucionales siguen existiendo, ahora en el encabezado.
       expect(html).toContain('data-testid="btn-editar-autoridades"')
       expect(html).toContain('data-testid="btn-cerrar-sesion"')
-      // El badge de estado de sala permanece en Q1: es su única sede visible tras WP-047.
+      // El badge de estado del recinto permanece en Q1: es su única sede visible tras WP-047.
       expect(html).toContain('Sesión activa')
     })
   })
@@ -577,7 +577,7 @@ describe('WP-022: Preparación, presencia, autoridades, sesión y advertencia de
       }
     }
 
-    it('N2.A — SIN_PREPARAR prepara la sala mediante un click real cuando está CONECTADO', async () => {
+    it('N2.A — SIN_PREPARAR prepara el recinto mediante un click real cuando está CONECTADO', async () => {
       const mockCliente = crearMockCliente()
       const estado = crearEstadoBase({
         estado_global: 'SIN_PREPARAR',
@@ -625,7 +625,7 @@ describe('WP-022: Preparación, presencia, autoridades, sesión y advertencia de
       await nextTick()
       expect(wrapper.vm.sincronizacion.estadoConexion.value).toBe('RECONECTANDO')
       expect(wrapper.get('[data-testid="vista-sin-preparar"]').text()).toContain(
-        'Sala sin preparar',
+        'Recinto sin preparar',
       )
       expect(botonPreparar.element.disabled).toBe(true)
 
