@@ -176,6 +176,56 @@ const textoConexion = computed(() => {
   puede empujar hacia abajo la franja de votación ni el escenario de bancas.
 */
 .cabecera-recinto {
+  /*
+    Cuerpo tipografico unico de la cabecera (WP-058).
+
+    HUMAN_GATE pidio que la frase central llegue aproximadamente al doble del
+    alto tipografico anterior y que la fecha/hora alcance ese mismo alto, todo
+    sin tocar la altura fisica de la franja. Ambas cosas dependen del *ancho*
+    disponible, no del alto: la cabecera es una grilla `1fr auto 1fr` y el
+    bloque central solo puede crecer mientras las dos columnas laterales sigan
+    entrando en el ancho que les queda.
+
+    El presupuesto horizontal se midio en Chromium sobre la base de este WP:
+
+    | resolucion | ancho util | centro por px de fuente | reloj por px de fuente |
+    |------------|-----------|--------------------------|------------------------|
+    | 1920x1080  | 1843,2 px | 36,95 px                 | 11,43 px               |
+    | 1366x768   | 1295,8 px | 36,92 px                 | 11,47 px               |
+
+    Como el reloj tambien crece (debe igualar el cuerpo central), el limite es
+    `centro + 2 x reloj <= ancho util`, es decir ~59,9 px de ancho por cada px
+    de cuerpo. Eso da un maximo real de ~30,8 px en 1920x1080 y de ~21,6 px en
+    1366x768. La recta `1.7vw - 3.2px` deja 29,4 px y 20,0 px: cerca del doble
+    en Full HD y en el maximo que realmente entra en una sola linea en
+    1366x768, con margen para que las autoridades no colisionen.
+
+    El piso conserva el cuerpo minimo anterior para pantallas angostas y el
+    techo evita que en monitores muy anchos el renglon supere la altura fija.
+  */
+  --cuerpo-cabecera: clamp(0.78rem, calc(1.7vw - 3.2px), 2.25rem);
+  /*
+    Interlineado unico de las dos zonas tipograficas.
+
+    1,15 em es el primer valor que contiene la caja de tinta completa del cuerpo
+    ampliado. Se midio en Chromium barriendo el interlineado a las dos
+    resoluciones canonicas, comparando `scrollHeight` contra `clientHeight` de
+    cada renglon:
+
+    | interlineado | 1920x1080     | 1366x768      |
+    |--------------|---------------|---------------|
+    | 1,05         | 32 vs 31 (mal)| 22 vs 21 (mal)|
+    | 1,10         | 33 vs 32 (mal)| 23 vs 22 (mal)|
+    | 1,15         | 34 vs 34 (ok) | 23 vs 23 (ok) |
+
+    Con 1,05 —el valor previo a WP-058— la tinta quedaba 1 px fuera del renglon.
+    No producia scroll visible, pero es exactamente el recorte silencioso que
+    este WP debe descartar de forma medible.
+
+    El renglon resultante mide 33,8 px en Full HD y 23,0 px en 1366x768, muy por
+    debajo de la altura fija de la franja (59,4 px y 47 px), que no cambia.
+  */
+  --interlineado-cabecera: 1.15;
   height: clamp(47px, 5.5vh, 60px);
   display: grid;
   flex: 0 0 auto;
@@ -188,12 +238,25 @@ const textoConexion = computed(() => {
   background: rgba(7, 17, 31, 0.94);
 }
 
+/*
+  Fecha/hora: mismo cuerpo tipografico que el centro (WP-058), conservando
+  fuente monoespaciada, color y posicion. El `line-height` se iguala al del
+  centro para que ambos renglones ocupen exactamente el mismo alto de linea y
+  la igualdad sea comprobable con estilos calculados, no solo a ojo.
+
+  Ese valor comun es `--interlineado-cabecera`. Al duplicar el cuerpo dejo de
+  ser suficiente el 1,05 anterior: la caja de tinta de estas tipografias mide
+  algo mas de 1,05 em, asi que el renglon quedaba con `scrollHeight` un pixel
+  mayor que su `clientHeight`. No producia scroll visible, pero era exactamente
+  el tipo de recorte silencioso que este WP tiene que demostrar que no existe.
+*/
 .fecha-hora-local {
   justify-self: start;
   color: #cbd5e1;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: clamp(0.68rem, 0.9vw, 0.82rem);
+  font-size: var(--cuerpo-cabecera);
   font-weight: 700;
+  line-height: var(--interlineado-cabecera);
   white-space: nowrap;
 }
 
@@ -235,13 +298,17 @@ const textoConexion = computed(() => {
 /*
   Tamaño tipográfico único del centro. Institución, sesión y duración lo
   comparten: HUMAN_GATE pidió explícitamente una sola jerarquía en esa zona.
+
+  Desde WP-058 ese cuerpo sale de `--cuerpo-cabecera`, la misma variable que usa
+  la fecha/hora: así "el mismo alto tipográfico visual" deja de ser una
+  coincidencia entre dos `clamp` distintos y pasa a ser una única fuente.
 */
 .dato-cabecera {
   flex: 0 0 auto;
   color: #7dd3fc;
-  font-size: clamp(0.78rem, 1.05vw, 1rem);
+  font-size: var(--cuerpo-cabecera);
   font-weight: 800;
-  line-height: 1.05;
+  line-height: var(--interlineado-cabecera);
 }
 
 .tiempo-sesion {

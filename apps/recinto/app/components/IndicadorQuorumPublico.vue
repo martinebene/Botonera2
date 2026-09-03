@@ -21,10 +21,11 @@
  *    - presentes == requerido → amarillo (al límite)
  *    - presentes < requerido  → rojo    (sin quórum)
  *
- * El texto institucional (`Quórum alcanzado` / `Sin quórum`) sigue derivando de
- * `alcanzado`, que es la condición reglamentaria que decide el backend. El color
- * es una señal de riesgo adicional, no una regla nueva: al llegar exactamente al
- * mínimo el quórum está alcanzado y así se sigue diciendo.
+ * WP-058 completa esa decisión llevando los tres estados también al texto:
+ * `Sin quórum`, `Quórum límite` y `Quórum alcanzado`. El color y la palabra
+ * pasan a decir lo mismo. Sigue sin haber regla nueva: el backend es la única
+ * autoridad sobre la condición reglamentaria y en el nivel `limite` el quórum
+ * está alcanzado; el texto sólo aclara que está justo en el mínimo.
  */
 
 import { computed } from 'vue'
@@ -50,6 +51,26 @@ const nivelQuorum = computed<'holgado' | 'limite' | 'insuficiente' | null>(() =>
   if (props.quorum.cantidad_presentes === props.quorum.requerido) return 'limite'
   return 'insuficiente'
 })
+
+/**
+ * Texto institucional del quórum, con los tres estados de WP-058.
+ *
+ * Hasta WP-054 el rótulo derivaba de `alcanzado` y sólo tenía dos redacciones:
+ * estar exactamente en el mínimo se leía igual que estar holgado. HUMAN_GATE
+ * decidió que esos dos casos deben distinguirse también con palabras, no sólo
+ * con el color introducido por WP-054.
+ *
+ * Es importante notar qué **no** cambia: la condición reglamentaria la sigue
+ * decidiendo el backend y acá no se recalcula nada. `nivelQuorum` sólo compara
+ * dos números que ya vienen proyectados —presentes y requerido— para elegir la
+ * redacción. En el nivel `limite` el quórum sigue estando alcanzado; lo que el
+ * texto agrega es que no hay margen: una sola ausencia lo pierde.
+ */
+const textoQuorum = computed(() => {
+  if (nivelQuorum.value === 'insuficiente') return 'Sin quórum'
+  if (nivelQuorum.value === 'limite') return 'Quórum límite'
+  return 'Quórum alcanzado'
+})
 </script>
 
 <template>
@@ -71,7 +92,7 @@ const nivelQuorum = computed<'holgado' | 'limite' | 'insuficiente' | null>(() =>
       </strong>
       <span class="detalle-quorum">Presentes · requiere {{ quorum.requerido }}</span>
       <b data-testid="estado-quorum">
-        {{ quorum.alcanzado ? 'Quórum alcanzado' : 'Sin quórum' }}
+        {{ textoQuorum }}
       </b>
     </template>
     <span v-else class="estado-neutro">Quórum sin información</span>
