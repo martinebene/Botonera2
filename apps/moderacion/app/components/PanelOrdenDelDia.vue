@@ -43,6 +43,9 @@ import type {
   EstadoModeracion,
   PuntoOrdenDelDiaProyectado,
 } from '@botonera2/api-client'
+// WP-063: el factor del punto se muestra con dos decimales truncados. El punto proyectado
+// conserva su valor real: acá sólo se cambia cómo se escribe en el rótulo.
+import { formatearFactorMayoria } from '@botonera2/frontend-shared'
 import { useEstadoModeracion } from '../composables/useEstadoModeracion'
 import { useAvisoEfimero } from '../composables/useAvisoEfimero'
 import { traducirMotivos } from '../utils/motivos'
@@ -337,7 +340,7 @@ function seleccionarPunto(punto: PuntoOrdenDelDiaProyectado): void {
               v-if="punto.tipo_mayoria === 'ESPECIAL'"
               class="mt-0.5 block text-[10px] text-slate-500"
             >
-              Factor {{ punto.factor }} · Base {{ punto.base }}
+              Factor {{ formatearFactorMayoria(punto.factor) }} · Base {{ punto.base }}
             </span>
           </button>
         </div>

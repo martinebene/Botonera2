@@ -122,6 +122,8 @@ Campos conceptuales:
 
 La UI debe dejar claro que `tipo_mayoria` es explícito y que mayoría simple no equivale a factor 0,5. En la terminología de mayoría, `PRESENTES` refiere a quienes emitieron voto en esa votación, incluidas abstenciones.
 
+Toda representación de sólo lectura del factor, tanto en la votación vigente como en los puntos del Orden del Día, se escribe con exactamente dos decimales, truncando los decimales sobrantes sin redondear (`0.6789` se muestra `0.67` y `0.6` se muestra `0.60`). Es una regla de presentación: el valor real conserva su precisión en el DTO, el CSV, la validación y el cálculo de mayoría. El campo editable del formulario es la excepción explícita, porque su contenido es el valor que se envía al backend.
+
 Una vez abierta, los datos son inmutables.
 
 ### Advertencia por uso de palabra pendiente

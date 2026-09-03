@@ -3,6 +3,9 @@
 
 import { computed } from 'vue'
 import type { VotacionPublica } from '@botonera2/api-client'
+// WP-063: el factor se escribe siempre con dos decimales truncados. La regla vive en
+// frontend-shared para que Recinto y Moderación muestren el mismo texto del mismo dato.
+import { formatearFactorMayoria } from '@botonera2/frontend-shared'
 
 const props = defineProps<{ votacion: VotacionPublica | null }>()
 
@@ -27,7 +30,7 @@ const mayoriaHumana = computed(() => {
   if (!props.votacion) return ''
   if (props.votacion.tipo_mayoria === 'SIMPLE') return 'Mayoría simple'
   const base = etiquetasBase[props.votacion.base] ?? props.votacion.base
-  return `Mayoría especial · factor ${props.votacion.factor} · base ${base}`
+  return `Mayoría especial · factor ${formatearFactorMayoria(props.votacion.factor)} · base ${base}`
 })
 const conteosVisibles = computed(() => (enCurso.value ? null : (props.votacion?.conteos ?? null)))
 const resumenVotacion = computed(() => {
