@@ -310,6 +310,8 @@ Esta excepción no alcanza a:
 
 Ante cualquier hallazgo o desviación material, el lote termina y vuelve al ORCHESTRATOR/HUMAN_GATE.
 
+Cuando el manifiesto nocturno lo autoriza expresamente, el COORDINADOR_LOCAL también puede ejecutar un **merge normal puramente mecánico de origin/main** sobre una rama WP ya existente y limpia. Esta excepción sólo vale si el merge no presenta conflictos ni exige editar archivos. Puede crear el commit de merge, pushar y exigir CI verde. Cualquier conflicto, árbol sucio o necesidad de resolución de contenido devuelve el WP al implementador/ORCHESTRATOR.
+
 ## Turno de implementación
 
 IMPLEMENTER:
