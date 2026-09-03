@@ -203,7 +203,12 @@ WP-033 quedó integrado antes de continuar WP-026 y deja disponible el harness m
 | WP-054 | Refinar cabeceras, quórum, palabra y geometría visual de Moderación/Recinto | INTEGRADO | WP-047, WP-050 | - |
 | WP-055 | Crear backend/contrato autoritativo para Apoyo Técnico, transmisión y avisos | INTEGRADO | WP-052, WP-053 | - |
 | WP-056 | Implementar frontend de Apoyo Técnico e integrar avisos/transmisión en las pantallas | INTEGRADO | WP-052, WP-054, WP-055 | - |
-| WP-029 | Validar bridge/hardware real, regresión funcional y candidato de producción | PENDIENTE | WP-019, WP-020, WP-027, WP-028, WP-034, WP-035, WP-036, WP-037, WP-038, WP-039, WP-040, WP-041, WP-043, WP-044, WP-045, WP-046, WP-047, WP-048, WP-049, WP-050, WP-051, WP-052, WP-053, WP-054, WP-055, WP-056 | - |
+| WP-057 | Corregir Moderación: estado de transmisión y compactación operativa de Q1 | EN_CURSO | WP-056 | claude |
+| WP-058 | Mejorar legibilidad y estados de la Pantalla del Recinto | EN_CURSO | WP-056 | claude |
+| WP-059 | Reorganizar la interfaz de Apoyo Técnico según prueba humana | EN_CURSO | WP-056 | claude |
+| WP-060 | Corregir geometría y ajuste tipográfico de avisos compartidos | EN_CURSO | WP-056 | claude |
+| WP-061 | Incorporar indicador de carga pre-hidratación en todos los frontends | BLOQUEADO | WP-057, WP-058, WP-059, WP-060 | - |
+| WP-029 | Validar bridge/hardware real, regresión funcional y candidato de producción | BLOQUEADO | WP-019, WP-020, WP-027, WP-028, WP-034, WP-035, WP-036, WP-037, WP-038, WP-039, WP-040, WP-041, WP-043, WP-044, WP-045, WP-046, WP-047, WP-048, WP-049, WP-050, WP-051, WP-052, WP-053, WP-054, WP-055, WP-056, WP-057, WP-058, WP-059, WP-060, WP-061 | - |
 
 HUMAN_GATE seleccionó Codex como implementador y Antigravity/AGY como revisor independiente de WP-047. WP-047 queda `EN_CURSO`; WP-048 y WP-049 permanecen bloqueados por esta dependencia y todavía no tienen agente asignado.
 
@@ -333,3 +338,7 @@ WP-055 integrado: PR #62, candidato `5bf51dd77d08e1d03f58e6e611e9d74df584d20a`, 
 HUMAN_GATE activó WP-056 con Claude Code / Claude Opus 5 (High) como implementador y Antigravity/AGY / Gemini 3.7 Flash (High) como revisor independiente. WP-056 implementará la SPA `/tecnico/`, reutilizará logs/remapeo existentes, consumirá el backend autoritativo de WP-055 y conectará transmisión/avisos con Recinto y Moderación sin polling, sin autenticación nueva y sin scroll global/overlay en 1366×768 y 1920×1080.
 
 WP-056 integrado: PR #63, candidato `d3ab65a76d241af6c9bc82e7249aec6f982b5845`, revisión independiente 0 BLOQUEANTES / 0 IMPORTANTES / 1 MENOR y veredicto `LISTA PARA INTEGRAR`, squash `6637608879bfd7bb2bc4768f5250196cb742875d`, tree exacto `3c97fc3b4a2687fa00264dcc6e48750c1c193814`, CI candidata #402 y CI post-merge #403 `success` 8/8. HUMAN_GATE evaluó MENOR-01 y decidió no tratarlo como deuda: en esta etapa la pantalla técnica es operada por un usuario del mismo nivel de confianza que Moderación, en la misma sala y LAN, y las próximas iteraciones de prueba humana pueden requerir ampliar allí representación de información ya disponible en Moderación. Mantener el snapshot completo evita complejidad prematura y preserva flexibilidad; la revisión confirmó además que no vulnera el secreto de voto. Con WP-051..WP-056 cerrados funcionalmente, WP-029 deja de estar bloqueado y vuelve a `PENDIENTE` para la validación final de bridge/hardware real, regresión funcional y candidato de producción.
+
+Nueva iteración de prueba humana del 02/09/2026: HUMAN_GATE aprobó WP-057..WP-061 antes de retomar WP-029. WP-057..WP-060 se autorizan como primer lote paralelo, cada uno en worktree independiente, con Claude Code / Claude Opus 5 (High) como IMPLEMENTER y Antigravity/AGY / Gemini 3.7 Flash (High) como REVIEWER independiente por WP. WP-061 queda bloqueado hasta integrar los cuatro, porque su solución de carga inicial puede tocar shells/configuración transversal. WP-029 vuelve a BLOQUEADO y no debe iniciarse sin autorización humana posterior.
+
+La evidencia de origen son capturas reales y observaciones HUMAN_GATE del 02/09/2026. Las capturas se usan como referencia de proporciones y defectos observados, no como declaración automática del viewport. En cambios geométricos se exige evidencia medible con bounding boxes, scrollWidth/scrollHeight/clientWidth/clientHeight cuando corresponda.
