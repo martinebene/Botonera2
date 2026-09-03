@@ -370,6 +370,67 @@ Cuando entorno=Orca y agente=OpenCode, ChatGPT Web debe incluir al final del pro
 
 Esta ayuda de copia **no aplica** fuera de Orca ni para agentes distintos de OpenCode (como Antigravity, Codex o Claude). Fuera de este caso específico, los agentes entregan su salida exclusivamente a través de sus interfaces habituales.
 
+## Prompt para COORDINADOR_LOCAL de un lote
+
+Cuando el ORCHESTRATOR habilite varios WPs independientes y el entorno vaya a ejecutarlos secuencialmente por limitación de recursos, debe entregar además un prompt específico al COORDINADOR_LOCAL conforme a DEC-018.
+
+Ese prompt no reemplaza las asignaciones de IMPLEMENTER/REVIEWER. Su única función es secuencializarlas.
+
+Debe contener, como mínimo:
+
+1. **Rol y límites**
+   - declarar `COORDINADOR_LOCAL`, no ORCHESTRATOR;
+   - prohibir cambios de producto, PLAN, `CURRENT.json`, asignaciones, PR, merge, deploy y cleanup;
+   - prohibir cruzar el siguiente gate del ORCHESTRATOR.
+
+2. **Lote exacto**
+   - WPs incluidos;
+   - fase exacta: IMPLEMENTER, REVIEWER o re-revisión;
+   - worktree y terminal esperados por WP cuando se conozcan;
+   - agente/harness/modelo autorizado de cada WP.
+
+3. **Concurrencia**
+   - `max_concurrency` explícito;
+   - para el VPS limitado, normalmente `max_concurrency = 1`;
+   - no iniciar el siguiente worker pesado hasta que el actual haya terminado, quedado suspendido por cuota con evidencia o sido liberado.
+
+4. **Orca orchestration**
+   - usar Run/Task/Dispatch o `worker-start` sobre los worktrees existentes;
+   - esperar `worker_done`, `escalation` y `question` con `check --wait`;
+   - usar `worker-release` al completar cuando no se reutilice la sesión;
+   - no inferir finalización por TUI idle.
+
+5. **Cuotas**
+   - consultar `cuotas-agentes --json` antes de cada despacho;
+   - identificar la ventana de 5 horas y `reinicia_epoch` cuando estén disponibles;
+   - no inventar el consumo futuro de una tarea;
+   - aplicar el umbral/reserva fijado por el ORCHESTRATOR, si existe;
+   - con agotamiento confirmado, ejecutar otro WP listo o esperar hasta el reset y reconsultar.
+
+6. **Recuperación por agotamiento durante el trabajo**
+   - conservar worktree/rama/archivos;
+   - si la misma sesión sigue viva, reanudarla tras el reset;
+   - si Orca prueba `failed/stopped`, usar un reemplazo controlado en el mismo worktree;
+   - nunca dejar dos workers activos sobre el mismo WP;
+   - no considerar timeout o idle como rate limit sin evidencia.
+
+7. **Independencia del coordinador**
+   - registrar harness/modelo/proveedor efectivo del coordinador;
+   - preferir una cuota independiente de las que supervisa;
+   - no considerar independiente un modelo distinto que consume la misma ventana efectiva.
+
+8. **Salida**
+   - al finalizar el lote, informar por WP: iniciado, completado/suspendido, handoff detectado, cuotas/esperas relevantes y cualquier escalación;
+   - detenerse sin iniciar la fase siguiente.
+
+### Forma abreviada que el operador puede usar
+
+Una vez que el prompt completo anterior fue cargado, el operador puede iniciar el lote con una frase breve como:
+
+`Ejecutá el lote autorizado.`
+
+El trabajo real sigue estando definido por el prompt del COORDINADOR_LOCAL, `CURRENT.json` y las asignaciones de cada WP.
+
 ## Preflight del prompt antes de delegar
 
 Antes de enviar un prompt a cualquier agente, el orquestador debe preguntarse:
