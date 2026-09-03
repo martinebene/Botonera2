@@ -11,7 +11,7 @@ Existen dos repositorios con responsabilidades distintas:
 - `martinebene/Botonera2`: producto, documentación canónica, WPs, decisiones, código, PR, CI e integración;
 - `martinebene/Botonera2-Control`: asignaciones, resultados, iteraciones y estado operativo de turnos.
 
-GitHub se utiliza como transporte y persistencia. **No existe encadenamiento autónomo entre agentes.** El operador humano continúa siendo la compuerta que inicia cada turno y vuelve al ORCHESTRATOR cuando ese turno termina.
+GitHub se utiliza como transporte y persistencia. No existe encadenamiento autónomo que atraviese decisiones del ORCHESTRATOR. Conforme a DEC-018, el operador puede delegar a un **COORDINADOR_LOCAL** la secuencialización mecánica de un lote finito de asignaciones ya autorizadas, sin habilitarlo a cruzar puertas de implementación/revisión/integración.
 
 ## Actores
 
@@ -39,7 +39,11 @@ El REVIEWER ejecuta únicamente la asignación vigente dirigida a su rol, revisa
 
 ### HUMAN_GATE
 
-El operador humano inicia manualmente cada turno. No necesita transportar WP, iteración, PR, SHA ni prompt completo entre actores.
+El operador humano conserva la compuerta entre decisiones sustantivas. Puede iniciar manualmente cada turno o, conforme a DEC-018, emitir una única autorización de lote a un COORDINADOR_LOCAL para ejecutar secuencialmente varias asignaciones ya autorizadas del mismo tramo. No necesita transportar WP, iteración, PR, SHA ni prompt completo entre actores.
+
+### COORDINADOR_LOCAL
+
+El COORDINADOR_LOCAL es un ejecutor mecánico de lotes bajo Orca, no un ORCHESTRATOR alternativo. Puede supervisar Runs/Tasks/Dispatches, limitar concurrencia física, consultar `cuotas-agentes --json`, esperar resets y reanudar workers. No puede modificar `CURRENT.json`, cambiar asignaciones, habilitar revisiones, interpretar hallazgos, mergear, desplegar ni limpiar worktrees. Su contrato completo está en DEC-018.
 
 Las frases breves normales son:
 
@@ -261,9 +265,52 @@ El mismo harness/modelo puede ser IMPLEMENTER de varios WPs paralelos o REVIEWER
 
 Para evitar cruces operativos, dentro de un mismo lote paralelo activo no se asigna el mismo harness/modelo simultáneamente como IMPLEMENTER de unos WPs y REVIEWER de otros. La independencia exigida sigue siendo por WP/candidato: quien revisa un WP no puede ser quien implementó ese mismo WP.
 
-Cada HUMAN_GATE inicia manualmente cada sesión. Una sesión debe resolver exactamente una asignación compatible **para su WP local**; asignaciones compatibles del mismo agente en otros worktrees se ignoran.
+Por defecto cada HUMAN_GATE puede iniciar manualmente cada sesión. Como excepción de DEC-018, una sola autorización humana puede iniciar un lote supervisado por COORDINADOR_LOCAL, que despacha esas sesiones una por una o hasta la concurrencia máxima autorizada. Cada worker sigue resolviendo exactamente una asignación compatible **para su WP local**; asignaciones compatibles del mismo agente en otros worktrees se ignoran.
 
 Agregar o completar otro WP paralelo no revoca una asignación ya iniciada. Los campos escalares históricos de `CURRENT.json` quedan como resumen/compatibilidad y no autorizan trabajo cuando `active_assignments` existe.
+
+## Ejecución secuencial de lotes paralelos bajo restricción de recursos
+
+Cuando varios WPs son independientes pero el VPS no puede sostener varios agentes pesados simultáneos, el paralelismo lógico de `active_assignments` se conserva y la ejecución física puede fijarse en `max_concurrency = 1`.
+
+El ORCHESTRATOR entrega un prompt específico de COORDINADOR_LOCAL que contiene los WPs, fase, worktrees, agentes/modelos autorizados, política de cuota y condiciones de detención. El coordinador:
+
+1. crea o adopta un Run de Orca;
+2. crea una Task por asignación;
+3. consulta `cuotas-agentes --json` antes de despachar;
+4. inicia sólo un worker pesado a la vez cuando `max_concurrency = 1`;
+5. espera `worker_done`, `escalation` o `question` mediante la capa de orchestration;
+6. libera o deja inactivo el worker finalizado sin borrar el worktree;
+7. inicia el siguiente WP autorizado;
+8. si una cuota se agota, espera su reset o aprovecha otro WP listo del mismo lote;
+9. reanuda la misma sesión tras el reset cuando sigue viva; si Orca prueba `failed/stopped`, usa un reemplazo controlado en el mismo worktree;
+10. termina el lote sin atravesar la siguiente puerta del ORCHESTRATOR.
+
+El coordinador debe usar, cuando sea razonablemente posible, una fuente de cuota distinta de las ventanas que supervisa. Usar un modelo con nombre diferente pero dentro de la misma cuota efectiva no brinda independencia suficiente.
+
+Un timeout, TUI idle o falta temporal de mensajes no prueba agotamiento. Para suspender/reanudar por cuota debe existir evidencia explícita o estructurada.
+
+## Lotes nocturnos con transición mecánica preautorizada
+
+DEC-018 permite una excepción acotada para aprovechar periodos prolongados sin presencia del operador.
+
+El ORCHESTRATOR puede preparar un manifiesto de lote que autorice al COORDINADOR_LOCAL a pasar automáticamente de una asignación IMPLEMENTER/SYNC ya autorizada a una REVIEWER ya decidida por HUMAN_GATE, **sin decidir nada por sí mismo**, cuando se cumplan condiciones objetivas verificables de PR/SHA/main/CI/handoff y no exista escalamiento.
+
+En ese caso el COORDINADOR_LOCAL puede publicar la asignación REVIEWER exacta y actualizar únicamente el estado operativo necesario de Botonera2-Control para volver elegible al revisor fijado. Esa autoridad debe estar expresamente listada en el manifiesto del lote.
+
+Esta excepción no alcanza a:
+
+- interpretar el informe del REVIEWER;
+- ordenar correcciones;
+- re-revisiones;
+- merge;
+- cierre documental;
+- cleanup;
+- deploy.
+
+Ante cualquier hallazgo o desviación material, el lote termina y vuelve al ORCHESTRATOR/HUMAN_GATE.
+
+Cuando el manifiesto nocturno lo autoriza expresamente, el COORDINADOR_LOCAL también puede ejecutar un **merge normal puramente mecánico de origin/main** sobre una rama WP ya existente y limpia. Esta excepción sólo vale si el merge no presenta conflictos ni exige editar archivos. Puede crear el commit de merge, pushar y exigir CI verde. Cualquier conflicto, árbol sucio o necesidad de resolución de contenido devuelve el WP al implementador/ORCHESTRATOR.
 
 ## Turno de implementación
 
