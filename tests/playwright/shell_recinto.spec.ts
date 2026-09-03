@@ -1602,3 +1602,249 @@ for (const viewport of [
     expect(desbordeGlobal.horizontal).toBeLessThanOrEqual(1)
   })
 }
+
+/**
+ * Legibilidad de los nombres de la cola de palabra (WP-064).
+ *
+ * HUMAN_GATE decidió que el nombre debía crecer **aproximadamente un 80 %**
+ * respecto de lo que había dejado WP-054, sin ensanchar la columna ni rediseñar
+ * el resto del Recinto. Esa afirmación no se puede sostener leyendo el CSS: hay
+ * que medir el cuerpo tipográfico calculado y las cajas reales en las dos
+ * resoluciones canónicas, con la cola vacía, con un solo pedido y con varios.
+ *
+ * Baselines medidas en Chromium sobre el commit base de este WP (raíz 16 px):
+ *
+ * | dato                          | 1920×1080 | 1366×768  |
+ * |-------------------------------|-----------|-----------|
+ * | nombre en cola                | 19,584 px | 14,720 px |
+ * | ancho de la columna de palabra | 384,00 px | 273,19 px |
+ * | ancho del panel de palabra    | 384,00 px | 273,19 px |
+ * | círculo de orden              | 25,59 px  | 25,59 px  |
+ *
+ * El factor exigido es exactamente 1,8 porque el `clamp` nuevo multiplica por
+ * 1,8 sus tres términos: gane el que gane en cada resolución, la proporción se
+ * conserva. Se admite una tolerancia mínima para el redondeo de subpíxel.
+ */
+const BASELINES_WP064 = {
+  1920: { nombrePx: 19.584, anchoColumna: 384.0 },
+  1366: { nombrePx: 14.72, anchoColumna: 273.19 },
+} as const
+
+/** Factor de crecimiento pedido por HUMAN_GATE para el nombre de la cola. */
+const FACTOR_NOMBRE_WP064 = 1.8
+
+/** Diámetro congelado del círculo de orden, heredado sin cambios de WP-054. */
+const CIRCULO_ORDEN_WP064_PX = 25.59
+
+for (const viewport of [
+  { width: 1920, height: 1080 },
+  { width: 1366, height: 768 },
+]) {
+  test(`agranda los nombres de la cola de palabra WP-064 en ${viewport.width}×${viewport.height}`, async ({
+    page,
+  }) => {
+    const baseline = BASELINES_WP064[viewport.width as 1920 | 1366]
+
+    await page.setViewportSize(viewport)
+    await page.clock.install({ time: new Date('2026-08-28T09:59:00Z') })
+    await instalarBackendPublico(page, crearEstado())
+    await page.goto('http://localhost:3001/recinto/')
+    await page.getByTestId('estado-conexion').waitFor()
+    await page.clock.runFor(20)
+    await page.clock.pauseAt(HORA_RELOJ_E2E)
+
+    const datosSesion = {
+      fecha_hora_inicio_preparacion: '2026-08-28T09:30:00',
+      fecha_hora_apertura: '2026-08-28T09:45:00',
+      numero_sesion: 59,
+      presidencia: 'Ana Presidencia',
+      secretaria_legislativa: 'Luis Secretaría',
+    }
+    /** Sesión abierta cuya única variable entre escenarios es la cola. */
+    function sesionConCola(revision: number, cola: Record<string, unknown>[]) {
+      return crearEstado({
+        revision,
+        generado_en: '2026-08-28T10:00:00',
+        estado_global: 'SESION_ABIERTA',
+        sesion: datosSesion,
+        filas_bancas: [3, 4, 5],
+        concejales: crearConcejales(12),
+        quorum: { cantidad_presentes: 8, requerido: 7, alcanzado: true },
+        palabra: { orador: { nombre: 'Andrea', apellido: 'Rueda', banca: 3 }, cola },
+        votacion: crearVotacion({ tema: 'Expediente breve', cuenta_regresiva_hasta: null }),
+      })
+    }
+
+    /**
+     * Mide, en una sola pasada por el DOM, todo lo que el WP exige comprobar:
+     * cuerpo tipográfico, cajas y relación `scroll*`/`client*` de los
+     * contenedores que podrían desbordar.
+     */
+    async function medirCola() {
+      return page.evaluate(() => {
+        /** Caja de un elemento redondeada para comparar sin ruido de subpíxel. */
+        function caja(elemento: HTMLElement) {
+          const rectangulo = elemento.getBoundingClientRect()
+          return {
+            ancho: rectangulo.width,
+            alto: rectangulo.height,
+            izquierda: rectangulo.left,
+            derecha: rectangulo.right,
+          }
+        }
+        /** Desborde propio de un contenedor, en píxeles. */
+        function desborde(elemento: HTMLElement) {
+          return {
+            horizontal: elemento.scrollWidth - elemento.clientWidth,
+            vertical: elemento.scrollHeight - elemento.clientHeight,
+          }
+        }
+
+        const columna = document.querySelector(
+          '[data-testid="columna-palabra-publica"]',
+        ) as HTMLElement
+        const panel = document.querySelector('[data-testid="panel-palabra"]') as HTMLElement
+        const lista = document.querySelector('[data-testid="cola-palabra"]') as HTMLElement | null
+
+        return {
+          columna: { ...caja(columna), ...desborde(columna) },
+          panel: { ...caja(panel), ...desborde(panel) },
+          lista: lista
+            ? {
+                ...caja(lista),
+                ...desborde(lista),
+                clientWidth: lista.clientWidth,
+                overflowX: getComputedStyle(lista).overflowX,
+              }
+            : null,
+          renglones: [...(lista?.querySelectorAll('li') ?? [])].map((renglon) => {
+            const nombre = renglon.querySelector(
+              '[data-testid="nombre-cola-palabra"]',
+            ) as HTMLElement
+            const circulo = renglon.querySelector('.orden-cola') as HTMLElement
+            const estilo = getComputedStyle(nombre)
+            return {
+              texto: nombre.textContent?.replace(/\s+/g, ' ').trim() ?? '',
+              nombrePx: Number.parseFloat(estilo.fontSize),
+              alturaLinea: Number.parseFloat(estilo.lineHeight),
+              recorte: { overflow: estilo.overflow, salto: estilo.whiteSpace },
+              caja: caja(nombre),
+              // `clientHeight` frente a `scrollHeight` delata si el texto pasó
+              // a ocupar dos renglones: el WP exige que siga en uno solo.
+              altoVisible: nombre.clientHeight,
+              altoContenido: nombre.scrollHeight,
+              circulo: caja(circulo),
+            }
+          }),
+          documento: {
+            horizontal: document.documentElement.scrollWidth - window.innerWidth,
+            vertical: document.documentElement.scrollHeight - window.innerHeight,
+          },
+        }
+      })
+    }
+
+    /** Comprobaciones comunes a todos los escenarios de cola. */
+    function exigirGeometriaEstable(medidas: Awaited<ReturnType<typeof medirCola>>) {
+      // Criterio 5: la columna y el panel conservan sus dimensiones estructurales.
+      expect(medidas.columna.ancho).toBeCloseTo(baseline.anchoColumna, 1)
+      expect(medidas.panel.ancho).toBeCloseTo(baseline.anchoColumna, 1)
+      // Criterio 3: ni la columna ni el panel desarrollan desplazamiento propio.
+      expect(medidas.columna.horizontal).toBe(0)
+      expect(medidas.columna.vertical).toBe(0)
+      expect(medidas.panel.horizontal).toBe(0)
+      expect(medidas.panel.vertical).toBe(0)
+      // Criterio 4: la página completa sigue sin scroll en ningún eje.
+      expect(medidas.documento.horizontal).toBeLessThanOrEqual(1)
+      expect(medidas.documento.vertical).toBeLessThanOrEqual(1)
+    }
+
+    // -----------------------------------------------------------------------
+    // 1 · Cola vacía: el panel existe, no dibuja lista y no desborda
+    // -----------------------------------------------------------------------
+    await publicar(page, sesionConCola(1, []))
+    await expect(page.getByTestId('cantidad-pedidos-palabra')).toHaveText('0')
+    await expect(page.getByTestId('cola-palabra')).toHaveCount(0)
+    await expect(page.getByTestId('panel-palabra')).toContainText('No hay pedidos en espera')
+    const colaVacia = await medirCola()
+    expect(colaVacia.lista).toBeNull()
+    exigirGeometriaEstable(colaVacia)
+
+    // -----------------------------------------------------------------------
+    // 2 · Un solo pedido: el nombre crece ≈80 % y sigue en una línea
+    // -----------------------------------------------------------------------
+    // Nombre tomado del padrón real y deliberadamente largo: es el caso que
+    // pondría en riesgo el ancho de la columna si el recorte no funcionara.
+    const unicoPedido = [{ nombre: 'María Eugenia', apellido: 'Fernández Robledo', banca: 7 }]
+    await publicar(page, sesionConCola(2, unicoPedido))
+    await expect(page.getByTestId('cola-palabra').locator('li')).toHaveCount(1)
+    const unaEntrada = await medirCola()
+    exigirGeometriaEstable(unaEntrada)
+    expect(unaEntrada.renglones).toHaveLength(1)
+
+    const renglonUnico = unaEntrada.renglones[0]!
+    // Criterio 1: el crecimiento medido es exactamente el factor pedido. La
+    // tolerancia de 0,05 px sólo absorbe el redondeo de subpíxel del navegador.
+    expect(renglonUnico.nombrePx).toBeCloseTo(baseline.nombrePx * FACTOR_NOMBRE_WP064, 1)
+    expect(renglonUnico.nombrePx / baseline.nombrePx).toBeGreaterThanOrEqual(1.75)
+    expect(renglonUnico.nombrePx / baseline.nombrePx).toBeLessThanOrEqual(1.85)
+    // Criterio 2: una sola línea, con el recorte determinista de siempre.
+    expect(renglonUnico.altoContenido).toBe(renglonUnico.altoVisible)
+    expect(renglonUnico.altoVisible).toBeLessThanOrEqual(Math.ceil(renglonUnico.alturaLinea) + 1)
+    expect(renglonUnico.recorte).toEqual({ overflow: 'hidden', salto: 'nowrap' })
+    // El círculo de orden no participó del crecimiento (herencia de WP-054).
+    expect(renglonUnico.circulo.ancho).toBeCloseTo(CIRCULO_ORDEN_WP064_PX, 1)
+    expect(renglonUnico.circulo.alto).toBeCloseTo(CIRCULO_ORDEN_WP064_PX, 1)
+
+    // Decisión humana 2: el nombre aprovecha casi todo el ancho útil del
+    // renglón. Lo que queda fuera es sólo el círculo de orden y su separación.
+    const anchoUtil = unaEntrada.lista!.clientWidth
+    expect(renglonUnico.caja.ancho / anchoUtil).toBeGreaterThanOrEqual(0.82)
+    // Y aun así termina dentro de la columna: no la ensancha ni la desborda.
+    expect(renglonUnico.caja.derecha).toBeLessThanOrEqual(unaEntrada.columna.derecha + 1)
+    expect(renglonUnico.caja.izquierda).toBeGreaterThanOrEqual(unaEntrada.columna.izquierda - 1)
+
+    // -----------------------------------------------------------------------
+    // 3 · Varios pedidos: el panel sigue siendo usable y sin desborde lateral
+    // -----------------------------------------------------------------------
+    const colaLarga = [
+      { nombre: 'María Eugenia', apellido: 'Fernández Robledo', banca: 7 },
+      { nombre: 'Gastón', apellido: 'Cuis Taccari', banca: 4 },
+      { nombre: 'Juan', apellido: 'Pérez', banca: 1 },
+      { nombre: 'Federico', apellido: 'Garitano', banca: 9 },
+      { nombre: 'Lorena', apellido: 'Moreno', banca: 2 },
+      { nombre: 'Andrea', apellido: 'Rueda', banca: 5 },
+    ]
+    await publicar(page, sesionConCola(3, colaLarga))
+    await expect(page.getByTestId('cola-palabra').locator('li')).toHaveCount(colaLarga.length)
+    const variasEntradas = await medirCola()
+    exigirGeometriaEstable(variasEntradas)
+    expect(variasEntradas.renglones).toHaveLength(colaLarga.length)
+
+    // El orden FIFO recibido se conserva pese al cambio tipográfico.
+    expect(variasEntradas.renglones.map((renglon) => renglon.texto)).toEqual(
+      colaLarga.map((persona) => `${persona.nombre} ${persona.apellido}`),
+    )
+    for (const renglon of variasEntradas.renglones) {
+      expect(renglon.nombrePx).toBeCloseTo(baseline.nombrePx * FACTOR_NOMBRE_WP064, 1)
+      expect(renglon.altoContenido).toBe(renglon.altoVisible)
+      expect(renglon.circulo.ancho).toBeCloseTo(CIRCULO_ORDEN_WP064_PX, 1)
+      // Cada renglón queda contenido dentro de la columna de palabra.
+      expect(renglon.caja.derecha).toBeLessThanOrEqual(variasEntradas.columna.derecha + 1)
+      expect(renglon.caja.izquierda).toBeGreaterThanOrEqual(variasEntradas.columna.izquierda - 1)
+    }
+
+    // Criterio 3: la lista nunca se desplaza en horizontal, ni siquiera con el
+    // nombre más largo del padrón. El desplazamiento vertical sí es legítimo:
+    // es el mecanismo con el que la cola absorbe más pedidos que altura.
+    expect(variasEntradas.lista!.horizontal).toBe(0)
+    expect(variasEntradas.lista!.overflowX).toBe('hidden')
+
+    // -----------------------------------------------------------------------
+    // 4 · Volver a cola vacía deja la geometría como al principio
+    // -----------------------------------------------------------------------
+    await publicar(page, sesionConCola(4, []))
+    await expect(page.getByTestId('cantidad-pedidos-palabra')).toHaveText('0')
+    exigirGeometriaEstable(await medirCola())
+  })
+}
