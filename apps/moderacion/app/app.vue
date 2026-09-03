@@ -107,6 +107,16 @@ const puntoSeleccionado = shallowRef<PuntoOrdenDelDiaProyectado | null>(null)
 const avisoTecnico = computed(() => estado.value?.tecnico?.aviso ?? null)
 
 /**
+ * Estado autoritativo de transmisión para el indicador binario de la cabecera (WP-057).
+ *
+ * Viaja en el mismo snapshot que todo lo demás (`EstadoModeracion.tecnico.transmision`),
+ * así que no hace falta ninguna consulta adicional ni ningún polling: cuando el backend
+ * cruza la frontera de la cuenta regresiva publica una revisión nueva por SSE y este
+ * valor cambia solo. Vale `null` únicamente mientras no llegó el primer snapshot.
+ */
+const estadoTransmision = computed(() => estado.value?.tecnico?.transmision?.estado ?? null)
+
+/**
  * Nivel visible elegido por el operador en el panel de Eventos.
  *
  * Vive en el shell y no en el panel porque el panel se desmonta mientras hay un aviso.
@@ -141,6 +151,7 @@ function recordarNivelEventos(nivel: FiltroNivelEventos): void {
       :fecha-hora-apertura="fechaHoraApertura"
       :generado-en="generadoEn"
       :numero-sesion="numeroSesion"
+      :estado-transmision="estadoTransmision"
     />
 
     <!-- Área de trabajo principal con grilla 2×2 en desktop (1366×768 y 1920×1080) -->

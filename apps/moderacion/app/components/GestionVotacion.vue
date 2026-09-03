@@ -30,6 +30,13 @@
  *   dar por sí mismo.
  * - El motivo de finalización se vacía únicamente después de una finalización aceptada.
  *   Si el backend rechaza el comando, el texto tipeado se conserva para reintentar.
+ *
+ * WP-057 compacta la estructura del formulario. Número, Tipo, Mayoría, Factor y Base
+ * pasan a compartir una única fila en desktop, de modo que elegir mayoría ESPECIAL ya no
+ * agrega una segunda fila de campos. Ese renglón adicional era la causa medida de que,
+ * con el resultado de la votación anterior todavía visible, los controles de apertura
+ * quedaran fuera del área visible de Q1 a 1366×768. El formulario no cambia de reglas ni
+ * de validaciones: sólo deja de crecer a lo alto cuando la mayoría es especial.
  */
 
 import { computed, ref, watch } from 'vue'
@@ -636,8 +643,37 @@ async function desempatar(sentido: 'POSITIVO' | 'NEGATIVO'): Promise<void> {
         </button>
       </div>
 
-      <div class="grid grid-cols-1 gap-2 sm:grid-cols-[0.55fr_1fr_1.3fr]">
-        <label class="text-xs text-slate-300">
+      <!--
+        WP-057: fila única de la regla de mayoría.
+
+        Antes había dos filas: `Número | Tipo | Mayoría` y, sólo con ESPECIAL, una
+        segunda con `Factor | Base`. Esa segunda fila costaba ~52 px (44 px de campos
+        más el espacio entre filas) y era exactamente la altura que expulsaba los
+        controles de apertura fuera del área visible de Q1 cuando todavía se estaba
+        leyendo el resultado de la votación anterior a 1366×768.
+
+        Ahora los cinco campos comparten un único renglón en desktop (`sm:flex-nowrap`).
+        Factor y Base entran en el hueco que ya sobraba a la derecha, así que elegir
+        ESPECIAL no agrega alto estructural: el formulario mide lo mismo con SIMPLE y
+        con ESPECIAL. Por debajo del breakpoint `sm` la fila se apila en columna, que
+        es el comportamiento razonable cuando no hay ancho para cinco controles.
+
+        Reparto del ancho: Número y Factor son numéricos cortos y llevan ancho fijo;
+        Tipo y Base son selects de texto variable y absorben el sobrante. El grupo de
+        mayoría especial pesa 2 contra 1 de Tipo porque adentro carga además el ancho
+        fijo de Factor: sin esa compensación Base quedaba angosta y recortaba la opción
+        más larga (`VOTOS_COMPUTABLES`). `items-end` alinea todos los controles por su
+        base aunque los rótulos tengan distinta altura, de modo que la fila se lee como
+        una sola línea.
+
+        `fila-regla-mayoria` identifica el renglón para poder medir su rectángulo real en
+        las pruebas de geometría, que es la evidencia que exige el WP.
+      -->
+      <div
+        data-testid="fila-regla-mayoria"
+        class="flex flex-col gap-2 sm:flex-row sm:flex-nowrap sm:items-end"
+      >
+        <label class="text-xs text-slate-300 sm:w-16 sm:shrink-0">
           Número
           <input
             v-model="borrador.numero"
@@ -647,7 +683,7 @@ async function desempatar(sentido: 'POSITIVO' | 'NEGATIVO'): Promise<void> {
             class="mt-0.5 w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-slate-100"
           />
         </label>
-        <label class="text-xs text-slate-300">
+        <label class="min-w-0 text-xs text-slate-300 sm:flex-1">
           Tipo
           <select
             v-model="borrador.tipo"
@@ -664,9 +700,9 @@ async function desempatar(sentido: 'POSITIVO' | 'NEGATIVO'): Promise<void> {
             <option v-for="tipo in tiposConfigurados" :key="tipo" :value="tipo">{{ tipo }}</option>
           </select>
         </label>
-        <fieldset>
+        <fieldset class="sm:shrink-0">
           <legend class="text-xs text-slate-300">Mayoría</legend>
-          <div class="mt-1 flex gap-3 text-xs">
+          <div class="mt-1 flex gap-2 text-xs">
             <label class="flex items-center gap-1">
               <input
                 v-model="borrador.tipoMayoria"
@@ -689,35 +725,53 @@ async function desempatar(sentido: 'POSITIVO' | 'NEGATIVO'): Promise<void> {
             </label>
           </div>
         </fieldset>
-      </div>
 
-      <div
-        v-if="borrador.tipoMayoria === 'ESPECIAL'"
-        data-testid="campos-mayoria-especial"
-        class="grid grid-cols-1 gap-2 sm:grid-cols-2"
-      >
-        <label class="text-xs text-slate-300">
-          Factor (0 &lt; factor ≤ 1)
-          <input
-            v-model="borrador.factor"
-            data-testid="input-factor-mayoria"
-            type="text"
-            inputmode="decimal"
-            class="mt-0.5 w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-slate-100"
-          />
-        </label>
-        <label class="text-xs text-slate-300">
-          Base
-          <select
-            v-model="borrador.base"
-            data-testid="select-base-mayoria"
-            class="mt-0.5 w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-slate-100"
+        <!--
+          Factor y Base siguen siendo un grupo condicional propio y conservan su
+          identificador de prueba, pero ya no forman una fila aparte: este contenedor
+          es un tramo más de la misma línea. Se mantiene como elemento real (y no
+          como `display: contents`) para que siga teniendo caja medible.
+        -->
+        <div
+          v-if="borrador.tipoMayoria === 'ESPECIAL'"
+          data-testid="campos-mayoria-especial"
+          class="flex min-w-0 flex-col gap-2 sm:flex-[2] sm:flex-row sm:items-end"
+        >
+          <!--
+            El rango admitido dejó de ocupar el rótulo (`Factor (0 < factor ≤ 1)`), que en
+            una columna angosta se partía en tres renglones y volvía a agrandar la fila. No
+            se perdió: se muestra como texto de ayuda dentro del campo vacío, que es
+            justamente cuando el operador lo necesita, y se conserva completo en el texto
+            emergente y en el nombre accesible del control.
+          -->
+          <label
+            class="text-xs text-slate-300 sm:w-24 sm:shrink-0"
+            title="Factor de mayoría especial: mayor que 0 y menor o igual que 1"
           >
-            <option value="VOTOS_COMPUTABLES">VOTOS_COMPUTABLES</option>
-            <option value="PRESENTES">PRESENTES</option>
-            <option value="CUERPO">CUERPO</option>
-          </select>
-        </label>
+            Factor
+            <input
+              v-model="borrador.factor"
+              data-testid="input-factor-mayoria"
+              type="text"
+              inputmode="decimal"
+              placeholder="0 &lt; f ≤ 1"
+              aria-label="Factor de mayoría especial, mayor que 0 y menor o igual que 1"
+              class="mt-0.5 w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-slate-100"
+            />
+          </label>
+          <label class="min-w-0 text-xs text-slate-300 sm:flex-1">
+            Base
+            <select
+              v-model="borrador.base"
+              data-testid="select-base-mayoria"
+              class="mt-0.5 w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-slate-100"
+            >
+              <option value="VOTOS_COMPUTABLES">VOTOS_COMPUTABLES</option>
+              <option value="PRESENTES">PRESENTES</option>
+              <option value="CUERPO">CUERPO</option>
+            </select>
+          </label>
+        </div>
       </div>
 
       <div class="flex flex-col gap-2 sm:flex-row">

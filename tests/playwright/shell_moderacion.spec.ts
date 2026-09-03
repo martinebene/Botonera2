@@ -3512,3 +3512,281 @@ test.describe('WP-051 - Feedback operativo y ciclo de votación legible', () => 
     await expect(panelQ1).not.toContainText('para abrir la sesión')
   })
 })
+
+/**
+ * Evidencia geométrica de las dos correcciones operativas de WP-057.
+ *
+ * 1. Cabecera: indicador binario de transmisión junto al indicador de conexión.
+ *    Se recorren los tres estados autoritativos (`APAGADO`, `CUENTA_REGRESIVA` y
+ *    `EN_VIVO`), se comprueba el mapeo binario aprobado y se verifica que la cabecera
+ *    conserva la altura de la baseline WP-047/WP-054 y sigue siendo una sola línea.
+ *
+ * 2. Q1: caso exacto de regresión reportado por la operación real. Con el resultado de
+ *    la votación anterior todavía visible y un borrador nuevo de mayoría ESPECIAL
+ *    completo, los controles de apertura deben quedar íntegramente dentro del bounding
+ *    box visible de Q1, y ni Q1 ni el formulario pueden adquirir scroll.
+ *
+ *    Medición sobre el código previo a WP-057, a 1366×768 y con el mismo escenario:
+ *    el cuerpo de Q1 pedía 345 px para 323 px disponibles y el botón `Abrir votación`
+ *    terminaba 4 px por debajo del borde del cuadrante. La causa era la segunda fila
+ *    `Factor | Base`, que sólo existía con mayoría ESPECIAL y costaba 52 px.
+ */
+test.describe('WP-057 - Transmisión en cabecera y compactación operativa de Q1', () => {
+  /**
+   * Tres resoluciones: las dos canónicas del producto más la intermedia de ~1440×768
+   * que el WP pide cubrir si el harness la soporta sin costo estructural.
+   */
+  const resoluciones = [
+    { width: 1366, height: 768 },
+    { width: 1440, height: 768 },
+    { width: 1920, height: 1080 },
+  ]
+
+  /** Porción técnica del snapshot con el estado de transmisión pedido. */
+  function crearTecnico(estado: 'APAGADO' | 'CUENTA_REGRESIVA' | 'EN_VIVO') {
+    return {
+      transmision: {
+        estado,
+        iniciada_en: estado === 'APAGADO' ? null : '2026-09-03T12:00:00Z',
+        en_vivo_desde: estado === 'APAGADO' ? null : '2026-09-03T12:00:10Z',
+        cuenta_regresiva_segundos: estado === 'CUENTA_REGRESIVA' ? 10 : null,
+        segundos_restantes: estado === 'CUENTA_REGRESIVA' ? 6 : null,
+      },
+      aviso: null,
+    }
+  }
+
+  /**
+   * Escenario exacto de regresión: sesión abierta, votación anterior cerrada cuyo
+   * resultado todavía se ve en Q1 y formulario disponible para la siguiente.
+   *
+   * El tema y el tipo son de longitud institucional realista. Ese detalle importa:
+   * con un tema corto el defecto no se manifestaba, porque el bloque de resultado
+   * ocupaba dos renglones menos y alcanzaba a disimular los 52 px sobrantes.
+   */
+  function crearEstadoResultadoAnterior(estadoTransmision: 'APAGADO' | 'EN_VIVO' = 'APAGADO') {
+    return crearEstadoSesionCompacta({
+      votacion: crearVotacionCompacta({
+        estado_recepcion: 'CERRADA',
+        resultado: 'APROBADA',
+        tipo: 'Proyecto de Ordenanza',
+        tema: 'Expediente 4521-D-2026: Ordenanza de creación del Programa Municipal de Eficiencia Energética y Reconversión del Alumbrado Público de la ciudad',
+        fecha_hora_cierre: '2026-08-29T10:00:10Z',
+        fecha_hora_resultado: '2026-08-29T10:00:10Z',
+      }),
+      tecnico: crearTecnico(estadoTransmision),
+    })
+  }
+
+  /** Completa el borrador de una votación nueva de mayoría ESPECIAL. */
+  async function completarBorradorEspecial(page: Page): Promise<void> {
+    await page.getByTestId('input-numero-votacion').fill('13')
+    await page.getByTestId('select-tipo-votacion').selectOption('Proyecto')
+    await page.getByTestId('radio-mayoria-especial').check()
+    await page.getByTestId('input-factor-mayoria').fill('0.66')
+    await page.getByTestId('select-base-mayoria').selectOption('PRESENTES')
+    await page.getByTestId('input-tema-votacion').fill('Ordenanza de mayoría especial')
+  }
+
+  /**
+   * Reúne en una sola pasada todos los rectángulos y desbordes que el WP exige medir.
+   * Se devuelve un objeto plano para poder adjuntarlo íntegro al reporte de Playwright
+   * como evidencia reproducible, además de usarlo en las aserciones.
+   */
+  async function medirGeometriaQ1(page: Page) {
+    return page.evaluate(() => {
+      const rectangulo = (selector: string) => {
+        const elemento = document.querySelector(selector)
+        if (!elemento) return null
+        const caja = elemento.getBoundingClientRect()
+        return {
+          x: Math.round(caja.x),
+          y: Math.round(caja.y),
+          ancho: Math.round(caja.width),
+          alto: Math.round(caja.height),
+          derecha: Math.round(caja.right),
+          abajo: Math.round(caja.bottom),
+        }
+      }
+      const desborde = (selector: string) => {
+        const elemento = document.querySelector(selector) as HTMLElement | null
+        if (!elemento) return null
+        return {
+          altoContenido: elemento.scrollHeight,
+          altoVisible: elemento.clientHeight,
+          anchoContenido: elemento.scrollWidth,
+          anchoVisible: elemento.clientWidth,
+        }
+      }
+      const cuerpoQ1 = '[data-testid="panel-sesion-votacion"] [data-testid="cuerpo-panel"]'
+      return {
+        q1: rectangulo('[data-testid="panel-sesion-votacion"]')!,
+        cuerpoQ1: rectangulo(cuerpoQ1)!,
+        resultadoAnterior: rectangulo('[data-testid="vista-votacion-proyectada"]')!,
+        filaReglaMayoria: rectangulo('[data-testid="fila-regla-mayoria"]')!,
+        accionesApertura: rectangulo('[data-testid="btn-abrir-votacion"]')!,
+        formulario: rectangulo('[data-testid="formulario-votacion"]')!,
+        campos: {
+          numero: rectangulo('[data-testid="input-numero-votacion"]')!,
+          tipo: rectangulo('[data-testid="select-tipo-votacion"]')!,
+          mayoria: rectangulo('[data-testid="radio-mayoria-especial"]')!,
+          factor: rectangulo('[data-testid="input-factor-mayoria"]')!,
+          base: rectangulo('[data-testid="select-base-mayoria"]')!,
+        },
+        desbordeCuerpoQ1: desborde(cuerpoQ1)!,
+        desbordeFormulario: desborde('[data-testid="formulario-votacion"]')!,
+      }
+    })
+  }
+
+  for (const viewport of resoluciones) {
+    test(`resultado anterior y votación ESPECIAL conviven a ${viewport.width}×${viewport.height}`, async ({
+      page,
+    }, testInfo) => {
+      await configurarRutasMock(page, crearEstadoResultadoAnterior())
+      await page.setViewportSize(viewport)
+      await page.goto('/moderacion/')
+      // El shell se monta y adopta el primer snapshot antes de medir nada.
+      await page.getByTestId('cabecera-moderacion').waitFor({ state: 'visible', timeout: 30000 })
+
+      // Precondición del caso: el resultado anterior sigue siendo la señal dominante
+      // y, aun así, el formulario de la siguiente votación está disponible.
+      await expect(page.getByTestId('estado-votacion')).toHaveText('APROBADA')
+      await expect(page.getByTestId('formulario-votacion')).toBeVisible()
+
+      await completarBorradorEspecial(page)
+      await expect(page.getByTestId('campos-mayoria-especial')).toBeVisible()
+
+      const medicion = await medirGeometriaQ1(page)
+      await testInfo.attach(`wp057-geometria-${viewport.width}x${viewport.height}.json`, {
+        body: JSON.stringify(medicion, null, 2),
+        contentType: 'application/json',
+      })
+
+      // 1 · Los cinco campos comparten una única línea funcional: sus rectángulos se
+      // solapan verticalmente y ninguno arranca por debajo del que lo precede.
+      const campos = [
+        medicion.campos.numero,
+        medicion.campos.tipo,
+        medicion.campos.mayoria,
+        medicion.campos.factor,
+        medicion.campos.base,
+      ]
+      for (const campo of campos) {
+        expect(campo.y).toBeGreaterThanOrEqual(medicion.filaReglaMayoria.y - 1)
+        expect(campo.abajo).toBeLessThanOrEqual(medicion.filaReglaMayoria.abajo + 1)
+      }
+      // Orden horizontal estable y sin superposición: Número → Tipo → Mayoría → Factor → Base.
+      for (let indice = 1; indice < campos.length; indice += 1) {
+        expect(campos[indice - 1]!.derecha).toBeLessThanOrEqual(campos[indice]!.x + 1)
+      }
+      // Una sola línea de campos: la fila no puede medir más que un control más su rótulo.
+      expect(medicion.filaReglaMayoria.alto).toBeLessThanOrEqual(48)
+
+      // 2 · Los controles de apertura quedan completos dentro del bounding box de Q1.
+      expect(medicion.accionesApertura.y).toBeGreaterThanOrEqual(medicion.q1.y - 1)
+      expect(medicion.accionesApertura.abajo).toBeLessThanOrEqual(medicion.q1.abajo + 1)
+      expect(medicion.accionesApertura.x).toBeGreaterThanOrEqual(medicion.q1.x - 1)
+      expect(medicion.accionesApertura.derecha).toBeLessThanOrEqual(medicion.q1.derecha + 1)
+      await expect(page.getByTestId('btn-abrir-votacion')).toBeEnabled()
+
+      // 3 · El resultado anterior sigue visible por encima del formulario y ambos
+      // caben dentro del cuadrante: la corrección no se logró escondiendo información.
+      expect(medicion.resultadoAnterior.abajo).toBeLessThanOrEqual(medicion.formulario.y + 1)
+      expect(medicion.formulario.abajo).toBeLessThanOrEqual(medicion.q1.abajo + 1)
+
+      // 4 · Ni Q1 ni el formulario adquieren scroll vertical u horizontal.
+      for (const desborde of [medicion.desbordeCuerpoQ1, medicion.desbordeFormulario]) {
+        expect(desborde.altoContenido).toBeLessThanOrEqual(desborde.altoVisible + 1)
+        expect(desborde.anchoContenido).toBeLessThanOrEqual(desborde.anchoVisible + 1)
+      }
+      await verificarQ1SinScroll(page)
+
+      await testInfo.attach(`wp057-q1-${viewport.width}x${viewport.height}.png`, {
+        body: await page.getByTestId('panel-sesion-votacion').screenshot(),
+        contentType: 'image/png',
+      })
+
+      await verificarGeometriaShellCompleto(page, viewport)
+    })
+
+    test(`mayoría ESPECIAL no agrega alto estructural a ${viewport.width}×${viewport.height}`, async ({
+      page,
+    }) => {
+      await configurarRutasMock(page, crearEstadoResultadoAnterior())
+      await page.setViewportSize(viewport)
+      await page.goto('/moderacion/')
+      await page.getByTestId('cabecera-moderacion').waitFor({ state: 'visible', timeout: 30000 })
+      await expect(page.getByTestId('formulario-votacion')).toBeVisible()
+
+      const altoFormulario = async () =>
+        (await page.getByTestId('formulario-votacion').boundingBox())!.height
+
+      // Mayoría SIMPLE es la baseline de densidad aprobada en WP-048.
+      await expect(page.getByTestId('campos-mayoria-especial')).toHaveCount(0)
+      const altoSimple = await altoFormulario()
+
+      await page.getByTestId('radio-mayoria-especial').check()
+      await expect(page.getByTestId('campos-mayoria-especial')).toBeVisible()
+      const altoEspecial = await altoFormulario()
+
+      // Decisión cerrada del WP: la segunda regla no puede costar alto estructural.
+      expect(Math.abs(altoEspecial - altoSimple)).toBeLessThanOrEqual(1)
+
+      // Volver a SIMPLE conserva funcionalidad y densidad.
+      await page.getByTestId('radio-mayoria-simple').check()
+      await expect(page.getByTestId('campos-mayoria-especial')).toHaveCount(0)
+      expect(Math.abs((await altoFormulario()) - altoSimple)).toBeLessThanOrEqual(1)
+
+      await verificarQ1SinScroll(page)
+    })
+  }
+
+  for (const [estado, textoEsperado] of [
+    ['APAGADO', 'Sin transmisión'],
+    ['CUENTA_REGRESIVA', 'Sin transmisión'],
+    ['EN_VIVO', 'En vivo'],
+  ] as const) {
+    test(`la cabecera presenta ${estado} como "${textoEsperado}" sin crecer a lo alto`, async ({
+      page,
+    }) => {
+      await configurarRutasMock(page, crearEstadoSesionCompacta({ tecnico: crearTecnico(estado) }))
+      await page.setViewportSize({ width: 1366, height: 768 })
+      await page.goto('/moderacion/')
+      await page.getByTestId('cabecera-moderacion').waitFor({ state: 'visible', timeout: 30000 })
+
+      const indicador = page.getByTestId('cabecera-transmision')
+      await expect(indicador).toHaveText(textoEsperado)
+      await expect(indicador).toHaveAttribute('data-estado-transmision', estado)
+
+      // Junto al indicador de conexión y en el mismo renglón que el título.
+      const cajaTransmision = (await indicador.boundingBox())!
+      const cajaConexion = (await page.getByTestId('estado-conexion').boundingBox())!
+      const cajaTitulo = (await page
+        .locator('[data-testid="cabecera-moderacion"] h1')
+        .boundingBox())!
+      expect(cajaTransmision.x + cajaTransmision.width).toBeLessThanOrEqual(cajaConexion.x + 1)
+      expect(
+        Math.abs(
+          cajaTransmision.y + cajaTransmision.height / 2 - (cajaTitulo.y + cajaTitulo.height / 2),
+        ),
+      ).toBeLessThanOrEqual(2)
+
+      // La cabecera conserva la baseline de altura y sigue siendo una sola línea.
+      const cajaCabecera = (await page.getByTestId('cabecera-moderacion').boundingBox())!
+      expect(cajaCabecera.height).toBeLessThanOrEqual(32)
+      const contencion = await page.getByTestId('cabecera-moderacion').evaluate((cabecera) => ({
+        flexWrap: getComputedStyle(cabecera).flexWrap,
+        altoVisible: cabecera.clientHeight,
+        altoContenido: cabecera.scrollHeight,
+        anchoVisible: cabecera.clientWidth,
+        anchoContenido: cabecera.scrollWidth,
+      }))
+      expect(contencion.flexWrap).toBe('nowrap')
+      expect(contencion.altoContenido).toBeLessThanOrEqual(contencion.altoVisible + 1)
+      expect(contencion.anchoContenido).toBeLessThanOrEqual(contencion.anchoVisible + 1)
+
+      await verificarGeometriaShellCompleto(page, { width: 1366, height: 768 })
+    })
+  }
+})
