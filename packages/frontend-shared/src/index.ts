@@ -5,7 +5,8 @@
  * incluye la semántica visual de una banca (WP-045), el cálculo temporal
  * backend-backend de la duración de sesión (WP-047) y, desde WP-056, la traducción
  * de motivos de capacidad, la presentación de la franja segura de eventos y el ajuste
- * tipográfico de los avisos de Apoyo Técnico. Si estas reglas vivieran duplicadas, una
+ * tipográfico de los avisos de Apoyo Técnico. Desde WP-063 también incluye el formato
+ * visual del factor de mayoría especial. Si estas reglas vivieran duplicadas, una
  * corrección posterior podría aplicarse en una sola interfaz.
  *
  * Los componentes Vue compartidos no se exportan por este índice: se importan por su
@@ -54,3 +55,5 @@ export {
 } from './presentacion_tecnica'
 
 export { extraerMensajeError } from './errores'
+
+export { formatearFactorMayoria } from './factor_mayoria'

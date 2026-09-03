@@ -48,6 +48,10 @@ import type {
   PuntoOrdenDelDiaProyectado,
   SolicitudAperturaVotacion,
 } from '@botonera2/api-client'
+// WP-063: sólo el rótulo de la regla vigente usa el formato truncado. El campo editable
+// del formulario sigue trabajando con el texto real que tipeó el operador o que copió el
+// Orden del Día, porque ese es el valor que después se envía al backend.
+import { formatearFactorMayoria } from '@botonera2/frontend-shared'
 import { traducirMotivos } from '../utils/motivos'
 import DialogoConfirmacionApertura from './DialogoConfirmacionApertura.vue'
 
@@ -479,7 +483,7 @@ async function desempatar(sentido: 'POSITIVO' | 'NEGATIVO'): Promise<void> {
           <dt class="text-slate-500">Regla</dt>
           <dd class="font-semibold text-slate-200">
             <template v-if="votacion.tipo_mayoria === 'ESPECIAL'">
-              {{ votacion.factor }} · {{ votacion.base }}
+              {{ formatearFactorMayoria(votacion.factor) }} · {{ votacion.base }}
             </template>
             <template v-else>Positivos &gt; negativos</template>
           </dd>

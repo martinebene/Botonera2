@@ -83,6 +83,8 @@ Estados visuales diferenciables:
 
 Muestra información general de la votación pero no votos individuales.
 
+Cuando la mayoría es `ESPECIAL`, el factor se escribe con exactamente dos decimales, truncando los decimales sobrantes sin redondear (`0.6789` se muestra `0.67` y `1` se muestra `1.00`). Es la misma regla de presentación que aplica Moderación y no altera el valor que transporta el DTO público.
+
 Puede mostrar una cuenta regresiva/efecto inicial configurable. Valor inicial: 4 segundos.
 
 No existe límite temporal reglamentario para votar. La votación puede continuar mientras existen pedidos/usos de palabra.
