@@ -17,6 +17,7 @@ import { computed, toRefs } from 'vue'
 import type { EstadoRecinto } from '@botonera2/api-client'
 import { usePresentacionTecnica } from '@botonera2/frontend-shared'
 import AvisoSuperficie from '@botonera2/frontend-shared/componentes/AvisoSuperficie.vue'
+import IndicadorCargaInicial from '@botonera2/frontend-shared/componentes/IndicadorCargaInicial.vue'
 import type { EstadoConexionRecinto } from '../composables/useEstadoRecinto'
 import { usePresentacionVotacion } from '../composables/usePresentacionVotacion'
 import BloqueTransmisionPublico from './BloqueTransmisionPublico.vue'
@@ -82,6 +83,14 @@ const { segundosTransmision } = usePresentacionTecnica(
 
 <template>
   <div class="aplicacion-recinto">
+    <!--
+      Barra indeterminada de carga inicial (WP-061). El Recinto ya mostraba «Conectando con
+      el recinto», pero ese estado sólo existe **después** de que Vue montó: la barra
+      continúa el indicador previo a la hidratación y unifica la señal con las otras tres
+      pantallas. Posicionada `fixed`, no ocupa lugar en la columna ni genera scroll.
+    -->
+    <IndicadorCargaInicial v-if="!estado" />
+
     <CabeceraRecinto
       :estado="estado"
       :estado-conexion="estadoConexion"

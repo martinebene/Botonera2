@@ -18,8 +18,10 @@ import CabeceraSimulador from './components/CabeceraSimulador.vue'
 import PanelGeneralSimulador from './components/PanelGeneralSimulador.vue'
 import TarjetaDispositivo from './components/TarjetaDispositivo.vue'
 import LogPulsaciones from './components/LogPulsaciones.vue'
+import IndicadorCargaInicial from '@botonera2/frontend-shared/componentes/IndicadorCargaInicial.vue'
 
 const {
+  estado,
   estadoConexion,
   estadoGlobal,
   revision,
@@ -48,6 +50,13 @@ function manejarPulsacion(evento: { dispositivo: string; tecla: string; nombre: 
   <div
     class="flex h-screen w-screen min-w-0 flex-col overflow-hidden bg-slate-950 text-slate-100 antialiased select-none"
   >
+    <!--
+      0. Barra indeterminada de carga inicial (WP-061). Releva al indicador previo a la
+      hidratación mientras el simulador espera su primer `EstadoModeracion`. Al estar
+      posicionada `fixed` no desplaza la cabecera ni la grilla de dispositivos.
+    -->
+    <IndicadorCargaInicial v-if="!estado" />
+
     <!-- 1. Cabecera con identidad de simulador, advertencia de entradas directas y selector de cantidad -->
     <CabeceraSimulador
       :cantidad="cantidadDispositivos"

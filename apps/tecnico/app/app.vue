@@ -43,6 +43,7 @@
 import { computed, shallowRef } from 'vue'
 import { usePresentacionTecnica } from '@botonera2/frontend-shared'
 import GestionRemapeo from '@botonera2/frontend-shared/componentes/GestionRemapeo.vue'
+import IndicadorCargaInicial from '@botonera2/frontend-shared/componentes/IndicadorCargaInicial.vue'
 import type { DestinoAvisoTecnico } from '@botonera2/api-client'
 import { useEstadoTecnico } from './composables/useEstadoTecnico'
 import CabeceraTecnico from './components/CabeceraTecnico.vue'
@@ -101,6 +102,13 @@ function seleccionarBorrador(mensaje: { texto: string; destino: DestinoAvisoTecn
   <div
     class="flex h-dvh w-full min-w-0 flex-col overflow-hidden bg-slate-950 text-slate-100 antialiased"
   >
+    <!--
+      Barra indeterminada de carga inicial (WP-061): continúa el indicador previo a la
+      hidratación hasta que llega el primer `EstadoTecnico`. Posicionada `fixed`, no
+      participa del reparto de la grilla y desaparece sin dejar espacio.
+    -->
+    <IndicadorCargaInicial v-if="!estado" />
+
     <CabeceraTecnico
       :estado-conexion="estadoConexion"
       :estado-global="estado?.estado_global ?? null"

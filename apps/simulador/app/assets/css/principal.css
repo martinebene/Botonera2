@@ -1,1 +1,15 @@
 @import 'tailwindcss';
+
+/*
+  Fondo institucional del documento (WP-061).
+
+  Las utilidades de Tailwind pintan el fondo del contenedor raíz de la aplicación, pero eso
+  sólo existe una vez montado Vue. Declararlo también en `:root` garantiza que el lienzo del
+  navegador nunca sea blanco: es el mismo azul profundo del indicador de carga inicial, de
+  modo que el relevo entre el indicador previo a la hidratación y la interfaz real no
+  produce ningún destello claro.
+*/
+:root {
+  background: #07111f;
+  color-scheme: dark;
+}

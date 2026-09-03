@@ -42,6 +42,7 @@ import PanelOrdenDelDia from './components/PanelOrdenDelDia.vue'
 import PanelRecintoPalabra from './components/PanelRecintoPalabra.vue'
 import PanelEventos from './components/PanelEventos.vue'
 import AvisoSuperficie from '@botonera2/frontend-shared/componentes/AvisoSuperficie.vue'
+import IndicadorCargaInicial from '@botonera2/frontend-shared/componentes/IndicadorCargaInicial.vue'
 
 // Conectamos con el composable reactivo de moderación
 const { estado, estadoConexion, estadoGlobal, revision, desactualizado, conectado, cliente } =
@@ -138,6 +139,14 @@ function recordarNivelEventos(nivel: FiltroNivelEventos): void {
   <div
     class="flex h-dvh w-full min-w-0 flex-col overflow-hidden bg-slate-950 text-slate-100 antialiased select-none"
   >
+    <!--
+      Barra indeterminada de carga inicial (WP-061). Toma el relevo del indicador previo a
+      la hidratación, que Nuxt elimina al montar el árbol de Vue, y acompaña la espera del
+      primer snapshot. Está posicionada `fixed`, así que no ocupa lugar en la grilla: al
+      llegar el estado desaparece sin dejar hueco ni mover ningún cuadrante.
+    -->
+    <IndicadorCargaInicial v-if="!estado" />
+
     <!-- Cabecera compacta: única sede de los datos globales de la pantalla -->
     <CabeceraModeracion
       :estado-conexion="estadoConexion"

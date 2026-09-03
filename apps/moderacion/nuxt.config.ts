@@ -12,6 +12,11 @@ export default defineNuxtConfig({
   // hash del estado del proyecto como buildId; en desarrollo conserva su valor
   // automático porque la variable sólo existe durante el build raíz.
   buildId: shaConstruccion,
+  // Indicador de carga inicial compartido (WP-061). Nuxt incrusta este archivo dentro
+  // del `index.html` generado, de modo que la pantalla muestre fondo institucional y una
+  // barra indeterminada desde antes de que exista el árbol de Vue. La ruta es relativa a
+  // `srcDir` (`app/`) y apunta al único archivo común de las cuatro SPA.
+  spaLoadingTemplate: '../../../packages/frontend-shared/src/carga_inicial.html',
   experimental: {
     // Estas SPA no usan route rules del lado cliente. Omitir el app manifest
     // evita UUID/timestamps volátiles y también su polling de builds obsoletos.

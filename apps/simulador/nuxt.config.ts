@@ -10,6 +10,11 @@ export default defineNuxtConfig({
   ssr: false,
   // El lanzador productivo usa el SHA Git exacto para garantizar compilaciones reproducibles.
   buildId: shaConstruccion,
+  // Indicador de carga inicial compartido (WP-061). Nuxt incrusta este archivo dentro
+  // del `index.html` generado, de modo que la pantalla muestre fondo institucional y una
+  // barra indeterminada desde antes de que exista el árbol de Vue. La ruta es relativa a
+  // `srcDir` (`app/`) y apunta al único archivo común de las cuatro SPA.
+  spaLoadingTemplate: '../../../packages/frontend-shared/src/carga_inicial.html',
   experimental: {
     // Sin app manifest no se generan UUIDs/timestamps volátiles ni polling en el cliente.
     appManifest: false,
