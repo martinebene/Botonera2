@@ -1,9 +1,23 @@
 name: CI
 
 on:
+  # Las Pull Requests conservan deliberadamente la CI completa y sin filtros de
+  # ruta: el candidato exacto que recibe revisión independiente debe validarse
+  # entero, aunque el cambio parezca documental (DEC-019, sección 1).
   pull_request:
   push:
+    # `branches` y `paths-ignore` se combinan con AND: la CI sólo corre si el
+    # push va a `main` y además algún archivo queda fuera de las rutas exentas.
     branches: [main]
+    # Exención documental exclusiva del push directo a `main` (DEC-019, sección 3).
+    # GitHub omite la run únicamente cuando *todos* los archivos del push
+    # coinciden con estos patrones; si al menos uno no coincide, la CI completa
+    # se ejecuta igual. Por eso un commit mixto de documentación más cualquier
+    # archivo material sigue cubierto, y `.github/workflows/ci.yml` queda a
+    # propósito fuera de la exención: modificar la CI es un cambio material.
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
 
 permissions:
   contents: read
