@@ -213,7 +213,7 @@ WP-033 quedó integrado antes de continuar WP-026 y deja disponible el harness m
 | WP-064 | Aumentar legibilidad de nombres en la cola de palabra del Recinto | INTEGRADO | WP-062 | claude |
 | WP-065 | Incorporar configuración y assets de sonidos del Recinto | INTEGRADO | WP-062 | claude |
 | WP-066 | Implementar motor de reproducción de sonidos del Recinto | EN_CURSO | WP-065 | claude |
-| WP-068 | Evitar CI completa en pushes documentales a main | EN_CURSO | DEC-019 | claude |
+| WP-068 | Evitar CI completa en pushes documentales a main | INTEGRADO | DEC-019 | claude |
 | WP-067 | Publicar manual de usuario y ayuda integrada de SISLeg | PENDIENTE | WP-062, WP-063, WP-064, WP-065, WP-066 | - |
 | WP-029 | Validar bridge/hardware real, regresión funcional y candidato de producción | BLOQUEADO | WP-019, WP-020, WP-027, WP-028, WP-034, WP-035, WP-036, WP-037, WP-038, WP-039, WP-040, WP-041, WP-043, WP-044, WP-045, WP-046, WP-047, WP-048, WP-049, WP-050, WP-051, WP-052, WP-053, WP-054, WP-055, WP-056, WP-057, WP-058, WP-059, WP-060, WP-061, WP-062, WP-063, WP-064, WP-065, WP-066, WP-067 | - |
 
@@ -379,3 +379,6 @@ HUMAN_GATE activa WP-066 después de verificar el cierre y cleanup completos de 
 
 
 HUMAN_GATE aprueba DEC-019 y activa WP-068 para eliminar la CI completa redundante en pushes puramente documentales a `main`. WP-068 se ejecuta antes de continuar operativamente WP-066; no modifica código de audio ni reduce la CI de PRs o pushes materiales. Claude Code / Claude Opus 5 (High) implementará y Antigravity/AGY / Gemini 3.8 Flash (High) revisará. La CI de Product que todavía pueda dispararse por estos commits documentales de transición deja de ser gate sustantivo conforme a DEC-019; la verificación real del filtro se hará con el cierre documental posterior al merge de WP-068.
+
+
+WP-068 quedó integrado mediante PR #73 sobre el candidato `de0427229d57a18f47803894de13e49a8957ed5f`, implementado por Claude Code / Claude Opus 5 (High) y revisado independientemente por Antigravity/AGY / Gemini 3.8 Flash (High), con 0 BLOQUEANTES, 0 IMPORTANTES y 0 MENORES y veredicto `LISTA PARA INTEGRAR`. El squash `bff36c52afa823ec566cf2b4fb25696d29379153` conserva exactamente el tree revisado `82ec23dcbe7b8095b5b06f169c9bdd01793fa057`; CI candidata #458 y CI post-merge #459 terminaron `success` 8/8. Desde este punto, los pushes directos a `main` compuestos exclusivamente por documentación Markdown quedan exentos de CI de Product conforme DEC-019. WP-066 puede reanudarse una vez completado el cleanup de WP-068; WP-029 permanece BLOQUEADO.
