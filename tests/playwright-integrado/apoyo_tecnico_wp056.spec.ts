@@ -1,6 +1,12 @@
 /**
  * E2E multi-contexto de Apoyo Técnico contra el stack real (WP-056).
  *
+ * Desde WP-073 el CRUD de mensajes precargados se ejercita contra la biblioteca
+ * **aislada** que crea `ProcesoStackIntegrado` en un directorio temporal del sistema.
+ * La persistencia sigue siendo real —se comprueba leyendo el CSV en disco— pero
+ * `config/apoyo-tecnico/mensajes.csv`, que ahora es dato operativo del usuario, no se
+ * lee, ni se escribe, ni se restaura en ningún momento.
+ *
  * Abre simultáneamente las tres pantallas —Técnico, Moderación y Recinto— servidas por un
  * único FastAPI y comprueba que un comando emitido desde el puesto técnico se refleja por
  * SSE en la superficie correcta, sin ningún sondeo periódico y sin que las pantallas
@@ -25,19 +31,8 @@
  */
 
 import { promises as archivos } from 'node:fs'
-import { resolve } from 'node:path'
 import { expect, test, type Page } from '@playwright/test'
 import { ProcesoStackIntegrado, URL_STACK, puertoOcupado, pulsarSecuencia } from './infraestructura'
-
-/**
- * Biblioteca de mensajes precargados versionada en el repositorio.
- *
- * El CRUD que ejercita esta prueba escribe realmente sobre este archivo, porque es la
- * única forma de demostrar que la persistencia funciona. Su contenido se guarda antes de
- * empezar y se restaura al terminar, incluso si una prueba falla: el checkout debe quedar
- * limpio para que el empaquetado productivo siga correspondiendo a su SHA.
- */
-const RUTA_BIBLIOTECA = resolve(__dirname, '../../config/apoyo-tecnico/mensajes.csv')
 
 /**
  * Deja el recinto en sesión abierta para poder observar la franja completa del Recinto.
@@ -79,16 +74,14 @@ async function publicarAviso(
 test.describe.serial('WP-056 · Apoyo Técnico sobre stack real', () => {
   const stack = new ProcesoStackIntegrado()
 
-  let bibliotecaOriginal = ''
-
   test.beforeAll(async () => {
-    bibliotecaOriginal = await archivos.readFile(RUTA_BIBLIOTECA, 'utf8')
     await stack.iniciar()
   })
   test.afterAll(async () => {
+    // `detener` comprueba además que la biblioteca operativa del checkout haya
+    // quedado intacta: esta suite trabaja siempre sobre la copia aislada.
     await stack.detener()
     expect(await puertoOcupado()).toBe(false)
-    await archivos.writeFile(RUTA_BIBLIOTECA, bibliotecaOriginal, 'utf8')
   })
 
   test.afterEach(async ({}, informacion) => {
@@ -209,7 +202,13 @@ test.describe.serial('WP-056 · Apoyo Técnico sobre stack real', () => {
       })
       await expect(fila).toHaveCount(1)
 
-      // Persistencia real: el CSV del backend sobrevive a un reload completo.
+      // Persistencia real: el alta llegó al CSV que administra el backend. Es la
+      // biblioteca aislada del stack, no la operativa del checkout (WP-073).
+      expect(await archivos.readFile(stack.obtenerRutaBiblioteca(), 'utf8')).toContain(
+        'Retomamos en cinco minutos',
+      )
+
+      // Y sobrevive a un reload completo del navegador.
       await tecnico.reload()
       await expect(
         tecnico.getByTestId('mensaje-precargado').filter({ hasText: 'Retomamos en cinco minutos' }),
@@ -249,6 +248,11 @@ test.describe.serial('WP-056 · Apoyo Técnico sobre stack real', () => {
       await expect(
         tecnico.getByTestId('mensaje-precargado').filter({ hasText: 'Retomamos en diez minutos' }),
       ).toHaveCount(0)
+
+      // La baja también llegó al disco, no sólo a la memoria del backend.
+      expect(await archivos.readFile(stack.obtenerRutaBiblioteca(), 'utf8')).not.toContain(
+        'Retomamos en diez minutos',
+      )
 
       // El estado también sobrevive a un reload: la baja quedó en el CSV.
       await tecnico.reload()

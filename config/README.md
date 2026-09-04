@@ -40,6 +40,21 @@ idempotente y **nunca sobrescribe** un archivo existente: `mensajes.csv` y
 `pnpm dev:stack`, `pnpm dev:stack:hot` y `pnpm test:e2e:integrado` lo ejecutan
 solos antes de arrancar, de modo que un clon nuevo funciona sin pasos manuales.
 
+## Las pruebas nunca escriben tu biblioteca
+
+`config/apoyo-tecnico/mensajes.csv` es el único de los cuatro que el backend
+escribe por su cuenta, así que es también el único que una prueba podría llegar
+a pisar. No lo hace: el E2E integrado arranca el stack con
+`--ruta-mensajes-tecnicos`, apuntándolo a una copia temporal fuera del
+repositorio sembrada desde `mensajes.example.csv`. El CRUD se ejercita contra
+esa copia, con persistencia real a disco, y el harness comprueba al detener el
+stack que tu archivo quedó byte a byte y con la misma fecha de modificación.
+
+Esa opción existe únicamente para el harness de pruebas. El arranque productivo
+no la usa y resuelve siempre `config/apoyo-tecnico/mensajes.csv`. Es además el
+único archivo runtime reubicable: configuración, padrón y mapeo físico no
+admiten desvío.
+
 ## Migrar un clon que ya existía
 
 Un clon anterior a WP-073 tiene los cuatro archivos **trackeados**, y puede

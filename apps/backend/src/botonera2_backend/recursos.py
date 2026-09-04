@@ -35,6 +35,11 @@ class RecursosAplicacion:
     coordinador_publicacion: CoordinadorPublicacion
     servicio_proyecciones: ServicioProyecciones
     cliente_control_bridge: ClienteControlBridge
+    # Ruta de la biblioteca de Apoyo Técnico vigente para *este* proceso. Se
+    # conserva acá porque el CSV se lee una vez al arrancar y se reescribe en
+    # cada comando REST: si la lectura y la escritura tomaran la ruta de dos
+    # lugares distintos, un proceso podría leer un archivo y sobrescribir otro.
+    ruta_mensajes_tecnicos: Path
 
 
 def crear_recursos_aplicacion(
@@ -82,6 +87,7 @@ def crear_recursos_aplicacion(
         coordinador_publicacion=coordinador,
         servicio_proyecciones=servicio_proyecciones,
         cliente_control_bridge=cliente_control_bridge,
+        ruta_mensajes_tecnicos=ruta_mensajes_tecnicos,
     )
 
 

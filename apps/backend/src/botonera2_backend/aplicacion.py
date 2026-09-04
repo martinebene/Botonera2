@@ -4,6 +4,7 @@ import asyncio
 import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager, suppress
+from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -24,20 +25,35 @@ from botonera2_backend.recursos import (
     descartar_recursos_aplicacion,
     guardar_recursos_aplicacion,
 )
+from botonera2_backend.servicios.apoyo_tecnico import RUTA_MENSAJES_TECNICOS_POR_DEFECTO
 from botonera2_backend.servicios.fronteras_temporales import ServicioFronterasTemporales
 
 REGISTRO = logging.getLogger(__name__)
+
+# Clave bajo la que ``crear_aplicacion`` deja la ruta de la biblioteca técnica
+# para que el lifespan la lea. Vive en ``app.state`` y no en una variable de
+# módulo para que dos aplicaciones creadas en el mismo proceso —habitual en las
+# pruebas— no se pisen entre sí.
+NOMBRE_RUTA_MENSAJES_TECNICOS = "ruta_mensajes_tecnicos_botonera2"
 
 
 @asynccontextmanager
 async def ciclo_vida(aplicacion: FastAPI) -> AsyncGenerator[None]:
     """Crea al arrancar y descarta al detener los recursos únicos del proceso.
 
-    No se lee ningún archivo ni almacenamiento persistente. Por eso cada entrada
-    al contexto representa un arranque limpio en ``SIN_PREPARAR``.
+    No se recupera estado operativo de ningún almacenamiento: cada entrada al
+    contexto representa un arranque limpio en ``SIN_PREPARAR``. La ruta de la
+    biblioteca de Apoyo Técnico se toma de ``aplicacion.state`` cuando quien
+    creó la aplicación la fijó explícitamente; si no, rige el valor productivo.
     """
 
-    recursos = crear_recursos_aplicacion()
+    recursos = crear_recursos_aplicacion(
+        ruta_mensajes_tecnicos=getattr(
+            aplicacion.state,
+            NOMBRE_RUTA_MENSAJES_TECNICOS,
+            RUTA_MENSAJES_TECNICOS_POR_DEFECTO,
+        )
+    )
     guardar_recursos_aplicacion(aplicacion, recursos)
     fronteras = ServicioFronterasTemporales(
         recursos.servicio_proyecciones,
@@ -79,13 +95,35 @@ async def manejar_error_interno(solicitud: Request, error: Exception) -> JSONRes
     )
 
 
-def crear_aplicacion() -> FastAPI:
-    """Construye una aplicación aislada y testeable con su API versionada."""
+def crear_aplicacion(*, ruta_mensajes_tecnicos: Path | None = None) -> FastAPI:
+    """Construye una aplicación aislada y testeable con su API versionada.
+
+    Entradas:
+        ruta_mensajes_tecnicos: ubicación del CSV de mensajes precargados de
+            Apoyo Técnico para este proceso. Omitirla —lo que hace siempre el
+            arranque productivo de ``botonera2_backend.main``— deja el valor
+            canónico ``config/apoyo-tecnico/mensajes.csv``.
+
+            Existe únicamente para que el harness integrado de desarrollo pueda
+            ejercitar el CRUD real contra un archivo temporal, sin escribir
+            jamás sobre la biblioteca operativa de quien ejecuta las pruebas
+            (WP-073, criterio 15). Es deliberadamente el único archivo runtime
+            reubicable: configuración, padrón y mapeo físico siguen resolviendo
+            a sus rutas canónicas y ninguna prueba puede desviarlas.
+
+    Resultado:
+        Aplicación FastAPI con REST, SSE, OpenAPI y su ciclo de vida propio.
+    """
 
     aplicacion = FastAPI(
         title="Botonera2 Backend",
         lifespan=ciclo_vida,
     )
+    if ruta_mensajes_tecnicos is not None:
+        # Se guarda en ``state`` porque el lifespan recibe la aplicación y no
+        # los argumentos de esta función: es la vía que FastAPI ofrece para que
+        # quien construye la aplicación le pase datos a su ciclo de vida.
+        setattr(aplicacion.state, NOMBRE_RUTA_MENSAJES_TECNICOS, ruta_mensajes_tecnicos)
     aplicacion.add_exception_handler(Exception, manejar_error_interno)
     # Los manejadores por tipo traducen los errores de dominio/técnicos a las
     # respuestas estables del contrato antes de llegar al genérico anterior.
