@@ -296,10 +296,12 @@ El nombre visible del producto es **SISLeg** (WP-062). Los archivos aprobados po
 
 | Archivo | Medidas | Uso |
 | --- | --- | --- |
-| `assets/branding/sisleg-logo.png` | 448×158 | Logo completo: pantalla de carga de las cuatro SPA y estado `SIN_PREPARAR` de la Pantalla del Recinto. |
+| `assets/branding/sisleg-logo.png` | 1536×1024 | Logo completo: pantalla de carga de las cuatro SPA, estado `SIN_PREPARAR` de la Pantalla del Recinto y cabecera del manual de usuario. |
 | `assets/branding/sisleg-isotipo.png` | 256×250 | Isotipo: favicon de las cuatro SPA. |
 
-`assets/branding/README.md` documenta la procedencia de los originales y la derivación autorizada (recorte de márgenes y conversión del fondo blanco a transparencia). Ambos PNG tienen canal de transparencia, de modo que no dibujan un rectángulo blanco sobre las superficies oscuras.
+`assets/branding/README.md` documenta la procedencia de los originales y la derivación autorizada de cada uno: recorte de márgenes y conversión del fondo blanco a transparencia para el isotipo (WP-062); únicamente un suavizado mínimo del borde, sin recorte ni escala, para el logo completo entregado el 04/09/2026 (WP-069). El lienzo del logo conserva por eso los márgenes transparentes del archivo humano y no se recorta. Ambos PNG tienen canal de transparencia, de modo que no dibujan un rectángulo blanco sobre las superficies oscuras.
+
+El manual de usuario (`manual/index.html`) incrusta el mismo logo como `data:` para conservar su condición de documento único sin recursos externos; el contenido decodificado es idéntico al canónico.
 
 Cada SPA consume una copia idéntica bajo `apps/<aplicacion>/public/assets/marca/`, igual que ya ocurre con las imágenes de banca. La duplicación es deliberada: cada aplicación se sirve bajo su propio prefijo (`/moderacion/`, `/recinto/`, `/tecnico/`, `/simulador/`) y publica su propio directorio estático, así que un único archivo compartido no sería alcanzable desde las cuatro sin introducir una ruta de servidor adicional.
 
