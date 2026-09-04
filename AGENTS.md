@@ -259,6 +259,17 @@ Obliga a:
 - mantener revisión independiente por sesión/agente/modelo efectivo;
 - limpiar worktree/rama usando el mecanismo correspondiente al entorno después del merge verificado.
 
+### DEC-019 - CI proporcional y commits documentales
+
+Ver `docs/decisions/DEC-019-ci-proporcional-y-commits-documentales.md`.
+
+Obliga a interpretar «CI aplicable» de forma proporcional al tipo de cambio:
+
+- toda PR y todo push material a `main` conserva CI completa;
+- un push directo a `main` compuesto únicamente por `docs/**` y/o archivos `*.md` puede no generar run de Product y esa ausencia es esperada;
+- un commit mixto o cualquier cambio en código, tests, scripts, CI, configuración, dependencias, assets binarios o despliegue sigue siendo material;
+- modificar el workflow de CI requiere WP, rama, PR, revisión independiente y CI completa.
+
 ### DEC-017 - Coordinación mediante Botonera2-Control
 
 Ver `docs/decisions/DEC-017-coordinacion-mediante-botonera2-control.md`.
