@@ -215,11 +215,12 @@ WP-033 quedó integrado antes de continuar WP-026 y deja disponible el harness m
 | WP-066 | Implementar motor de reproducción de sonidos del Recinto | INTEGRADO | WP-065 | claude |
 | WP-068 | Evitar CI completa en pushes documentales a main | INTEGRADO | DEC-019 | claude |
 | WP-067 | Publicar manual de usuario y ayuda integrada de SISLeg | INTEGRADO | WP-062, WP-063, WP-064, WP-065, WP-066 | claude |
-| WP-069 | Reemplazar logo SISLeg por el asset humano corregido e integrarlo en la ayuda | EN_CURSO | WP-062, WP-067 | claude |
+| WP-069 | Reemplazar logo SISLeg por el asset humano corregido e integrarlo en la ayuda | INTEGRADO | WP-062, WP-067 | claude |
 | WP-070 | Corregir microcopy y geometría operativa en Moderación, Apoyo Técnico y Recinto | PENDIENTE | WP-056 | claude |
 | WP-071 | Replicar en Apoyo Técnico todos los eventos sonoros del Recinto | PENDIENTE | WP-056, WP-066 | claude |
 | WP-072 | Incorporar gobernanza de actualización del manual de ayuda | PENDIENTE | WP-067 | claude |
-| WP-029 | Validar bridge/hardware real, regresión funcional y candidato de producción | BLOQUEADO | WP-019, WP-020, WP-027, WP-028, WP-034, WP-035, WP-036, WP-037, WP-038, WP-039, WP-040, WP-041, WP-043, WP-044, WP-045, WP-046, WP-047, WP-048, WP-049, WP-050, WP-051, WP-052, WP-053, WP-054, WP-055, WP-056, WP-057, WP-058, WP-059, WP-060, WP-061, WP-062, WP-063, WP-064, WP-065, WP-066, WP-067, WP-069, WP-070, WP-071, WP-072 | - |
+| WP-073 | Separar configuración operativa local de plantillas versionadas | PENDIENTE | WP-069 | claude |
+| WP-029 | Validar bridge/hardware real, regresión funcional y candidato de producción | BLOQUEADO | WP-019, WP-020, WP-027, WP-028, WP-034, WP-035, WP-036, WP-037, WP-038, WP-039, WP-040, WP-041, WP-043, WP-044, WP-045, WP-046, WP-047, WP-048, WP-049, WP-050, WP-051, WP-052, WP-053, WP-054, WP-055, WP-056, WP-057, WP-058, WP-059, WP-060, WP-061, WP-062, WP-063, WP-064, WP-065, WP-066, WP-067, WP-069, WP-070, WP-071, WP-072, WP-073 | - |
 
 HUMAN_GATE seleccionó Codex como implementador y Antigravity/AGY como revisor independiente de WP-047. WP-047 queda `EN_CURSO`; WP-048 y WP-049 permanecen bloqueados por esta dependencia y todavía no tienen agente asignado.
 
@@ -401,3 +402,6 @@ Nueva iteración de prueba humana del 04/09/2026: HUMAN_GATE aprobó WP-069..WP-
 
 
 HUMAN_GATE entregó el asset humano exacto de WP-069 el 04/09/2026. El ORCHESTRATOR verificó localmente 1536×1024 RGBA, 1.027.650 bytes y SHA-256 `98d155ddf73e7d10d7b8b40f8510e0423b0d6dbffd749c79173b173fd0cfc756`; luego lo staged byte-a-byte en Botonera2-Control. Se activa WP-069 con Claude Code / Claude Opus 5 (High) como IMPLEMENTER y Antigravity/AGY / Gemini 3.8 Flash (High) como REVIEWER independiente. La única edición gráfica permitida sigue siendo el suavizado mínimo del borde definido en el WP. WP-029 permanece BLOQUEADO.
+
+
+WP-069 quedó integrado mediante PR #76 sobre el candidato `8b28584d1e5992ac3709762569ee0ffd195d2944`, implementado por Claude Code / Claude Opus 5 (High) y revisado independientemente por Antigravity/AGY / Gemini 3.8 Flash (High), con 0 BLOQUEANTES, 0 IMPORTANTES y 0 MENORES y veredicto `LISTA PARA INTEGRAR`. El squash `ddeb30a9dc895b89d1c7e9ec66091eb9480e6fab` integra el logo humano aprobado con el único suavizado de borde autorizado; CI candidata #464 y CI post-merge #465 terminaron `success` 8/8. WP-073 queda aprobado documentalmente como siguiente correctivo operativo, pero permanece `PENDIENTE` hasta completar y verificar el cleanup de WP-069. WP-029 permanece BLOQUEADO.
