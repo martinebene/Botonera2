@@ -216,9 +216,9 @@ WP-033 quedó integrado antes de continuar WP-026 y deja disponible el harness m
 | WP-068 | Evitar CI completa en pushes documentales a main | INTEGRADO | DEC-019 | claude |
 | WP-067 | Publicar manual de usuario y ayuda integrada de SISLeg | INTEGRADO | WP-062, WP-063, WP-064, WP-065, WP-066 | claude |
 | WP-069 | Reemplazar logo SISLeg por el asset humano corregido e integrarlo en la ayuda | INTEGRADO | WP-062, WP-067 | claude |
-| WP-070 | Corregir microcopy y geometría operativa en Moderación, Apoyo Técnico y Recinto | PENDIENTE | WP-056 | claude |
+| WP-070 | Corregir microcopy y geometría operativa en Moderación, Apoyo Técnico y Recinto | EN_CURSO | WP-056 | claude |
 | WP-071 | Replicar en Apoyo Técnico todos los eventos sonoros del Recinto | PENDIENTE | WP-056, WP-066 | claude |
-| WP-072 | Incorporar gobernanza de actualización del manual de ayuda | PENDIENTE | WP-067 | claude |
+| WP-072 | Incorporar gobernanza de actualización del manual de ayuda | EN_CURSO | WP-067 | claude |
 | WP-073 | Separar configuración operativa local de plantillas versionadas | INTEGRADO | WP-069 | claude |
 | WP-029 | Validar bridge/hardware real, regresión funcional y candidato de producción | BLOQUEADO | WP-019, WP-020, WP-027, WP-028, WP-034, WP-035, WP-036, WP-037, WP-038, WP-039, WP-040, WP-041, WP-043, WP-044, WP-045, WP-046, WP-047, WP-048, WP-049, WP-050, WP-051, WP-052, WP-053, WP-054, WP-055, WP-056, WP-057, WP-058, WP-059, WP-060, WP-061, WP-062, WP-063, WP-064, WP-065, WP-066, WP-067, WP-069, WP-070, WP-071, WP-072, WP-073 | - |
 
@@ -411,3 +411,6 @@ HUMAN_GATE verificó el cleanup completo de WP-069: worktree Orca removido, work
 
 
 WP-073 quedó VERIFIED_COMPLETE. PR #77 integró por squash el candidato final `349adcbf43c23528988a4df14630141f9f1634f7` como `80cfc0cf27069bd23fe0bbeee1759281759616a9`, con revisión independiente 0 BLOQUEANTES / 0 IMPORTANTES / 0 MENORES y veredicto `LISTA PARA INTEGRAR`. CI candidata #467 y CI post-merge #468 terminaron `success` 8/8. HUMAN_GATE respaldó y restauró los cuatro archivos runtime locales con hashes idénticos, verificó que dejaron de estar trackeados, que quedaron ignorados por Git y que sus cuatro plantillas `.example` permanecen versionadas. Cleanup final: worktree Orca WP-073 removido, rama local ausente, rama remota eliminada y checkout coordinador limpio/sincronizado a `80cfc0cf27069bd23fe0bbeee1759281759616a9`. La siguiente etapa planificada es WP-070 + WP-072 bajo COORDINADOR_LOCAL Codex / Luna con `max_concurrency=1`; no se activa hasta confirmar que el harness real expone inequívocamente Luna. WP-029 permanece BLOQUEADO.
+
+
+HUMAN_GATE activa la etapa WP-070/WP-072 después del cierre completo de WP-073. Ambos WPs usan Claude Code / Claude Opus 5 (High) como IMPLEMENTER y Antigravity/AGY / Gemini 3.8 Flash (High) como REVIEWER independiente. La ejecución local queda delegada mecánicamente a COORDINADOR_LOCAL Codex con modelo requerido Luna y `max_concurrency=1`. HUMAN_GATE asume la selección visual de Luna en la TUI de Codex antes de emitir `Seguí`; esa orden constituye la confirmación humana del modelo. No se autoriza sustitución silenciosa. WP-070 y WP-072 permanecen lógicamente paralelos pero físicamente secuenciales; el coordinador puede crear sus worktrees Orca desde este main, despachar IMPLEMENTER y atravesar únicamente la transición mecánica preautorizada IMPLEMENTER -> REVIEWER cuando todos los gates objetivos se cumplan. No puede interpretar reviews, corregir, mergear, cerrar, limpiar ni tocar WP-029.
