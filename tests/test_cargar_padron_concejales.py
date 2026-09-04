@@ -21,13 +21,19 @@ from conftest import (
     filas_padron_valido,
 )
 
-# Rutas de instalación versionadas que deben permanecer coherentes entre sí.
+# Plantillas versionadas que deben permanecer coherentes entre sí. Desde
+# WP-073 los archivos operativos (`config/system.toml`, `config/concejales.csv`
+# y `services/device-bridge/config/devices.json`) están ignorados por Git y
+# pueden no existir en un clon nuevo, así que las pruebas de coherencia se
+# ejercen sobre los `*.example.*`, que son el contenido que la revisión ve.
 # Se resuelven desde la raíz del repositorio para que los tests no dependan
 # del directorio desde el que se invoca pytest.
 RAIZ_REPOSITORIO = Path(__file__).parents[1]
-RUTA_PADRON_REPO = RAIZ_REPOSITORIO / "config" / "concejales.csv"
-RUTA_TOML_REPO = RAIZ_REPOSITORIO / "config" / "system.toml"
-RUTA_DISPOSITIVOS_REPO = RAIZ_REPOSITORIO / "services" / "device-bridge" / "config" / "devices.json"
+RUTA_PADRON_REPO = RAIZ_REPOSITORIO / "config" / "concejales.example.csv"
+RUTA_TOML_REPO = RAIZ_REPOSITORIO / "config" / "system.example.toml"
+RUTA_DISPOSITIVOS_REPO = (
+    RAIZ_REPOSITORIO / "services" / "device-bridge" / "config" / "devices.example.json"
+)
 
 
 def test_carga_el_padron_valido_con_sus_asociaciones(ruta_padron_valido: Path) -> None:
@@ -249,8 +255,8 @@ def test_cambiar_el_padron_en_disco_no_modifica_el_snapshot_cargado(tmp_path: Pa
 def test_los_archivos_canonicos_del_repositorio_cargan_juntos() -> None:
     """La configuración y el padrón de instalación cumplen su contrato.
 
-    Este test integra las dos cargas: la configuración real de
-    ``config/system.toml`` y el padrón real de ``config/concejales.csv``
+    Este test integra las dos cargas: la plantilla versionada
+    ``config/system.example.toml`` y el padrón de ``config/concejales.example.csv``
     deben ser compatibles entre sí y conservar exactamente las identidades,
     bancas y asociaciones lógicas recuperadas de producción para WP-043.
     """

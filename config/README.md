@@ -1,7 +1,75 @@
 # Configuración funcional
 
-Ubicación reservada para la configuración y el padrón canónicos. WP-001 no
-crea datos institucionales ni implementa todavía su lectura.
+Ubicación de la configuración y el padrón que el backend lee en ejecución.
+
+## Plantillas versionadas y archivos operativos locales
+
+Desde WP-073 cada archivo de configuración existe en dos formas:
+
+| Plantilla versionada                                 | Archivo operativo local                      | Quién lo escribe                |
+| ---------------------------------------------------- | -------------------------------------------- | ------------------------------- |
+| `config/system.example.toml`                         | `config/system.toml`                         | la persona que opera el sistema |
+| `config/concejales.example.csv`                      | `config/concejales.csv`                      | la persona que opera el sistema |
+| `config/apoyo-tecnico/mensajes.example.csv`          | `config/apoyo-tecnico/mensajes.csv`          | el backend, por REST            |
+| `services/device-bridge/config/devices.example.json` | `services/device-bridge/config/devices.json` | el device bridge, al remapear   |
+
+Las rutas que el sistema lee siguen siendo las de la columna del medio. Lo
+único que cambió es que **esos cuatro archivos ya no se versionan**: están
+declarados en `.gitignore` porque son estado real de cada instalación. Así una
+prueba humana, un remapeo de hardware o un ajuste de volumen dejan de ensuciar
+el checkout y de bloquear `scripts/iniciar_wp_orca.py`.
+
+Las plantillas `*.example.*` sí se versionan: son el contenido de referencia que
+la revisión ve en cada Pull Request. Un cambio real en una plantilla aparece en
+Git como cualquier otro archivo.
+
+## Preparar un clon nuevo
+
+```bash
+uv run python scripts/preparar_config_local.py
+```
+
+o, equivalente, `pnpm preparar:config`.
+
+El comando copia cada plantilla a su ruta operativa **sólo si esa ruta no
+existe**, crea los directorios que falten, informa qué creó y qué preservó, y
+termina con código distinto de cero ante un fallo real de E/S. Repetirlo es
+idempotente y **nunca sobrescribe** un archivo existente: `mensajes.csv` y
+`devices.json` contienen trabajo operativo que no está en ningún commit.
+
+`pnpm dev:stack`, `pnpm dev:stack:hot` y `pnpm test:e2e:integrado` lo ejecutan
+solos antes de arrancar, de modo que un clon nuevo funciona sin pasos manuales.
+
+## Las pruebas nunca escriben tu biblioteca
+
+`config/apoyo-tecnico/mensajes.csv` es el único de los cuatro que el backend
+escribe por su cuenta, así que es también el único que una prueba podría llegar
+a pisar. No lo hace: el E2E integrado arranca el stack con
+`--ruta-mensajes-tecnicos`, apuntándolo a una copia temporal fuera del
+repositorio sembrada desde `mensajes.example.csv`. El CRUD se ejercita contra
+esa copia, con persistencia real a disco, y el harness comprueba al detener el
+stack que tu archivo quedó byte a byte y con la misma fecha de modificación.
+
+Esa opción existe únicamente para el harness de pruebas. El arranque productivo
+no la usa y resuelve siempre `config/apoyo-tecnico/mensajes.csv`. Es además el
+único archivo runtime reubicable: configuración, padrón y mapeo físico no
+admiten desvío.
+
+## Migrar un clon que ya existía
+
+Un clon anterior a WP-073 tiene los cuatro archivos **trackeados**, y puede
+tener además banderas `skip-worktree` puestas a mano como mitigación. Adoptar el
+commit que deja de trackearlos borraría el contenido local, así que hay que
+resguardarlo primero. El procedimiento completo, con los comandos exactos, está
+en la sección «Migración de un clon anterior a WP-073» del `README.md` de la
+raíz.
+
+## Producción
+
+Producción no usa nada de esto: provisiona su configuración fuera de las
+releases, bajo `/opt/botonera2/config/`, según `docs/13-despliegue-y-operacion.md`.
+El empaquetado sigue excluyendo deliberadamente `config/`, de modo que ni las
+plantillas ni los archivos operativos locales viajan en un artefacto.
 
 ## Mensajes precargados de Apoyo Técnico
 

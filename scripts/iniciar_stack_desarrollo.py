@@ -99,6 +99,7 @@ def crear_aplicacion_integrada(
     salida_simulador: Path = SALIDA_SIMULADOR,
     salida_tecnico: Path = SALIDA_TECNICO,
     directorio_manual: Path = DIRECTORIO_MANUAL,
+    ruta_mensajes_tecnicos: Path | None = None,
 ) -> FastAPI:
     """Crea una instancia real de FastAPI y monta las cuatro SPA para desarrollo.
 
@@ -113,6 +114,11 @@ def crear_aplicacion_integrada(
         salida_simulador: Build estático del Simulador de dispositivos lógicos.
         salida_tecnico: Build estático del puesto de Apoyo Técnico.
         directorio_manual: Directorio fuente del manual de usuario estático.
+        ruta_mensajes_tecnicos: CSV de mensajes precargados de Apoyo Técnico
+            para este proceso. Omitirlo deja la ruta canónica
+            ``config/apoyo-tecnico/mensajes.csv``. El E2E integrado lo apunta a
+            un archivo temporal para ejercitar el CRUD real sin escribir sobre
+            la biblioteca operativa de quien ejecuta las pruebas (WP-073).
 
     Returns:
         Aplicación FastAPI lista para ejecutarse en un único proceso ASGI.
@@ -127,7 +133,7 @@ def crear_aplicacion_integrada(
     validar_salida_spa(salida_tecnico, "Apoyo Técnico")
     validar_manual(directorio_manual)
 
-    aplicacion = crear_aplicacion()
+    aplicacion = crear_aplicacion(ruta_mensajes_tecnicos=ruta_mensajes_tecnicos)
 
     async def mostrar_indice_desarrollo() -> str:
         """Ofrece accesos mínimos sin agregar una pantalla institucional."""
@@ -220,6 +226,16 @@ def crear_analizador_argumentos() -> argparse.ArgumentParser:
         default=PUERTO_PREDETERMINADO,
         help=f"puerto HTTP (predeterminado: {PUERTO_PREDETERMINADO})",
     )
+    analizador.add_argument(
+        "--ruta-mensajes-tecnicos",
+        type=Path,
+        default=None,
+        help=(
+            "CSV de mensajes precargados de Apoyo Técnico para este proceso. "
+            "Sólo para el harness de pruebas: omitirlo deja la ruta canónica "
+            "config/apoyo-tecnico/mensajes.csv."
+        ),
+    )
     return analizador
 
 
@@ -247,7 +263,9 @@ def main(argumentos: Sequence[str] | None = None) -> int:
 
     opciones = crear_analizador_argumentos().parse_args(argumentos)
     try:
-        aplicacion = crear_aplicacion_integrada()
+        aplicacion = crear_aplicacion_integrada(
+            ruta_mensajes_tecnicos=opciones.ruta_mensajes_tecnicos
+        )
     except ErrorSalidaSpa as error:
         print(f"Error al iniciar el stack: {error}", file=sys.stderr)
         return 1

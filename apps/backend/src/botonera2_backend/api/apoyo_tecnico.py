@@ -163,12 +163,21 @@ class SolicitudMensajeTecnico(BaseModel):
 
 
 def _crear_servicio(solicitud: Request) -> ServicioApoyoTecnico:
-    """Construye el servicio sobre el estado y ejecutor únicos del proceso."""
+    """Construye el servicio sobre el estado y ejecutor únicos del proceso.
+
+    La ruta del CSV se toma de los recursos del proceso y no de la constante
+    global, para que la biblioteca que se reescribe sea siempre exactamente la
+    misma que se leyó al arrancar. En producción ambas son
+    ``config/apoyo-tecnico/mensajes.csv``; el harness integrado de desarrollo
+    puede apuntar el proceso a un archivo aislado sin que lectura y escritura
+    se separen.
+    """
 
     recursos = obtener_recursos_aplicacion(solicitud.app)
     return ServicioApoyoTecnico(
         recursos.estado_operativo,
         recursos.ejecutor_mutaciones,
+        ruta_mensajes=recursos.ruta_mensajes_tecnicos,
     )
 
 

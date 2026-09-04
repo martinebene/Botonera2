@@ -17,8 +17,8 @@
     "dev:recinto": "pnpm --filter @botonera2/recinto dev",
     "dev:simulador": "pnpm --filter @botonera2/simulador dev",
     "dev:tecnico": "pnpm --filter @botonera2/tecnico dev",
-    "dev:stack": "pnpm build && uv run python scripts/iniciar_stack_desarrollo.py",
-    "dev:stack:hot": "node scripts/iniciar_stack_hot.mjs",
+    "dev:stack": "pnpm preparar:config && pnpm build && uv run python scripts/iniciar_stack_desarrollo.py",
+    "dev:stack:hot": "pnpm preparar:config && node scripts/iniciar_stack_hot.mjs",
     "format": "prettier --write '.github/**/*.yml' 'apps/**/*.{ts,vue,css,json,mjs}' 'packages/**/*.{ts,vue,json}' 'scripts/**/*.mjs' 'tests/**/*.{ts,json}' playwright.config.ts playwright.integrado.config.ts vitest.config.mjs package.json pnpm-workspace.yaml README.md tools/device-simulator/README.md config/README.md",
     "format:check": "prettier --check '.github/**/*.yml' 'apps/**/*.{ts,vue,css,json,mjs}' 'packages/**/*.{ts,vue,json}' 'scripts/**/*.mjs' 'tests/**/*.{ts,json}' playwright.config.ts playwright.integrado.config.ts vitest.config.mjs package.json pnpm-workspace.yaml README.md tools/device-simulator/README.md config/README.md",
     "generate:contrato": "pnpm generate:openapi && pnpm generate:types",
@@ -26,9 +26,10 @@
     "generate:types": "pnpm --filter @botonera2/api-client generate:types",
     "lint": "pnpm --filter @botonera2/moderacion lint && pnpm --filter @botonera2/recinto lint && pnpm --filter @botonera2/simulador lint && pnpm --filter @botonera2/tecnico lint",
     "postinstall": "pnpm --filter @botonera2/moderacion prepare && pnpm --filter @botonera2/recinto prepare && pnpm --filter @botonera2/simulador prepare && pnpm --filter @botonera2/tecnico prepare",
+    "preparar:config": "uv run python scripts/preparar_config_local.py",
     "test": "vitest run && vitest run --config apps/recinto/vitest.config.ts && vitest run --config apps/simulador/vitest.config.ts && vitest run --config apps/tecnico/vitest.config.ts",
     "test:e2e": "playwright test",
-    "test:e2e:integrado": "pnpm build && playwright test --config playwright.integrado.config.ts",
+    "test:e2e:integrado": "pnpm preparar:config && pnpm build && playwright test --config playwright.integrado.config.ts",
     "typecheck": "pnpm --filter @botonera2/api-client typecheck && pnpm --filter @botonera2/moderacion typecheck && pnpm --filter @botonera2/recinto typecheck && pnpm --filter @botonera2/simulador typecheck && pnpm --filter @botonera2/tecnico typecheck"
   },
   "devDependencies": {

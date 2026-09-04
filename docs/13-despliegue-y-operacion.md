@@ -189,7 +189,11 @@ python3.14 deploy/herramienta_despliegue.py preflight
 
 3. Provisionar manualmente `system.toml`, `concejales.csv` y
    `bridge/devices.json` bajo `/opt/botonera2/config/`. `paths.logs_dir` debe
-   resolver exactamente a `/opt/botonera2/logs`.
+   resolver exactamente a `/opt/botonera2/logs`. El repositorio publica una
+   plantilla por cada archivo (`*.example.*`) que sirve de punto de partida y de
+   referencia del formato; el artefacto no las incluye y `scripts/preparar_config_local.py`
+   es exclusivamente un bootstrap de desarrollo, sin ningún papel en el despliegue
+   productivo (WP-073).
 4. Repetir el bootstrap después de provisionar para aplicar idempotentemente el
    plan también a los archivos recién creados:
 

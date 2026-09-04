@@ -1,7 +1,8 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
 import { promises as archivos } from 'node:fs'
 import { createConnection } from 'node:net'
-import { resolve } from 'node:path'
+import { tmpdir } from 'node:os'
+import { join, resolve } from 'node:path'
 
 const RAIZ_REPOSITORIO = resolve(__dirname, '../..')
 const HOST_STACK = '127.0.0.1'
@@ -9,6 +10,53 @@ export const PUERTO_STACK = 18027
 export const URL_STACK = `http://${HOST_STACK}:${PUERTO_STACK}`
 const ESPERA_INICIO_MILISEGUNDOS = 30_000
 const ESPERA_APAGADO_MILISEGUNDOS = 8_000
+
+/**
+ * Biblioteca operativa real de Apoyo Técnico.
+ *
+ * Desde WP-073 este archivo no está versionado: es dato operativo de quien
+ * ejecuta las pruebas y puede contener mensajes cargados a mano. El E2E
+ * integrado sólo lo **lee** para comprobar que ninguna prueba lo tocó; nunca lo
+ * escribe ni lo restaura.
+ */
+export const RUTA_BIBLIOTECA_OPERATIVA = resolve(
+  RAIZ_REPOSITORIO,
+  'config/apoyo-tecnico/mensajes.csv',
+)
+
+/** Plantilla versionada con la que se siembra cada biblioteca aislada. */
+const RUTA_BIBLIOTECA_EJEMPLO = resolve(
+  RAIZ_REPOSITORIO,
+  'config/apoyo-tecnico/mensajes.example.csv',
+)
+
+/**
+ * Huella de un archivo usada para demostrar que no fue modificado.
+ *
+ * `null` representa «no existe», que es un estado perfectamente válido: la
+ * biblioteca es opcional y un checkout puede no haber ejecutado el bootstrap.
+ */
+export type HuellaArchivo = { contenido: string; mtimeMs: number } | null
+
+/** Lee contenido y fecha de modificación sin crear el archivo si falta. */
+export async function tomarHuella(ruta: string): Promise<HuellaArchivo> {
+  try {
+    const [contenido, estado] = await Promise.all([
+      archivos.readFile(ruta, 'utf8'),
+      archivos.stat(ruta),
+    ])
+    return { contenido, mtimeMs: estado.mtimeMs }
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null
+    throw error
+  }
+}
+
+/** Describe una huella en texto para que un fallo diga exactamente qué cambió. */
+function describirHuella(huella: HuellaArchivo): string {
+  if (huella === null) return 'ausente'
+  return `mtime=${huella.mtimeMs} bytes=${huella.contenido.length}`
+}
 
 function esperar(milisegundos: number): Promise<void> {
   return new Promise((resolver) => setTimeout(resolver, milisegundos))
@@ -52,9 +100,25 @@ async function esperarCondicion(
 export class ProcesoStackIntegrado {
   private proceso: ChildProcessWithoutNullStreams | null = null
   private salida = ''
+  private directorioBiblioteca: string | null = null
+  private rutaBiblioteca: string | null = null
+  private huellaBibliotecaOperativa: HuellaArchivo = null
 
   obtenerSalida(): string {
     return this.salida
+  }
+
+  /**
+   * Ruta del CSV de mensajes precargados que usa este stack.
+   *
+   * Es un archivo temporal fuera del repositorio, sembrado desde la plantilla
+   * versionada. Una prueba que quiera comprobar persistencia real a disco debe
+   * mirar acá y nunca `config/apoyo-tecnico/mensajes.csv` (WP-073, criterio 15).
+   */
+  obtenerRutaBiblioteca(): string {
+    if (this.rutaBiblioteca === null)
+      throw new Error('El stack todavía no creó su biblioteca aislada.')
+    return this.rutaBiblioteca
   }
 
   async iniciar(): Promise<void> {
@@ -63,6 +127,19 @@ export class ProcesoStackIntegrado {
     if (await puertoOcupado()) {
       throw new Error(`El puerto ${PUERTO_STACK} ya estaba ocupado antes de iniciar el E2E.`)
     }
+
+    // Huella de la biblioteca operativa **antes** de arrancar nada. Al detener
+    // el stack se vuelve a leer y se exige que no haya cambiado: es la prueba
+    // de que ninguna de estas pruebas escribió sobre el archivo del usuario.
+    this.huellaBibliotecaOperativa = await tomarHuella(RUTA_BIBLIOTECA_OPERATIVA)
+
+    // Biblioteca aislada: un directorio temporal propio del sistema operativo,
+    // fuera del árbol del repositorio. El backend reemplaza el CSV de forma
+    // atómica escribiendo un temporal en el mismo directorio, así que necesita
+    // un directorio propio y escribible, no sólo un archivo.
+    this.directorioBiblioteca = await archivos.mkdtemp(join(tmpdir(), 'botonera2-biblioteca-'))
+    this.rutaBiblioteca = join(this.directorioBiblioteca, 'mensajes.csv')
+    await archivos.copyFile(RUTA_BIBLIOTECA_EJEMPLO, this.rutaBiblioteca)
 
     this.salida = ''
     this.proceso = spawn(
@@ -77,6 +154,8 @@ export class ProcesoStackIntegrado {
         HOST_STACK,
         '--port',
         String(PUERTO_STACK),
+        '--ruta-mensajes-tecnicos',
+        this.rutaBiblioteca,
       ],
       {
         cwd: RAIZ_REPOSITORIO,
@@ -130,6 +209,30 @@ export class ProcesoStackIntegrado {
     }
 
     this.proceso = null
+
+    // Se borra la biblioteca aislada y recién después se comprueba la operativa,
+    // para no dejar basura en el directorio temporal cuando la comprobación falla.
+    const directorio = this.directorioBiblioteca
+    this.directorioBiblioteca = null
+    this.rutaBiblioteca = null
+    if (directorio !== null) await archivos.rm(directorio, { recursive: true, force: true })
+
+    const huellaFinal = await tomarHuella(RUTA_BIBLIOTECA_OPERATIVA)
+    const huellaInicial = this.huellaBibliotecaOperativa
+    const intacta =
+      huellaInicial === null
+        ? huellaFinal === null
+        : huellaFinal !== null &&
+          huellaFinal.contenido === huellaInicial.contenido &&
+          huellaFinal.mtimeMs === huellaInicial.mtimeMs
+    if (!intacta) {
+      throw new Error(
+        'El E2E integrado modificó la biblioteca operativa ' +
+          `${RUTA_BIBLIOTECA_OPERATIVA}, que WP-073 prohíbe tocar. ` +
+          `Antes: ${describirHuella(huellaInicial)}. Después: ${describirHuella(huellaFinal)}.`,
+      )
+    }
+
     const liberado = await esperarCondicion(async () => !(await puertoOcupado()), 3_000)
     if (!liberado)
       throw new Error(`El proceso propio terminó pero no liberó el puerto ${PUERTO_STACK}.`)
