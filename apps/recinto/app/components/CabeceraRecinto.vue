@@ -94,7 +94,19 @@ const textoAutoridades = computed(() =>
 )
 
 const textoConexion = computed(() => {
-  if (props.desactualizado) return 'Reconectando · vista desactualizada'
+  /*
+    WP-070: aviso breve de vista desactualizada.
+
+    Antes decía "Reconectando · vista desactualizada". Era el texto más largo que podía
+    aparecer en el sector derecho, justo cuando la cabecera ya está bajo presión de ancho
+    por las autoridades, y describía el diagnóstico técnico en vez del hecho que le
+    importa al recinto: la pantalla dejó de recibir novedades. HUMAN_GATE fijó
+    literalmente "(Sin conexion)" —con paréntesis, sin tilde— y prohibió corregirle la
+    ortografía sin una decisión nueva. No se toca la lógica: `desactualizado` sigue
+    llegando del composable de sincronización y sigue teniendo prioridad sobre el estado
+    de conexión, porque una vista vieja es peor noticia que un socket reconectando.
+  */
+  if (props.desactualizado) return '(Sin conexion)'
   const textos: Record<EstadoConexionRecinto, string> = {
     INICIAL: 'Conectando',
     CONECTADO: 'En línea',

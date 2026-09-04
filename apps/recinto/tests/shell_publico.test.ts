@@ -235,7 +235,8 @@ describe('Shell público del Recinto', () => {
     )
     await wrapper.setProps({ estadoConexion: 'RECONECTANDO', desactualizado: true })
 
-    expect(wrapper.get('[data-testid="estado-conexion"]').text()).toContain('desactualizada')
+    // WP-070 acortó este aviso: el indicador dice exactamente "(Sin conexion)".
+    expect(wrapper.get('[data-testid="estado-conexion"]').text()).toContain('(Sin conexion)')
     expect(wrapper.get('[data-banca="1"]').exists()).toBe(true)
 
     await wrapper.setProps({

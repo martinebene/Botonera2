@@ -894,6 +894,12 @@
 
           <h3>5.2 Cómo se usa</h3>
 
+          <p>
+            La carga sólo está disponible una vez comenzada la preparación del recinto. Antes de
+            eso el botón queda deshabilitado y Moderación lo explica con el aviso
+            «Debe comenzar a preparar el recinto antes de cargar el orden del dia».
+          </p>
+
           <ol>
             <li>Se carga el archivo desde Moderación y el servidor lo interpreta.</li>
             <li>Si el archivo no se puede leer, se rechaza entero y se informa el error técnico.</li>
@@ -1961,7 +1967,10 @@ curl --fail http://127.0.0.1/manual/</code></pre>
               </thead>
               <tbody>
                 <tr>
-                  <td>La cabecera avisa «sin conexión» o «reconectando».</td>
+                  <td>
+                    La cabecera avisa «sin conexión» o «reconectando». En la Pantalla del Recinto,
+                    una vista que quedó atrasada se señala con «(Sin conexion)».
+                  </td>
                   <td>
                     El servicio del servidor y la red entre el puesto y el equipo servidor. La
                     pantalla se recupera sola al restablecerse; mientras tanto lo mostrado puede

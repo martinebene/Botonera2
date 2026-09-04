@@ -17,18 +17,28 @@
  * La distribución de escritorio la cerró HUMAN_GATE en WP-059 y es la siguiente:
  *
  * ```text
- * ┌───────────────┬───────────────┬───────────────┬───────────────────┐
- * │  Transmisión  │    Remapeo    │   Mensajes    │                   │
- * ├───────────────┴───────────────┴───────────────┤      Eventos      │
- * │                    Avisos                     │                   │
- * └───────────────────────────────────────────────┴───────────────────┘
+ * ┌──────────────┬──────────────┬─────────────────┬──────────────────┐
+ * │ Transmisión  │   Remapeo    │    Mensajes     │                  │
+ * ├──────────────┴──────────────┴─────────────────┤     Eventos      │
+ * │                    Avisos                     │                  │
+ * └───────────────────────────────────────────────┴──────────────────┘
  * ```
  *
  * Son cuatro columnas visuales, pero **no** cuatro columnas iguales: las tres de la
- * izquierda comparten dos tercios del ancho (2fr cada una) y Eventos conserva el tercio
- * restante (3fr sobre un total de 9fr), que es aproximadamente el mismo ancho que tenía
- * antes. Eventos ocupa además las dos filas: es la única lista que crece sola y necesita
- * todo el alto útil.
+ * izquierda comparten aproximadamente dos tercios del ancho y Eventos conserva el tercio
+ * restante. Eventos ocupa además las dos filas: es la única lista que crece sola y
+ * necesita todo el alto útil.
+ *
+ * WP-070 desbalancea levemente esas tres columnas izquierdas: `2fr 2fr 2,6fr` en lugar de
+ * `2fr 2fr 2fr`. El motivo es medible y no estético. En cada mensaje precargado, la
+ * etiqueta de destino más los botones «Usar en el formulario», «Editar» y «Eliminar»
+ * necesitan ~311 px de renglón una vez achicados los botones, y a 1366×768 la columna de
+ * 2fr sólo ofrecía ~259 px útiles: la fila envolvía a dos y hasta tres renglones. Con
+ * 2,6fr la columna de Mensajes pasa a ~359 px y deja ~323 px útiles, que alcanzan con
+ * margen. El costo se reparte proporcionalmente entre las otras tres columnas (~6 % cada
+ * una) y no cambia la estructura: Eventos sigue quedándose con algo más del 30 % del
+ * ancho y las tres izquierdas con algo menos del 70 %, exactamente el reparto que cerró
+ * WP-059. Es el ajuste mínimo que resuelve la fila única sin rediseñar ningún panel.
  *
  * Las dos filas se reparten con fracciones y no con alturas fijas —9fr arriba y 11fr
  * abajo— porque Avisos es la superficie de trabajo grande del puesto: debe poder
@@ -120,7 +130,7 @@ function seleccionarBorrador(mensaje: { texto: string; destino: DestinoAvisoTecn
     <main class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden p-2">
       <div
         data-testid="grilla-tecnica"
-        class="grid min-h-0 min-w-0 flex-1 auto-rows-[minmax(45dvh,auto)] grid-cols-1 gap-2 overflow-y-auto lg:auto-rows-auto lg:grid-cols-[repeat(3,minmax(0,2fr))_minmax(0,3fr)] lg:grid-rows-[minmax(0,9fr)_minmax(0,11fr)] lg:overflow-hidden"
+        class="grid min-h-0 min-w-0 flex-1 auto-rows-[minmax(45dvh,auto)] grid-cols-1 gap-2 overflow-y-auto lg:auto-rows-auto lg:grid-cols-[repeat(2,minmax(0,2fr))_minmax(0,2.6fr)_minmax(0,3fr)] lg:grid-rows-[minmax(0,9fr)_minmax(0,11fr)] lg:overflow-hidden"
       >
         <PanelTecnico
           titulo="Transmisión"
