@@ -171,6 +171,70 @@ Reconectar dentro de una ventana conserva el deadline original; hacerlo
 después no revive el resultado. La pantalla nunca consume `message` crudo ni el
 buffer de auditoría de Moderación.
 
+## 14 bis. Sonidos
+
+La Pantalla del Recinto reproduce los quince sonidos configurados en `system.toml`
+(WP-065) ante las transiciones confirmadas que define WP-066. No existe control visible de
+audio: ni botón de activación, ni volumen, ni selección de archivos.
+
+### Qué dispara cada sonido
+
+Catorce de los quince eventos se deducen comparando dos estados públicos consecutivos ya
+adoptados por la sincronización:
+
+| Evento configurado | Transición observada |
+| --- | --- |
+| `preparacion_iniciada` | `SIN_PREPARAR` -> `PREPARANDO` |
+| `sesion_abierta` | el estado global pasa a `SESION_ABIERTA` |
+| `sesion_cerrada` | el estado global deja de ser `SESION_ABIERTA` |
+| `aviso_tecnico_publicado` | aparece un aviso dirigido al Recinto, o lo reemplaza otro con distinto `aviso_id` |
+| `aviso_tecnico_retirado` | el aviso vigente desaparece del snapshot |
+| `transmision_iniciada` | la transmisión pasa a `EN_VIVO` |
+| `transmision_detenida` | la transmisión pasa de `EN_VIVO` a `APAGADO` |
+| `pedido_palabra_registrado` | una banca entra en la cola de pedidos |
+| `pedido_palabra_retirado` | una banca sale de la cola sin quedar como orador |
+| `uso_palabra_otorgado` | cambia el orador a una banca concreta |
+| `votacion_abierta` | se adopta una votación distinta con recepción `EN_CURSO` |
+| `votacion_cerrada` | la recepción de esa votación pasa de `EN_CURSO` a `CERRADA` |
+| `concejal_ausente` | `presente` pasa de verdadero a falso en una banca |
+| `concejal_presente` | `presente` pasa de falso a verdadero en una banca |
+
+El decimoquinto, `transmision_cuenta_regresiva_tic`, no nace de comparar snapshots: suena
+cada vez que cambia el **segundo visible** de la cuenta regresiva hacia el vivo. Ese número
+lo deriva localmente el reloj de presentación técnica desde la frontera absoluta
+`en_vivo_desde`, de modo que el tic no agrega una sola petición de red ni obliga al backend
+a publicar una revisión por segundo.
+
+Un cambio de estado global no se interpreta además como una serie de hechos individuales:
+al cerrar la sesión suena el cierre, y no un retiro de pedido por cada banca que quedaba en
+la cola ni una ausencia por cada banca del padrón que deja de proyectarse.
+
+### Qué nunca suena
+
+- El **primer snapshot** no reproduce nada: describe lo que ya ocurrió, no un hecho nuevo.
+- Una **recarga** o una **reconexión** tampoco. El snapshot de recuperación se adopta como
+  referencia silenciosa, incluso cuando el backend reinició y la revisión vuelve a empezar.
+  La distinción es exacta y no heurística: el cliente notifica la conexión abierta después
+  de adoptar su snapshot, así que un estado adoptado fuera de una conexión establecida es
+  siempre una baseline.
+- Una **revisión repetida** dentro de la misma conexión. El estado se compara una sola vez.
+- El **sentido de un voto**. Ningún sonido depende de cómo votó nadie, ni permite inferirlo.
+
+### Superposición
+
+Dos hechos simultáneos pueden oírse a la vez. Cada reproducción usa su propia instancia de
+audio y un sonido nuevo nunca interrumpe ni reinicia al anterior. No existe una cola serial
+que los ordene.
+
+### Fallos de reproducción
+
+Un archivo que falta, una política de autoplay que rechaza la reproducción o una
+configuración que el backend publicó como no disponible no rompen el render ni la
+sincronización: la pantalla sigue funcionando en silencio y el problema se informa una sola
+vez por el canal técnico del navegador, sin reintentos y sin ninguna superficie visible
+nueva. La configuración del equipo que permite reproducir sin interacción humana está
+documentada en `docs/13-despliegue-y-operacion.md`.
+
 ## 15. Solo lectura
 
 No tendrá comandos de:

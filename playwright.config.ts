@@ -19,7 +19,24 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: {
+        ...devices['Desktop Chrome'],
+        launchOptions: {
+          /*
+            Política de autoplay del recinto (WP-066).
+
+            La Pantalla del Recinto reproduce sonidos sin que nadie toque el monitor: no hay
+            teclado ni mouse frente a la proyección. Chromium, por defecto, exige una
+            interacción previa antes de dejar sonar audio, y HUMAN_GATE descartó agregar un
+            botón «Activar sonido» para conseguirla.
+
+            La bandera declara acá la misma condición que el equipo de producción debe
+            cumplir, documentada en `docs/13-despliegue-y-operacion.md`. No cambia el
+            comportamiento de ninguna otra prueba: las demás superficies no reproducen audio.
+          */
+          args: ['--autoplay-policy=no-user-gesture-required'],
+        },
+      },
     },
   ],
   webServer: [

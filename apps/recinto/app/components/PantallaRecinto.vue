@@ -20,6 +20,7 @@ import AvisoSuperficie from '@botonera2/frontend-shared/componentes/AvisoSuperfi
 import IndicadorCargaInicial from '@botonera2/frontend-shared/componentes/IndicadorCargaInicial.vue'
 import type { EstadoConexionRecinto } from '../composables/useEstadoRecinto'
 import { usePresentacionVotacion } from '../composables/usePresentacionVotacion'
+import { useSonidosRecinto } from '../composables/useSonidosRecinto'
 import { resolverRutaAsset } from '../utils/rutas'
 import BloqueTransmisionPublico from './BloqueTransmisionPublico.vue'
 import CabeceraRecinto from './CabeceraRecinto.vue'
@@ -89,6 +90,26 @@ const { segundosTransmision } = usePresentacionTecnica(
     generadoEn: estado.value?.generado_en ?? null,
   })),
 )
+
+/**
+ * Sonidos del Recinto (WP-066).
+ *
+ * El motor vive acá y no en `app.vue` por una razón concreta: necesita los dos insumos que
+ * esta pantalla ya tiene juntos. Uno es el estado público con su conexión, que separa un
+ * hecho nuevo de una baseline que no debe reproducir historia. El otro es
+ * `segundosTransmision`, el mismo número que el público ve bajar, que es el que debe
+ * acompañar el tic de la cuenta regresiva sin pedirle al backend una revisión por segundo.
+ *
+ * No agrega ningún elemento visible: no hay botón de activación ni control de volumen. Si
+ * el navegador rechaza el autoplay, la pantalla sigue funcionando igual y el problema se
+ * resuelve en la configuración del equipo del recinto, documentada en
+ * `docs/13-despliegue-y-operacion.md`.
+ */
+useSonidosRecinto({
+  estado,
+  estadoConexion,
+  segundosCuentaRegresiva: segundosTransmision,
+})
 </script>
 
 <template>
