@@ -80,18 +80,23 @@ Una autorización de lote **no permite atravesar una fase que todavía depende d
 
 `active_assignments` puede expresar paralelismo lógico aunque el entorno ejecute físicamente una sola tarea a la vez.
 
-Para el VPS actual, el ORCHESTRATOR puede fijar:
+Para el VPS/contenedor actual, el ORCHESTRATOR usa por defecto:
 
 `max_concurrency = 1`
 
+Con el presupuesto de RAM vigente esta concurrencia es **obligatoria** cuando cualquiera de los WPs del lote requiere pruebas de interfaz con navegador —por ejemplo Playwright, Chromium, navegador real o equivalente— durante implementación o revisión.
+
 Esto significa:
 
-1. un solo worker pesado activo;
-2. al recibir finalización válida, el coordinador libera o deja inactivo ese worker según corresponda;
-3. recién entonces inicia el siguiente;
-4. los worktrees restantes pueden permanecer abiertos sin ejecutar agentes pesados.
+1. un solo worker de WP activo;
+2. si ese worker puede lanzar o mantener un navegador de pruebas, no se despacha ningún segundo worker hasta que termine y libere esos procesos;
+3. al recibir finalización válida, el coordinador libera o deja inactivo ese worker según corresponda;
+4. recién entonces inicia el siguiente;
+5. los worktrees y `active_assignments` restantes pueden permanecer preparados: el paralelismo sigue siendo lógico, no físico.
 
-El coordinador mismo puede permanecer activo mientras espera, pero debe usar un agente/modelo de bajo impacto relativo y una cuota independiente de las cuotas que deba supervisar.
+El COORDINADOR_LOCAL puede permanecer como proceso supervisor, pero no ejecuta pruebas de navegador ni inicia otro worker mientras el anterior siga activo. Debe usar un agente/modelo de bajo impacto relativo y una cuota independiente de las cuotas que deba supervisar.
+
+Una concurrencia física mayor que 1 no se presume. Si en el futuro cambia la configuración de RAM/recursos del contenedor, debe reevaluarse explícitamente y autorizarse para el lote correspondiente.
 
 ### 5. Independencia de cuota del coordinador
 

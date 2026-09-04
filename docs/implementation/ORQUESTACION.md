@@ -271,20 +271,25 @@ Agregar o completar otro WP paralelo no revoca una asignación ya iniciada. Los 
 
 ## Ejecución secuencial de lotes paralelos bajo restricción de recursos
 
-Cuando varios WPs son independientes pero el VPS no puede sostener varios agentes pesados simultáneos, el paralelismo lógico de `active_assignments` se conserva y la ejecución física puede fijarse en `max_concurrency = 1`.
+Cuando varios WPs son independientes pero el VPS no puede sostener varios agentes pesados simultáneos, el paralelismo lógico de `active_assignments` se conserva y la ejecución física se limita mediante `max_concurrency`.
+
+Con la configuración actual del contenedor, **si cualquiera de los WPs del lote requiere pruebas de interfaz con navegador, `max_concurrency = 1` es obligatorio**. Esto incluye Playwright, Chromium, navegador real o herramientas equivalentes que incrementen el consumo de RAM. El paralelismo puede seguir existiendo a nivel de worktrees/asignaciones, pero no a nivel de ejecución física.
 
 El ORCHESTRATOR entrega un prompt específico de COORDINADOR_LOCAL que contiene los WPs, fase, worktrees, agentes/modelos autorizados, política de cuota y condiciones de detención. El coordinador:
 
 1. crea o adopta un Run de Orca;
 2. crea una Task por asignación;
 3. consulta `cuotas-agentes --json` antes de despachar;
-4. inicia sólo un worker pesado a la vez cuando `max_concurrency = 1`;
-5. espera `worker_done`, `escalation` o `question` mediante la capa de orchestration;
-6. libera o deja inactivo el worker finalizado sin borrar el worktree;
-7. inicia el siguiente WP autorizado;
-8. si una cuota se agota, espera su reset o aprovecha otro WP listo del mismo lote;
-9. reanuda la misma sesión tras el reset cuando sigue viva; si Orca prueba `failed/stopped`, usa un reemplazo controlado en el mismo worktree;
-10. termina el lote sin atravesar la siguiente puerta del ORCHESTRATOR.
+4. inicia sólo un worker de WP a la vez cuando `max_concurrency = 1`;
+5. si ese worker ejecuta o puede ejecutar pruebas de navegador, espera a que termine y libere esos procesos antes de despachar otro;
+6. espera `worker_done`, `escalation` o `question` mediante la capa de orchestration;
+7. libera o deja inactivo el worker finalizado sin borrar el worktree;
+8. inicia el siguiente WP autorizado;
+9. si una cuota se agota, espera su reset o aprovecha otro WP listo del mismo lote, pero siempre respetando el límite físico vigente;
+10. reanuda la misma sesión tras el reset cuando sigue viva; si Orca prueba `failed/stopped`, usa un reemplazo controlado en el mismo worktree;
+11. termina el lote sin atravesar la siguiente puerta del ORCHESTRATOR.
+
+El COORDINADOR_LOCAL puede permanecer como supervisor, pero no ejecuta pruebas de navegador ni abre un segundo worker. Una concurrencia física mayor que 1 requiere reevaluación explícita del perfil de RAM/recursos y autorización HUMAN_GATE; no se habilita automáticamente porque los WPs sean independientes.
 
 El coordinador debe usar, cuando sea razonablemente posible, una fuente de cuota distinta de las ventanas que supervisa. Usar un modelo con nombre diferente pero dentro de la misma cuota efectiva no brinda independencia suficiente.
 
