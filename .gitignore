@@ -36,3 +36,26 @@ opencode.jsonc
 .vscode/
 .DS_Store
 Thumbs.db
+
+# Configuración operativa local (WP-073)
+#
+# Estos cuatro archivos son el estado real de cada instalación de desarrollo:
+# se materializan desde sus plantillas `*.example.*` con
+# `uv run python scripts/preparar_config_local.py` y nunca se versionan, para
+# que una prueba humana, un remapeo de hardware o un ajuste de sonido no
+# ensucien el checkout ni bloqueen el lanzador de Work Packages.
+/config/system.toml
+/config/concejales.csv
+/config/apoyo-tecnico/mensajes.csv
+/services/device-bridge/config/devices.json
+
+# Temporales de editores de texto
+#
+# Vim y compatibles dejan estos archivos mientras se edita cualquier otro. No
+# son producto ni configuración y no deben aparecer como archivos sin
+# seguimiento. Los patrones se mantienen deliberadamente acotados a esas cuatro
+# extensiones/sufijos para no ocultar archivos legítimos del proyecto.
+*.swp
+*.swo
+*.swx
+*~

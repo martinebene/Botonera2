@@ -37,9 +37,11 @@ from scripts.generar_sonidos_recinto import (
 )
 
 # Rutas reales del repositorio. Las pruebas de assets no usan fixtures: su
-# propósito es justamente comprobar los archivos versionados.
+# propósito es justamente comprobar los archivos versionados. Desde WP-073 la
+# configuración versionada es la plantilla `config/system.example.toml`: el
+# `config/system.toml` operativo está ignorado por Git y puede no existir.
 RAIZ_REPOSITORIO = Path(__file__).resolve().parents[1]
-RUTA_SYSTEM_TOML = RAIZ_REPOSITORIO / "config/system.toml"
+RUTA_SYSTEM_TOML = RAIZ_REPOSITORIO / "config/system.example.toml"
 RAIZ_PUBLICA_RECINTO = RAIZ_REPOSITORIO / "apps/recinto/public"
 DIRECTORIO_SONIDOS = RAIZ_PUBLICA_RECINTO / "assets/sonidos"
 
@@ -386,9 +388,9 @@ def _preparar_instalacion(tmp_path: Path, *, copiar_sonidos: bool) -> tuple[Path
     (raiz / "config/bridge").mkdir(parents=True)
     (raiz / "logs").mkdir()
     shutil.copy(RUTA_SYSTEM_TOML, raiz / "config/system.toml")
-    shutil.copy(RAIZ_REPOSITORIO / "config/concejales.csv", raiz / "config/concejales.csv")
+    shutil.copy(RAIZ_REPOSITORIO / "config/concejales.example.csv", raiz / "config/concejales.csv")
     shutil.copy(
-        RAIZ_REPOSITORIO / "services/device-bridge/config/devices.json",
+        RAIZ_REPOSITORIO / "services/device-bridge/config/devices.example.json",
         raiz / "config/bridge/devices.json",
     )
 

@@ -32,7 +32,8 @@ que cualquier navegador reproduce sin decodificador adicional y sin patentes.
 
 La asignación real vive en la sección `[sonidos]` de `config/system.toml`, junto
 con el volumen `0..100` de cada evento; esta tabla sólo documenta la asignación
-que trae la configuración de referencia.
+que trae la configuración de referencia, versionada desde WP-073 en
+`config/system.example.toml`.
 
 | Evento configurado | Archivo | Duración | Descripción | SHA-256 |
 | --- | --- | --- | --- | --- |

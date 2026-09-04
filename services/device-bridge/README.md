@@ -88,6 +88,19 @@ lin|vendor=1a2c|product=2d43|version=0110|phys=usb-0000:00:14.0-1/input0|uniq=|n
 Ruta por defecto:
 `services/device-bridge/config/devices.json`
 
+Esa ruta runtime no cambió, pero desde WP-073 **el archivo no se versiona**: los
+fingerprints físicos son estado real de cada instalación y el propio bridge los
+reescribe al remapear. El repositorio versiona la plantilla
+`services/device-bridge/config/devices.example.json`, y el archivo runtime se
+materializa desde ella con:
+
+```bash
+uv run python scripts/preparar_config_local.py   # o: pnpm preparar:config
+```
+
+El comando nunca sobrescribe un `devices.json` existente, así que puede
+ejecutarse cuantas veces haga falta sin perder un remapeo.
+
 Formato:
 ```json
 {

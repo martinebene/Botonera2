@@ -1465,8 +1465,10 @@
 
           <p>
             En una instalación, la configuración vive fuera de la versión instalada del programa,
-            para que actualizar o volver atrás nunca la reemplace. Estas son las rutas de una
-            instalación estándar y su archivo equivalente en el repositorio del proyecto:
+            para que actualizar o volver atrás nunca la reemplace. El repositorio del proyecto no
+            versiona la configuración real de ninguna instalación: publica un archivo de ejemplo por
+            cada uno, que sirve de punto de partida y de referencia del formato. Estas son las rutas
+            de una instalación estándar y el ejemplo que les corresponde:
           </p>
 
           <div class="tabla-contenedor">
@@ -1475,32 +1477,36 @@
                 <tr>
                   <th>Archivo</th>
                   <th>Ruta instalada</th>
-                  <th>Referencia en el proyecto</th>
+                  <th>Ejemplo en el proyecto</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
                   <td>Configuración funcional</td>
                   <td><code>/opt/botonera2/config/system.toml</code></td>
-                  <td><code class="ruta" data-archivo="config/system.toml">config/system.toml</code></td>
+                  <td>
+                    <code class="ruta" data-archivo="config/system.example.toml">config/system.example.toml</code>
+                  </td>
                 </tr>
                 <tr>
                   <td>Padrón del cuerpo</td>
                   <td><code>/opt/botonera2/config/concejales.csv</code></td>
-                  <td><code class="ruta" data-archivo="config/concejales.csv">config/concejales.csv</code></td>
+                  <td>
+                    <code class="ruta" data-archivo="config/concejales.example.csv">config/concejales.example.csv</code>
+                  </td>
                 </tr>
                 <tr>
                   <td>Mensajes precargados</td>
                   <td><code>/opt/botonera2/config/apoyo-tecnico/mensajes.csv</code></td>
                   <td>
-                    <code class="ruta" data-archivo="config/apoyo-tecnico/mensajes.csv">config/apoyo-tecnico/mensajes.csv</code>
+                    <code class="ruta" data-archivo="config/apoyo-tecnico/mensajes.example.csv">config/apoyo-tecnico/mensajes.example.csv</code>
                   </td>
                 </tr>
                 <tr>
                   <td>Mapa físico de botoneras</td>
                   <td><code>/opt/botonera2/config/bridge/devices.json</code></td>
                   <td>
-                    <code class="ruta" data-archivo="services/device-bridge/config/devices.json">services/device-bridge/config/devices.json</code>
+                    <code class="ruta" data-archivo="services/device-bridge/config/devices.example.json">services/device-bridge/config/devices.example.json</code>
                   </td>
                 </tr>
                 <tr>
@@ -1797,7 +1803,8 @@ volumen = 90</code></pre>
             <li>
               <p>
                 Colocar a mano la configuración funcional, el padrón y el mapa de botoneras bajo
-                <code>/opt/botonera2/config/</code>. El directorio de registros configurado debe
+                <code>/opt/botonera2/config/</code>, partiendo de los archivos de ejemplo del
+                proyecto listados en el capítulo 10. El directorio de registros configurado debe
                 resolver exactamente a <code>/opt/botonera2/logs</code>.
               </p>
             </li>

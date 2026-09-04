@@ -264,7 +264,7 @@ def test_no_expone_datos_del_padron_instalado(texto_manual: str) -> None:
     """Ningún dato personal del padrón versionado puede filtrarse al manual genérico."""
 
     filtrados: list[str] = []
-    with (RAIZ_REPOSITORIO / "config" / "concejales.csv").open(encoding="utf-8") as archivo:
+    with (RAIZ_REPOSITORIO / "config" / "concejales.example.csv").open(encoding="utf-8") as archivo:
         for fila in csv.DictReader(archivo):
             for campo in ("dni", "nombre", "apellido", "bloque"):
                 valor = (fila[campo] or "").strip()

@@ -93,7 +93,7 @@ packages/frontend-shared/  código frontend compartido
 tools/device-simulator/    herramienta CLI de simulación y ejecución de escenarios declarativos
 scripts/iniciar_wp.py      lanzador seguro de Work Packages
 manual/                    manual de usuario HTML estático servido en /manual/ (WP-067)
-config/                    configuración y padrón institucional
+config/                    plantillas `*.example.*` versionadas y configuración operativa local ignorada (WP-073)
 ```
 
 Los paquetes vacíos son límites arquitectónicos deliberados. No contienen
@@ -116,6 +116,94 @@ pnpm install --frozen-lockfile
 `uv` puede instalar el intérprete requerido con `uv python install 3.14`. En
 Node, Corepack o un gestor de versiones puede activar la versión declarada;
 `corepack enable` y `corepack install` respetan el `packageManager` versionado.
+
+## Configuración operativa local (WP-073)
+
+Los cuatro archivos que el sistema lee en ejecución **no están versionados**:
+
+```text
+config/system.toml
+config/concejales.csv
+config/apoyo-tecnico/mensajes.csv
+services/device-bridge/config/devices.json
+```
+
+Son estado real de cada instalación. El repositorio versiona en su lugar una
+plantilla por cada uno (`config/system.example.toml`,
+`config/concejales.example.csv`, `config/apoyo-tecnico/mensajes.example.csv` y
+`services/device-bridge/config/devices.example.json`), que es el contenido que
+la revisión ve en cada Pull Request. Así una prueba humana, un remapeo de
+hardware o un ajuste de volumen dejan de ensuciar el checkout coordinador y de
+bloquear `scripts/iniciar_wp_orca.py`, que sigue exigiendo un checkout limpio
+para todo lo que sí es versionable.
+
+Desde un clon nuevo, un único comando materializa los que falten:
+
+```bash
+uv run python scripts/preparar_config_local.py   # o: pnpm preparar:config
+```
+
+Copia cada plantilla a su ruta operativa **sólo si esa ruta no existe**, crea
+los directorios que falten, informa qué creó y qué preservó, y termina con
+código distinto de cero ante un fallo real de E/S. Es idempotente y nunca
+sobrescribe: `mensajes.csv` lo administra el backend por REST y `devices.json`
+lo reescribe el device bridge al remapear, así que ambos contienen trabajo que
+no está en ningún commit.
+
+`pnpm dev:stack`, `pnpm dev:stack:hot` y `pnpm test:e2e:integrado` lo ejecutan
+solos antes de arrancar. El detalle de cada formato está en
+[`config/README.md`](config/README.md).
+
+### Migración de un clon anterior a WP-073
+
+Un clon creado antes de este cambio tiene los cuatro archivos trackeados y
+puede tener banderas `skip-worktree` puestas a mano. Adoptar el commit que deja
+de trackearlos borraría el contenido local, así que **hay que resguardarlo
+antes de actualizar**. Nada de lo que sigue asume que el contenido local sea
+igual a la plantilla.
+
+```bash
+# 1. Desde la raíz del checkout, respaldar los cuatro archivos FUERA del árbol.
+RESPALDO="$HOME/botonera2-config-$(date +%Y%m%d-%H%M%S)"
+mkdir -p "$RESPALDO/config/apoyo-tecnico" "$RESPALDO/services/device-bridge/config"
+cp config/system.toml                          "$RESPALDO/config/"
+cp config/concejales.csv                       "$RESPALDO/config/"
+cp config/apoyo-tecnico/mensajes.csv           "$RESPALDO/config/apoyo-tecnico/"
+cp services/device-bridge/config/devices.json  "$RESPALDO/services/device-bridge/config/"
+
+# 2. Comprobar que el respaldo quedó completo antes de seguir.
+find "$RESPALDO" -type f
+
+# 3. Retirar banderas skip-worktree heredadas, si las hubiera.
+git ls-files -v | grep '^S' || echo 'sin skip-worktree'
+git update-index --no-skip-worktree   config/system.toml   config/concejales.csv   config/apoyo-tecnico/mensajes.csv   services/device-bridge/config/devices.json
+
+# 4. Descartar SOLO las modificaciones locales de esos cuatro archivos, ya
+#    respaldadas, para que el checkout quede limpio y el pull avance.
+git checkout --   config/system.toml   config/concejales.csv   config/apoyo-tecnico/mensajes.csv   services/device-bridge/config/devices.json
+
+# 5. Actualizar main. El commit de WP-073 elimina esas cuatro rutas del índice.
+git pull --ff-only origin main
+
+# 6. Restaurar los archivos locales en sus rutas, ahora ignoradas.
+mkdir -p config/apoyo-tecnico services/device-bridge/config
+cp "$RESPALDO/config/system.toml"                          config/
+cp "$RESPALDO/config/concejales.csv"                       config/
+cp "$RESPALDO/config/apoyo-tecnico/mensajes.csv"           config/apoyo-tecnico/
+cp "$RESPALDO/services/device-bridge/config/devices.json"  services/device-bridge/config/
+
+# 7. Verificar el resultado.
+git status --short          # debe quedar vacío
+git ls-files config services/device-bridge/config | grep -E 'system|concejales|mensajes|devices'
+```
+
+El último comando debe listar únicamente los cuatro `*.example.*`. Si el paso 5
+fallara por otros cambios locales no relacionados, resolvelos aparte: la
+migración no autoriza `git clean`, `git reset --hard` ni ninguna otra operación
+destructiva sobre el resto del árbol.
+
+Conservá el directorio de respaldo hasta comprobar que el sistema arranca con
+la configuración esperada.
 
 ## Comandos de desarrollo y calidad
 
@@ -201,7 +289,7 @@ pnpm dev:stack:hot
    git pull --ff-only origin main
    ```
 4. Los watchers detectan los archivos actualizados y Vite propaga los cambios por HMR a las cuatro SPA sin necesidad de ejecutar `pnpm build`, sin recargar la página (`Ctrl+F5`) y sin reiniciar el stack.
-5. Si el cambio afectó código Python del backend (`apps/backend/src`), Uvicorn reinicia automáticamente el proceso FastAPI. Como el estado institucional es deliberadamente volátil en memoria, el sistema vuelve a `SIN_PREPARAR`. Modificaciones en archivos de configuración no Python (`config/*.toml` o `config/*.csv`) requieren reiniciar el stack manualmente porque el reloader estándar de Uvicorn vigila exclusivamente archivos Python.
+5. Si el cambio afectó código Python del backend (`apps/backend/src`), Uvicorn reinicia automáticamente el proceso FastAPI. Como el estado institucional es deliberadamente volátil en memoria, el sistema vuelve a `SIN_PREPARAR`. Modificaciones en archivos de configuración no Python (`config/*.toml` o `config/*.csv`) requieren reiniciar el stack manualmente porque el reloader estándar de Uvicorn vigila exclusivamente archivos Python. Esos archivos son los operativos locales descritos en «Configuración operativa local (WP-073)», no las plantillas versionadas.
 6. Para detener todo el árbol de procesos y liberar los puertos auxiliares, presionar `Ctrl+C`.
 
 > **Nota para pruebas del WP**: El comando rechaza ejecutarse si el checkout no está en la rama `main`. Para validar el propio candidato en ramas de desarrollo se admite la excepción explícita `--allow-non-main` (ej. `pnpm dev:stack:hot --allow-non-main`). Esta opción no debe usarse como flujo habitual.

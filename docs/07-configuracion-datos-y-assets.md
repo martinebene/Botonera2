@@ -14,15 +14,30 @@ Estructura inicial canónica:
 
 ```text
 config/
-├── system.toml
-└── concejales.csv
+├── system.example.toml       plantilla versionada
+├── system.toml               archivo operativo local, ignorado por Git
+├── concejales.example.csv    plantilla versionada
+├── concejales.csv            archivo operativo local, ignorado por Git
+└── apoyo-tecnico/
+    ├── mensajes.example.csv  plantilla versionada
+    └── mensajes.csv          archivo operativo local, ignorado por Git
 
 services/device-bridge/
 └── config/
-    └── devices.json
+    ├── devices.example.json  plantilla versionada
+    └── devices.json          archivo operativo local, ignorado por Git
 ```
 
-`system.toml` concentra configuración funcional/técnica del backend; `concejales.csv` contiene el padrón; `devices.json` pertenece exclusivamente al bridge físico.
+`system.toml` concentra configuración funcional/técnica del backend; `concejales.csv` contiene el padrón; `mensajes.csv` guarda la biblioteca de Apoyo Técnico; `devices.json` pertenece exclusivamente al bridge físico.
+
+### Plantillas versionadas y archivos operativos locales (WP-073)
+
+Las rutas que el sistema lee en ejecución son las cuatro sin `.example`, en desarrollo y en producción. Lo que cambia es cómo se materializan:
+
+- el repositorio versiona únicamente las plantillas `*.example.*`, que son el contenido revisable en cada Pull Request;
+- los cuatro archivos operativos están declarados en `.gitignore` y nunca se versionan, porque son estado real de cada instalación: una prueba humana, un remapeo de hardware o un ajuste de volumen no deben ensuciar el checkout ni bloquear el lanzador de Work Packages;
+- `uv run python scripts/preparar_config_local.py` (alias `pnpm preparar:config`) crea desde su plantilla cada archivo operativo que falte y **nunca sobrescribe** uno existente;
+- producción sigue provisionando su configuración fuera de las releases, bajo `/opt/botonera2/config/`, conforme a DT-031 y `docs/13-despliegue-y-operacion.md`. El bootstrap local no interviene en el despliegue productivo.
 
 ## 3. Configuración mínima de `system.toml`
 
@@ -117,7 +132,7 @@ Reglas:
 
 La presencia **no forma parte del archivo de padrón**: es un dato operativo dinámico y toda preparación comienza con todos los concejales ausentes.
 
-El padrón actualmente versionado contiene los datos de instalación tomados del sistema histórico en producción (`martinebene/Botonera`, SHA `537823b4a0045853c74a388058fa3739cf7457a5`). Esa procedencia determina las identidades, bloques, bancas y dispositivos lógicos instalados, pero no modifica el contrato estable de SISLeg: las filas se ordenan por banca, `ruta_imagen` permanece explícita y la columna histórica `presente` se omite porque la presencia sigue siendo estado dinámico.
+La plantilla `concejales.example.csv` contiene los datos de instalación tomados del sistema histórico en producción (`martinebene/Botonera`, SHA `537823b4a0045853c74a388058fa3739cf7457a5`). Esa procedencia determina las identidades, bloques, bancas y dispositivos lógicos instalados, pero no modifica el contrato estable de SISLeg: las filas se ordenan por banca, `ruta_imagen` permanece explícita y la columna histórica `presente` se omite porque la presencia sigue siendo estado dinámico.
 
 La cantidad de filas del padrón debe coincidir exactamente con la cantidad total de bancas definida por la disposición configurada en `system.toml` (suma de `room.rows`). Las bancas deben ser únicas, estar dentro de esa capacidad y cubrir completamente la disposición configurada.
 
@@ -263,7 +278,7 @@ Responsabilidades separadas:
 fingerprint físico -> device-bridge -> identificador lógico -> backend -> concejal
 ```
 
-`devices.json` contiene la asociación física del bridge.
+`devices.json` contiene la asociación física del bridge. Es un archivo operativo local: se materializa desde `devices.example.json` y no se versiona, porque cada instalación tiene sus propios fingerprints.
 
 El backend recibe identificadores lógicos y conserva estable durante la preparación la asociación lógica cargada desde el padrón.
 
