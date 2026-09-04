@@ -178,6 +178,29 @@ Cuando el COORDINADOR_LOCAL supervise la tanda, debe preferir la capa estructura
 
 No debe usar polling agresivo ni interpretar un mero cambio visual como finalización.
 
+### 8 bis. Lanzamiento de workers con permisos completos y coordinador mecánico
+
+El COORDINADOR_LOCAL es un **planificador/dispatcher mecánico**. Su inferencia no debe gastarse resolviendo prompts ordinarios de permisos de los workers.
+
+Toda asignación que HUMAN_GATE/ORCHESTRATOR ya autorizó debe iniciarse con el perfil de permisos completos aprobado para ese harness. Los permisos de herramienta **no amplían el alcance de la asignación** ni modifican las prohibiciones de Git, revisión, merge, deploy, secretos o acciones destructivas.
+
+Reglas:
+
+1. el coordinador debe lanzar cada IMPLEMENTER/REVIEWER con el modo de permisos completos aprobado, no con el modo interactivo/restringido por defecto de Orca si éste genera prompts de autorización rutinarios;
+2. perfiles actualmente aprobados:
+   - Claude Code: `claude --dangerously-skip-permissions`;
+   - Antigravity/AGY: `agy --dangerously-skip-permissions`;
+3. para cualquier harness adicional, el manifiesto del lote debe fijar previamente la invocación equivalente de permisos completos; no se adivinan flags ni se sustituye silenciosamente por un modo restringido;
+4. Orca puede seguir administrando worktrees, terminales, Runs y workers; si el lanzamiento automático `--agent` no permite expresar el perfil completo, el coordinador debe usar el mecanismo soportado por Orca para iniciar en ese worktree la invocación explícita aprobada;
+5. un prompt de permiso rutinario provocado por haber lanzado el worker en modo restringido es **un error de configuración del launcher**, no una decisión que deba razonar el COORDINADOR_LOCAL;
+6. ante ese error, el coordinador no responde aprobación por aprobación: verifica que no quede un worker duplicado, preserva el mismo worktree/estado y relanza o reanuda el worker con el perfil completo;
+7. una vez lanzado correctamente, el worker ejecuta autónomamente toda su asignación hasta `worker_done`, handoff, `quota_unavailable` o una escalación real;
+8. el COORDINADOR_LOCAL se limita a ordenar secuencialidad/paralelismo según `max_concurrency`, vigilar vida/liberación de workers, gestionar handbacks de cuota y comprobar gates objetivos ya definidos;
+9. el coordinador no interpreta si una acción rutinaria "merece permiso": esa autorización ya viene dada por HUMAN_GATE y la asignación;
+10. si un worker intenta una acción **fuera del alcance** o una operación que la gobernanza reserva (force/rebase destructivo, merge/deploy no autorizado, secreto/credencial, decisión DT-038, etc.), los permisos completos no la vuelven válida: eso sí es una escalación real.
+
+Para REVIEWER, permisos completos de CLI no eliminan el modo de solo lectura sobre Botonera2: siguen prohibidas las modificaciones del producto y sólo puede escribir el handoff autorizado en Botonera2-Control.
+
 ### 9. Condiciones de detención
 
 El lote se detiene y devuelve control humano si aparece:
@@ -271,6 +294,9 @@ El manifiesto debe identificar expresamente en qué WPs está habilitada esta ex
 
 
 ## Consecuencias
+
+- Los prompts rutinarios de permisos dejan de consumir inferencia del coordinador: los workers se lanzan con permisos completos desde el inicio.
+- El COORDINADOR_LOCAL queda deliberadamente reducido a scheduling, lifecycle y gates objetivos; no actúa como aprobador interactivo de herramientas.
 
 - Se mantiene el aislamiento por worktree.
 - Se reduce la intervención humana repetitiva.
