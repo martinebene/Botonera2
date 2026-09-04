@@ -42,8 +42,16 @@ const DEMORA_SCRIPTS_MS = 2_500
 /** Tolerancia en píxeles al comparar bordes que deberían coincidir. */
 const TOLERANCIA = 1
 
-/** Proporción real del archivo aprobado (448×158). */
-const PROPORCION_LOGO = 448 / 158
+/**
+ * Proporción real del lienzo aprobado (1536×1024 desde WP-069).
+ *
+ * Es la proporción del **archivo**, no la del dibujo: el asset humano trae márgenes
+ * transparentes que el WP prohíbe recortar, así que la caja del `<img>` es más alta que la
+ * marca visible. Lo que se comprueba acá es que el navegador no la deforme.
+ */
+const ANCHO_LOGO = 1536
+const ALTO_LOGO = 1024
+const PROPORCION_LOGO = ANCHO_LOGO / ALTO_LOGO
 
 const SUPERFICIES = [
   {
@@ -192,8 +200,8 @@ for (const superficie of SUPERFICIES) {
         .toBeGreaterThan(0)
       const medidas = await medirImagen(page, '[data-testid="carga-inicial-logo"]')
       expect(medidas.src).toContain(`${superficie.prefijo}assets/marca/sisleg-logo.png`)
-      expect(medidas.anchoNatural).toBe(448)
-      expect(medidas.altoNatural).toBe(158)
+      expect(medidas.anchoNatural).toBe(ANCHO_LOGO)
+      expect(medidas.altoNatural).toBe(ALTO_LOGO)
 
       // 2. Conserva la proporción del archivo y entra completo en la ventana.
       expect(medidas.ancho / medidas.alto).toBeCloseTo(PROPORCION_LOGO, 1)

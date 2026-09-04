@@ -157,8 +157,8 @@ useSonidosRecinto({
         data-testid="logo-sin-preparar"
         :src="urlLogoInstitucional"
         alt="SISLeg"
-        width="448"
-        height="158"
+        width="1536"
+        height="1024"
       />
       <p class="sobrelinea">Pantalla del Recinto</p>
       <h2>Recinto sin preparar</h2>
@@ -281,8 +281,13 @@ useSonidosRecinto({
   pantalla del recinto se proyecta en monitores de tamaños distintos y el logo debe
   conservar la misma presencia relativa. Los límites se eligieron para que a 1366×768
   ocupe ~300 px y a 1920×1080 llegue al tope de 384 px, proporción equivalente a la de la
-  ventana de carga. `height: auto` conserva la relación 448×158 del archivo aprobado, de
-  modo que la marca nunca se deforma.
+  ventana de carga. `height: auto` conserva la relación 1536×1024 del archivo aprobado en
+  WP-069, de modo que la marca nunca se deforma.
+
+  Ese lienzo trae márgenes transparentes propios del archivo humano —el dibujo no llega a
+  los bordes—, y WP-069 prohíbe recortarlos. Por eso la caja reservada es más alta que el
+  dibujo visible: el ancho mostrado se mantuvo igual que antes para no alterar la
+  presencia de la marca, y el aire sobrante queda dentro de la propia imagen.
 
   El bloque contenedor es un `place-content: center` sin altura fija, así que esta imagen
   no puede empujar geometría ajena: `SIN_PREPARAR` no dibuja bancas ni franjas.

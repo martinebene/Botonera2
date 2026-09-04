@@ -14,7 +14,10 @@
  * 3. el manual está completo: tiene sus trece capítulos y su índice llega a todos;
  * 4. navegar por el índice funciona de verdad, no sólo como texto;
  * 5. no pide ni un solo recurso a otro origen, que es la condición para que se lea igual
- *    en una instalación sin salida a Internet.
+ *    en una instalación sin salida a Internet;
+ * 6. desde WP-069, que la cabecera muestre el logo institucional aprobado, que el
+ *    navegador lo decodifique de verdad y que no ensanche el documento en las dos
+ *    resoluciones de referencia.
  */
 
 import { expect, test } from '@playwright/test'
@@ -38,6 +41,16 @@ const CAPITULOS = [
 ] as const
 
 const ESPERA_MONTAJE = 25_000
+
+/** Las dos resoluciones de referencia de los puestos operativos. */
+const RESOLUCIONES = [
+  { width: 1366, height: 768 },
+  { width: 1920, height: 1080 },
+] as const
+
+/** Lienzo real del logo aprobado en WP-069, con sus márgenes transparentes incluidos. */
+const ANCHO_LOGO = 1536
+const ALTO_LOGO = 1024
 
 test.describe.serial('WP-067 · Manual de usuario sobre el stack real', () => {
   const stack = new ProcesoStackIntegrado()
@@ -112,6 +125,61 @@ test.describe.serial('WP-067 · Manual de usuario sobre el stack real', () => {
     expect(peticionesExternas).toEqual([])
     await manual.close()
   })
+
+  for (const viewport of RESOLUCIONES) {
+    test(`la cabecera del manual muestra el logo institucional en ${viewport.width}×${viewport.height}`, async ({
+      page,
+    }) => {
+      /*
+        WP-069 lleva el logo completo de SISLeg a la cabecera del manual, incrustado como
+        `data:` para que el documento siga siendo un único archivo sin recursos externos.
+
+        Que el atributo esté escrito no alcanza: un `data:` truncado, con un carácter
+        ajeno al alfabeto base64 o con otro tipo MIME produce una imagen que el navegador
+        no decodifica y que en pantalla es un hueco. `naturalWidth` distinto de cero es la
+        prueba de que Chromium sí la decodificó, y sus valores confirman que se está
+        sirviendo el lienzo aprobado y no una versión reescalada.
+      */
+      await page.setViewportSize(viewport)
+      await page.goto(`${URL_STACK}/manual/`)
+
+      const logo = page.locator('header.encabezado img')
+      await expect(logo).toBeVisible({ timeout: ESPERA_MONTAJE })
+
+      const medidas = await logo.evaluate((elemento) => {
+        const imagen = elemento as HTMLImageElement
+        const caja = imagen.getBoundingClientRect()
+        return {
+          anchoNatural: imagen.naturalWidth,
+          altoNatural: imagen.naturalHeight,
+          esquema: imagen.src.slice(0, 22),
+          alternativo: imagen.alt,
+          izquierda: caja.x,
+          derecha: caja.x + caja.width,
+          ancho: caja.width,
+          alto: caja.height,
+        }
+      })
+
+      expect(medidas.esquema).toBe('data:image/png;base64,')
+      expect(medidas.anchoNatural).toBe(ANCHO_LOGO)
+      expect(medidas.altoNatural).toBe(ALTO_LOGO)
+      expect(medidas.alternativo).toBe('SISLeg')
+
+      // Conserva la proporción del archivo: nadie lo está deformando con un alto fijo.
+      expect(medidas.ancho / medidas.alto).toBeCloseTo(ANCHO_LOGO / ALTO_LOGO, 1)
+
+      // Entra completo a lo ancho. El manual se desplaza en vertical por naturaleza, pero
+      // un desplazamiento horizontal sería una regresión geométrica del documento.
+      expect(medidas.izquierda).toBeGreaterThanOrEqual(-1)
+      expect(medidas.derecha).toBeLessThanOrEqual(viewport.width + 1)
+
+      const desbordeHorizontal = await page.evaluate(
+        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      )
+      expect(desbordeHorizontal).toBeLessThanOrEqual(1)
+    })
+  }
 
   test('el mismo acceso existe en Apoyo Técnico y apunta al mismo documento', async ({ page }) => {
     await page.setViewportSize({ width: 1366, height: 768 })

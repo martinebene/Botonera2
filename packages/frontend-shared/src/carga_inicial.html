@@ -53,8 +53,8 @@
       data-testid="carga-inicial-logo"
       src="assets/marca/sisleg-logo.png"
       alt=""
-      width="448"
-      height="158"
+      width="1536"
+      height="1024"
     />
     <p class="carga-inicial__detalle">Cargando la interfaz…</p>
   </div>
@@ -124,12 +124,16 @@
     Logo institucional (WP-062).
 
     Los atributos `width`/`height` del HTML declaran la proporción real del archivo
-    (448×158) para que el navegador reserve la caja correcta antes de descargar el PNG y
-    no se produzca un salto de layout cuando llega. El tamaño mostrado, en cambio, lo
-    decide el `clamp`: crece con el ancho de la ventana pero nunca supera los 320 px, de
-    modo que en 1366×768 y en 1920×1080 el logo ocupa una porción equivalente del
-    viewport. `height: auto` conserva la proporción y `display: block` evita el hueco que
-    el navegador reserva bajo una imagen en línea.
+    (1536×1024 desde WP-069) para que el navegador reserve la caja correcta antes de
+    descargar el PNG y no se produzca un salto de layout cuando llega. El tamaño mostrado,
+    en cambio, lo decide el `clamp`: crece con el ancho de la ventana pero nunca supera los
+    320 px, de modo que en 1366×768 y en 1920×1080 el logo ocupa una porción equivalente
+    del viewport. `height: auto` conserva la proporción y `display: block` evita el hueco
+    que el navegador reserva bajo una imagen en línea.
+
+    El archivo humano de WP-069 trae márgenes transparentes propios y no se puede recortar,
+    así que la caja reservada es más alta que el dibujo visible. Se conserva el mismo ancho
+    mostrado que antes para no cambiar la presencia de la marca.
   */
   .carga-inicial__marca {
     display: block;

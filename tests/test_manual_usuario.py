@@ -22,6 +22,7 @@ producción.
 
 from __future__ import annotations
 
+import base64
 import csv
 import re
 from html.parser import HTMLParser
@@ -31,6 +32,7 @@ import pytest
 
 RAIZ_REPOSITORIO = Path(__file__).resolve().parents[1]
 RUTA_MANUAL = RAIZ_REPOSITORIO / "manual" / "index.html"
+RUTA_LOGO_CANONICO = RAIZ_REPOSITORIO / "assets" / "branding" / "sisleg-logo.png"
 
 # Los trece capítulos obligatorios del WP, en su orden canónico. El identificador es parte
 # del contrato: los enlaces internos y las pruebas de navegador dependen de él.
@@ -96,6 +98,7 @@ class AnalizadorManual(HTMLParser):
         self.archivos_referenciados: list[str] = []
         self.recursos_externos: list[str] = []
         self.etiquetas: list[str] = []
+        self.imagenes: list[tuple[str, str]] = []
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         atributos = {nombre: (valor or "") for nombre, valor in attrs}
@@ -107,6 +110,8 @@ class AnalizadorManual(HTMLParser):
             self.archivos_referenciados.append(atributos["data-archivo"])
         if tag == "a" and "href" in atributos:
             self.enlaces.append(atributos["href"])
+        if tag == "img":
+            self.imagenes.append((atributos.get("src", ""), atributos.get("alt", "")))
 
         # `src` y el `href` de un `link` cargan recursos; el `href` de un `a` sólo navega.
         candidatos = [atributos.get("src", "")]
@@ -266,3 +271,37 @@ def test_no_expone_datos_del_padron_instalado(texto_manual: str) -> None:
                 if valor and valor in texto_manual:
                     filtrados.append(f"{campo}={valor}")
     assert not filtrados, f"El manual contiene datos del padrón instalado: {filtrados}"
+
+
+def test_la_cabecera_muestra_el_logo_canonico_incrustado(texto_manual: str) -> None:
+    """La cabecera muestra el logo aprobado y lo lleva adentro, no como archivo aparte.
+
+    WP-069 pide que el manual use la misma identidad visual que el resto del producto sin
+    reinterpretarla y sin dejar de ser un documento único. Ambas cosas se comprueban de la
+    misma manera: la imagen viaja como `data:` y, al decodificarla, tiene que salir
+    **exactamente** el PNG versionado en `assets/branding/`. Si alguien la reemplazara por
+    una versión reescalada, recomprimida o recortada «para que pese menos», la comparación
+    byte a byte fallaría, que es justamente lo que el WP prohíbe.
+    """
+
+    cabecera = re.search(r"<header class=\"encabezado\">(.*?)</header>", texto_manual, re.S)
+    assert cabecera is not None, "El manual ya no tiene la cabecera esperada."
+
+    analizador = AnalizadorManual()
+    analizador.feed(cabecera.group(1))
+    assert analizador.imagenes, "La cabecera del manual no muestra ninguna imagen."
+
+    origen, alternativo = analizador.imagenes[0]
+    prefijo = "data:image/png;base64,"
+    assert origen.startswith(prefijo), "El logo de la cabecera no viaja incrustado en el manual."
+
+    # `validate=True` rechaza cualquier carácter ajeno al alfabeto base64: si el atributo
+    # quedara cortado o con espacios, se ve acá y no como una imagen rota en pantalla.
+    incrustado = base64.b64decode(origen.removeprefix(prefijo), validate=True)
+    assert incrustado == RUTA_LOGO_CANONICO.read_bytes(), (
+        "El logo incrustado en el manual no es idéntico al canónico de assets/branding/."
+    )
+
+    # Donde se ve el logo no se repite la marca como texto, así que el nombre accesible lo
+    # aporta el texto alternativo de la imagen.
+    assert alternativo == "SISLeg"
