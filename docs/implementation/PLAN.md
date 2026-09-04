@@ -212,7 +212,7 @@ WP-033 quedó integrado antes de continuar WP-026 y deja disponible el harness m
 | WP-063 | Formatear visualmente el factor a dos decimales truncados | INTEGRADO | WP-062 | claude |
 | WP-064 | Aumentar legibilidad de nombres en la cola de palabra del Recinto | INTEGRADO | WP-062 | claude |
 | WP-065 | Incorporar configuración y assets de sonidos del Recinto | INTEGRADO | WP-062 | claude |
-| WP-066 | Implementar motor de reproducción de sonidos del Recinto | PENDIENTE | WP-065 | - |
+| WP-066 | Implementar motor de reproducción de sonidos del Recinto | EN_CURSO | WP-065 | claude |
 | WP-067 | Publicar manual de usuario y ayuda integrada de SISLeg | PENDIENTE | WP-062, WP-063, WP-064, WP-065, WP-066 | - |
 | WP-029 | Validar bridge/hardware real, regresión funcional y candidato de producción | BLOQUEADO | WP-019, WP-020, WP-027, WP-028, WP-034, WP-035, WP-036, WP-037, WP-038, WP-039, WP-040, WP-041, WP-043, WP-044, WP-045, WP-046, WP-047, WP-048, WP-049, WP-050, WP-051, WP-052, WP-053, WP-054, WP-055, WP-056, WP-057, WP-058, WP-059, WP-060, WP-061, WP-062, WP-063, WP-064, WP-065, WP-066, WP-067 | - |
 
@@ -372,3 +372,6 @@ WP-063 quedó integrado mediante PR #71 sobre el candidato `f4d12b161915e4f31197
 
 
 WP-064 quedó integrado mediante PR #72 sobre el candidato `a6b78f0afb803a6618bd6317eea11e86980d3969`, implementado por Claude Code / Claude Opus 5 (High) y revisado independientemente por Antigravity/AGY / Gemini 3.8 Flash (High), con 0 BLOQUEANTES, 0 IMPORTANTES y 0 MENORES y veredicto `LISTA PARA INTEGRAR`. El squash `1bb4d3a2344e23df5347d5ae22080f3f2f5c95d0` conserva exactamente el tree revisado `709ba453e87e13370c65b0b2f083637ced17019d`; CI candidata #453 y CI post-merge #454 terminaron `success` 8/8. La validación objetiva confirmó crecimiento tipográfico 1,8× en 1366×768 y 1920×1080, sin overflow horizontal ni scroll global y preservando la geometría estructural del Recinto. WP-067 continúa dependiendo de WP-066; WP-029 permanece BLOQUEADO.
+
+
+HUMAN_GATE activa WP-066 después de verificar el cierre y cleanup completos de WP-064 y con WP-065 ya integrado. Se asigna Claude Code / Claude Opus 5 (High) como IMPLEMENTER y Antigravity/AGY / Gemini 3.8 Flash (High) como REVIEWER independiente. El alcance queda limitado al motor de reproducción/detección de los 15 sonidos configurados, sin control visible de audio, sin replay de primer snapshot o reconexión, permitiendo superposición y manteniendo WP-029 BLOQUEADO.
