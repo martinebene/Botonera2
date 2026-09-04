@@ -12,6 +12,7 @@
  */
 
 import { execFileSync, spawn } from 'node:child_process'
+import { createReadStream, existsSync, statSync } from 'node:fs'
 import http from 'node:http'
 import net from 'node:net'
 import path from 'node:path'
@@ -171,11 +172,64 @@ export function generarIndiceHtml() {
       <li><a href="/recinto/">Pantalla del Recinto <span class="badge">HMR</span></a></li>
       <li><a href="/simulador/">Simulador de dispositivos <span class="badge">HMR</span></a></li>
       <li><a href="/tecnico/">Apoyo Técnico <span class="badge">HMR</span></a></li>
+      <li><a href="/manual/">Manual de usuario</a></li>
       <li><a href="/docs">Documentación de API (Swagger)</a></li>
       <li><a href="/api/v1/health">Estado de salud del backend (/api/v1/health)</a></li>
     </ul>
   </body>
 </html>`
+}
+
+/**
+ * Directorio fuente del manual de usuario estático (WP-067).
+ *
+ * El manual no es una SPA y no tiene servidor de desarrollo propio: es un HTML versionado
+ * que en producción sirve Nginx desde `web/manual/`. Este proxy lo publica directamente
+ * desde el repositorio para que `/manual/` exista también acá y el icono de ayuda de
+ * Moderación y de Apoyo Técnico abra el mismo documento en los tres entornos.
+ */
+export const DIRECTORIO_MANUAL = path.join(RAIZ_REPOSITORIO, 'manual')
+
+/** Tipos MIME de los archivos que puede contener el manual. */
+const TIPOS_MANUAL = {
+  '.html': 'text/html; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.webp': 'image/webp',
+  '.woff2': 'font/woff2',
+}
+
+/**
+ * Traduce una URL bajo `/manual/` al archivo real que debe devolverse.
+ *
+ * Devuelve `null` cuando la URL no pertenece al manual, cuando intenta salir del
+ * directorio mediante `..` o cuando el archivo no existe. La comprobación de contención se
+ * hace sobre la ruta ya normalizada, que es la única forma segura de descartar un salto de
+ * directorio sin confiar en el texto original de la URL.
+ *
+ * @param {string} urlRelativa URL solicitada, con o sin cadena de consulta.
+ * @param {string} [directorio] Raíz del manual; parametrizada para poder probarla.
+ * @returns {string|null} Ruta absoluta del archivo a servir, o `null`.
+ */
+export function resolverArchivoManual(urlRelativa, directorio = DIRECTORIO_MANUAL) {
+  if (!urlRelativa || !urlRelativa.startsWith('/manual/')) return null
+
+  const sinConsulta = urlRelativa.split('?')[0].split('#')[0]
+  let relativa
+  try {
+    relativa = decodeURIComponent(sinConsulta.slice('/manual/'.length))
+  } catch {
+    return null
+  }
+  if (relativa === '' || relativa.endsWith('/')) relativa += 'index.html'
+
+  const candidato = path.resolve(directorio, relativa)
+  const raiz = path.resolve(directorio)
+  if (candidato !== raiz && !candidato.startsWith(raiz + path.sep)) return null
+  if (!existsSync(candidato) || !statSync(candidato).isFile()) return null
+  return candidato
 }
 
 /**
@@ -256,6 +310,25 @@ export function crearServidorProxy(opciones) {
     if (urlOriginal === '/tecnico') {
       respuesta.writeHead(302, { Location: '/tecnico/' })
       respuesta.end()
+      return
+    }
+    if (urlOriginal === '/manual') {
+      respuesta.writeHead(302, { Location: '/manual/' })
+      respuesta.end()
+      return
+    }
+
+    // El manual se sirve desde el disco, sin proxy: no hay servidor Nuxt detrás.
+    if (urlOriginal.startsWith('/manual/')) {
+      const archivo = resolverArchivoManual(urlOriginal)
+      if (!archivo) {
+        respuesta.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' })
+        respuesta.end(`Archivo del manual no encontrado: ${urlOriginal}`)
+        return
+      }
+      const tipo = TIPOS_MANUAL[path.extname(archivo).toLowerCase()] || 'application/octet-stream'
+      respuesta.writeHead(200, { 'Content-Type': tipo, 'Cache-Control': 'no-cache' })
+      createReadStream(archivo).pipe(respuesta)
       return
     }
 
@@ -842,6 +915,7 @@ export async function main(argumentos = process.argv.slice(2)) {
   console.log(`  ├── Pantalla del Recinto (HMR):  ${urlBase}/recinto/`)
   console.log(`  ├── Simulador (HMR):             ${urlBase}/simulador/`)
   console.log(`  ├── Apoyo Técnico (HMR):         ${urlBase}/tecnico/`)
+  console.log(`  ├── Manual de usuario:           ${urlBase}/manual/`)
   console.log(`  ├── Documentación API (Swagger): ${urlBase}/docs`)
   console.log(`  └── Verificación de salud:       ${urlBase}/api/v1/health\n`)
   console.log('Túnel SSH desde Windows (ejemplo con puerto 18080):')

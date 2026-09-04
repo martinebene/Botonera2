@@ -37,6 +37,9 @@ URL_NGINX_MODERACION = "http://127.0.0.1/moderacion/"
 URL_NGINX_RECINTO = "http://127.0.0.1/recinto/"
 URL_NGINX_SIMULADOR = "http://127.0.0.1/simulador/"
 URL_NGINX_TECNICO = "http://127.0.0.1/tecnico/"
+# El manual de usuario (WP-067) se publica en su propia ruta estática. Se comprueba junto
+# a las SPA porque el icono de ayuda de Moderación y el de Apoyo Técnico dependen de él.
+URL_NGINX_MANUAL = "http://127.0.0.1/manual/"
 MAXIMO_ARCHIVOS_TAR = 20_000
 MAXIMO_BYTES_TAR = 2 * 1024 * 1024 * 1024
 MAXIMO_LONGITUD_RUTA = 512
@@ -198,6 +201,8 @@ def validar_manifest(
         "tecnico": "web/tecnico/index.html",
     }:
         raise ErrorDespliegue("release.json no declara las cuatro SPA canónicas.")
+    if manifest.get("manual") != "web/manual/index.html":
+        raise ErrorDespliegue("release.json no declara el manual de usuario canónico.")
     if manifest.get("paquetes_python") != [
         "botonera2-backend",
         "botonera2-device-bridge",
@@ -239,6 +244,7 @@ def validar_manifest(
         "web/recinto/index.html",
         "web/simulador/index.html",
         "web/tecnico/index.html",
+        "web/manual/index.html",
         "deploy/systemd/botonera2-backend.service",
         "deploy/systemd/botonera2-device-bridge.service",
         "deploy/nginx/botonera2.conf",
@@ -617,6 +623,7 @@ class GestorDespliegue:
             release / "web/recinto/index.html",
             release / "web/simulador/index.html",
             release / "web/tecnico/index.html",
+            release / "web/manual/index.html",
             release / "deploy/systemd/botonera2-backend.service",
             release / "deploy/systemd/botonera2-device-bridge.service",
             release / "deploy/nginx/botonera2.conf",
@@ -1048,9 +1055,10 @@ class GestorDespliegue:
             URL_NGINX_RECINTO,
             URL_NGINX_SIMULADOR,
             URL_NGINX_TECNICO,
+            URL_NGINX_MANUAL,
         ):
             if "<!doctype html" not in self.consultor_texto(url, 3.0).lower():
-                raise ErrorDespliegue(f"La SPA no respondió HTML válido por Nginx: {url}")
+                raise ErrorDespliegue(f"La ruta no respondió HTML válido por Nginx: {url}")
 
     def activar(self, sha: str) -> None:
         """Activa una release y restaura automáticamente la anterior si falla."""

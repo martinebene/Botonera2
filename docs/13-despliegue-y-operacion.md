@@ -49,6 +49,7 @@ Estructura objetivo conceptual:
 http://botonera/
 ├── /moderacion/
 ├── /recinto/
+├── /manual/
 └── /api/v1/
 ```
 
@@ -143,8 +144,8 @@ La salida es `dist/produccion/botonera2-<sha-completo>.tar.gz` y su sidecar
 `.sha256`. El artifact de CI agrega una copia de
 `deploy/herramienta_despliegue.py` del mismo checkout, necesaria para preparar
 la primera release sin Git ni una instalación previa. `release.json` identifica
-commit/tree, Python objetivo, paquetes, SPA y el inventario SHA-256 de cada
-archivo. El empaquetador rechaza cambios versionables locales para no atribuir
+commit/tree, Python objetivo, paquetes, SPA, manual y el inventario SHA-256 de
+cada archivo. El empaquetador rechaza cambios versionables locales para no atribuir
 al commit contenido que Git no conoce.
 
 La identidad de ambos builds Nuxt se deriva del SHA Git completo y la marca de
@@ -219,8 +220,8 @@ python3.14 deploy/herramienta_despliegue.py preflight
    ```
 
 La activación valida configuración, units y Nginx; cambia `current`
-atómicamente; reinicia backend/bridge; comprueba health y ambas SPA por Nginx;
-y recién entonces actualiza `previous`.
+atómicamente; reinicia backend/bridge; comprueba health, las cuatro SPA y el
+manual por Nginx; y recién entonces actualiza `previous`.
 
 La validación de configuración recibe dos rutas: la raíz de la instalación
 —donde viven `config/` y `logs/`— y la release que se está activando. La
@@ -315,6 +316,23 @@ Los archivos WAV viajan dentro de la release y `activar` ya falla si alguna ruta
 no está publicada, así que un sonido mudo por archivo faltante no puede llegar a producción
 sin detectarse.
 
+### Manual de usuario publicado con la release
+
+Desde WP-067 la release incluye `web/manual/index.html`, un único documento HTML
+autocontenido con el manual de operación, configuración e instalación de SISLeg. Nginx lo
+publica en `/manual/` bajo el mismo origen que las aplicaciones y sin restricción de red,
+porque es el destino del icono de ayuda que muestran las cabeceras de Moderación y de
+Apoyo Técnico.
+
+Consecuencias operativas:
+
+- el manual se actualiza con la release, igual que las SPA: no se edita en la máquina
+  institucional ni vive en `config/`;
+- `activar` falla si el manual no está publicado, del mismo modo que ya falla si falta una
+  SPA, de manera que el icono de ayuda no puede quedar apuntando a un 404;
+- el documento no carga recursos externos, así que se lee completo en una instalación sin
+  salida a Internet.
+
 ### Diagnóstico de solo lectura
 
 ```bash
@@ -328,6 +346,7 @@ curl --fail http://127.0.0.1:8000/api/v1/health
 curl --fail http://127.0.0.1/api/v1/health
 curl --fail http://127.0.0.1/moderacion/
 curl --fail http://127.0.0.1/recinto/
+curl --fail http://127.0.0.1/manual/
 ```
 
 Activar o volver atrás nunca modifica `config/` ni `logs/`, no elimina

@@ -15,10 +15,14 @@
  * Muestra el estado global del backend porque en este puesto sí es información nueva: la
  * transmisión y los avisos funcionan también en `SIN_PREPARAR`, y el operador técnico
  * necesita saber si además hay una preparación o una sesión en curso.
+ *
+ * WP-067 agrega al extremo derecho el acceso de ayuda al manual de usuario. Es el mismo
+ * componente compartido que usa Moderación: idéntico aspecto, idéntico destino.
  */
 
 import { computed } from 'vue'
 import type { EstadoGlobal, EstadoTransmision } from '@botonera2/api-client'
+import AccesoManual from '@botonera2/frontend-shared/componentes/AccesoManual.vue'
 import type { EstadoConexionTecnico } from '../composables/useEstadoTecnico'
 
 const props = defineProps<{
@@ -142,6 +146,9 @@ const claseTransmision = computed(() =>
       >
         {{ etiquetaConexion }}
       </span>
+
+      <!-- Acceso de ayuda (WP-067), en la misma posición relativa que en Moderación. -->
+      <AccesoManual />
     </div>
   </header>
 </template>

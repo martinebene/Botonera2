@@ -84,6 +84,16 @@ def ejecutar_smoke(paquete: Path, sidecar: Path, sha: str) -> None:
             if not indice.is_file() or not any(ruta.is_file() for ruta in assets.iterdir()):
                 raise ErrorSmoke(f"La SPA {spa} está incompleta dentro del artefacto.")
 
+        # Manual de usuario (WP-067). Se comprueba desde el artefacto extraído, y no desde
+        # el checkout, porque lo que debe quedar publicado en `/manual/` es exactamente el
+        # archivo que viajó dentro de la release.
+        manual = release / "web/manual/index.html"
+        if not manual.is_file():
+            raise ErrorSmoke("El manual de usuario no está incluido en el artefacto.")
+        contenido_manual = manual.read_text(encoding="utf-8")
+        if "SISLeg" not in contenido_manual or "cap-01-vision-general" not in contenido_manual:
+            raise ErrorSmoke("El manual incluido en el artefacto no tiene el contenido esperado.")
+
         puerto = elegir_puerto_loopback()
         proceso = subprocess.Popen(
             [

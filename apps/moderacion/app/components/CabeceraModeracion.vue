@@ -16,6 +16,7 @@
  * 7. Fecha y hora local, calculada en el propio equipo.
  * 8. Estado binario de transmisión hacia el público.
  * 9. Estado técnico de la conexión.
+ * 10. Acceso de ayuda al manual de usuario (WP-067).
  *
  * Agrupación por origen del dato (WP-054):
  * - A la izquierda queda el contexto *institucional del backend*: pantalla, número de
@@ -55,6 +56,7 @@
 import { computed } from 'vue'
 import type { EstadoConexion } from '../composables/useEstadoModeracion'
 import type { EstadoGlobal, EstadoQuorum, EstadoTransmision } from '@botonera2/api-client'
+import AccesoManual from '@botonera2/frontend-shared/componentes/AccesoManual.vue'
 import { useRelojLocal } from '../composables/useRelojLocal'
 import { formatearFechaHoraLocal } from '../utils/tiempo'
 
@@ -345,6 +347,14 @@ const claseQuorum = computed(() =>
         />
         <span>{{ etiquetaConexion }}</span>
       </span>
+
+      <!--
+        Acceso de ayuda (WP-067). Cierra el sector derecho, así que queda en el extremo
+        derecho absoluto de la cabecera. Es el mismo componente compartido que usa la
+        cabecera de Apoyo Técnico, de modo que las dos pantallas ofrecen exactamente el
+        mismo acceso al mismo documento.
+      -->
+      <AccesoManual />
     </div>
   </header>
 </template>

@@ -65,6 +65,7 @@ async def test_aplicacion_integrada_conserva_fastapi_y_sirve_las_cuatro_spa(
             asset_simulador = await cliente.get("/simulador/_nuxt/entrada.js")
             pagina_tecnico = await cliente.get("/tecnico/")
             asset_tecnico = await cliente.get("/tecnico/_nuxt/entrada.js")
+            pagina_manual = await cliente.get("/manual/")
 
     assert salud.status_code == 200
     assert salud.json() == {"estado": "ok"}
@@ -73,6 +74,7 @@ async def test_aplicacion_integrada_conserva_fastapi_y_sirve_las_cuatro_spa(
     assert "/recinto/" in indice.text
     assert "/simulador/" in indice.text
     assert "/tecnico/" in indice.text
+    assert "/manual/" in indice.text
     assert pagina_moderacion.status_code == 200
     assert "Moderación real" in pagina_moderacion.text
     assert asset_moderacion.text == "console.log('Moderación real')"
@@ -85,6 +87,11 @@ async def test_aplicacion_integrada_conserva_fastapi_y_sirve_las_cuatro_spa(
     assert pagina_tecnico.status_code == 200
     assert "Apoyo Técnico real" in pagina_tecnico.text
     assert asset_tecnico.text == "console.log('Apoyo Técnico real')"
+    # El manual (WP-067) se monta desde su directorio versionado, no desde un build: acá se
+    # comprueba que `/manual/` resuelva al documento real bajo el mismo origen, igual que
+    # hará Nginx en producción.
+    assert pagina_manual.status_code == 200
+    assert "cap-01-vision-general" in pagina_manual.text
 
 
 async def test_aplicacion_productiva_no_adquiere_los_mounts_del_harness(tmp_path: Path) -> None:
@@ -140,6 +147,23 @@ def test_rechaza_salidas_estaticas_ausentes_o_incompletas(
 
     with pytest.raises(ErrorSalidaSpa, match=fragmento):
         crear_aplicacion_integrada(moderacion, recinto, simulador, tecnico)
+
+
+def test_rechaza_un_manual_ausente_antes_de_abrir_el_servidor(tmp_path: Path) -> None:
+    """El manual es parte de la superficie servida: si falta, el stack no debe arrancar.
+
+    Sin esta comprobación el servidor levantaría igual y el icono de ayuda de Moderación y
+    de Apoyo Técnico devolvería 404 sin que nada lo advirtiera.
+    """
+
+    with pytest.raises(ErrorSalidaSpa, match="manual de usuario"):
+        crear_aplicacion_integrada(
+            crear_salida_spa(tmp_path / "moderacion", "Moderación"),
+            crear_salida_spa(tmp_path / "recinto", "Recinto"),
+            crear_salida_spa(tmp_path / "simulador", "Simulador"),
+            crear_salida_spa(tmp_path / "tecnico", "Apoyo Técnico"),
+            tmp_path / "manual-inexistente",
+        )
 
 
 def test_configuracion_predeterminada_usa_loopback_y_puerto_8000() -> None:

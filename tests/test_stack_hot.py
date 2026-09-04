@@ -413,6 +413,36 @@ async function ejecutar() {
     throw new Error('Fallo en Apoyo Técnico: ' + textoTec);
   }
 
+  // E ter. El manual (WP-067) no tiene servidor de desarrollo detrás: el proxy lo sirve
+  // desde el disco. Se comprueba la redirección sin barra final, el documento real y que
+  // un intento de salir del directorio con `..` sea rechazado en lugar de leer el repo.
+  const rManualRedir = await fetch(base + '/manual', { redirect: 'manual' });
+  if (rManualRedir.status !== 302 || rManualRedir.headers.get('location') !== '/manual/') {
+    throw new Error('Fallo en redirección /manual');
+  }
+
+  const rManual = await fetch(base + '/manual/');
+  const textoManual = await rManual.text();
+  if (!rManual.ok || !rManual.headers.get('content-type')?.includes('text/html')) {
+    throw new Error('Fallo en Content-Type del manual: ' + rManual.headers.get('content-type'));
+  }
+  if (!textoManual.includes('cap-01-vision-general')) {
+    throw new Error('El manual servido no es el documento versionado');
+  }
+
+  // El salto se escribe codificado a propósito: `fetch` normaliza un `..` literal antes de
+  // enviarlo, así que sólo la forma codificada llega intacta al servidor y prueba de verdad
+  // la contención del directorio.
+  const rEscape = await fetch(base + '/manual/%2e%2e/package.json');
+  if (rEscape.status !== 404) {
+    throw new Error('El proxy sirvió un archivo fuera del manual: ' + rEscape.status);
+  }
+
+  const rInexistente = await fetch(base + '/manual/no-existe.html');
+  if (rInexistente.status !== 404) {
+    throw new Error('El proxy no devolvió 404 para un archivo inexistente del manual');
+  }
+
   // F. Probar enrutamiento a Backend (/api/v1/health y /docs)
   const rApi = await fetch(base + '/api/v1/health');
   const textoApi = await rApi.text();

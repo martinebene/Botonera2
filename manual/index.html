@@ -1,0 +1,2078 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SISLeg · Manual de usuario</title>
+    <meta
+      name="description"
+      content="Manual de operación, configuración e instalación de SISLeg, sistema de votación electrónica para cuerpos deliberativos."
+    />
+    <style>
+      /*
+        Hoja de estilos completa del manual.
+
+        Va incrustada a propósito: el manual debe poder abrirse desde una instalación sin
+        salida a Internet, así que no puede depender de una red de distribución de
+        contenidos (CDN) ni de ningún archivo externo. Un único archivo también evita que
+        el empaquetado tenga que declarar recursos adicionales.
+      */
+      :root {
+        --tinta: #14203a;
+        --tinta-suave: #46536d;
+        --fondo: #f6f7fb;
+        --papel: #ffffff;
+        --borde: #d9dee9;
+        --acento: #1d4ed8;
+        --acento-suave: #eaf0ff;
+        --aviso: #8a5300;
+        --aviso-fondo: #fff6e6;
+        --cuidado: #96223c;
+        --cuidado-fondo: #ffeef1;
+        --ancho-navegacion: 19rem;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --tinta: #e6ebf5;
+          --tinta-suave: #a6b0c4;
+          --fondo: #0f172a;
+          --papel: #16203a;
+          --borde: #2c3a58;
+          --acento: #93b4ff;
+          --acento-suave: #1c2a4c;
+          --aviso: #f2c67a;
+          --aviso-fondo: #35290f;
+          --cuidado: #ff9fb0;
+          --cuidado-fondo: #3a1620;
+        }
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        margin: 0;
+        background: var(--fondo);
+        color: var(--tinta);
+        font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        font-size: 16px;
+        line-height: 1.65;
+      }
+
+      a {
+        color: var(--acento);
+      }
+
+      code,
+      .ruta {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+        font-size: 0.88em;
+        background: var(--acento-suave);
+        border-radius: 4px;
+        padding: 0.1em 0.35em;
+        /*
+          Un identificador o una ruta cortados a la mitad se leen mal y se copian peor. Los
+          fragmentos cortos se mantienen enteros; las rutas largas, marcadas con `.ruta`,
+          sí pueden partirse, y las tablas que las contienen se desplazan solas.
+        */
+        white-space: nowrap;
+      }
+
+      .ruta {
+        white-space: normal;
+        word-break: break-word;
+      }
+
+      pre {
+        background: var(--acento-suave);
+        border: 1px solid var(--borde);
+        border-radius: 8px;
+        padding: 0.9rem 1rem;
+        overflow-x: auto;
+      }
+
+      pre code {
+        background: none;
+        padding: 0;
+        font-size: 0.85rem;
+      }
+
+      /* ---------------------------------------------------------------- Encabezado */
+      .encabezado {
+        background: var(--papel);
+        border-bottom: 1px solid var(--borde);
+        padding: 1.4rem 1.5rem;
+      }
+
+      .encabezado .marca {
+        font-size: 1.9rem;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        margin: 0;
+      }
+
+      .encabezado .marca span {
+        color: var(--acento);
+      }
+
+      .encabezado p {
+        margin: 0.25rem 0 0;
+        color: var(--tinta-suave);
+      }
+
+      /* ------------------------------------------------------------------ Esqueleto */
+      .disposicion {
+        display: grid;
+        grid-template-columns: var(--ancho-navegacion) minmax(0, 1fr);
+        gap: 2rem;
+        max-width: 82rem;
+        margin: 0 auto;
+        padding: 1.5rem;
+        align-items: start;
+      }
+
+      @media (max-width: 60rem) {
+        .disposicion {
+          grid-template-columns: minmax(0, 1fr);
+          gap: 1.25rem;
+        }
+      }
+
+      /* ----------------------------------------------------------------- Navegación */
+      .indice {
+        background: var(--papel);
+        border: 1px solid var(--borde);
+        border-radius: 10px;
+        padding: 1rem 1.1rem;
+        position: sticky;
+        top: 1.5rem;
+        max-height: calc(100vh - 3rem);
+        overflow-y: auto;
+      }
+
+      @media (max-width: 60rem) {
+        .indice {
+          position: static;
+          max-height: none;
+        }
+      }
+
+      .indice h2 {
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.09em;
+        color: var(--tinta-suave);
+        margin: 0 0 0.6rem;
+      }
+
+      .indice ol {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        counter-reset: capitulo;
+      }
+
+      .indice li {
+        counter-increment: capitulo;
+        margin-bottom: 0.15rem;
+      }
+
+      .indice a {
+        display: block;
+        padding: 0.3rem 0.45rem;
+        border-radius: 6px;
+        text-decoration: none;
+        color: var(--tinta);
+        font-size: 0.92rem;
+      }
+
+      .indice a::before {
+        content: counter(capitulo) '. ';
+        color: var(--tinta-suave);
+        font-variant-numeric: tabular-nums;
+      }
+
+      .indice a:hover,
+      .indice a:focus {
+        background: var(--acento-suave);
+        color: var(--acento);
+      }
+
+      /* ------------------------------------------------------------------ Contenido */
+      .contenido {
+        min-width: 0;
+      }
+
+      .capitulo {
+        background: var(--papel);
+        border: 1px solid var(--borde);
+        border-radius: 10px;
+        padding: 1.4rem 1.6rem 1.6rem;
+        margin-bottom: 1.5rem;
+        scroll-margin-top: 1rem;
+      }
+
+      .capitulo > h2 {
+        margin: 0 0 0.9rem;
+        font-size: 1.45rem;
+        letter-spacing: -0.01em;
+        border-bottom: 2px solid var(--acento-suave);
+        padding-bottom: 0.5rem;
+      }
+
+      .capitulo h3 {
+        font-size: 1.08rem;
+        margin: 1.5rem 0 0.5rem;
+      }
+
+      .capitulo h4 {
+        font-size: 0.97rem;
+        margin: 1.1rem 0 0.35rem;
+        color: var(--tinta-suave);
+      }
+
+      .capitulo p,
+      .capitulo li {
+        max-width: 62rem;
+      }
+
+      .capitulo ul,
+      .capitulo ol {
+        padding-left: 1.3rem;
+      }
+
+      .capitulo li {
+        margin-bottom: 0.3rem;
+      }
+
+      .tabla-contenedor {
+        overflow-x: auto;
+        margin: 0.8rem 0;
+      }
+
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        font-size: 0.93rem;
+        min-width: 30rem;
+      }
+
+      th,
+      td {
+        border: 1px solid var(--borde);
+        padding: 0.45rem 0.6rem;
+        text-align: left;
+        vertical-align: top;
+      }
+
+      th {
+        background: var(--acento-suave);
+        font-weight: 600;
+      }
+
+      .nota,
+      .cuidado {
+        border-left: 4px solid var(--aviso);
+        background: var(--aviso-fondo);
+        color: var(--tinta);
+        padding: 0.7rem 0.9rem;
+        border-radius: 0 8px 8px 0;
+        margin: 0.9rem 0;
+      }
+
+      .cuidado {
+        border-left-color: var(--cuidado);
+        background: var(--cuidado-fondo);
+      }
+
+      .nota strong,
+      .cuidado strong {
+        display: block;
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        margin-bottom: 0.2rem;
+      }
+
+      .nota strong {
+        color: var(--aviso);
+      }
+
+      .cuidado strong {
+        color: var(--cuidado);
+      }
+
+      .volver {
+        display: inline-block;
+        margin-top: 1.2rem;
+        font-size: 0.85rem;
+        text-decoration: none;
+      }
+
+      .pie {
+        max-width: 82rem;
+        margin: 0 auto;
+        padding: 0 1.5rem 2.5rem;
+        color: var(--tinta-suave);
+        font-size: 0.87rem;
+      }
+
+      @media print {
+        .indice,
+        .volver {
+          display: none;
+        }
+
+        .disposicion {
+          display: block;
+          padding: 0;
+        }
+
+        .capitulo {
+          border: none;
+          page-break-inside: avoid;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="encabezado">
+      <h1 class="marca" id="inicio"><span>SISLeg</span> · Manual de usuario</h1>
+      <p>
+        Operación, configuración e instalación del sistema de votación electrónica del recinto.
+      </p>
+    </header>
+
+    <div class="disposicion">
+      <nav class="indice" aria-label="Índice del manual">
+        <h2>Contenido</h2>
+        <ol>
+          <li><a href="#cap-01-vision-general">Visión general de SISLeg</a></li>
+          <li><a href="#cap-02-preparacion">Preparación del recinto</a></li>
+          <li><a href="#cap-03-sesion-autoridades">Sesión y autoridades</a></li>
+          <li><a href="#cap-04-presencia-quorum">Presencia y quórum</a></li>
+          <li><a href="#cap-05-orden-del-dia">Orden del Día</a></li>
+          <li><a href="#cap-06-votaciones">Votaciones</a></li>
+          <li><a href="#cap-07-palabra">Uso de la palabra</a></li>
+          <li><a href="#cap-08-apoyo-tecnico">Apoyo Técnico: avisos y transmisión</a></li>
+          <li><a href="#cap-09-sonidos">Sonidos del Recinto</a></li>
+          <li><a href="#cap-10-configuracion">Configuración y archivos principales</a></li>
+          <li><a href="#cap-11-instalacion">Puesta en marcha e instalación inicial</a></li>
+          <li><a href="#cap-12-operacion">Operación, actualización y diagnóstico</a></li>
+          <li><a href="#cap-13-navegador">Requisitos de navegador y modo kiosco</a></li>
+        </ol>
+      </nav>
+
+      <main class="contenido">
+        <!-- ============================================================ 1 -->
+        <section class="capitulo" id="cap-01-vision-general">
+          <h2>1. Visión general de SISLeg</h2>
+
+          <p>
+            SISLeg es el sistema de votación electrónica del recinto. Registra quiénes están
+            presentes, conduce las votaciones, ordena los pedidos de palabra, muestra al público
+            lo que ocurre y deja un registro escrito de cada hecho institucional.
+          </p>
+
+          <p>
+            El sistema está pensado para un operador único en el puesto de Moderación, una
+            pantalla proyectada en el recinto y, opcionalmente, un puesto de Apoyo Técnico en otro
+            equipo de la red local. Las personas que integran el cuerpo intervienen únicamente a
+            través de la botonera física instalada en su banca.
+          </p>
+
+          <h3>1.1 Partes del sistema</h3>
+
+          <div class="tabla-contenedor">
+            <table>
+              <thead>
+                <tr>
+                  <th>Parte</th>
+                  <th>Dirección</th>
+                  <th>Para qué sirve</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Moderación</td>
+                  <td><code>/moderacion/</code></td>
+                  <td>
+                    Puesto del operador. Prepara el recinto, abre y cierra la sesión, conduce las
+                    votaciones y administra el uso de la palabra.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Pantalla del Recinto</td>
+                  <td><code>/recinto/</code></td>
+                  <td>
+                    Pantalla pública, de sólo lectura. Muestra bancas, presencia, orador, votación
+                    en curso y resultados. No tiene ningún control.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Apoyo Técnico</td>
+                  <td><code>/tecnico/</code></td>
+                  <td>
+                    Indicador de transmisión, avisos sobre las pantallas, biblioteca de mensajes,
+                    reemplazo de botoneras y consulta de eventos.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Simulador</td>
+                  <td><code>/simulador/</code></td>
+                  <td>
+                    Herramienta de prueba que imita botoneras sin hardware. Queda restringida al
+                    propio servidor y no se usa durante una sesión real.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Manual</td>
+                  <td><code>/manual/</code></td>
+                  <td>Este documento. Se abre desde el icono de ayuda de Moderación y de Apoyo Técnico.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p>
+            Detrás de esas pantallas hay dos servicios que no tienen interfaz propia: el
+            <strong>servidor</strong>, que decide todo, y el <strong>puente de dispositivos</strong>,
+            que escucha las botoneras físicas y le traduce cada pulsación.
+          </p>
+
+          <div class="nota">
+            <strong>Quién decide</strong>
+            Las pantallas nunca deciden una regla. Muestran lo que informa el servidor y le envían
+            los comandos que la persona operadora pulsa. Si una acción no está permitida, el
+            rechazo viene del servidor y se muestra tal cual.
+          </div>
+
+          <h3>1.2 Las botoneras</h3>
+
+          <p>
+            Cada banca tiene una botonera asignada en el padrón. Sus teclas útiles son siempre las
+            mismas:
+          </p>
+
+          <div class="tabla-contenedor">
+            <table>
+              <thead>
+                <tr>
+                  <th>Tecla</th>
+                  <th>Efecto</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td><code>1</code></td><td>Voto positivo.</td></tr>
+                <tr><td><code>2</code></td><td>Abstención.</td></tr>
+                <tr><td><code>3</code></td><td>Voto negativo.</td></tr>
+                <tr>
+                  <td><code>7</code></td>
+                  <td>
+                    Pedir la palabra o retirar el pedido. Si esa banca está usando la palabra,
+                    la finaliza.
+                  </td>
+                </tr>
+                <tr><td><code>8</code></td><td>Prueba visual de la botonera. No cambia nada.</td></tr>
+                <tr><td><code>9</code></td><td>Alterna la propia presencia entre presente y ausente.</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3>1.3 Los tres estados del sistema</h3>
+
+          <p>SISLeg está siempre en uno de estos tres estados, y sólo en uno:</p>
+
+          <ol>
+            <li>
+              <strong>Sin preparar.</strong> No hay sesión ni preparación. Ninguna pulsación de
+              botonera produce efecto.
+            </li>
+            <li>
+              <strong>Preparando.</strong> Se cargaron la configuración y el padrón. Se acredita
+              presencia, se prueban las botoneras y se cargan los datos de la sesión. Sólo funcionan
+              las teclas <code>8</code> y <code>9</code>.
+            </li>
+            <li>
+              <strong>Sesión abierta.</strong> Se pueden abrir votaciones y operar el uso de la
+              palabra.
+            </li>
+          </ol>
+
+          <p>
+            Cancelar la preparación o cerrar la sesión devuelve el sistema a
+            <em>sin preparar</em> y borra todo el estado de trabajo.
+          </p>
+
+          <div class="cuidado">
+            <strong>El estado no se recupera</strong>
+            El estado de una sesión vive únicamente en la memoria del servidor. Si el servidor se
+            reinicia, se corta la energía o falla la red interna, el sistema vuelve a
+            <em>sin preparar</em>: hay que preparar el recinto otra vez y volver a abrir la sesión
+            según el procedimiento del cuerpo. Los registros ya escritos se conservan; el estado en
+            curso, no.
+          </div>
+
+          <h3>1.4 Registro de lo que ocurre</h3>
+
+          <p>
+            Desde que empieza la preparación, cada hecho relevante se escribe inmediatamente en
+            tres archivos de texto separados por punto y coma, en formato CSV (valores separados
+            por comas, por su sigla en inglés). Los tres se explican en el
+            <a href="#cap-10-configuracion">capítulo 10</a>.
+          </p>
+
+          <h3>1.5 Siglas usadas en este manual</h3>
+
+          <div class="tabla-contenedor">
+            <table>
+              <thead>
+                <tr><th>Sigla</th><th>Significado</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>CSV</td><td>Valores separados por comas: archivo de texto con una fila por registro.</td></tr>
+                <tr><td>TOML</td><td>Formato de archivo de configuración legible por personas.</td></tr>
+                <tr><td>LAN</td><td>Red de área local: la red interna del edificio.</td></tr>
+                <tr><td>URL</td><td>Dirección web que se escribe en el navegador.</td></tr>
+                <tr><td>WAV</td><td>Formato de archivo de sonido sin compresión.</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <a class="volver" href="#inicio">↑ Volver al índice</a>
+        </section>
+
+        <!-- ============================================================ 2 -->
+        <section class="capitulo" id="cap-02-preparacion">
+          <h2>2. Preparación del recinto</h2>
+
+          <p>
+            Preparar el recinto es el primer paso de toda jornada. Se hace desde Moderación con la
+            acción <strong>Preparar recinto</strong>, que es la única disponible mientras el sistema
+            está <em>sin preparar</em>.
+          </p>
+
+          <h3>2.1 Qué ocurre al preparar</h3>
+
+          <ol>
+            <li>Se lee la configuración funcional y el padrón de integrantes del cuerpo.</li>
+            <li>Se crean los tres archivos de registro de esa preparación.</li>
+            <li>Todas las bancas quedan <strong>ausentes</strong>.</li>
+            <li>Quedan habilitadas únicamente la prueba de botonera y el cambio de presencia.</li>
+          </ol>
+
+          <p>
+            La configuración y el padrón quedan <strong>congelados</strong> hasta que se cancele la
+            preparación o se cierre la sesión. Editar esos archivos en el servidor mientras hay una
+            preparación en curso no cambia nada de lo que está funcionando.
+          </p>
+
+          <div class="cuidado">
+            <strong>Si el padrón o la configuración tienen errores</strong>
+            La preparación no comienza. El sistema informa el problema y no crea archivos de
+            registro. Hay que corregir los archivos y volver a intentar. El
+            <a href="#cap-10-configuracion">capítulo 10</a> describe qué valida cada archivo.
+          </div>
+
+          <h3>2.2 Datos que hay que informar</h3>
+
+          <p>Durante la preparación se cargan tres datos, en cualquier orden:</p>
+
+          <ul>
+            <li><strong>Número de sesión</strong>, tal como lo asigna el cuerpo.</li>
+            <li><strong>Presidencia</strong>, como texto libre.</li>
+            <li><strong>Secretaría Legislativa</strong>, como texto libre.</li>
+          </ul>
+
+          <p>
+            Los tres pueden corregirse las veces que haga falta. Cada cambio queda registrado.
+          </p>
+
+          <h3>2.3 Acreditación y prueba de botoneras</h3>
+
+          <p>
+            La presencia se acredita únicamente desde la botonera de cada banca, con la tecla
+            <code>9</code>. Moderación no puede marcar presente a nadie: ese límite es
+            deliberado y no tiene excepción.
+          </p>
+
+          <p>
+            La tecla <code>8</code> enciende una señal visual temporal en la banca correspondiente.
+            Sirve para comprobar que la botonera responde y que está asignada a la banca correcta.
+            No modifica presencia, votos ni ningún dato.
+          </p>
+
+          <h3>2.4 Cancelar la preparación</h3>
+
+          <p>
+            Cancelar devuelve el sistema a <em>sin preparar</em>. Se escribe un evento final, los
+            tres archivos de registro se cierran y se conservan. Una preparación nueva siempre
+            empieza limpia: sin presencias, sin pedidos de palabra, sin orador y sin votaciones
+            anteriores.
+          </p>
+
+          <a class="volver" href="#inicio">↑ Volver al índice</a>
+        </section>
+
+        <!-- ============================================================ 3 -->
+        <section class="capitulo" id="cap-03-sesion-autoridades">
+          <h2>3. Sesión y autoridades</h2>
+
+          <h3>3.1 Apertura</h3>
+
+          <p>La sesión sólo puede abrirse cuando se cumplen las cuatro condiciones a la vez:</p>
+
+          <ul>
+            <li>hay quórum;</li>
+            <li>está informado el número de sesión;</li>
+            <li>está informada la Presidencia;</li>
+            <li>está informada la Secretaría Legislativa.</li>
+          </ul>
+
+          <p>
+            Moderación indica qué condición falta, pero la validación definitiva la hace el
+            servidor. Las presencias acreditadas durante la preparación se conservan al abrir.
+          </p>
+
+          <h3>3.2 Los roles institucionales</h3>
+
+          <p>
+            Presidencia y Secretaría Legislativa se escriben como texto libre. El sistema no intenta
+            vincularlos con el padrón ni deduce nada del nombre escrito.
+          </p>
+
+          <ul>
+            <li>
+              <strong>Presidencia</strong> es un rol independiente del rol de integrante del cuerpo.
+              Si quien preside además ocupa una banca, ambas condiciones funcionan por separado:
+              conserva su presencia, su lugar en el quórum, su pedido de palabra y su voto ordinario,
+              y suma la facultad de desempatar.
+            </li>
+            <li>
+              <strong>Secretaría Legislativa</strong> es un rol institucional sin acciones
+              funcionales en SISLeg: se informa y se registra, pero no opera ningún control.
+            </li>
+          </ul>
+
+          <p>
+            Ambas autoridades pueden cambiarse durante la preparación o durante la sesión, incluso
+            mientras una votación está recibiendo votos. Cada cambio queda registrado.
+          </p>
+
+          <h3>3.3 Lo que muestra la cabecera</h3>
+
+          <p>
+            La barra superior de Moderación concentra el contexto global para que ningún panel tenga
+            que repetirlo: número de sesión, quórum, autoridades, tiempo transcurrido desde la
+            apertura, fecha y hora del propio equipo, estado de la transmisión y estado de la
+            conexión. Si la conexión se interrumpe, aparece una advertencia de que lo mostrado puede
+            haber quedado atrasado.
+          </p>
+
+          <h3>3.4 Cierre</h3>
+
+          <p>Al cerrar la sesión, y en este orden:</p>
+
+          <ol>
+            <li>
+              si hay una votación recibiendo votos, se finaliza como <strong>inconclusa</strong>;
+            </li>
+            <li>
+              si hay una votación empatada esperando el desempate, también pasa a
+              <strong>inconclusa</strong>, conservando su fecha de cierre y sus votos;
+            </li>
+            <li>se escribe el evento final y se cierran los tres archivos de registro;</li>
+            <li>el sistema vuelve a <em>sin preparar</em>.</li>
+          </ol>
+
+          <div class="nota">
+            <strong>Aviso por palabra pendiente</strong>
+            Si al cerrar la sesión hay alguien usando la palabra o hay pedidos en la cola,
+            Moderación pide una confirmación explícita. Cancelar esa confirmación no envía nada y
+            deja todo como estaba.
+          </div>
+
+          <a class="volver" href="#inicio">↑ Volver al índice</a>
+        </section>
+
+        <!-- ============================================================ 4 -->
+        <section class="capitulo" id="cap-04-presencia-quorum">
+          <h2>4. Presencia y quórum</h2>
+
+          <h3>4.1 Cómo se acredita la presencia</h3>
+
+          <p>
+            Cada persona alterna su propia presencia con la tecla <code>9</code> de su botonera,
+            tanto durante la preparación como durante la sesión. No hay ninguna forma de marcar
+            presencia desde Moderación ni desde Apoyo Técnico.
+          </p>
+
+          <p>
+            Toda preparación empieza con todas las bancas ausentes. La presencia no forma parte del
+            archivo de padrón: es un dato del momento.
+          </p>
+
+          <h3>4.2 Quórum</h3>
+
+          <p>
+            El mínimo de personas presentes que exige el quórum es un valor de configuración de cada
+            instalación, no una constante del programa. Se define en el archivo de configuración
+            funcional descrito en el <a href="#cap-10-configuracion">capítulo 10</a>.
+          </p>
+
+          <p>
+            La cabecera de Moderación muestra permanentemente si hay quórum, cuántas bancas están
+            presentes sobre el total del cuerpo y cuál es el mínimo requerido.
+          </p>
+
+          <h3>4.3 Qué pasa si se pierde el quórum</h3>
+
+          <div class="tabla-contenedor">
+            <table>
+              <thead>
+                <tr><th>Situación</th><th>Efecto</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Sesión abierta, sin votación en curso</td>
+                  <td>
+                    La sesión continúa, pero no se puede abrir una votación nueva. Al recuperarse el
+                    quórum, la apertura vuelve a habilitarse sola.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Con una votación recibiendo votos</td>
+                  <td>
+                    Esa votación termina inmediatamente como <strong>inconclusa</strong>. Conserva
+                    los votos ya emitidos y no se calcula ningún resultado.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Con una votación ya empatada</td>
+                  <td>
+                    El empate sigue siendo válido y el desempate de Presidencia sigue disponible.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3>4.4 Presencia durante una votación</h3>
+
+          <ul>
+            <li>Quien vota y después se ausenta conserva su voto: ya está emitido y es definitivo.</li>
+            <li>
+              Quien estaba ausente y se presenta durante la votación puede votar normalmente, si
+              todavía no había votado.
+            </li>
+            <li>
+              Quien ya votó, se ausenta y vuelve a presentarse sigue contando como que ya votó y no
+              puede volver a votar.
+            </li>
+            <li>
+              Si por un cambio de presencia resulta que todas las bancas presentes ya votaron y se
+              mantiene el quórum, la votación se cierra automáticamente.
+            </li>
+          </ul>
+
+          <a class="volver" href="#inicio">↑ Volver al índice</a>
+        </section>
+
+        <!-- ============================================================ 5 -->
+        <section class="capitulo" id="cap-05-orden-del-dia">
+          <h2>5. Orden del Día</h2>
+
+          <p>
+            El Orden del Día es <strong>opcional</strong> y sirve únicamente para ahorrar carga
+            manual: precarga los datos de cada votación en el formulario. No es una autoridad para
+            el sistema y no limita qué puede votar el cuerpo.
+          </p>
+
+          <h3>5.1 Formato del archivo</h3>
+
+          <p>Se carga desde Moderación un archivo CSV con exactamente estas seis columnas:</p>
+
+          <pre><code>nro_votacion,tipo,tema,tipo_mayoria,factor,base</code></pre>
+
+          <div class="tabla-contenedor">
+            <table>
+              <thead>
+                <tr><th>Columna</th><th>Contenido</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>nro_votacion</code></td>
+                  <td>Número externo de la votación. No se valida secuencia ni repetición.</td>
+                </tr>
+                <tr><td><code>tipo</code></td><td>Texto descriptivo que se copia al formulario.</td></tr>
+                <tr><td><code>tema</code></td><td>Texto descriptivo del asunto.</td></tr>
+                <tr>
+                  <td><code>tipo_mayoria</code></td>
+                  <td><code>SIMPLE</code> o <code>ESPECIAL</code>. Siempre explícito.</td>
+                </tr>
+                <tr>
+                  <td><code>factor</code></td>
+                  <td>
+                    Vacío o <code>0</code> para mayoría simple. Para mayoría especial, un número
+                    mayor que 0 y hasta 1.
+                  </td>
+                </tr>
+                <tr>
+                  <td><code>base</code></td>
+                  <td>
+                    Vacía o <code>VOTOS_COMPUTABLES</code> para mayoría simple. Para especial,
+                    <code>VOTOS_COMPUTABLES</code>, <code>PRESENTES</code> o <code>CUERPO</code>.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p>Ejemplo de archivo con dos puntos:</p>
+
+          <pre><code>nro_votacion,tipo,tema,tipo_mayoria,factor,base
+1,Despacho,"Ordenanza de ejemplo, primer punto",SIMPLE,,
+2,Despacho,Ordenanza de ejemplo segundo punto,ESPECIAL,0.66,CUERPO</code></pre>
+
+          <p>
+            Los campos que contengan comas van entre comillas dobles, como en la primera fila del
+            ejemplo.
+          </p>
+
+          <div class="cuidado">
+            <strong>El formato antiguo de cinco columnas no se acepta</strong>
+            Un archivo con las columnas <code>nro_votacion,tipo,tema,factor_de_mayoria,respecto</code>
+            es rechazado. Hay que convertirlo al formato de seis columnas antes de cargarlo. La
+            conversión no es automática a propósito: el tipo de mayoría tiene que quedar escrito, no
+            deducido de un número.
+          </div>
+
+          <h3>5.2 Cómo se usa</h3>
+
+          <ol>
+            <li>Se carga el archivo desde Moderación y el servidor lo interpreta.</li>
+            <li>Si el archivo no se puede leer, se rechaza entero y se informa el error técnico.</li>
+            <li>Los puntos leídos aparecen listados y pueden tratarse en cualquier orden.</li>
+            <li>
+              Al elegir un punto, sus datos se copian al formulario de votación y pueden editarse
+              antes de abrirla.
+            </li>
+            <li>También se pueden abrir votaciones que no estén en el archivo.</li>
+          </ol>
+
+          <p>
+            Un archivo rechazado no impide preparar, abrir la sesión ni votar: se sigue trabajando
+            con votaciones cargadas a mano.
+          </p>
+
+          <div class="nota">
+            <strong>El sistema no controla el contenido</strong>
+            SISLeg sólo comprueba que el archivo sea legible. No valida numeración, secuencia,
+            repeticiones ni si un punto corresponde institucionalmente. Esa responsabilidad es del
+            cuerpo.
+          </div>
+
+          <a class="volver" href="#inicio">↑ Volver al índice</a>
+        </section>
+
+        <!-- ============================================================ 6 -->
+        <section class="capitulo" id="cap-06-votaciones">
+          <h2>6. Votaciones: apertura, recepción, cierre y resultados</h2>
+
+          <p>Sólo puede haber <strong>una votación activa por vez</strong>.</p>
+
+          <h3>6.1 Abrir una votación</h3>
+
+          <p>Para abrir hace falta sesión abierta y quórum. El formulario pide:</p>
+
+          <ul>
+            <li><strong>Número</strong> de la votación, dato externo que el sistema no valida.</li>
+            <li><strong>Tipo</strong>, elegido de la lista configurada en la instalación.</li>
+            <li><strong>Tema</strong>, texto descriptivo.</li>
+            <li><strong>Tipo de mayoría</strong>: simple o especial.</li>
+            <li>
+              Para mayoría especial, el <strong>factor</strong> y la <strong>base</strong> de
+              cálculo.
+            </li>
+          </ul>
+
+          <div class="cuidado">
+            <strong>Simple y especial son dos cosas distintas</strong>
+            El tipo de mayoría se elige de forma explícita: nunca se deduce del factor. Una mayoría
+            simple no es lo mismo que una mayoría especial con factor 0,5.
+          </div>
+
+          <p>
+            Una vez abierta, los datos de la votación no se pueden corregir. Si hay que cambiarlos,
+            se finaliza la votación como inconclusa y se abre otra.
+          </p>
+
+          <div class="nota">
+            <strong>Aviso por palabra pendiente</strong>
+            Si hay alguien usando la palabra o hay pedidos en la cola, Moderación pide confirmación
+            antes de abrir. Confirmar no altera el orador ni la cola: el uso de la palabra sigue
+            funcionando durante la votación.
+          </div>
+
+          <h3>6.2 Recepción de votos</h3>
+
+          <p>
+            Cada persona vota desde su botonera: <code>1</code> positivo, <code>2</code> abstención,
+            <code>3</code> negativo. Cada banca emite <strong>un solo voto</strong> por votación y
+            ese voto es <strong>irreversible</strong>: no puede cambiarse ni corregirse desde
+            ninguna pantalla.
+          </p>
+
+          <p>
+            En la Pantalla del Recinto los votos individuales <strong>no se muestran</strong>
+            mientras la votación está abierta, y tampoco viajan hasta ella. En Moderación aparecen
+            después de un retardo configurable que empieza a contar desde la apertura de la votación;
+            antes de ese momento sólo se ve cuántos votos se recibieron. Recargar la pantalla no
+            reinicia ese retardo.
+          </p>
+
+          <h3>6.3 Cierre</h3>
+
+          <div class="tabla-contenedor">
+            <table>
+              <thead>
+                <tr><th>Forma de cierre</th><th>Cuándo ocurre</th><th>Resultado</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Automático por completitud</td>
+                  <td>Todas las bancas presentes ya votaron y hay quórum.</td>
+                  <td>Se calcula el resultado según la regla de mayoría.</td>
+                </tr>
+                <tr>
+                  <td>Manual desde Moderación</td>
+                  <td>En cualquier momento, con un motivo obligatorio.</td>
+                  <td>Siempre <strong>inconclusa</strong>, aun con votos suficientes.</td>
+                </tr>
+                <tr>
+                  <td>Por pérdida de quórum</td>
+                  <td>El cuerpo queda sin quórum durante la votación.</td>
+                  <td>Inmediatamente <strong>inconclusa</strong>.</td>
+                </tr>
+                <tr>
+                  <td>Por cierre de sesión</td>
+                  <td>Se cierra la sesión con una votación abierta o empatada.</td>
+                  <td><strong>Inconclusa</strong>, conservando los votos emitidos.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p>
+            No existen los estados «pausada» ni «cancelada». Suspender una votación se representa
+            finalizándola como inconclusa. Una votación inconclusa terminó de forma definitiva: para
+            volver a tratar el asunto se abre otra.
+          </p>
+
+          <p>
+            Una votación cerrada <strong>nunca se recalcula</strong>, aunque después cambien las
+            presencias.
+          </p>
+
+          <h3>6.4 Cómo se calcula el resultado</h3>
+
+          <h4>Mayoría simple</h4>
+
+          <p>
+            Compara únicamente positivos contra negativos. Las abstenciones quedan fuera del
+            cálculo.
+          </p>
+
+          <div class="tabla-contenedor">
+            <table>
+              <thead>
+                <tr><th>Condición</th><th>Resultado</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>positivos mayor que negativos</td><td>Aprobada</td></tr>
+                <tr><td>positivos menor que negativos</td><td>Rechazada</td></tr>
+                <tr><td>positivos igual a negativos</td><td>Empatada</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h4>Mayoría especial</h4>
+
+          <p>
+            Tiene un factor explícito mayor que 0 y hasta 1, y una base de cálculo que determina el
+            denominador:
+          </p>
+
+          <div class="tabla-contenedor">
+            <table>
+              <thead>
+                <tr><th>Base</th><th>Denominador</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>VOTOS_COMPUTABLES</code></td>
+                  <td>Positivos más negativos. Las abstenciones no cuentan.</td>
+                </tr>
+                <tr>
+                  <td><code>PRESENTES</code></td>
+                  <td>
+                    Todos los votos emitidos en esa votación, <strong>incluidas las
+                    abstenciones</strong>.
+                  </td>
+                </tr>
+                <tr>
+                  <td><code>CUERPO</code></td>
+                  <td>Cantidad total de bancas del padrón cargado para esa preparación.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p>
+            La votación se aprueba cuando el cociente alcanza <strong>o iguala</strong> el factor.
+            Alcanzar exactamente el umbral aprueba. Una mayoría especial nunca termina empatada y
+            nunca usa el voto de desempate.
+          </p>
+
+          <div class="nota">
+            <strong>Sobre la palabra «presentes»</strong>
+            En la regla de mayoría, <code>PRESENTES</code> nombra a quienes emitieron voto en esa
+            votación, no a quienes están acreditados en el recinto. Como un resultado ordinario sólo
+            se consolida cuando votaron todas las bancas presentes, en la práctica ambos conjuntos
+            coinciden.
+          </div>
+
+          <h4>Casos límite</h4>
+
+          <ul>
+            <li>Finalizar sin ningún voto produce una votación inconclusa, sin error.</li>
+            <li>
+              En una mayoría especial sobre votos computables donde sólo hubo abstenciones, el
+              resultado es rechazada: no se divide por cero.
+            </li>
+          </ul>
+
+          <h3>6.5 Desempate de Presidencia</h3>
+
+          <p>
+            Sólo una mayoría simple puede quedar empatada. Mientras haya un empate sin resolver no
+            se puede abrir otra votación.
+          </p>
+
+          <ul>
+            <li>El desempate se emite desde Moderación, no desde una botonera.</li>
+            <li>Sólo hay dos opciones: positivo o negativo. No hay abstención.</li>
+            <li>Es irreversible.</li>
+            <li>
+              Si quien preside además ocupa una banca y ya emitió su voto ordinario, igualmente puede
+              desempatar: son dos roles distintos.
+            </li>
+            <li>
+              El voto de desempate se guarda aparte. No se suma a los votos de banca ni cambia los
+              recuentos.
+            </li>
+            <li>El desempate no exige quórum, porque la votación ya está cerrada.</li>
+          </ul>
+
+          <p>
+            Un desempate positivo aprueba y uno negativo rechaza, sin volver a contar los votos. Si
+            la sesión se cierra sin desempatar, la votación pasa a inconclusa.
+          </p>
+
+          <h3>6.6 Lo que ve el público</h3>
+
+          <p>
+            La Pantalla del Recinto muestra los datos generales de la votación mientras está abierta,
+            puede mostrar una cuenta regresiva inicial configurable, y recién al cierre muestra el
+            resultado y los votos individuales. El resultado permanece en pantalla un tiempo
+            configurable y después se limpia sin borrar el resto de la información de la sesión.
+          </p>
+
+          <a class="volver" href="#inicio">↑ Volver al índice</a>
+        </section>
+
+        <!-- ============================================================ 7 -->
+        <section class="capitulo" id="cap-07-palabra">
+          <h2>7. Uso de la palabra</h2>
+
+          <p>
+            Los pedidos de palabra se ordenan en una cola por orden de llegada. La palabra puede
+            pedirse y usarse <strong>también durante una votación</strong>: es una situación normal.
+          </p>
+
+          <h3>7.1 Desde la banca</h3>
+
+          <p>La tecla <code>7</code> hace tres cosas distintas según la situación:</p>
+
+          <ul>
+            <li>si no hay pedido, lo registra al final de la cola;</li>
+            <li>si ya hay un pedido de esa banca, lo retira;</li>
+            <li>si esa banca está usando la palabra, finaliza su uso.</li>
+          </ul>
+
+          <p>Sólo puede pedir la palabra una banca presente.</p>
+
+          <h3>7.2 Desde Moderación</h3>
+
+          <div class="tabla-contenedor">
+            <table>
+              <thead>
+                <tr><th>Acción</th><th>Efecto</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Otorgar palabra</td>
+                  <td>
+                    Si ya hay orador, finaliza su uso y entrega la palabra al primero de la cola. Si
+                    la cola está vacía, no queda ningún orador.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Quitar palabra</td>
+                  <td>
+                    Finaliza al orador actual y <strong>no</strong> pasa automáticamente al
+                    siguiente. Los pedidos pendientes conservan su orden.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="nota">
+            <strong>Avanzar en la cola es siempre deliberado</strong>
+            La palabra pasa al siguiente únicamente con la acción «Otorgar palabra». Ni terminar
+            desde la propia botonera, ni quitar la palabra, ni ausentarse hacen avanzar la cola por
+            su cuenta.
+          </div>
+
+          <h3>7.3 Efecto de la ausencia</h3>
+
+          <ul>
+            <li>Quien está en la cola y se ausenta pierde su lugar.</li>
+            <li>Quien está usando la palabra y se ausenta pierde el uso.</li>
+            <li>En ninguno de los dos casos la palabra pasa sola al siguiente.</li>
+          </ul>
+
+          <h3>7.4 En la Pantalla del Recinto</h3>
+
+          <p>
+            La pantalla pública muestra quién está usando la palabra y la cola de pedidos, con el
+            nombre como dato dominante para que se lea a distancia. Cuando los pedidos superan la
+            altura disponible, la lista se desplaza sola sin afectar al resto de la pantalla.
+          </p>
+
+          <a class="volver" href="#inicio">↑ Volver al índice</a>
+        </section>
+
+        <!-- ============================================================ 8 -->
+        <section class="capitulo" id="cap-08-apoyo-tecnico">
+          <h2>8. Apoyo Técnico: avisos y transmisión</h2>
+
+          <p>
+            El puesto de Apoyo Técnico se abre en <code>/tecnico/</code> desde otro equipo de la red
+            local. No reemplaza a Moderación ni puede operar la sesión: se ocupa del indicador de
+            transmisión, de los avisos sobre las pantallas, de la biblioteca de mensajes, del
+            reemplazo de botoneras y de la consulta de eventos.
+          </p>
+
+          <p>
+            Sus cinco paneles funcionan también con el sistema <em>sin preparar</em>, porque la
+            transmisión y los avisos no dependen de que haya una sesión.
+          </p>
+
+          <h3>8.1 Transmisión</h3>
+
+          <p>
+            SISLeg <strong>no maneja la señal de audio ni de video</strong>. Lo que administra es el
+            indicador institucional que anuncia si lo que ocurre está saliendo al aire.
+          </p>
+
+          <p>El indicador recorre tres estados:</p>
+
+          <ol>
+            <li><strong>Apagado.</strong> No hay transmisión anunciada.</li>
+            <li>
+              <strong>Cuenta regresiva.</strong> Se ingresó una cantidad de segundos y el sistema
+              descuenta hasta la salida al aire. La Pantalla del Recinto muestra el número en grande.
+            </li>
+            <li><strong>En vivo.</strong> Se anuncia la transmisión en curso.</li>
+          </ol>
+
+          <p>
+            El inicio puede ser instantáneo o con cuenta regresiva. La detención es siempre manual.
+            Moderación ve una versión resumida del mismo dato: «En vivo» o «Sin transmisión»,
+            entendiendo que durante la cuenta regresiva todavía no hay emisión pública.
+          </p>
+
+          <h3>8.2 Avisos</h3>
+
+          <p>
+            Un aviso es un mensaje que reemplaza temporalmente una superficie de la pantalla elegida.
+            No se superpone: sustituye, y al terminar la superficie original vuelve intacta.
+          </p>
+
+          <div class="tabla-contenedor">
+            <table>
+              <thead>
+                <tr><th>Destino</th><th>Qué reemplaza</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code>MODERACION</code></td><td>El panel de eventos de Moderación.</td></tr>
+                <tr>
+                  <td><code>RECINTO</code></td>
+                  <td>La franja de votación, tema y estado de la Pantalla del Recinto.</td>
+                </tr>
+                <tr><td><code>AMBOS</code></td><td>Las dos superficies a la vez.</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p>
+            La duración es opcional: sin duración, el aviso permanece hasta que alguien lo cancele.
+            El panel muestra los avisos vigentes y permite cancelarlos por destino.
+          </p>
+
+          <p>
+            El texto se dibuja con la tipografía más grande que entre completa en la superficie, sin
+            desplazamiento interno. Si aun con el tamaño mínimo no entra, se recorta con puntos
+            suspensivos: conviene escribir avisos breves.
+          </p>
+
+          <h3>8.3 Mensajes precargados</h3>
+
+          <p>
+            La biblioteca guarda mensajes de uso frecuente para no escribirlos cada vez. Cada mensaje
+            tiene un texto de una sola línea y un destino sugerido. Se pueden crear, editar,
+            eliminar y cargar sobre el formulario de aviso.
+          </p>
+
+          <p>
+            La biblioteca se guarda en un archivo CSV administrado por el servidor. Es el único
+            archivo de configuración que el sistema escribe por su cuenta. Si ese archivo existe pero
+            no cumple el formato, la biblioteca se publica como no disponible y toda escritura se
+            rechaza, para no destruir su contenido: hay que corregirlo a mano y reiniciar el
+            servicio.
+          </p>
+
+          <h3>8.4 Reemplazo de botonera</h3>
+
+          <p>
+            Si una botonera falla, se la reemplaza sin tocar el padrón ni interrumpir la sesión. El
+            procedimiento asocia el nuevo teclado físico al <strong>mismo identificador lógico</strong>
+            que ya tenía esa banca.
+          </p>
+
+          <ol>
+            <li>Se identifica la banca afectada y se inicia el reemplazo.</li>
+            <li>Se pulsa una tecla en la botonera nueva para que el sistema la reconozca.</li>
+            <li>Se elige cómo aplicar el cambio y se confirma.</li>
+          </ol>
+
+          <p>Hay dos formas de aplicarlo, y la diferencia importa:</p>
+
+          <div class="tabla-contenedor">
+            <table>
+              <thead>
+                <tr><th>Modo</th><th>Efecto</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Temporal</td>
+                  <td>
+                    Vale sólo mientras el servicio siga funcionando. Se pierde al reiniciarlo. Es lo
+                    indicado para salir del paso durante una sesión.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Persistente</td>
+                  <td>
+                    Reemplaza el mapa base de botoneras y sobrevive a los reinicios. Es lo indicado
+                    cuando la botonera nueva quedó instalada de forma definitiva.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p>
+            El reemplazo puede hacerse durante una sesión e incluso durante una votación. No cambia
+            la identidad de la banca, ni su presencia, ni los votos ya emitidos, y queda registrado.
+            Tampoco toca el padrón: lo que cambia es qué teclado físico corresponde a ese
+            identificador lógico. La misma operación está disponible desde Moderación.
+          </p>
+
+          <h3>8.5 Eventos</h3>
+
+          <p>
+            El panel de eventos muestra la misma franja segura que ve Moderación, con los tres
+            niveles de detalle descritos en el <a href="#cap-10-configuracion">capítulo 10</a>. No
+            revela el sentido de un voto antes de que la votación cierre.
+          </p>
+
+          <a class="volver" href="#inicio">↑ Volver al índice</a>
+        </section>
+
+        <!-- ============================================================ 9 -->
+        <section class="capitulo" id="cap-09-sonidos">
+          <h2>9. Sonidos del Recinto</h2>
+
+          <p>
+            La Pantalla del Recinto reproduce un sonido corto ante cada hecho importante. No tiene
+            ningún control visible de audio: no hay botón para activarlo, ni control de volumen, ni
+            selección de archivos. Todo se decide por configuración y por la preparación del equipo
+            que muestra la pantalla.
+          </p>
+
+          <h3>9.1 Qué suena y cuándo</h3>
+
+          <div class="tabla-contenedor">
+            <table>
+              <thead>
+                <tr><th>Evento configurable</th><th>Se dispara cuando</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code>preparacion_iniciada</code></td><td>Comienza la preparación del recinto.</td></tr>
+                <tr><td><code>sesion_abierta</code></td><td>Se abre la sesión.</td></tr>
+                <tr><td><code>sesion_cerrada</code></td><td>La sesión deja de estar abierta.</td></tr>
+                <tr><td><code>aviso_tecnico_publicado</code></td><td>Aparece un aviso dirigido al recinto, o lo reemplaza otro.</td></tr>
+                <tr><td><code>aviso_tecnico_retirado</code></td><td>El aviso vigente desaparece.</td></tr>
+                <tr><td><code>transmision_iniciada</code></td><td>La transmisión pasa a en vivo.</td></tr>
+                <tr><td><code>transmision_detenida</code></td><td>La transmisión en vivo se apaga.</td></tr>
+                <tr><td><code>transmision_cuenta_regresiva_tic</code></td><td>Cambia el segundo visible de la cuenta regresiva.</td></tr>
+                <tr><td><code>pedido_palabra_registrado</code></td><td>Una banca entra en la cola de pedidos.</td></tr>
+                <tr><td><code>pedido_palabra_retirado</code></td><td>Una banca sale de la cola sin quedar como oradora.</td></tr>
+                <tr><td><code>uso_palabra_otorgado</code></td><td>Cambia quién está usando la palabra.</td></tr>
+                <tr><td><code>votacion_abierta</code></td><td>Se abre una votación y empieza a recibir votos.</td></tr>
+                <tr><td><code>votacion_cerrada</code></td><td>Esa votación deja de recibir votos.</td></tr>
+                <tr><td><code>concejal_presente</code></td><td>Una banca pasa de ausente a presente.</td></tr>
+                <tr><td><code>concejal_ausente</code></td><td>Una banca pasa de presente a ausente.</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3>9.2 Qué nunca suena</h3>
+
+          <ul>
+            <li>
+              La <strong>primera carga</strong> de la pantalla. Describe lo que ya ocurrió, no un
+              hecho nuevo.
+            </li>
+            <li>
+              Una <strong>recarga</strong> o una <strong>reconexión</strong>. El estado que llega al
+              reconectar se adopta en silencio, aunque el servidor se haya reiniciado.
+            </li>
+            <li>
+              El <strong>sentido de un voto</strong>. Ningún sonido depende de cómo votó nadie ni
+              permite deducirlo.
+            </li>
+          </ul>
+
+          <p>
+            Un cambio de estado global tampoco se interpreta como una cadena de hechos individuales:
+            al cerrar la sesión suena el cierre, y no una ausencia por cada banca.
+          </p>
+
+          <h3>9.3 Superposición y fallos</h3>
+
+          <p>
+            Dos hechos simultáneos pueden oírse a la vez: cada sonido usa su propia reproducción y
+            ninguno interrumpe al anterior.
+          </p>
+
+          <p>
+            Si falta un archivo, si el navegador bloquea la reproducción o si la configuración de
+            audio no es válida, la pantalla <strong>sigue funcionando en silencio</strong>. No
+            aparece ningún mensaje en pantalla y nada más se degrada. Por eso conviene comprobar el
+            sonido después de cada instalación o actualización, como indica el
+            <a href="#cap-13-navegador">capítulo 13</a>.
+          </p>
+
+          <h3>9.4 Cómo se cambia un sonido o su volumen</h3>
+
+          <p>
+            Cada uno de los quince eventos declara en la configuración un archivo y un volumen de 0
+            a 100. Un volumen 0 silencia ese evento sin borrar su configuración. Cambiar un sonido
+            consiste en apuntar a otro archivo ya publicado con la Pantalla del Recinto; el detalle
+            está en el <a href="#cap-10-configuracion">capítulo 10</a>.
+          </p>
+
+          <a class="volver" href="#inicio">↑ Volver al índice</a>
+        </section>
+
+        <!-- ============================================================ 10 -->
+        <section class="capitulo" id="cap-10-configuracion">
+          <h2>10. Configuración funcional y archivos principales</h2>
+
+          <p>
+            SISLeg no tiene base de datos ni pantalla de administración. Todo lo que se configura
+            está en archivos de texto que el equipo técnico edita y que el sistema lee al preparar el
+            recinto.
+          </p>
+
+          <div class="cuidado">
+            <strong>Los cambios se aplican al preparar</strong>
+            La configuración y el padrón se leen al ejecutar «Preparar recinto» y quedan congelados
+            hasta cancelar la preparación o cerrar la sesión. Editar un archivo mientras hay una
+            sesión en curso no cambia nada de lo que está funcionando.
+          </div>
+
+          <h3>10.1 Dónde vive cada archivo</h3>
+
+          <p>
+            En una instalación, la configuración vive fuera de la versión instalada del programa,
+            para que actualizar o volver atrás nunca la reemplace. Estas son las rutas de una
+            instalación estándar y su archivo equivalente en el repositorio del proyecto:
+          </p>
+
+          <div class="tabla-contenedor">
+            <table>
+              <thead>
+                <tr>
+                  <th>Archivo</th>
+                  <th>Ruta instalada</th>
+                  <th>Referencia en el proyecto</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Configuración funcional</td>
+                  <td><code>/opt/botonera2/config/system.toml</code></td>
+                  <td><code class="ruta" data-archivo="config/system.toml">config/system.toml</code></td>
+                </tr>
+                <tr>
+                  <td>Padrón del cuerpo</td>
+                  <td><code>/opt/botonera2/config/concejales.csv</code></td>
+                  <td><code class="ruta" data-archivo="config/concejales.csv">config/concejales.csv</code></td>
+                </tr>
+                <tr>
+                  <td>Mensajes precargados</td>
+                  <td><code>/opt/botonera2/config/apoyo-tecnico/mensajes.csv</code></td>
+                  <td>
+                    <code class="ruta" data-archivo="config/apoyo-tecnico/mensajes.csv">config/apoyo-tecnico/mensajes.csv</code>
+                  </td>
+                </tr>
+                <tr>
+                  <td>Mapa físico de botoneras</td>
+                  <td><code>/opt/botonera2/config/bridge/devices.json</code></td>
+                  <td>
+                    <code class="ruta" data-archivo="services/device-bridge/config/devices.json">services/device-bridge/config/devices.json</code>
+                  </td>
+                </tr>
+                <tr>
+                  <td>Registros de sesión</td>
+                  <td><code>/opt/botonera2/logs/</code></td>
+                  <td>No se versionan: los genera el sistema.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p>
+            Las notas de referencia de cada formato están en
+            <code class="ruta" data-archivo="config/README.md">config/README.md</code>.
+          </p>
+
+          <h3>10.2 Configuración funcional</h3>
+
+          <p>
+            El archivo de configuración usa formato TOML y agrupa los parámetros por secciones. Los
+            valores del ejemplo son ilustrativos: cada instalación define los suyos.
+          </p>
+
+          <pre><code>[session]
+quorum = 8
+
+[room]
+rows = [4, 5, 5]
+
+[voting]
+types = ["Despacho", "Moción", "Sobre tablas", "Otro"]
+
+[timers]
+device_test_seconds = 0.6
+moderation_vote_reveal_seconds = 4
+public_initial_countdown_seconds = 4
+public_result_display_seconds = 6
+
+[paths]
+logs_dir = "logs"</code></pre>
+
+          <div class="tabla-contenedor">
+            <table>
+              <thead>
+                <tr><th>Parámetro</th><th>Qué controla</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>session.quorum</code></td>
+                  <td>Cantidad mínima de bancas presentes para abrir la sesión y para abrir votaciones.</td>
+                </tr>
+                <tr>
+                  <td><code>room.rows</code></td>
+                  <td>
+                    Disposición del recinto: cuántas bancas tiene cada fila. La suma es el total de
+                    bancas del cuerpo y debe coincidir exactamente con la cantidad de filas del padrón.
+                  </td>
+                </tr>
+                <tr>
+                  <td><code>voting.types</code></td>
+                  <td>Lista de tipos de votación que ofrece el formulario. Es descriptiva y no reemplaza al tipo de mayoría.</td>
+                </tr>
+                <tr>
+                  <td><code>timers.device_test_seconds</code></td>
+                  <td>Duración de la señal visual de la prueba de botonera.</td>
+                </tr>
+                <tr>
+                  <td><code>timers.moderation_vote_reveal_seconds</code></td>
+                  <td>Retardo antes de que Moderación muestre los votos individuales.</td>
+                </tr>
+                <tr>
+                  <td><code>timers.public_initial_countdown_seconds</code></td>
+                  <td>Cuenta regresiva inicial de una votación en la Pantalla del Recinto.</td>
+                </tr>
+                <tr>
+                  <td><code>timers.public_result_display_seconds</code></td>
+                  <td>Tiempo que el resultado permanece en la pantalla pública.</td>
+                </tr>
+                <tr>
+                  <td><code>paths.logs_dir</code></td>
+                  <td>Directorio donde se escriben los tres archivos de registro.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h4>Sección de sonidos</h4>
+
+          <p>
+            La misma configuración declara los quince eventos sonoros. Cada uno es una subtabla con
+            exactamente dos claves:
+          </p>
+
+          <pre><code>[sonidos.sesion_abierta]
+ruta = "assets/sonidos/sesion-abierta.wav"
+volumen = 90</code></pre>
+
+          <ul>
+            <li>
+              <code>ruta</code> debe empezar por <code>assets/sonidos/</code> y terminar en
+              <code>.wav</code>. No se aceptan direcciones web, rutas absolutas ni saltos de
+              directorio: el archivo tiene que ser uno de los publicados con la Pantalla del Recinto.
+            </li>
+            <li>
+              <code>volumen</code> es un número entero de 0 a 100. El 0 silencia ese evento sin
+              borrar su configuración.
+            </li>
+          </ul>
+
+          <p>
+            Los quince eventos son obligatorios y sus nombres son fijos, los mismos de la tabla del
+            <a href="#cap-09-sonidos">capítulo 9</a>. Un nombre mal escrito no se ignora: la carga
+            falla, para que ningún sonido desaparezca en silencio.
+          </p>
+
+          <p>
+            Los archivos de sonido se publican con la Pantalla del Recinto, en
+            <code class="ruta" data-archivo="apps/recinto/public/assets/sonidos">apps/recinto/public/assets/sonidos/</code>.
+            Además de los quince asignados hay alternativas sin asignar, de modo que cambiar un
+            sonido sea sólo editar la configuración. La duración, la descripción y la huella de cada
+            archivo están en
+            <code class="ruta" data-archivo="assets/sonidos/README.md">assets/sonidos/README.md</code>.
+          </p>
+
+          <div class="nota">
+            <strong>Doble lectura de los sonidos</strong>
+            Esta sección se lee dos veces: al arrancar el servidor, para que la pantalla pueda sonar
+            aunque no haya sesión, y al preparar el recinto, para congelarla junto al resto. La
+            primera lectura es tolerante y sólo degrada el audio; la segunda es estricta e impide
+            preparar si la sección es inválida.
+          </div>
+
+          <h3>10.3 Padrón del cuerpo</h3>
+
+          <p>El padrón es un archivo CSV con estas columnas, en este orden:</p>
+
+          <pre><code>dni,nombre,apellido,bloque,banca,dispositivo_votacion,ruta_imagen</code></pre>
+
+          <div class="tabla-contenedor">
+            <table>
+              <thead>
+                <tr><th>Columna</th><th>Regla</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code>dni</code></td><td>Obligatorio y único. Es el identificador principal.</td></tr>
+                <tr><td><code>nombre</code></td><td>Obligatorio.</td></tr>
+                <tr><td><code>apellido</code></td><td>Obligatorio.</td></tr>
+                <tr><td><code>bloque</code></td><td>Puede quedar vacío.</td></tr>
+                <tr><td><code>banca</code></td><td>Obligatoria, válida y única dentro de la disposición configurada.</td></tr>
+                <tr><td><code>dispositivo_votacion</code></td><td>Identificador lógico de la botonera. Obligatorio y único.</td></tr>
+                <tr>
+                  <td><code>ruta_imagen</code></td>
+                  <td>
+                    Ruta interna de la fotografía que se muestra en la banca. Obligatoria; no puede
+                    ser una dirección de Internet.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p>
+            La cantidad de filas del padrón debe coincidir exactamente con el total de bancas de la
+            disposición configurada, y las bancas deben cubrirla por completo. Un padrón inválido
+            impide preparar el recinto.
+          </p>
+
+          <p>
+            La presencia <strong>no</strong> forma parte del padrón: es un dato del momento y toda
+            preparación empieza con todas las bancas ausentes.
+          </p>
+
+          <h3>10.4 Mapa físico de botoneras</h3>
+
+          <p>
+            El puente de dispositivos traduce cada teclado físico a un identificador lógico, y el
+            padrón asocia ese identificador lógico a una banca:
+          </p>
+
+          <pre><code>teclado físico → puente de dispositivos → identificador lógico → servidor → banca</code></pre>
+
+          <p>
+            El archivo del puente asocia la huella de cada teclado con su identificador lógico. Al
+            reemplazar una botonera se cambia esa huella y se conserva el identificador, de modo que
+            el padrón no se toca.
+          </p>
+
+          <h3>10.5 Registros de la sesión</h3>
+
+          <p>
+            Al preparar el recinto se crean tres archivos con la fecha y la hora local de inicio en
+            el nombre:
+          </p>
+
+          <pre><code>logs/
+└── AAAA-MM-DD/
+    ├── AAAA-MM-DD_HH-MM-SS-L1.csv
+    ├── AAAA-MM-DD_HH-MM-SS-L2.csv
+    └── AAAA-MM-DD_HH-MM-SS-L3.csv</code></pre>
+
+          <p>Los tres niveles son acumulativos:</p>
+
+          <ul>
+            <li><strong>L3</strong>: hechos institucionales y funcionales importantes.</li>
+            <li><strong>L2</strong>: además, la operación normal, las entradas y los rechazos.</li>
+            <li><strong>L1</strong>: además, el máximo detalle técnico.</li>
+          </ul>
+
+          <p>Cada fila tiene siempre las mismas seis columnas, separadas por punto y coma:</p>
+
+          <pre><code>seq;timestamp;level;tag;event_code;message</code></pre>
+
+          <p>
+            Los archivos se escriben en codificación UTF-8 con marca de orden de bytes, usan la hora
+            local del servidor con precisión de segundos y se graban en disco inmediatamente, evento
+            por evento.
+          </p>
+
+          <div class="cuidado">
+            <strong>Sin registro no hay operación</strong>
+            Si el sistema deja de poder escribir los registros durante una preparación o una sesión,
+            lo informa como falla técnica grave y deja de aceptar acciones que cambien el estado. Es
+            deliberado: una decisión institucional no se confirma si no puede quedar asentada.
+          </div>
+
+          <p>
+            Al cancelar la preparación o cerrar la sesión se escribe un evento final y los tres
+            archivos quedan cerrados. SISLeg no vuelve a modificarlos y no ofrece ninguna forma de
+            editarlos. Ante un corte abrupto, quedan hasta el último evento efectivamente grabado.
+          </p>
+
+          <a class="volver" href="#inicio">↑ Volver al índice</a>
+        </section>
+
+        <!-- ============================================================ 11 -->
+        <section class="capitulo" id="cap-11-instalacion">
+          <h2>11. Puesta en marcha e instalación inicial</h2>
+
+          <p>
+            Este capítulo es para la persona que instala el sistema. Describe una instalación
+            estándar sobre un equipo Linux con <code>systemd</code> y Nginx. Los ejemplos usan
+            <code>&lt;sha&gt;</code> como marcador del identificador de la versión que se instala.
+          </p>
+
+          <h3>11.1 Qué hace falta</h3>
+
+          <ul>
+            <li>Un equipo Linux con <code>systemd</code> y Nginx instalados.</li>
+            <li>Python 3.14 y la herramienta <code>uv</code> disponibles en rutas estables.</li>
+            <li>El paquete de la versión aprobada y su archivo de verificación.</li>
+            <li>Acceso administrativo, sólo durante la instalación de servicios.</li>
+            <li>La configuración funcional y el padrón de la institución, preparados aparte.</li>
+            <li>Las botoneras conectadas al equipo.</li>
+          </ul>
+
+          <h3>11.2 Cómo se distribuye el sistema</h3>
+
+          <p>
+            Cada versión se entrega como un paquete comprimido acompañado de su archivo de
+            verificación. El paquete contiene el servidor, el puente de dispositivos, las cuatro
+            pantallas ya compiladas, este manual, las unidades de servicio, la configuración de Nginx
+            y la herramienta de despliegue.
+          </p>
+
+          <p>
+            El paquete <strong>no contiene</strong> la configuración institucional ni los registros:
+            esos viven fuera de la versión instalada para que una actualización nunca los reemplace.
+          </p>
+
+          <p>
+            Cada versión se instala en su propio directorio y un enlace llamado <code>current</code>
+            señala cuál está activa. Volver atrás es mover ese enlace a la versión anterior.
+          </p>
+
+          <pre><code>/opt/botonera2/
+├── releases/
+│   ├── &lt;version-A&gt;/
+│   └── &lt;version-B&gt;/
+├── current -&gt; releases/&lt;version-activa&gt;
+├── config/
+└── logs/</code></pre>
+
+          <h3>11.3 Primera instalación</h3>
+
+          <ol>
+            <li>
+              <p>Comprobar los prerrequisitos, sin instalar nada:</p>
+              <pre><code>python3.14 deploy/herramienta_despliegue.py preflight</code></pre>
+            </li>
+            <li>
+              <p>Crear usuarios y directorios:</p>
+              <pre><code>sudo python3.14 deploy/herramienta_despliegue.py bootstrap --aplicar-usuarios</code></pre>
+            </li>
+            <li>
+              <p>
+                Colocar a mano la configuración funcional, el padrón y el mapa de botoneras bajo
+                <code>/opt/botonera2/config/</code>. El directorio de registros configurado debe
+                resolver exactamente a <code>/opt/botonera2/logs</code>.
+              </p>
+            </li>
+            <li>
+              <p>Repetir el paso 2 para aplicar los permisos a los archivos recién creados.</p>
+            </li>
+            <li>
+              <p>Preparar la versión sin activarla todavía:</p>
+              <pre><code>sudo python3.14 deploy/herramienta_despliegue.py preparar \
+  botonera2-&lt;sha&gt;.tar.gz \
+  --checksum botonera2-&lt;sha&gt;.tar.gz.sha256 \
+  --sha &lt;sha&gt;</code></pre>
+            </li>
+            <li>
+              <p>Activarla:</p>
+              <pre><code>sudo python3.14 /opt/botonera2/releases/&lt;sha&gt;/deploy/herramienta_despliegue.py \
+  activar &lt;sha&gt;</code></pre>
+            </li>
+          </ol>
+
+          <p>
+            La activación valida la configuración, las unidades de servicio y Nginx, cambia el enlace
+            de versión activa, reinicia los servicios y comprueba que el sistema y las pantallas
+            respondan. Si algo falla, no deja la instalación a medias.
+          </p>
+
+          <h3>11.4 Direcciones que quedan publicadas</h3>
+
+          <div class="tabla-contenedor">
+            <table>
+              <thead>
+                <tr><th>Dirección</th><th>Quién la usa</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code>/moderacion/</code></td><td>Puesto de Moderación.</td></tr>
+                <tr><td><code>/recinto/</code></td><td>Pantalla proyectada en el recinto.</td></tr>
+                <tr><td><code>/tecnico/</code></td><td>Puesto de Apoyo Técnico, desde la red local.</td></tr>
+                <tr><td><code>/simulador/</code></td><td>Herramienta de prueba, restringida al propio servidor.</td></tr>
+                <tr><td><code>/manual/</code></td><td>Este manual.</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p>
+            Todo se publica bajo un mismo origen: las pantallas y el servidor comparten dirección, de
+            modo que no hace falta configurar nada en los navegadores para que se comuniquen. La
+            plantilla de Nginx versionada está en
+            <code class="ruta" data-archivo="deploy/nginx/botonera2.conf">deploy/nginx/botonera2.conf</code>
+            y las unidades de servicio en
+            <code class="ruta" data-archivo="deploy/systemd/botonera2-backend.service">deploy/systemd/botonera2-backend.service</code>
+            y
+            <code class="ruta" data-archivo="deploy/systemd/botonera2-device-bridge.service">deploy/systemd/botonera2-device-bridge.service</code>.
+          </p>
+
+          <h3>11.5 Botoneras</h3>
+
+          <p>
+            El puente de dispositivos necesita conocer la huella de cada teclado físico y el
+            identificador lógico que le corresponde. Ese mapa se completa una vez, durante la
+            instalación, y después sólo cambia cuando se reemplaza una botonera. La herramienta de
+            despliegue es la única que se ocupa de los permisos necesarios para leer los teclados.
+          </p>
+
+          <h3>11.6 Comprobación final</h3>
+
+          <ol>
+            <li>Abrir Moderación y verificar que el estado sea «sin preparar».</li>
+            <li>Abrir la Pantalla del Recinto en el equipo del proyector.</li>
+            <li>Preparar el recinto y comprobar que aparezcan todas las bancas.</li>
+            <li>Pulsar la tecla <code>8</code> en cada botonera y verificar que se ilumine la banca correcta.</li>
+            <li>Pulsar la tecla <code>9</code> y comprobar que la presencia se refleje en ambas pantallas.</li>
+            <li>Confirmar que se escuche el sonido correspondiente, sin tocar la pantalla del recinto.</li>
+            <li>Cancelar la preparación y revisar los tres archivos de registro generados.</li>
+          </ol>
+
+          <a class="volver" href="#inicio">↑ Volver al índice</a>
+        </section>
+
+        <!-- ============================================================ 12 -->
+        <section class="capitulo" id="cap-12-operacion">
+          <h2>12. Operación, actualización y diagnóstico</h2>
+
+          <h3>12.1 Rutina de una jornada</h3>
+
+          <ol>
+            <li>Encender el equipo servidor y comprobar que Moderación abra correctamente.</li>
+            <li>Abrir la Pantalla del Recinto en el proyector y dejarla funcionando.</li>
+            <li>Abrir el puesto de Apoyo Técnico si se va a usar.</li>
+            <li>Preparar el recinto e informar número de sesión, Presidencia y Secretaría Legislativa.</li>
+            <li>Acreditar presencia desde las botoneras hasta alcanzar el quórum.</li>
+            <li>Cargar el Orden del Día, si se va a usar.</li>
+            <li>Abrir la sesión.</li>
+            <li>Conducir votaciones y uso de la palabra.</li>
+            <li>Cerrar la sesión.</li>
+            <li>Copiar los tres archivos de registro al resguardo institucional que corresponda.</li>
+          </ol>
+
+          <div class="cuidado">
+            <strong>No actualizar ni reiniciar con una sesión en curso</strong>
+            Una interrupción no se puede continuar: obliga a preparar el recinto de nuevo y a abrir
+            otra vez la sesión. Toda intervención técnica se hace con el sistema «sin preparar».
+          </div>
+
+          <h3>12.2 Actualización</h3>
+
+          <ol>
+            <li>Obtener el paquete de la versión aprobada y su archivo de verificación.</li>
+            <li>
+              <p>Prepararla, sin tocar la versión activa ni reiniciar servicios:</p>
+              <pre><code>sudo python3.14 deploy/herramienta_despliegue.py preparar \
+  botonera2-&lt;sha&gt;.tar.gz \
+  --checksum botonera2-&lt;sha&gt;.tar.gz.sha256 \
+  --sha &lt;sha&gt;</code></pre>
+            </li>
+            <li>Comprobar explícitamente que el sistema esté «sin preparar».</li>
+            <li>
+              <p>Activarla:</p>
+              <pre><code>sudo python3.14 /opt/botonera2/current/deploy/herramienta_despliegue.py \
+  activar &lt;sha&gt;</code></pre>
+            </li>
+            <li>Verificar el estado, la salud del servicio y que las pantallas abran.</li>
+          </ol>
+
+          <h3>12.3 Volver a la versión anterior</h3>
+
+          <pre><code>sudo python3.14 /opt/botonera2/current/deploy/herramienta_despliegue.py rollback</code></pre>
+
+          <p>
+            También puede indicarse una versión concreta ya preparada con
+            <code>--sha &lt;sha&gt;</code>. Volver atrás aplica las mismas comprobaciones que una
+            actualización, no borra ninguna versión y no toca la configuración ni los registros.
+          </p>
+
+          <h3>12.4 Diagnóstico</h3>
+
+          <p>Estos comandos sólo consultan: no modifican nada.</p>
+
+          <pre><code>python3.14 /opt/botonera2/current/deploy/herramienta_despliegue.py estado
+readlink -f /opt/botonera2/current
+systemctl status botonera2-backend.service botonera2-device-bridge.service
+journalctl -u botonera2-backend.service -u botonera2-device-bridge.service
+nginx -t
+curl --fail http://127.0.0.1/api/v1/health
+curl --fail http://127.0.0.1/moderacion/
+curl --fail http://127.0.0.1/recinto/
+curl --fail http://127.0.0.1/manual/</code></pre>
+
+          <h3>12.5 Problemas frecuentes</h3>
+
+          <div class="tabla-contenedor">
+            <table>
+              <thead>
+                <tr><th>Síntoma</th><th>Dónde mirar primero</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>La cabecera avisa «sin conexión» o «reconectando».</td>
+                  <td>
+                    El servicio del servidor y la red entre el puesto y el equipo servidor. La
+                    pantalla se recupera sola al restablecerse; mientras tanto lo mostrado puede
+                    estar atrasado.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Una banca no responde a ninguna tecla.</td>
+                  <td>
+                    Conexión física de la botonera y servicio del puente de dispositivos. Si el
+                    teclado se rompió, corresponde el reemplazo descrito en el
+                    <a href="#cap-08-apoyo-tecnico">capítulo 8</a>.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Una banca responde pero se ilumina otra.</td>
+                  <td>
+                    El mapa físico de botoneras y la columna de dispositivo del padrón. La tecla
+                    <code>8</code> sirve para verificar cada asignación.
+                  </td>
+                </tr>
+                <tr>
+                  <td>No se puede preparar el recinto.</td>
+                  <td>
+                    El padrón y la configuración funcional. Casi siempre es una banca repetida, un
+                    documento repetido o una cantidad de filas que no coincide con la disposición.
+                  </td>
+                </tr>
+                <tr>
+                  <td>La Pantalla del Recinto funciona pero no suena.</td>
+                  <td>
+                    La configuración de reproducción automática del navegador y el volumen del
+                    sistema operativo, según el <a href="#cap-13-navegador">capítulo 13</a>.
+                  </td>
+                </tr>
+                <tr>
+                  <td>El sistema informa una falla grave de registro.</td>
+                  <td>
+                    Espacio y permisos del directorio de registros. Mientras no pueda escribir, no
+                    aceptará acciones que cambien el estado.
+                  </td>
+                </tr>
+                <tr>
+                  <td>La biblioteca de mensajes aparece como no disponible.</td>
+                  <td>
+                    El archivo de mensajes precargados: si no cumple el formato, el sistema lo
+                    protege y rechaza escribirlo. Se corrige a mano y se reinicia el servicio.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3>12.6 Resguardo de los registros</h3>
+
+          <p>
+            Los tres archivos de cada sesión quedan en el directorio de registros configurado, fuera
+            del árbol de versiones. Ni actualizar ni volver atrás los borra. El sistema no hace copias
+            automáticas a otro destino: el resguardo periódico es una tarea administrativa.
+          </p>
+
+          <a class="volver" href="#inicio">↑ Volver al índice</a>
+        </section>
+
+        <!-- ============================================================ 13 -->
+        <section class="capitulo" id="cap-13-navegador">
+          <h2>13. Requisitos de navegador y modo kiosco</h2>
+
+          <h3>13.1 Navegador</h3>
+
+          <p>
+            Las cuatro pantallas funcionan en cualquier navegador de escritorio actualizado. Reciben
+            las novedades por una conexión permanente con el servidor, así que conviene evitar
+            extensiones o proxies que corten conexiones inactivas.
+          </p>
+
+          <p>
+            No hace falta ninguna configuración especial en el puesto de Moderación ni en el de
+            Apoyo Técnico.
+          </p>
+
+          <h3>13.2 Resoluciones</h3>
+
+          <p>
+            Las pantallas se adaptan al tamaño disponible. Las resoluciones de referencia son
+            1920×1080 para la proyección del recinto y 1366×768 como mínimo cómodo para los puestos
+            de trabajo. En esas medidas las cabeceras entran en una sola línea y ninguna pantalla
+            necesita desplazamiento general.
+          </p>
+
+          <h3>13.3 El equipo del recinto</h3>
+
+          <p>
+            La Pantalla del Recinto se proyecta y se deja funcionando. Nadie la toca durante la
+            sesión, así que conviene:
+          </p>
+
+          <ul>
+            <li>abrirla en modo kiosco, a pantalla completa;</li>
+            <li>desactivar el protector de pantalla y la suspensión automática;</li>
+            <li>dejar la salida de audio activa, sin silenciar y con volumen audible en el recinto.</li>
+          </ul>
+
+          <h3>13.4 Reproducción automática de audio</h3>
+
+          <div class="cuidado">
+            <strong>Requisito obligatorio</strong>
+            Los navegadores bloquean la reproducción automática de sonido hasta que alguien
+            interactúa con la página. Frente al monitor del recinto no hay nadie que haga clic, y
+            SISLeg no ofrece ningún botón para activar el sonido. El permiso tiene que darse en el
+            equipo: si no se configura, la pantalla funciona en silencio y no avisa.
+          </div>
+
+          <p>Formas habituales de otorgarlo, a confirmar contra la versión instalada del navegador:</p>
+
+          <ul>
+            <li>
+              <p>
+                En navegadores basados en Chromium, agregando la opción al lanzador del modo kiosco:
+              </p>
+              <pre><code>chromium --kiosk --autoplay-policy=no-user-gesture-required http://&lt;servidor&gt;/recinto/</code></pre>
+            </li>
+            <li>
+              En equipos administrados por políticas, habilitando el sonido para la dirección de
+              SISLeg mediante la política de reproducción automática correspondiente, o dando permiso
+              de sonido al sitio desde la configuración del navegador.
+            </li>
+            <li>
+              En Firefox, permitiendo la reproducción automática de audio para ese sitio en el perfil
+              del puesto.
+            </li>
+          </ul>
+
+          <h3>13.5 Cómo verificarlo</h3>
+
+          <ol>
+            <li>Abrir la Pantalla del Recinto en el equipo del proyector y no tocarla.</li>
+            <li>Desde Moderación, preparar el recinto.</li>
+            <li>Provocar un hecho audible, por ejemplo alternando la presencia de una banca.</li>
+            <li>Confirmar que el sonido se escuche sin haber interactuado con la pantalla.</li>
+          </ol>
+
+          <p>
+            Si no se escucha, el problema está en la configuración del equipo, no en el sistema: la
+            aplicación no ofrece ninguna alternativa manual.
+          </p>
+
+          <a class="volver" href="#inicio">↑ Volver al índice</a>
+        </section>
+      </main>
+    </div>
+
+    <footer class="pie">
+      <p>
+        SISLeg · Manual de usuario. Documento genérico del producto: las reglas reglamentarias, las
+        autoridades y los valores de configuración corresponden a cada institución que lo instala.
+      </p>
+    </footer>
+  </body>
+</html>

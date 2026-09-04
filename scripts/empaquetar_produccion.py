@@ -134,6 +134,11 @@ def poblar_release(raiz: Path, destino: Path) -> None:
         destino / "web/tecnico",
         "Apoyo Técnico",
     )
+    # Manual de usuario (WP-067). Es un HTML estático versionado, no la salida de un
+    # build: se copia tal cual desde `manual/` a `web/manual/`, la misma raíz que sirve
+    # Nginx para las SPA. Al viajar como una entrada más de la allowlist, queda incluido
+    # en el inventario SHA-256 del manifest y en la comprobación de reproducibilidad.
+    copiar_arbol_runtime(raiz / "manual", destino / "web/manual")
     copiar_arbol_runtime(raiz / "deploy", destino / "deploy")
 
 
@@ -176,6 +181,9 @@ def escribir_manifest(
             "simulador": "web/simulador/index.html",
             "tecnico": "web/tecnico/index.html",
         },
+        # El manual no es una SPA: se declara aparte para que la herramienta de despliegue
+        # pueda exigirlo sin ampliar el contrato cerrado de las cuatro aplicaciones.
+        "manual": "web/manual/index.html",
         "paquetes_python": ["botonera2-backend", "botonera2-device-bridge"],
         "archivos": inventariar_archivos(raiz_release),
     }

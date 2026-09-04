@@ -92,6 +92,7 @@ packages/api-client/       cliente TypeScript REST/SSE, reconexión y tipos deri
 packages/frontend-shared/  código frontend compartido
 tools/device-simulator/    herramienta CLI de simulación y ejecución de escenarios declarativos
 scripts/iniciar_wp.py      lanzador seguro de Work Packages
+manual/                    manual de usuario HTML estático servido en /manual/ (WP-067)
 config/                    configuración y padrón institucional
 ```
 
@@ -175,6 +176,7 @@ Escucha por defecto en `127.0.0.1:8000` y expone:
 - `http://127.0.0.1:8000/recinto/`
 - `http://127.0.0.1:8000/simulador/`
 - `http://127.0.0.1:8000/tecnico/`
+- `http://127.0.0.1:8000/manual/`
 - `http://127.0.0.1:8000/api/v1/health`
 - `http://127.0.0.1:8000/docs`
 
@@ -283,15 +285,37 @@ pnpm empaquetar:produccion
 
 construye las cuatro SPA y deja en `dist/produccion/` un
 `botonera2-<sha-completo>.tar.gz` junto con su sidecar `.sha256`. El paquete
-contiene fuentes runtime Python, lockfiles, frontends ya compilados,
-`release.json`, unidades systemd, configuración Nginx y la herramienta de
-despliegue; no contiene configuración institucional, logs, `node_modules`,
-Git ni una venv construida en desarrollo.
+contiene fuentes runtime Python, lockfiles, frontends ya compilados, el manual
+de usuario, `release.json`, unidades systemd, configuración Nginx y la
+herramienta de despliegue; no contiene configuración institucional, logs,
+`node_modules`, Git ni una venv construida en desarrollo.
 
 El procedimiento administrativo de primera instalación, actualización,
 rollback y diagnóstico está documentado en
 [`docs/13-despliegue-y-operacion.md`](docs/13-despliegue-y-operacion.md). Crear
 el artefacto no despliega ni modifica ningún host.
+
+## Manual de usuario
+
+`manual/index.html` es el manual de operación, configuración e instalación de SISLeg. Es
+un único documento HTML autocontenido: no carga hojas de estilo, scripts, tipografías ni
+imágenes externas, de modo que se lee igual en una instalación sin salida a Internet.
+
+Se publica siempre en la misma dirección de mismo origen, `/manual/`:
+
+- en producción lo sirve Nginx desde `web/manual/` dentro de la release;
+- `pnpm dev:stack` lo monta desde `manual/`;
+- `pnpm dev:stack:hot` lo sirve directamente desde el repositorio.
+
+El icono de ayuda del extremo derecho de las cabeceras de Moderación y de Apoyo Técnico lo
+abre en una pestaña nueva. Ese acceso es un único componente compartido,
+`packages/frontend-shared/src/componentes/AccesoManual.vue`, para que las dos pantallas no
+puedan divergir.
+
+`tests/test_manual_usuario.py` comprueba automáticamente que estén los trece capítulos,
+que ningún enlace interno quede roto, que no aparezca ningún recurso externo, que las
+rutas de archivos citadas sigan existiendo y que el contenido no particularice ninguna
+institución.
 
 ## Inicio aislado de un Work Package
 
