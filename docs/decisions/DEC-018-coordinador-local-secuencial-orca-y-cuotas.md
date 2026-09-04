@@ -35,8 +35,9 @@ El COORDINADOR_LOCAL puede:
 - esperar `worker_done`, `escalation` o `question`;
 - ejecutar como máximo la cantidad de workers simultáneos autorizada;
 - reutilizar o liberar terminales de agente sin borrar el worktree;
-- consultar `cuotas-agentes --json`;
-- demorar una asignación por falta de cuota;
+- consultar telemetría de cuotas cuando sea apropiada y no genere presión innecesaria sobre el proveedor;
+- para Claude Code, abrir/reanudar primero la propia sesión y usar su auto-verificación de disponibilidad como autoridad operativa;
+- demorar una asignación sólo ante falta de cuota confirmada por la fuente apropiada;
 - elegir otro WP ya autorizado y listo del mismo lote mientras espera una cuota, salvo que el ORCHESTRATOR haya fijado orden estricto;
 - reanudar el mismo agente después del reinicio de su ventana;
 - si el proceso terminó, iniciar un reemplazo controlado en el **mismo worktree**, conservando el trabajo parcial y la asignación vigente.
@@ -114,29 +115,34 @@ Si un worker del mismo lote también consume la misma ventana efectiva de OpenCo
 
 ### 6. Gestión de ventanas y rate limits
 
-Antes de iniciar cada worker, el coordinador consulta la fuente estructurada disponible:
+Las fuentes externas de cuota son **auxiliares**. No todas pueden consultarse con seguridad como gate previo: un mismo proveedor puede estar siendo consultado simultáneamente por Orca, dashboards u otros procesos del VPS y responder `HTTP 429` al endpoint de uso aunque la sesión del agente conserve capacidad efectiva para trabajar.
 
-`cuotas-agentes --json`
+#### Claude Code: auto-verificación obligatoria en la propia sesión
 
-Debe usar como mínimo, cuando existan:
+Para **Claude Code**, `cuotas-agentes --json` no es autoridad para bloquear el inicio y no debe consultarse como preflight obligatorio del worker.
 
-- proveedor;
-- ventana de 5 horas;
-- `usado_pct` / `libre_pct`;
-- `reinicia_epoch`;
-- estado de error/rate-limit.
+El flujo canónico es:
 
-No debe inventar cuánto consumirá una tarea. La afirmación “hay cuota suficiente” es una política operativa, no una predicción exacta.
+1. el COORDINADOR_LOCAL crea/abre el worker Claude exacto ya autorizado;
+2. antes de editar, Claude verifica **desde su propia sesión** si puede continuar con la asignación;
+3. si la sesión dispone de cuota/capacidad, Claude continúa normalmente hasta su handoff;
+4. si Claude recibe o muestra un límite explícito de uso/rate limit que impide continuar, no modifica producto por ese intento y devuelve el control al COORDINADOR_LOCAL con estado `quota_unavailable` y, si lo conoce, el momento de reset;
+5. recién con esa evidencia propia del agente el COORDINADOR_LOCAL decide mecánicamente si espera, ejecuta otro WP independiente y elegible del lote o detiene el lote según su manifiesto;
+6. para reanudar Claude, se vuelve a abrir/reanudar la propia sesión y se repite la auto-verificación. Un `HTTP 429` obtenido únicamente al consultar un monitor externo de cuota nunca prueba por sí solo que Claude no pueda trabajar.
 
-Por cada lote, el ORCHESTRATOR puede fijar un umbral de reserva o una regla más simple. Si no existe un umbral explícito, el coordinador sólo bloquea automáticamente por agotamiento/rate-limit confirmado y puede preferir otro WP listo con mayor disponibilidad.
+La auto-verificación no requiere predecir consumo futuro: basta con confirmar que la sesión puede operar y no está bloqueada por el límite de uso.
 
-Si la cuota está agotada:
+#### Otros agentes y fuentes auxiliares
 
-1. no inicia ese worker;
-2. registra la causa;
-3. si existe otro WP listo del lote, puede ejecutarlo;
-4. de lo contrario espera hasta el reinicio informado, con un pequeño margen de seguridad;
-5. vuelve a consultar la cuota antes de reanudar.
+`cuotas-agentes --json` puede seguir utilizándose como señal operativa para agentes/proveedores donde la consulta sea estable, para planificación aproximada o para conocer resets. Un error del monitor externo se registra como **telemetría no disponible**, no como cuota agotada, salvo que el propio worker/proveedor confirme el bloqueo.
+
+Cuando exista evidencia real de cuota agotada:
+
+1. el worker devuelve control al COORDINADOR_LOCAL;
+2. el coordinador registra la causa;
+3. si existe otro WP listo e independiente del lote, puede ejecutarlo;
+4. de lo contrario puede esperar al reset conocido o detener el lote conforme al manifiesto;
+5. antes de reanudar, debe obtener evidencia nueva desde la fuente apropiada; para Claude, la fuente apropiada es la propia sesión Claude.
 
 ### 7. Agotamiento durante una tarea
 
@@ -272,4 +278,4 @@ El manifiesto debe identificar expresamente en qué WPs está habilitada esta ex
 - El ORCHESTRATOR conserva todas las decisiones sustantivas.
 - Los workers pueden esperar resets de cuota durante horas sin perder el trabajo parcial.
 - La selección del coordinador se evalúa por **independencia de cuota**, no sólo por nombre de modelo.
-- `cuotas-agentes --json` pasa a ser una fuente operativa admitida para planificación y scheduling local, sin convertirse en fuente canónica de producto.
+- `cuotas-agentes --json` sigue siendo una fuente auxiliar de planificación, pero un error/429 de ese monitor no equivale a agotamiento del agente. Para Claude Code, la autoridad operativa de disponibilidad es la propia sesión Claude.

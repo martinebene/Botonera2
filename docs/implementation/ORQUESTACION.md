@@ -279,21 +279,22 @@ El ORCHESTRATOR entrega un prompt específico de COORDINADOR_LOCAL que contiene 
 
 1. crea o adopta un Run de Orca;
 2. crea una Task por asignación;
-3. consulta `cuotas-agentes --json` antes de despachar;
-4. inicia sólo un worker de WP a la vez cuando `max_concurrency = 1`;
-5. si ese worker ejecuta o puede ejecutar pruebas de navegador, espera a que termine y libere esos procesos antes de despachar otro;
-6. espera `worker_done`, `escalation` o `question` mediante la capa de orchestration;
-7. libera o deja inactivo el worker finalizado sin borrar el worktree;
-8. inicia el siguiente WP autorizado;
-9. si una cuota se agota, espera su reset o aprovecha otro WP listo del mismo lote, pero siempre respetando el límite físico vigente;
-10. reanuda la misma sesión tras el reset cuando sigue viva; si Orca prueba `failed/stopped`, usa un reemplazo controlado en el mismo worktree;
-11. termina el lote sin atravesar la siguiente puerta del ORCHESTRATOR.
+3. usa telemetría externa de cuota sólo cuando corresponda; **para Claude Code no usa `cuotas-agentes --json` como gate previo**;
+4. cuando el worker es Claude, lo abre/reanuda y le exige auto-verificar desde su propia sesión si tiene capacidad efectiva; si está disponible, Claude continúa la asignación; si reporta límite de uso/rate limit impeditivo, devuelve control al coordinador sin iniciar trabajo sustantivo;
+5. inicia sólo un worker de WP a la vez cuando `max_concurrency = 1`;
+6. si ese worker ejecuta o puede ejecutar pruebas de navegador, espera a que termine y libere esos procesos antes de despachar otro;
+7. espera `worker_done`, `escalation`, `question` o una devolución explícita `quota_unavailable` mediante la capa de orchestration;
+8. libera o deja inactivo el worker finalizado sin borrar el worktree;
+9. inicia el siguiente WP autorizado;
+10. ante `quota_unavailable` confirmado por el propio worker, espera el reset, aprovecha otro WP independiente listo o detiene el lote según el manifiesto;
+11. reanuda la misma sesión tras el reset cuando sigue viva; si Orca prueba `failed/stopped`, usa un reemplazo controlado en el mismo worktree;
+12. termina el lote sin atravesar la siguiente puerta del ORCHESTRATOR.
 
 El COORDINADOR_LOCAL puede permanecer como supervisor, pero no ejecuta pruebas de navegador ni abre un segundo worker. Una concurrencia física mayor que 1 requiere reevaluación explícita del perfil de RAM/recursos y autorización HUMAN_GATE; no se habilita automáticamente porque los WPs sean independientes.
 
 El coordinador debe usar, cuando sea razonablemente posible, una fuente de cuota distinta de las ventanas que supervisa. Usar un modelo con nombre diferente pero dentro de la misma cuota efectiva no brinda independencia suficiente.
 
-Un timeout, TUI idle o falta temporal de mensajes no prueba agotamiento. Para suspender/reanudar por cuota debe existir evidencia explícita o estructurada.
+Un timeout, TUI idle o falta temporal de mensajes no prueba agotamiento. Tampoco lo prueba un `HTTP 429` del monitor `cuotas-agentes`. Para Claude, suspender/reanudar por cuota requiere evidencia de la propia sesión Claude; para otros agentes, evidencia explícita del worker o de una fuente operativa confiable.
 
 ## Lotes nocturnos con transición mecánica preautorizada
 
