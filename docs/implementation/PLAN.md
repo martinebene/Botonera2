@@ -214,7 +214,7 @@ WP-033 quedó integrado antes de continuar WP-026 y deja disponible el harness m
 | WP-065 | Incorporar configuración y assets de sonidos del Recinto | INTEGRADO | WP-062 | claude |
 | WP-066 | Implementar motor de reproducción de sonidos del Recinto | INTEGRADO | WP-065 | claude |
 | WP-068 | Evitar CI completa en pushes documentales a main | INTEGRADO | DEC-019 | claude |
-| WP-067 | Publicar manual de usuario y ayuda integrada de SISLeg | PENDIENTE | WP-062, WP-063, WP-064, WP-065, WP-066 | - |
+| WP-067 | Publicar manual de usuario y ayuda integrada de SISLeg | EN_CURSO | WP-062, WP-063, WP-064, WP-065, WP-066 | claude |
 | WP-029 | Validar bridge/hardware real, regresión funcional y candidato de producción | BLOQUEADO | WP-019, WP-020, WP-027, WP-028, WP-034, WP-035, WP-036, WP-037, WP-038, WP-039, WP-040, WP-041, WP-043, WP-044, WP-045, WP-046, WP-047, WP-048, WP-049, WP-050, WP-051, WP-052, WP-053, WP-054, WP-055, WP-056, WP-057, WP-058, WP-059, WP-060, WP-061, WP-062, WP-063, WP-064, WP-065, WP-066, WP-067 | - |
 
 HUMAN_GATE seleccionó Codex como implementador y Antigravity/AGY como revisor independiente de WP-047. WP-047 queda `EN_CURSO`; WP-048 y WP-049 permanecen bloqueados por esta dependencia y todavía no tienen agente asignado.
@@ -385,3 +385,6 @@ WP-068 quedó integrado mediante PR #73 sobre el candidato `de0427229d57a18f4780
 
 
 WP-066 quedó integrado mediante PR #74 sobre el candidato `fde333ac712d98dfae115ecb3d9375dbf1e45b67`, implementado por Claude Code / Claude Opus 5 (High) y revisado independientemente por Antigravity/AGY / Gemini 3.8 Flash (High), con 0 BLOQUEANTES, 0 IMPORTANTES y 0 MENORES y veredicto `LISTA PARA INTEGRAR`. El squash `4b517004006cdac54978cf75edcd28353c10d9d7` conserva exactamente el tree revisado `169d26c573e6bfb2e5f1909342843920356b72ef`; CI candidata #460 y CI post-merge #461 terminaron `success` 8/8. Queda integrado el motor de audio de los 15 eventos, con baseline/reconexión silenciosas, superposición, tick local sin polling y manejo no disruptivo de autoplay. WP-067 queda habilitado por dependencias una vez completado el cleanup de WP-066; WP-029 permanece BLOQUEADO.
+
+
+HUMAN_GATE verificó el cleanup completo de WP-066: único worktree Git en `main`, rama local WP-066 ausente, rama remota WP-066 eliminada, checkout coordinador limpio y sincronizado a `ea102a75c2e0831903c4e53f976d37c34dd371fb`. WP-066 queda `VERIFIED_COMPLETE`. Con WP-062, WP-063, WP-064, WP-065 y WP-066 integrados, se activa WP-067. Claude Code / Claude Opus 5 (High) implementará y Antigravity/AGY / Gemini 3.8 Flash (High) revisará independientemente. WP-029 permanece BLOQUEADO.
