@@ -215,7 +215,7 @@ WP-033 quedó integrado antes de continuar WP-026 y deja disponible el harness m
 | WP-066 | Implementar motor de reproducción de sonidos del Recinto | INTEGRADO | WP-065 | claude |
 | WP-068 | Evitar CI completa en pushes documentales a main | INTEGRADO | DEC-019 | claude |
 | WP-067 | Publicar manual de usuario y ayuda integrada de SISLeg | INTEGRADO | WP-062, WP-063, WP-064, WP-065, WP-066 | claude |
-| WP-069 | Reemplazar logo SISLeg por el asset humano corregido e integrarlo en la ayuda | PENDIENTE | WP-062, WP-067 | claude |
+| WP-069 | Reemplazar logo SISLeg por el asset humano corregido e integrarlo en la ayuda | EN_CURSO | WP-062, WP-067 | claude |
 | WP-070 | Corregir microcopy y geometría operativa en Moderación, Apoyo Técnico y Recinto | PENDIENTE | WP-056 | claude |
 | WP-071 | Replicar en Apoyo Técnico todos los eventos sonoros del Recinto | PENDIENTE | WP-056, WP-066 | claude |
 | WP-072 | Incorporar gobernanza de actualización del manual de ayuda | PENDIENTE | WP-067 | claude |
@@ -398,3 +398,6 @@ WP-067 quedó integrado mediante PR #75 sobre el candidato `82737b4fbc6f4ebaf000
 
 
 Nueva iteración de prueba humana del 04/09/2026: HUMAN_GATE aprobó WP-069..WP-072. Secuencia rápida acordada: WP-069 primero; luego WP-070 y WP-072 en paralelo; WP-071 después. Implementador fijado para los cuatro WPs: Claude Code / Claude Opus 5 (High). Revisor independiente: Antigravity/AGY / Gemini 3.8 Flash (High). Para la etapa paralela se utilizará COORDINADOR_LOCAL Codex con modelo Luna y worktrees independientes. WP-029 permanece BLOQUEADO y, además de completar estos WPs, exige una nueva prueba humana y HUMAN_GATE explícito para cualquier reactivación.
+
+
+HUMAN_GATE entregó el asset humano exacto de WP-069 el 04/09/2026. El ORCHESTRATOR verificó localmente 1536×1024 RGBA, 1.027.650 bytes y SHA-256 `98d155ddf73e7d10d7b8b40f8510e0423b0d6dbffd749c79173b173fd0cfc756`; luego lo staged byte-a-byte en Botonera2-Control. Se activa WP-069 con Claude Code / Claude Opus 5 (High) como IMPLEMENTER y Antigravity/AGY / Gemini 3.8 Flash (High) como REVIEWER independiente. La única edición gráfica permitida sigue siendo el suavizado mínimo del borde definido en el WP. WP-029 permanece BLOQUEADO.
