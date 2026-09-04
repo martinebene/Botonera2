@@ -6,8 +6,10 @@
  * backend-backend de la duración de sesión (WP-047) y, desde WP-056, la traducción
  * de motivos de capacidad, la presentación de la franja segura de eventos y el ajuste
  * tipográfico de los avisos de Apoyo Técnico. Desde WP-063 también incluye el formato
- * visual del factor de mayoría especial. Si estas reglas vivieran duplicadas, una
- * corrección posterior podría aplicarse en una sola interfaz.
+ * visual del factor de mayoría especial. Desde WP-067 se agrega la ubicación del manual
+ * de usuario, que las cabeceras de Moderación y de Apoyo Técnico deben compartir. Si estas
+ * reglas vivieran duplicadas, una corrección posterior podría aplicarse en una sola
+ * interfaz.
  *
  * Los componentes Vue compartidos no se exportan por este índice: se importan por su
  * subruta (`@botonera2/frontend-shared/componentes/…`) para que cada aplicación cargue
@@ -57,3 +59,5 @@ export {
 export { extraerMensajeError } from './errores'
 
 export { formatearFactorMayoria } from './factor_mayoria'
+
+export { RUTA_MANUAL, ROTULO_ACCESO_MANUAL } from './manual'

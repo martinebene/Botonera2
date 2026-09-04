@@ -54,6 +54,7 @@ def crear_checkout_minimo(raiz: Path) -> None:
         "apps/simulador/.output/public/_nuxt/app.js": "s",
         "apps/tecnico/.output/public/index.html": "<!doctype html>Apoyo Técnico",
         "apps/tecnico/.output/public/_nuxt/app.js": "t",
+        "manual/index.html": '<!doctype html><html lang="es"><body>SISLeg</body></html>',
         "deploy/__init__.py": "",
         "deploy/herramienta_despliegue.py": "# herramienta",
         "deploy/validar_configuracion.py": "# validador",
@@ -97,6 +98,11 @@ def test_paquete_es_reproducible_trazable_y_excluye_configuracion(tmp_path: Path
     assert manifest["commit_sha"] == SHA_A
     assert "config/system.toml" not in nombres
     assert not any("node_modules" in nombre or ".venv" in nombre for nombre in nombres)
+    # El manual (WP-067) viaja en la misma raíz web que las SPA y queda inventariado como
+    # cualquier otro archivo, de modo que la reproducibilidad byte a byte también lo cubre.
+    assert "web/manual/index.html" in nombres
+    assert manifest["manual"] == "web/manual/index.html"
+    assert any(entrada["ruta"] == "web/manual/index.html" for entrada in manifest["archivos"])
 
 
 def test_gate_compara_dos_empaquetados_completos(
@@ -180,8 +186,9 @@ def test_gate_rechaza_bytes_variables(
         ("tree_sha", "abreviado", "tree SHA"),
         ("spas", {"moderacion": "otra-ruta"}, "SPA canónicas"),
         ("paquetes_python", ["botonera2-backend"], "paquetes Python canónicos"),
+        ("manual", "web/otro/index.html", "manual de usuario canónico"),
     ],
-    ids=["tree-sha", "spas", "paquetes-python"],
+    ids=["tree-sha", "spas", "paquetes-python", "manual"],
 )
 def test_manifest_rechaza_identidad_runtime_incompleta(
     tmp_path: Path, campo: str, valor: object, mensaje: str
@@ -439,6 +446,7 @@ def crear_release_preparada(gestor: GestorDespliegue, sha: str) -> Path:
         "web/recinto/index.html",
         "web/simulador/index.html",
         "web/tecnico/index.html",
+        "web/manual/index.html",
         "deploy/systemd/botonera2-backend.service",
         "deploy/systemd/botonera2-device-bridge.service",
         "deploy/nginx/botonera2.conf",
@@ -850,6 +858,26 @@ def test_configuracion_nginx_expone_apoyo_tecnico_en_la_red() -> None:
     bloque = nginx[inicio : nginx.index("}", inicio)]
     assert "try_files $uri $uri/ /tecnico/index.html;" in bloque
     assert "root /opt/botonera2/current/web;" in bloque
+    assert "deny" not in bloque
+    assert "allow" not in bloque
+
+
+def test_configuracion_nginx_publica_el_manual_sin_restriccion_de_red() -> None:
+    """El manual (WP-067) se publica en una única ruta de mismo origen.
+
+    Es el destino del icono de ayuda de Moderación y del de Apoyo Técnico, así que debe
+    resolverse desde cualquier puesto que opere el sistema. No lleva el ``deny all`` del
+    simulador y tampoco reenvía a una SPA: es un documento estático y una ruta inexistente
+    dentro de ``/manual/`` debe responder 404 en lugar de devolver el índice.
+    """
+
+    raiz = Path(__file__).resolve().parents[1]
+    nginx = (raiz / "deploy/nginx/botonera2.conf").read_text(encoding="utf-8")
+
+    inicio = nginx.index("location /manual/ {")
+    bloque = nginx[inicio : nginx.index("}", inicio)]
+    assert "root /opt/botonera2/current/web;" in bloque
+    assert "try_files $uri $uri/ =404;" in bloque
     assert "deny" not in bloque
     assert "allow" not in bloque
 

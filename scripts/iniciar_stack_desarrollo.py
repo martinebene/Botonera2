@@ -27,6 +27,10 @@ SALIDA_MODERACION = RAIZ_REPOSITORIO / "apps" / "moderacion" / ".output" / "publ
 SALIDA_RECINTO = RAIZ_REPOSITORIO / "apps" / "recinto" / ".output" / "public"
 SALIDA_SIMULADOR = RAIZ_REPOSITORIO / "apps" / "simulador" / ".output" / "public"
 SALIDA_TECNICO = RAIZ_REPOSITORIO / "apps" / "tecnico" / ".output" / "public"
+# El manual de usuario (WP-067) no se construye: es un HTML estático versionado que en
+# producción sirve Nginx desde `web/manual/`. Acá se monta desde su directorio fuente para
+# que `/manual/` exista también bajo el origen único de desarrollo.
+DIRECTORIO_MANUAL = RAIZ_REPOSITORIO / "manual"
 
 
 class ErrorSalidaSpa(RuntimeError):
@@ -70,11 +74,31 @@ def validar_salida_spa(ruta: Path, nombre: str) -> None:
         )
 
 
+def validar_manual(ruta: Path) -> None:
+    """Comprueba que el manual de usuario estático exista antes de montarlo.
+
+    Args:
+        ruta: Directorio fuente del manual (`manual/` en la raíz del repositorio).
+
+    Raises:
+        ErrorSalidaSpa: Si falta el directorio o su `index.html`. Se reutiliza esa
+            excepción porque el diagnóstico para la persona que ejecuta el stack es el
+            mismo: falta un artefacto estático que el servidor integrado debe publicar.
+    """
+
+    if not ruta.is_dir() or not (ruta / "index.html").is_file():
+        raise ErrorSalidaSpa(
+            f"No se encontró el manual de usuario estático en {ruta}. "
+            "Debe existir `manual/index.html` en el repositorio."
+        )
+
+
 def crear_aplicacion_integrada(
     salida_moderacion: Path = SALIDA_MODERACION,
     salida_recinto: Path = SALIDA_RECINTO,
     salida_simulador: Path = SALIDA_SIMULADOR,
     salida_tecnico: Path = SALIDA_TECNICO,
+    directorio_manual: Path = DIRECTORIO_MANUAL,
 ) -> FastAPI:
     """Crea una instancia real de FastAPI y monta las cuatro SPA para desarrollo.
 
@@ -88,6 +112,7 @@ def crear_aplicacion_integrada(
         salida_recinto: Build estático de la Pantalla del Recinto.
         salida_simulador: Build estático del Simulador de dispositivos lógicos.
         salida_tecnico: Build estático del puesto de Apoyo Técnico.
+        directorio_manual: Directorio fuente del manual de usuario estático.
 
     Returns:
         Aplicación FastAPI lista para ejecutarse en un único proceso ASGI.
@@ -100,6 +125,7 @@ def crear_aplicacion_integrada(
     validar_salida_spa(salida_recinto, "Recinto")
     validar_salida_spa(salida_simulador, "Simulador")
     validar_salida_spa(salida_tecnico, "Apoyo Técnico")
+    validar_manual(directorio_manual)
 
     aplicacion = crear_aplicacion()
 
@@ -116,6 +142,7 @@ def crear_aplicacion_integrada(
       <li><a href="/recinto/">Pantalla del Recinto</a></li>
       <li><a href="/tecnico/">Apoyo Técnico</a></li>
       <li><a href="/simulador/">Simulador</a></li>
+      <li><a href="/manual/">Manual de usuario</a></li>
       <li><a href="/docs">API (Swagger)</a></li>
     </ul>
   </body>
@@ -152,6 +179,13 @@ def crear_aplicacion_integrada(
         "/tecnico",
         StaticFiles(directory=salida_tecnico, html=True),
         name="tecnico",
+    )
+    # `html=True` hace que /manual/ resuelva a index.html, igual que el `try_files` de la
+    # plantilla Nginx productiva. Así la misma URL funciona en desarrollo y en producción.
+    aplicacion.mount(
+        "/manual",
+        StaticFiles(directory=directorio_manual, html=True),
+        name="manual",
     )
     return aplicacion
 

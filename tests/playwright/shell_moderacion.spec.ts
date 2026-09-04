@@ -3290,10 +3290,20 @@ test.describe('WP-054 - Cabecera derecha y auditoría geométrica de bancas', ()
       const cajaTiempo = await caja('cabecera-tiempo-sesion')
       const cajaFecha = await caja('cabecera-fecha-hora')
       const cajaConexion = await caja('estado-conexion')
+      // WP-067 sumó el acceso de ayuda al final del mismo grupo, así que es él —y ya no
+      // el indicador de conexión— quien debe quedar contra el borde derecho.
+      const cajaAyuda = await caja('acceso-manual')
 
       // 1 · Sector derecho: el orden horizontal es autoridades → tiempo → fecha
-      // → conexión, y todo el grupo empieza después del bloque institucional.
-      const sectorDerecho = [cajaPresidencia, cajaSecretaria, cajaTiempo, cajaFecha, cajaConexion]
+      // → conexión → ayuda, y todo el grupo empieza después del bloque institucional.
+      const sectorDerecho = [
+        cajaPresidencia,
+        cajaSecretaria,
+        cajaTiempo,
+        cajaFecha,
+        cajaConexion,
+        cajaAyuda,
+      ]
       expect(cajaQuorum.x + cajaQuorum.width).toBeLessThanOrEqual(cajaPresidencia.x)
       for (let indice = 1; indice < sectorDerecho.length; indice += 1) {
         expect(sectorDerecho[indice - 1]!.x + sectorDerecho[indice - 1]!.width).toBeLessThanOrEqual(
@@ -3301,10 +3311,10 @@ test.describe('WP-054 - Cabecera derecha y auditoría geométrica de bancas', ()
         )
       }
 
-      // 2 · El grupo está efectivamente pegado al borde derecho: entre la
-      // conexión y el límite de la cabecera sólo queda su padding horizontal.
+      // 2 · El grupo está efectivamente pegado al borde derecho: entre el último
+      // elemento y el límite de la cabecera sólo queda su padding horizontal.
       const bordeDerechoCabecera = cajaCabecera.x + cajaCabecera.width
-      expect(bordeDerechoCabecera - (cajaConexion.x + cajaConexion.width)).toBeLessThanOrEqual(12)
+      expect(bordeDerechoCabecera - (cajaAyuda.x + cajaAyuda.width)).toBeLessThanOrEqual(12)
 
       // 3 · Una sola línea: todos los elementos comparten renglón con el título.
       const cajaTitulo = await page.locator('[data-testid="cabecera-moderacion"] h1').boundingBox()
