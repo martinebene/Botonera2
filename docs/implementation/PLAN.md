@@ -215,7 +215,11 @@ WP-033 quedó integrado antes de continuar WP-026 y deja disponible el harness m
 | WP-066 | Implementar motor de reproducción de sonidos del Recinto | INTEGRADO | WP-065 | claude |
 | WP-068 | Evitar CI completa en pushes documentales a main | INTEGRADO | DEC-019 | claude |
 | WP-067 | Publicar manual de usuario y ayuda integrada de SISLeg | INTEGRADO | WP-062, WP-063, WP-064, WP-065, WP-066 | claude |
-| WP-029 | Validar bridge/hardware real, regresión funcional y candidato de producción | BLOQUEADO | WP-019, WP-020, WP-027, WP-028, WP-034, WP-035, WP-036, WP-037, WP-038, WP-039, WP-040, WP-041, WP-043, WP-044, WP-045, WP-046, WP-047, WP-048, WP-049, WP-050, WP-051, WP-052, WP-053, WP-054, WP-055, WP-056, WP-057, WP-058, WP-059, WP-060, WP-061, WP-062, WP-063, WP-064, WP-065, WP-066, WP-067 | - |
+| WP-069 | Reemplazar logo SISLeg por el asset humano corregido e integrarlo en la ayuda | PENDIENTE | WP-062, WP-067 | claude |
+| WP-070 | Corregir microcopy y geometría operativa en Moderación, Apoyo Técnico y Recinto | PENDIENTE | WP-056 | claude |
+| WP-071 | Replicar en Apoyo Técnico todos los eventos sonoros del Recinto | PENDIENTE | WP-056, WP-066 | claude |
+| WP-072 | Incorporar gobernanza de actualización del manual de ayuda | PENDIENTE | WP-067 | claude |
+| WP-029 | Validar bridge/hardware real, regresión funcional y candidato de producción | BLOQUEADO | WP-019, WP-020, WP-027, WP-028, WP-034, WP-035, WP-036, WP-037, WP-038, WP-039, WP-040, WP-041, WP-043, WP-044, WP-045, WP-046, WP-047, WP-048, WP-049, WP-050, WP-051, WP-052, WP-053, WP-054, WP-055, WP-056, WP-057, WP-058, WP-059, WP-060, WP-061, WP-062, WP-063, WP-064, WP-065, WP-066, WP-067, WP-069, WP-070, WP-071, WP-072 | - |
 
 HUMAN_GATE seleccionó Codex como implementador y Antigravity/AGY como revisor independiente de WP-047. WP-047 queda `EN_CURSO`; WP-048 y WP-049 permanecen bloqueados por esta dependencia y todavía no tienen agente asignado.
 
@@ -391,3 +395,6 @@ HUMAN_GATE verificó el cleanup completo de WP-066: único worktree Git en `main
 
 
 WP-067 quedó integrado mediante PR #75 sobre el candidato `82737b4fbc6f4ebaf00024657b2842139e5bd6df`, implementado por Claude Code / Claude Opus 5 (High) y revisado independientemente por Antigravity/AGY / Gemini 3.8 Flash (High), con 0 BLOQUEANTES, 0 IMPORTANTES y 0 MENORES y veredicto `LISTA PARA INTEGRAR`. El squash `50fb4723dbe1bebb67d44593c3a6cec7fe02ff3e` conserva exactamente el tree revisado `e507a7dec6e5598cdb265005fe79a58ea56ce50e`; CI candidata #462 y CI post-merge #463 terminaron `success` 8/8. Quedan integrados el manual HTML genérico de SISLeg en `/manual/`, los accesos de ayuda en Moderación y Apoyo Técnico, y su inclusión/verificación en stacks, empaquetado y despliegue. WP-029 permanece BLOQUEADO hasta HUMAN_GATE explícito posterior a campaña y nuevas pruebas humanas.
+
+
+Nueva iteración de prueba humana del 04/09/2026: HUMAN_GATE aprobó WP-069..WP-072. Secuencia rápida acordada: WP-069 primero; luego WP-070 y WP-072 en paralelo; WP-071 después. Implementador fijado para los cuatro WPs: Claude Code / Claude Opus 5 (High). Revisor independiente: Antigravity/AGY / Gemini 3.8 Flash (High). Para la etapa paralela se utilizará COORDINADOR_LOCAL Codex con modelo Luna y worktrees independientes. WP-029 permanece BLOQUEADO y, además de completar estos WPs, exige una nueva prueba humana y HUMAN_GATE explícito para cualquier reactivación.
