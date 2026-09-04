@@ -248,8 +248,12 @@ Los archivos viven bajo `public/` de la Pantalla del Recinto porque es la única
 aplicación que los reproducirá y porque cada SPA se sirve bajo su propio
 prefijo, igual que ya ocurre con las imágenes de banca y la marca.
 
-La reproducción efectiva en el navegador corresponde a WP-066; WP-065 sólo
-configura y versiona.
+WP-065 configura y versiona; la reproducción efectiva en el navegador la implementa
+WP-066. La ruta configurada se resuelve contra el prefijo público de la Pantalla del
+Recinto (`/recinto/`) y el volumen `0..100` se aplica a cada reproducción. Qué transición
+dispara cada evento está documentado en `docs/06-frontend-pantalla-recinto.md`, y la
+configuración del puesto que permite reproducir sin interacción humana, en
+`docs/13-despliegue-y-operacion.md`.
 
 ## 12. Mapeo físico
 

@@ -267,6 +267,54 @@ intenta restaurar automáticamente release y archivos de despliegue anteriores.
 Si esa recuperación también falla, la herramienta se detiene y exige
 intervención; nunca borra la release fallida.
 
+### Navegador de la Pantalla del Recinto y autoplay
+
+Desde WP-066 la Pantalla del Recinto reproduce sonidos ante las transiciones de la sesión.
+HUMAN_GATE decidió que **no exista** ningún control visible para habilitarlos: ni botón
+«Activar sonido», ni volumen en pantalla. La consecuencia operativa es directa y hay que
+resolverla en el equipo, no en la interfaz.
+
+Los navegadores bloquean por defecto la reproducción automática de audio hasta que la
+persona interactúa con la página. Frente al monitor del recinto no hay nadie que haga clic:
+la pantalla se proyecta y se deja funcionando. Por eso el equipo que la muestra debe estar
+configurado para permitir autoplay en el origen donde se sirve SISLeg.
+
+Requisitos del puesto:
+
+- el navegador debe permitir reproducción automática de audio para el origen de SISLeg;
+- la salida de audio del sistema operativo debe estar activa, sin silenciar y con volumen
+  audible en el recinto;
+- el volumen relativo de cada evento se ajusta en `config/system.toml` (`[sonidos]`), nunca
+  desde la interfaz.
+
+Mecanismos habituales, a confirmar contra la versión instalada del navegador:
+
+- **Chromium/Chrome**, en el lanzador del modo kiosco:
+
+  ```bash
+  chromium --kiosk --autoplay-policy=no-user-gesture-required http://<host>/recinto/
+  ```
+
+  Es la misma bandera que usa el E2E versionado del proyecto
+  (`playwright.config.ts`), de modo que la prueba automatizada exige exactamente la
+  condición que necesita producción.
+
+- **Chromium/Chrome administrado por políticas**: habilitar el sonido para el origen de
+  SISLeg mediante la política de autoplay/allowlist correspondiente a la versión instalada,
+  o dar permiso de sonido al sitio desde la configuración del navegador.
+
+- **Firefox**: `media.autoplay.default = 0` en el perfil del puesto.
+
+Verificación después de instalar o actualizar: abrir la Pantalla del Recinto, provocar un
+hecho audible desde Moderación —por ejemplo alternar la presencia de una banca— y confirmar
+que el sonido se escucha sin haber tocado la pantalla. Si no se escucha, el problema es de
+configuración del puesto: la aplicación no ofrece ninguna alternativa manual y no debe
+agregarse una sin decisión humana documentada.
+
+Los archivos WAV viajan dentro de la release y `activar` ya falla si alguna ruta configurada
+no está publicada, así que un sonido mudo por archivo faltante no puede llegar a producción
+sin detectarse.
+
 ### Diagnóstico de solo lectura
 
 ```bash

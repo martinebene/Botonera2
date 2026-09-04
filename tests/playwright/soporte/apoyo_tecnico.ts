@@ -48,6 +48,44 @@ export function aviso(texto: string, destino: string) {
   }
 }
 
+/**
+ * Configuración de audio del Recinto, tal como la proyecta el backend desde WP-065.
+ *
+ * Viaja en todos los snapshots públicos, así que las fixtures del navegador también deben
+ * traerla: sin ella la Pantalla del Recinto no tendría ruta ni volumen que reproducir.
+ * Los volúmenes son los de `config/system.toml`, para que el E2E compruebe exactamente el
+ * valor configurado y no uno inventado por la prueba.
+ */
+export function sonidosRecinto() {
+  const volumenes: Record<string, number> = {
+    preparacion_iniciada: 70,
+    aviso_tecnico_publicado: 75,
+    aviso_tecnico_retirado: 60,
+    pedido_palabra_registrado: 65,
+    pedido_palabra_retirado: 55,
+    uso_palabra_otorgado: 75,
+    transmision_iniciada: 80,
+    transmision_detenida: 70,
+    transmision_cuenta_regresiva_tic: 35,
+    sesion_abierta: 90,
+    sesion_cerrada: 85,
+    votacion_abierta: 85,
+    votacion_cerrada: 80,
+    concejal_ausente: 50,
+    concejal_presente: 55,
+  }
+  return {
+    disponible: true,
+    motivo: null,
+    detalle: null,
+    sonidos: Object.entries(volumenes).map(([evento, volumen]) => ({
+      evento,
+      ruta: `assets/sonidos/${evento.replaceAll('_', '-')}.wav`,
+      volumen,
+    })),
+  }
+}
+
 export function concejalesPublicos(cantidad: number) {
   return Array.from({ length: cantidad }, (_, indice) => {
     const banca = indice + 1
@@ -91,6 +129,7 @@ export function estadoRecinto(parcialTecnico: Record<string, unknown> = {}) {
     },
     eventos_publicos: [],
     tecnico: { transmision: transmision(), aviso: null, ...parcialTecnico },
+    sonidos: sonidosRecinto(),
   }
 }
 

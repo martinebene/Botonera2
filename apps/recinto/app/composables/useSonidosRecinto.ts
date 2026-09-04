@@ -1,0 +1,137 @@
+/**
+ * Frontera reactiva entre el estado público y el motor de audio del Recinto (WP-066).
+ *
+ * ## Qué hace
+ *
+ * Observa dos cosas y nada más:
+ *
+ * 1. **cada estado adoptado por la sincronización**, para comparar el snapshot nuevo con el
+ *    anterior y reproducir las transiciones detectadas;
+ * 2. **el número visible de la cuenta regresiva hacia el vivo**, para acompañar con un tic
+ *    cada cambio de segundo.
+ *
+ * ## La frontera entre «baseline» y «transición»
+ *
+ * Ésta es la decisión central del WP y conviene entenderla bien.
+ *
+ * El cliente de sincronización tiene dos formas de entregar un estado. Una es el **snapshot
+ * REST**, que se pide al arrancar y cada vez que hay que recuperarse de una caída del
+ * stream: describe todo lo que pasó hasta ese momento, incluido lo ocurrido mientras la
+ * pantalla estaba desconectada. La otra son los **eventos SSE**, que llegan uno por
+ * revisión mientras la conexión está viva: cada uno representa un hecho recién ocurrido.
+ *
+ * Sonorizar un snapshot sería reproducir historia: al abrir la pantalla en mitad de una
+ * sesión sonarían de golpe la apertura, las presencias y la votación en curso. Por eso un
+ * estado adoptado **fuera de una conexión establecida** se guarda como referencia y no
+ * suena. Se reconoce sin adivinar nada: el cliente notifica la conexión abierta después de
+ * adoptar su snapshot y la notifica cerrada antes de pedir el siguiente, así que
+ * `estadoConexion === 'CONECTADO'` distingue con exactitud un evento SSE de una baseline.
+ *
+ * Ese mismo criterio cubre los tres casos que exige el WP: el primer snapshot, la recarga
+ * de la página y cualquier reconexión, incluida la que ocurre después de reiniciar el
+ * backend, cuando la revisión vuelve a empezar.
+ *
+ * ## Por qué los observadores son síncronos
+ *
+ * `flush: 'sync'` ejecuta la comparación en el mismo instante en que la referencia cambia.
+ * Con el agrupado normal de Vue, dos revisiones que llegaran en el mismo tick se
+ * fusionarían y la intermedia desaparecería: se perdería, por ejemplo, el pedido de palabra
+ * que quedó entre dos revisiones. Acá cada revisión adoptada se compara una vez y sólo una.
+ */
+
+import { onScopeDispose, watch, type Ref } from 'vue'
+import type { EstadoRecinto } from '@botonera2/api-client'
+import { crearMotorSonidos, type MotorSonidosRecinto } from '../utils/motor_sonidos'
+import { detectarTransicionesSonoras } from '../utils/transiciones_sonoras'
+import type { EstadoConexionRecinto } from './useEstadoRecinto'
+
+export interface OpcionesSonidosRecinto {
+  /** Último estado público adoptado, tal como lo publica `useEstadoRecinto`. */
+  estado: Ref<EstadoRecinto | null>
+  /** Estado de la conexión SSE; es lo que separa una baseline de un hecho nuevo. */
+  estadoConexion: Ref<EstadoConexionRecinto>
+  /**
+   * Segundos visibles de la cuenta regresiva hacia el vivo, o `null` fuera de ella.
+   *
+   * Llega ya derivado por el reloj de presentación técnica, que avanza localmente entre
+   * mensajes SSE. Por eso el tic no agrega ni una sola petición de red.
+   */
+  segundosCuentaRegresiva: Ref<number | null>
+  /** Motor inyectable; las pruebas pasan uno falso y producción usa el predeterminado. */
+  motor?: MotorSonidosRecinto
+}
+
+export interface SonidosRecinto {
+  /** El motor efectivamente utilizado, expuesto para inspección en pruebas. */
+  motor: MotorSonidosRecinto
+}
+
+/**
+ * Conecta el estado público con el motor de audio y devuelve el motor en uso.
+ *
+ * Efectos: registra dos observadores reactivos y libera el motor cuando muere el scope que
+ * lo creó (el desmontaje de la pantalla). No modifica el estado ni emite comandos: la
+ * Pantalla del Recinto sigue siendo estrictamente de solo lectura.
+ */
+export function useSonidosRecinto(opciones: OpcionesSonidosRecinto): SonidosRecinto {
+  const motor = opciones.motor ?? crearMotorSonidos()
+
+  /** Último estado ya sonorizado; es el término de comparación de la próxima revisión. */
+  let instantaneaPrevia: EstadoRecinto | null = null
+  /** Revisión de ese estado, usada como guarda de idempotencia. */
+  let revisionPrevia: number | null = null
+
+  watch(
+    opciones.estado,
+    (actual) => {
+      if (actual === null) {
+        instantaneaPrevia = null
+        revisionPrevia = null
+        return
+      }
+
+      // La configuración viaja en todos los snapshots, también en `SIN_PREPARAR`. Adoptarla
+      // antes de reproducir permite que el primer sonido de una sesión ya encuentre su
+      // archivo precargado.
+      motor.configurar(actual.sonidos)
+
+      const esBaseline = instantaneaPrevia === null || opciones.estadoConexion.value !== 'CONECTADO'
+      // Dentro de una misma conexión la revisión sólo crece. Una revisión repetida es el
+      // mismo estado entregado dos veces y no puede volver a sonar.
+      const esRevisionRepetida = revisionPrevia !== null && actual.revision <= revisionPrevia
+
+      if (instantaneaPrevia !== null && !esBaseline && !esRevisionRepetida) {
+        for (const evento of detectarTransicionesSonoras(instantaneaPrevia, actual)) {
+          motor.reproducir(evento)
+        }
+      }
+
+      instantaneaPrevia = actual
+      revisionPrevia = actual.revision
+    },
+    { immediate: true, flush: 'sync' },
+  )
+
+  /*
+    El tic no se deduce de dos snapshots: el backend no emite una revisión por segundo y el
+    WP prohíbe pedirle una. El número lo baja el reloj local, así que el tic acompaña
+    exactamente al dígito que el público ve cambiar.
+
+    Sin `immediate`, el primer valor observado no suena: adoptar un snapshot en mitad de una
+    cuenta regresiva muestra el número, pero no es un cambio de segundo. Volver a `null`
+    tampoco suena, porque el fin de la cuenta ya tiene su propio sonido de inicio de vivo.
+  */
+  watch(
+    opciones.segundosCuentaRegresiva,
+    (actual, previo) => {
+      if (actual === null || previo === null || previo === undefined) return
+      if (actual === previo) return
+      motor.reproducir('transmision_cuenta_regresiva_tic')
+    },
+    { flush: 'sync' },
+  )
+
+  onScopeDispose(motor.liberar)
+
+  return { motor }
+}
