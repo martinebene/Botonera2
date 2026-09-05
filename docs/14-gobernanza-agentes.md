@@ -93,7 +93,14 @@ docs/
 
 .github/
 └── pull_request_template.md
+
+manual/
+└── index.html
 ```
+
+`manual/index.html` no es documentación interna para agentes: es el manual de usuario y soporte
+publicado con la release. Aparece aquí porque su actualización forma parte del contrato de entrega
+de cualquier WP que afecte lo que una persona usuaria o de soporte necesita saber.
 
 ### `docs/implementation/PLAN.md`
 
@@ -123,11 +130,49 @@ Cada WP es el contrato operativo de trabajo del agente. Debe declarar como míni
 - pruebas obligatorias;
 - invariantes/restricciones;
 - documentación a actualizar;
+- **impacto sobre el manual de usuario y soporte**;
 - hallazgos fuera de alcance;
 - decisiones que requieran escalamiento;
 - checklist de entrega.
 
 `docs/work-packages/TEMPLATE.md` es la plantilla inicial obligatoria.
+
+### Manual de usuario y soporte
+
+`manual/index.html` es el manual único de operación, configuración, instalación, diagnóstico y
+soporte del sistema. Se mantiene con el mismo criterio de vigencia que la documentación canónica:
+un manual desactualizado es un defecto de la entrega, no una tarea pendiente difusa.
+
+Regla permanente de evaluación de impacto, obligatoria para todo WP y para todo cambio autorizado:
+
+1. la entrega evalúa explícitamente si el cambio necesita ser explicado a la persona usuaria o al
+   soporte técnico;
+2. si necesita explicarse, `manual/index.html` se actualiza dentro del mismo WP/PR o cambio
+   autorizado;
+3. si no necesita explicarse, la entrega registra de forma explícita que el impacto fue evaluado y
+   no requiere actualización.
+
+Qué cuenta como impacto relevante:
+
+- funciones nuevas visibles para quien usa u opera el sistema;
+- cambios de comportamiento observable, flujo de operación o resultados;
+- cambios de configuración, padrón, instalación, empaquetado o despliegue que alguien deba aplicar;
+- cambios de diagnóstico, mensajes de error o procedimientos de soporte;
+- textos, rótulos o identidad visible que el manual describa literalmente.
+
+Qué **no** obliga a tocar el manual:
+
+- refactors internos sin efecto observable;
+- nombres de módulos, helpers o fixtures;
+- estructura de pruebas o de tooling de desarrollo;
+- detalles de implementación sin utilidad para usuario o soporte.
+
+La decisión es de criterio humano/agéntico y queda registrada. No se introduce automatización que
+decida semánticamente por sí sola si el manual necesita cambios; el tooling sólo puede exigir que
+la evaluación esté declarada.
+
+Esta regla no modifica DEC-005 ni DEC-019. Un cambio puramente documental autorizado sigue el
+mecanismo de DEC-005, y qué eventos disparan CI sigue determinándose exclusivamente por DEC-019.
 
 ### Lectura de contexto por agentes
 
@@ -180,6 +225,7 @@ No se mantendrá inicialmente una matriz global duplicada. Puede agregarse más 
 - pruebas ejecutadas;
 - estado de CI;
 - documentación actualizada;
+- resultado de la evaluación de impacto sobre `manual/index.html`;
 - decisiones/desviaciones;
 - hallazgos fuera de alcance;
 - riesgos pendientes;
@@ -284,7 +330,9 @@ Debe evaluar, según corresponda:
 - seguridad y exposición accidental de datos;
 - regresiones;
 - calidad y suficiencia de las pruebas;
-- documentación y trazabilidad.
+- documentación y trazabilidad;
+- evaluación de impacto sobre `manual/index.html`, comprobando que exista una declaración explícita
+  y que el manual esté actualizado cuando el cambio sí es relevante para usuario o soporte.
 
 ### Severidades
 

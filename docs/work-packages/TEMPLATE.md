@@ -63,6 +63,8 @@ La lista orienta el alcance pero no sustituye las reglas y exclusiones anteriore
 - La documentación/comentarios pedagógicos del código son suficientes para comprender clases, funciones y flujos no triviales.
 - Las consultas técnicas externas y los fallbacks de herramientas respetan DEC-003 cuando corresponda.
 - El inicio, rama/worktree y selección/revisión de agentes respetan DEC-007 cuando corresponda.
+- El impacto sobre `manual/index.html` quedó evaluado y declarado, con el manual actualizado si el
+  cambio es relevante para la persona usuaria o el soporte técnico.
 - El documento conserva el formato parseable exigido por `docs/implementation/FORMATO_WP_LANZADORES.md`.
 
 ## Pruebas obligatorias
@@ -119,6 +121,27 @@ Detener únicamente la parte dependiente y continuar trabajo independiente segur
 
 - Documentos que deben quedar consistentes con el cambio.
 
+## Impacto en el manual de usuario y soporte
+
+Sección obligatoria en todo WP real. `manual/index.html` es el manual de operación, configuración,
+instalación, diagnóstico y soporte del sistema, y debe quedar consistente con el cambio dentro del
+mismo WP cuando corresponda.
+
+Elegir exactamente una de estas dos declaraciones y completarla:
+
+- `Requiere actualización del manual.` Indicar qué secciones o contenidos de `manual/index.html`
+  deben cambiar y por qué son relevantes para la persona usuaria o el soporte técnico.
+- `No requiere actualización del manual.` Indicar por qué el cambio no necesita explicarse a
+  usuario ni soporte, por ejemplo por tratarse de un detalle interno de desarrollo sin efecto
+  observable.
+
+Cuentan como impacto relevante las funciones nuevas visibles, los cambios de comportamiento,
+operación, configuración, instalación, diagnóstico, mensajes de soporte y los textos que el manual
+describa literalmente. No obligan a tocar el manual los refactors internos, los nombres de módulos,
+la estructura de pruebas ni otros detalles sin utilidad para usuario o soporte.
+
+La declaración no puede omitirse ni diferirse a un trabajo posterior indeterminado.
+
 ## Hallazgos fuera de alcance
 
 Registrar aquí trabajo detectado que no debe incorporarse silenciosamente a este WP.
@@ -140,6 +163,9 @@ Registrar aquí trabajo detectado que no debe incorporarse silenciosamente a est
 - [ ] No se relajaron pruebas ni criterios para hacer pasar CI.
 - [ ] Calidad estática y builds aplicables verdes.
 - [ ] Documentación actualizada.
+- [ ] Impacto sobre `manual/index.html` evaluado y declarado explícitamente en el WP y en la PR.
+- [ ] Si el cambio es relevante para usuario o soporte, `manual/index.html` quedó actualizado en
+      esta misma entrega.
 - [ ] Hallazgos fuera de alcance registrados.
 - [ ] PR vinculada a este WP con explicación para principiantes.
 - [ ] Revisión independiente completada antes de integración.
