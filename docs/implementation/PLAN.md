@@ -217,7 +217,7 @@ WP-033 quedó integrado antes de continuar WP-026 y deja disponible el harness m
 | WP-067 | Publicar manual de usuario y ayuda integrada de SISLeg | INTEGRADO | WP-062, WP-063, WP-064, WP-065, WP-066 | claude |
 | WP-069 | Reemplazar logo SISLeg por el asset humano corregido e integrarlo en la ayuda | INTEGRADO | WP-062, WP-067 | claude |
 | WP-070 | Corregir microcopy y geometría operativa en Moderación, Apoyo Técnico y Recinto | INTEGRADO | WP-056 | claude |
-| WP-071 | Replicar en Apoyo Técnico todos los eventos sonoros del Recinto | PENDIENTE | WP-056, WP-066 | claude |
+| WP-071 | Replicar en Apoyo Técnico todos los eventos sonoros del Recinto | EN_CURSO | WP-056, WP-066 | claude |
 | WP-072 | Incorporar gobernanza de actualización del manual de ayuda | INTEGRADO | WP-067 | claude |
 | WP-073 | Separar configuración operativa local de plantillas versionadas | INTEGRADO | WP-069 | claude |
 | WP-029 | Validar bridge/hardware real, regresión funcional y candidato de producción | BLOQUEADO | WP-019, WP-020, WP-027, WP-028, WP-034, WP-035, WP-036, WP-037, WP-038, WP-039, WP-040, WP-041, WP-043, WP-044, WP-045, WP-046, WP-047, WP-048, WP-049, WP-050, WP-051, WP-052, WP-053, WP-054, WP-055, WP-056, WP-057, WP-058, WP-059, WP-060, WP-061, WP-062, WP-063, WP-064, WP-065, WP-066, WP-067, WP-069, WP-070, WP-071, WP-072, WP-073 | - |
@@ -421,3 +421,8 @@ WP-072 quedó integrado mediante PR #80 sobre el candidato `e0869eccfe2f4a4518b0
 WP-070 quedó integrado mediante PR #78 sobre el candidato `5d0a69ba1c82087cadca1f72d8745976d78aaed2`, revisado independientemente por Antigravity/AGY / Gemini 3.8 Flash (High) con 0 BLOQUEANTES, 0 IMPORTANTES y 0 MENORES y veredicto `LISTA PARA INTEGRAR`. El squash `6077cc7eadefed67c063c518d1f0cb786d101ca8` integró microcopy, geometría técnica y aviso de desconexión; CI candidata #469 y CI post-merge #473 terminaron `success` 8/8. Queda pendiente únicamente el cleanup local/remoto de WP-070/WP-072 antes de activar WP-071. WP-029 permanece BLOQUEADO.
 
 La gobernanza de COORDINADOR_LOCAL fue actualizada para próximas ejecuciones mediante PR #79: workers lanzados con perfil de permisos completos aprobado, coordinador reducido a scheduling/lifecycle/gates objetivos y principio de completar el lote ante `soft_deviation` confinadas al worktree. Los riesgos duros siguen deteniendo el WP/lote según alcance.
+
+
+HUMAN_GATE verificó el cleanup completo de WP-070 y WP-072: Orca quedó con un único worktree main, `git worktree list` quedó sólo en `/workspace/Botonera2`, ramas locales WP-070/WP-072 ausentes, ramas remotas WP-070/WP-072 eliminadas, ramas documentales temporales `docs/coordinador-local-permisos-full` eliminadas en Product y Control, y ambos checkouts quedaron limpios/sincronizados. WP-070 y WP-072 quedan `VERIFIED_COMPLETE`.
+
+Con esas dependencias cerradas, HUMAN_GATE activa WP-071 como último WP de la campaña del 04/09/2026. Implementador: Claude Code / Claude Opus 5 (High). Revisor independiente: Antigravity/AGY / Gemini 3.8 Flash (High). La ejecución se delega a COORDINADOR_LOCAL Codex / Luna con `max_concurrency=1` y transición mecánica IMPLEMENTER -> REVIEWER preautorizada bajo gates objetivos. Desde esta ejecución rige DEC-018 actualizado: Claude y AGY deben lanzarse con permisos completos aprobados, Claude auto-verifica su propia cuota desde la sesión, los `soft_deviation` confinados no detienen el lote y el coordinador se limita a scheduling/lifecycle/gates. WP-029 permanece BLOQUEADO.
