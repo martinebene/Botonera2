@@ -201,6 +201,48 @@ Reglas:
 
 Para REVIEWER, permisos completos de CLI no eliminan el modo de solo lectura sobre Botonera2: siguen prohibidas las modificaciones del producto y sólo puede escribir el handoff autorizado en Botonera2-Control.
 
+### 8 ter. Principio de completar el lote y clasificación de desvíos
+
+El objetivo normal del COORDINADOR_LOCAL es **terminar todo el lote autorizado** y devolver al ORCHESTRATOR la mayor cantidad posible de trabajo implementado y revisado. No debe detenerse por prudencia excesiva ante desvíos de bajo riesgo que quedaron aislados en el worktree y todavía no fueron integrados.
+
+#### Desvío blando: registrar y continuar
+
+Un desvío se considera **blando** cuando, de forma objetiva:
+
+- está contenido en la rama/worktree del WP;
+- no toca secretos, infraestructura persistente, deploy ni recursos compartidos externos;
+- no requiere force/rebase destructivo;
+- no contamina otro WP/worktree;
+- no altera una decisión DT-038 ni exige una nueva decisión humana de producto para poder revisar;
+- existe candidato remoto identificable y CI/gates objetivos pueden ejecutarse;
+- el cambio adicional es razonablemente revisable junto con el candidato.
+
+Ejemplos: archivo documental adicional, test adicional, refactor auxiliar pequeño o ajuste adyacente que el IMPLEMENTER declara expresamente.
+
+Ante un desvío blando, el COORDINADOR_LOCAL:
+
+1. lo registra sin aprobarlo ni interpretarlo como correcto;
+2. **no detiene el lote**;
+3. si los gates objetivos IMPLEMENTER -> REVIEWER pasan, inicia la revisión independiente incluyendo el desvío en el candidato exacto;
+4. continúa con los demás WPs independientes autorizados;
+5. deja al ORCHESTRATOR la decisión posterior de integrar, pedir corrección o descartar el candidato.
+
+El hecho de que algo esté en revisión **no implica aceptación del alcance**. La protección principal sigue siendo que ningún candidato llega a `main` sin decisión posterior del ORCHESTRATOR.
+
+#### Desvío duro: detener sólo lo necesario
+
+Sí exige detener el WP —y el lote completo sólo si el riesgo es compartido— cualquiera de estas condiciones:
+
+- secreto/credencial o riesgo de exposición;
+- operación destructiva, force/rebase no autorizado;
+- merge/deploy o infraestructura persistente no autorizada;
+- contaminación de otro worktree/WP o recurso compartido;
+- decisión DT-038/contradicción material que impide saber qué revisar;
+- pérdida de identidad del candidato, worktree sucio no explicable o imposibilidad de fijar SHA/tree;
+- riesgo sistémico que pueda afectar a los demás workers del lote.
+
+Si el problema duro afecta sólo a un WP y los otros son materialmente independientes, el coordinador marca ese WP como detenido y **continúa los demás**.
+
 ### 9. Condiciones de detención
 
 El lote se detiene y devuelve control humano si aparece:
