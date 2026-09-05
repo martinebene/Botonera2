@@ -489,3 +489,14 @@ Cada cambio debe:
 - respetar el turno, aislamiento y handoffs definidos por DEC-017 y `Botonera2-Control`.
 
 Si aparece una contradicción real entre documentos, no adivinar: detener únicamente el alcance afectado y documentar la inconsistencia.
+
+## Puerta propia del ORCHESTRATOR antes de integrar
+
+Un veredicto REVIEWER `LISTA PARA INTEGRAR` y una CI verde **no autorizan por sí solos el merge**.
+
+Cuando el control vuelve a ChatGPT Web, el ORCHESTRATOR debe reconstruir y auditar toda la cadena del WP antes de integrar: asignaciones, implementaciones, reviews, correcciones/re-revisiones, candidate SHA final, diff, CI, staleness, soft deviations y coherencia con WP/DEC/documentación.
+
+Debe inspeccionar directamente el candidato final con acceso a GitHub y buscar activamente contradicciones o defectos razonables, aunque no pueda ejecutar pruebas localmente.
+
+Sólo después de registrar un audit append-only `work-packages/WP-NNN/audits/pre-merge-XXX.md` con veredicto `APROBADO_PARA_MERGE` puede decidir el merge. Esta capa no reemplaza al REVIEWER: agrega una revisión de alto nivel por el ORCHESTRATOR.
+
