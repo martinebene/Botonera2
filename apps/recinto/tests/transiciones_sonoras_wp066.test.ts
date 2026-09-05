@@ -18,7 +18,7 @@ import type {
   EstadoTransmision,
   PersonaPalabraPublica,
 } from '@botonera2/api-client'
-import { detectarTransicionesSonoras } from '../app/utils/transiciones_sonoras'
+import { detectarTransicionesSonoras } from '@botonera2/frontend-shared'
 import {
   crearApoyoTecnicoPrueba,
   crearConcejalesPublicos,

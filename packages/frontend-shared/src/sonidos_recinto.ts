@@ -1,5 +1,18 @@
 /**
- * Frontera reactiva entre el estado público y el motor de audio del Recinto (WP-066).
+ * Frontera reactiva entre el estado público y el motor de audio (WP-066), compartida por
+ * las dos superficies que sonorizan el recinto (WP-071).
+ *
+ * ## Quién lo usa
+ *
+ * La Pantalla del Recinto, desde siempre, y desde WP-071 también el puesto de Apoyo
+ * Técnico. El objetivo operativo de esa segunda superficie es poder tomar el audio del
+ * salón desde el equipo técnico, así que la paridad debe ser exacta: mismos eventos, misma
+ * configuración, mismo volumen y las mismas reglas de silencio.
+ *
+ * Esa exactitud se consigue **compartiendo este composable**, no replicándolo. Ambas
+ * pantallas le entregan los mismos tres insumos —el `EstadoRecinto` adoptado, el estado de
+ * su conexión y el número visible de la cuenta regresiva— y obtienen por construcción el
+ * mismo comportamiento.
  *
  * ## Qué hace
  *
@@ -41,15 +54,24 @@
 
 import { onScopeDispose, watch, type Ref } from 'vue'
 import type { EstadoRecinto } from '@botonera2/api-client'
-import { crearMotorSonidos, type MotorSonidosRecinto } from '../utils/motor_sonidos'
-import { detectarTransicionesSonoras } from '../utils/transiciones_sonoras'
-import type { EstadoConexionRecinto } from './useEstadoRecinto'
+import { crearMotorSonidos, type MotorSonidosRecinto } from './motor_sonidos'
+import { detectarTransicionesSonoras } from './transiciones_sonoras'
+
+/**
+ * Vocabulario de conexión que comparten las pantallas de SISLeg.
+ *
+ * Recinto y Apoyo Técnico ya declaraban cada uno esta misma unión para su propio
+ * indicador. Acá se nombra una vez porque este composable sólo necesita distinguir
+ * `CONECTADO` del resto: con el stream abierto, cada estado adoptado es un hecho nuevo;
+ * sin él, es una baseline que no debe reproducir historia.
+ */
+export type EstadoConexionSuperficie = 'INICIAL' | 'CONECTADO' | 'RECONECTANDO' | 'DESCONECTADO'
 
 export interface OpcionesSonidosRecinto {
-  /** Último estado público adoptado, tal como lo publica `useEstadoRecinto`. */
+  /** Último `EstadoRecinto` adoptado por la superficie que sonoriza. */
   estado: Ref<EstadoRecinto | null>
   /** Estado de la conexión SSE; es lo que separa una baseline de un hecho nuevo. */
-  estadoConexion: Ref<EstadoConexionRecinto>
+  estadoConexion: Ref<EstadoConexionSuperficie>
   /**
    * Segundos visibles de la cuenta regresiva hacia el vivo, o `null` fuera de ella.
    *
@@ -57,6 +79,13 @@ export interface OpcionesSonidosRecinto {
    * mensajes SSE. Por eso el tic no agrega ni una sola petición de red.
    */
   segundosCuentaRegresiva: Ref<number | null>
+  /**
+   * Convierte la ruta configurada por el backend en una URL servible por esta pantalla.
+   *
+   * Se pide siempre porque depende del `baseURL` de la aplicación. Sólo se usa cuando no
+   * se inyecta un `motor` ya construido.
+   */
+  resolverUrl?: (ruta: string) => string
   /** Motor inyectable; las pruebas pasan uno falso y producción usa el predeterminado. */
   motor?: MotorSonidosRecinto
 }
@@ -71,10 +100,11 @@ export interface SonidosRecinto {
  *
  * Efectos: registra dos observadores reactivos y libera el motor cuando muere el scope que
  * lo creó (el desmontaje de la pantalla). No modifica el estado ni emite comandos: la
- * Pantalla del Recinto sigue siendo estrictamente de solo lectura.
+ * sonorización es estrictamente de solo lectura en las dos superficies, y en Apoyo Técnico
+ * no toca ninguno de los controles que esa pantalla sí puede accionar.
  */
 export function useSonidosRecinto(opciones: OpcionesSonidosRecinto): SonidosRecinto {
-  const motor = opciones.motor ?? crearMotorSonidos()
+  const motor = opciones.motor ?? crearMotorSonidos({ resolverUrl: exigirResolutor(opciones) })
 
   /** Último estado ya sonorizado; es el término de comparación de la próxima revisión. */
   let instantaneaPrevia: EstadoRecinto | null = null
@@ -134,4 +164,21 @@ export function useSonidosRecinto(opciones: OpcionesSonidosRecinto): SonidosReci
   onScopeDispose(motor.liberar)
 
   return { motor }
+}
+
+/**
+ * Exige el resolutor de URL cuando hay que construir el motor predeterminado.
+ *
+ * Sin motor inyectado, `resolverUrl` deja de ser opcional: un motor que no supiera armar
+ * la URL reproduciría rutas relativas contra la raíz del servidor y fallaría en silencio,
+ * que es exactamente el defecto difícil de detectar que WP-071 quiere evitar. Fallar acá,
+ * al construir la pantalla, hace visible el error de cableado de inmediato.
+ */
+function exigirResolutor(opciones: OpcionesSonidosRecinto): (ruta: string) => string {
+  if (opciones.resolverUrl === undefined) {
+    throw new Error(
+      'useSonidosRecinto necesita `resolverUrl` para construir su motor predeterminado.',
+    )
+  }
+  return opciones.resolverUrl
 }

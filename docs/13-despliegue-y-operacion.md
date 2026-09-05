@@ -272,25 +272,35 @@ intenta restaurar automáticamente release y archivos de despliegue anteriores.
 Si esa recuperación también falla, la herramienta se detiene y exige
 intervención; nunca borra la release fallida.
 
-### Navegador de la Pantalla del Recinto y autoplay
+### Navegadores que reproducen sonido y autoplay
 
 Desde WP-066 la Pantalla del Recinto reproduce sonidos ante las transiciones de la sesión.
-HUMAN_GATE decidió que **no exista** ningún control visible para habilitarlos: ni botón
-«Activar sonido», ni volumen en pantalla. La consecuencia operativa es directa y hay que
-resolverla en el equipo, no en la interfaz.
+Desde WP-071 el puesto de Apoyo Técnico reproduce **exactamente los mismos** eventos, para
+que la amplificación del salón pueda tomar el audio desde el equipo técnico en lugar de
+depender del monitor del recinto. HUMAN_GATE decidió que en ninguna de las dos pantallas
+exista un control visible para habilitarlos: ni botón «Activar sonido», ni volumen en
+pantalla. La consecuencia operativa es directa y hay que resolverla en cada equipo, no en
+la interfaz.
 
 Los navegadores bloquean por defecto la reproducción automática de audio hasta que la
 persona interactúa con la página. Frente al monitor del recinto no hay nadie que haga clic:
-la pantalla se proyecta y se deja funcionando. Por eso el equipo que la muestra debe estar
-configurado para permitir autoplay en el origen donde se sirve SISLeg.
+la pantalla se proyecta y se deja funcionando. En el puesto técnico hay una persona, pero
+puede pasar toda la sesión sin tocar la pantalla, así que tampoco puede confiarse en un
+gesto previo. Por eso los dos equipos deben estar configurados para permitir autoplay en el
+origen donde se sirve SISLeg.
 
-Requisitos del puesto:
+Cuál de los dos alimenta la amplificación es una decisión operativa de cada sesión. Si
+suenan los dos a la vez y sus salidas llegan al mismo amplificador se oirá un eco, así que
+lo habitual será silenciar por sistema operativo el equipo que no se esté usando como
+fuente. SISLeg no ofrece ni mute ni selector de salida: esa elección se hace en el equipo.
+
+Requisitos de cada puesto que deba sonar:
 
 - el navegador debe permitir reproducción automática de audio para el origen de SISLeg;
 - la salida de audio del sistema operativo debe estar activa, sin silenciar y con volumen
-  audible en el recinto;
+  audible en el destino que corresponda;
 - el volumen relativo de cada evento se ajusta en `config/system.toml` (`[sonidos]`), nunca
-  desde la interfaz.
+  desde la interfaz, y es el mismo para las dos pantallas.
 
 Mecanismos habituales, a confirmar contra la versión instalada del navegador:
 
@@ -298,11 +308,13 @@ Mecanismos habituales, a confirmar contra la versión instalada del navegador:
 
   ```bash
   chromium --kiosk --autoplay-policy=no-user-gesture-required http://<host>/recinto/
+  chromium --autoplay-policy=no-user-gesture-required http://<host>/tecnico/
   ```
 
-  Es la misma bandera que usa el E2E versionado del proyecto
-  (`playwright.config.ts`), de modo que la prueba automatizada exige exactamente la
-  condición que necesita producción.
+  Es la misma bandera que usan los dos E2E versionados del proyecto
+  (`playwright.config.ts` y `playwright.integrado.config.ts`), de modo que las pruebas
+  automatizadas exigen exactamente la condición que necesita producción. El puesto técnico
+  no se abre en modo kiosco porque es una pantalla que se opera.
 
 - **Chromium/Chrome administrado por políticas**: habilitar el sonido para el origen de
   SISLeg mediante la política de autoplay/allowlist correspondiente a la versión instalada,
@@ -310,15 +322,18 @@ Mecanismos habituales, a confirmar contra la versión instalada del navegador:
 
 - **Firefox**: `media.autoplay.default = 0` en el perfil del puesto.
 
-Verificación después de instalar o actualizar: abrir la Pantalla del Recinto, provocar un
-hecho audible desde Moderación —por ejemplo alternar la presencia de una banca— y confirmar
-que el sonido se escucha sin haber tocado la pantalla. Si no se escucha, el problema es de
-configuración del puesto: la aplicación no ofrece ninguna alternativa manual y no debe
-agregarse una sin decisión humana documentada.
+Verificación después de instalar o actualizar: abrir la pantalla que vaya a alimentar la
+amplificación —el Recinto, Apoyo Técnico o las dos—, provocar un hecho audible desde
+Moderación o desde el propio puesto técnico —por ejemplo alternar la presencia de una
+banca— y confirmar que el sonido se escucha sin haber tocado esa pantalla. Si no se
+escucha, el problema es de configuración del puesto: la aplicación no ofrece ninguna
+alternativa manual y no debe agregarse una sin decisión humana documentada.
 
 Los archivos WAV viajan dentro de la release y `activar` ya falla si alguna ruta configurada
 no está publicada, así que un sonido mudo por archivo faltante no puede llegar a producción
-sin detectarse.
+sin detectarse. La validación sigue comprobando la raíz pública del Recinto, que es donde
+los archivos están versionados; Apoyo Técnico publica esos mismos archivos bajo su propio
+prefijo en tiempo de construcción, sin una segunda copia que pudiera quedar atrasada.
 
 ### Manual de usuario publicado con la release
 

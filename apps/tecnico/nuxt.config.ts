@@ -1,3 +1,5 @@
+import { fileURLToPath } from 'node:url'
+
 import tailwindcss from '@tailwindcss/vite'
 
 const shaConstruccion = process.env.BOTONERA2_SHA_CONSTRUCCION
@@ -62,6 +64,28 @@ export default defineNuxtConfig({
     plugins: [tailwindcss()],
   },
   nitro: {
+    /**
+     * Sonidos del recinto servidos también por Apoyo Técnico (WP-071).
+     *
+     * Desde WP-071 este puesto reproduce los mismos quince eventos sonoros que la Pantalla
+     * del Recinto, para poder alimentar la amplificación del salón desde el equipo técnico.
+     * El backend proyecta rutas relativas —`assets/sonidos/sesion-abierta.wav`— y cada SPA
+     * las resuelve contra su propio prefijo, así que Apoyo Técnico necesita esos archivos
+     * publicados bajo `/tecnico/assets/sonidos/`.
+     *
+     * Se declaran acá como directorio público adicional en lugar de copiarlos a
+     * `apps/tecnico/public/`. La diferencia importa: los WAV siguen versionados una sola
+     * vez, en `apps/recinto/public/assets/sonidos/`, que es la raíz que valida
+     * `validar_assets_sonidos` al desplegar y la que documenta `assets/sonidos/README.md`.
+     * Una segunda copia en el repositorio podría quedar desactualizada sin que nada lo
+     * notara; una copia hecha en cada construcción, no.
+     */
+    publicAssets: [
+      {
+        dir: fileURLToPath(new URL('../recinto/public/assets/sonidos', import.meta.url)),
+        baseURL: '/assets/sonidos',
+      },
+    ],
     hooks: {
       /**
        * Reemplaza la hora de ejecución que Nuxt agrega al payload de cada SPA.

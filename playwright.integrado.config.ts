@@ -29,7 +29,25 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium-integrado',
-      use: { ...devices['Desktop Chrome'] },
+      use: {
+        ...devices['Desktop Chrome'],
+        launchOptions: {
+          /*
+            Política de autoplay de los dos puestos que sonorizan (WP-066, WP-071).
+
+            Ni el monitor del recinto ni el puesto de Apoyo Técnico reciben una interacción
+            humana antes de tener que reproducir: no hay quien toque la pantalla del salón,
+            y el operador técnico puede pasar toda la sesión sin hacer clic. Chromium exige
+            por defecto un gesto previo, y HUMAN_GATE descartó agregar un botón «Activar
+            sonido» en cualquiera de las dos superficies.
+
+            La bandera declara acá la misma condición que el equipo de producción debe
+            cumplir, documentada en `docs/13-despliegue-y-operacion.md` y en el manual. Es
+            la misma que ya usa `playwright.config.ts` para las pruebas de componentes.
+          */
+          args: ['--autoplay-policy=no-user-gesture-required'],
+        },
+      },
     },
   ],
 })

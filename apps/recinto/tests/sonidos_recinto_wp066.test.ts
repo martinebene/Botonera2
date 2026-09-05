@@ -14,8 +14,11 @@ import { describe, expect, it } from 'vitest'
 import { effectScope, ref, type Ref } from 'vue'
 import type { EstadoRecinto } from '@botonera2/api-client'
 import type { EstadoConexionRecinto } from '../app/composables/useEstadoRecinto'
-import { useSonidosRecinto } from '../app/composables/useSonidosRecinto'
-import type { MotorSonidosRecinto } from '../app/utils/motor_sonidos'
+import {
+  EVENTOS_SONOROS_RECINTO,
+  useSonidosRecinto,
+  type MotorSonidosRecinto,
+} from '@botonera2/frontend-shared'
 import {
   crearApoyoTecnicoPrueba,
   crearConcejalesPublicos,
@@ -23,6 +26,10 @@ import {
   crearSonidosRecintoPrueba,
   crearVotacionPublicaPrueba,
 } from './datos_prueba'
+import {
+  crearEscenariosSonoros,
+  eventosCubiertos,
+} from '../../../packages/frontend-shared/tests/helpers/escenarios_sonoros'
 
 /** Motor de prueba: registra los eventos pedidos y las configuraciones adoptadas. */
 function crearMotorEspia() {
@@ -328,4 +335,42 @@ describe('Ciclo de vida', () => {
 
     expect(banco.espia.liberado).toBe(true)
   })
+})
+
+// =============================================================================
+// Paridad con el puesto de Apoyo Técnico (WP-071)
+// =============================================================================
+
+/**
+ * La misma tabla canónica que ejercita la suite de Apoyo Técnico.
+ *
+ * Acá corre sobre el cableado de la Pantalla del Recinto. Que las dos superficies
+ * atraviesen los mismos quince escenarios y produzcan los mismos quince eventos es lo que
+ * convierte «paridad 1:1» en algo comprobable y no en una intención escrita en un
+ * comentario: si alguna de las dos dejara de reproducir un evento, fallaría su propia
+ * suite contra esta misma lista.
+ */
+describe('Paridad de los quince eventos con Apoyo Técnico (WP-071)', () => {
+  const escenarios = crearEscenariosSonoros()
+
+  it('la tabla canónica cubre exactamente los quince eventos del contrato', () => {
+    expect([...eventosCubiertos(escenarios)].sort()).toEqual([...EVENTOS_SONOROS_RECINTO].sort())
+  })
+
+  for (const escenario of escenarios) {
+    it(`reproduce ${escenario.evento} cuando ${escenario.descripcion}`, () => {
+      const banco = montar()
+      adoptarBaseline(banco, escenario.previo)
+      banco.espia.reproducidos.length = 0
+
+      banco.estado.value = escenario.actual
+      if (escenario.segundos !== undefined) {
+        banco.segundos.value = escenario.segundos.previo
+        banco.segundos.value = escenario.segundos.actual
+      }
+
+      expect(banco.espia.reproducidos).toContain(escenario.evento)
+      banco.detener()
+    })
+  }
 })

@@ -3,12 +3,15 @@
  * Shell de la SPA de Apoyo Técnico (WP-056, redistribuido por WP-059).
  *
  * Responsabilidades:
- * 1. Abrir las dos suscripciones autoritativas (plano técnico y Moderación para remapeo).
+ * 1. Abrir las tres suscripciones autoritativas (plano técnico, Moderación para remapeo y,
+ *    desde WP-071, la proyección pública del Recinto para el sonido).
  * 2. Alimentar la cabecera con conexión, estado global y estado de transmisión.
  * 3. Disponer los cinco bloques operativos en una grilla que entra completa a 1366×768 y
  *    a 1920×1080, sin scroll de página.
  * 4. Conectar la biblioteca de mensajes con el formulario de avisos, de modo que elegir
  *    un preset lo precargue sin publicarlo.
+ * 5. Reproducir los mismos quince sonidos que la Pantalla del Recinto (WP-071), sin
+ *    agregar ningún control visible.
  *
  * Sobre el dimensionado: el shell no fija alturas en píxeles. La altura total la aporta
  * `h-dvh`, el reparto lo resuelven Flexbox y CSS Grid con fracciones, y cada panel
@@ -51,11 +54,12 @@
  */
 
 import { computed, shallowRef } from 'vue'
-import { usePresentacionTecnica } from '@botonera2/frontend-shared'
+import { usePresentacionTecnica, useSonidosRecinto } from '@botonera2/frontend-shared'
 import GestionRemapeo from '@botonera2/frontend-shared/componentes/GestionRemapeo.vue'
 import IndicadorCargaInicial from '@botonera2/frontend-shared/componentes/IndicadorCargaInicial.vue'
 import type { DestinoAvisoTecnico } from '@botonera2/api-client'
 import { useEstadoTecnico } from './composables/useEstadoTecnico'
+import { resolverRutaAsset } from './utils/rutas'
 import CabeceraTecnico from './components/CabeceraTecnico.vue'
 import PanelTecnico from './components/PanelTecnico.vue'
 import ControlTransmision from './components/ControlTransmision.vue'
@@ -66,7 +70,9 @@ import ListaEventosTecnicos from './components/ListaEventosTecnicos.vue'
 const {
   estado,
   estadoModeracion,
+  estadoRecinto,
   estadoConexion,
+  estadoConexionRecinto,
   revision,
   conectado,
   desactualizado,
@@ -106,6 +112,37 @@ function seleccionarBorrador(mensaje: { texto: string; destino: DestinoAvisoTecn
   marcaBorrador += 1
   borradorSeleccionado.value = { ...mensaje, marca: marcaBorrador }
 }
+
+/**
+ * Sonidos del recinto reproducidos también por Apoyo Técnico (WP-071).
+ *
+ * El objetivo operativo lo cerró HUMAN_GATE: poder tomar el audio del salón desde el
+ * equipo técnico. Para que la paridad sea exacta y no una imitación, esta pantalla usa el
+ * **mismo** composable que la Pantalla del Recinto y le entrega los mismos tres insumos.
+ *
+ * 1. `estadoRecinto` y `estadoConexionRecinto` son la proyección pública y el estado de su
+ *    propio stream. Con el stream abierto, cada estado adoptado es un hecho nuevo; sin él,
+ *    es una baseline y no debe sonar. Eso cubre a la vez el primer snapshot, la recarga de
+ *    la página y cualquier reconexión: Apoyo Técnico no reproduce historia.
+ * 2. `segundosTransmision` es el número de la cuenta regresiva que ya se calcula acá
+ *    arriba para mostrarlo en el panel de Transmisión. Se reutiliza a propósito, por dos
+ *    motivos: el tic acompaña exactamente al dígito que el operador ve bajar, y no se
+ *    agrega ningún reloj ni ninguna consulta nueva. El backend no emite una revisión por
+ *    segundo y este WP prohíbe pedírsela.
+ * 3. `resolverRutaAsset` arma la URL bajo el prefijo `/tecnico/`, donde la construcción
+ *    publica los mismos archivos versionados del Recinto.
+ *
+ * No se renderiza nada: no hay botón de activación, ni control de volumen, ni selector de
+ * salida. Si el navegador del puesto técnico bloquea la reproducción automática, la
+ * pantalla sigue operando con normalidad y el permiso se otorga en la configuración del
+ * equipo, igual que en el recinto (ver `docs/13-despliegue-y-operacion.md`).
+ */
+useSonidosRecinto({
+  estado: estadoRecinto,
+  estadoConexion: estadoConexionRecinto,
+  segundosCuentaRegresiva: segundosTransmision,
+  resolverUrl: resolverRutaAsset,
+})
 </script>
 
 <template>

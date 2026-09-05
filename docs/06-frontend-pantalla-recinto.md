@@ -177,6 +177,17 @@ La Pantalla del Recinto reproduce los quince sonidos configurados en `system.tom
 (WP-065) ante las transiciones confirmadas que define WP-066. No existe control visible de
 audio: ni botón de activación, ni volumen, ni selección de archivos.
 
+Desde WP-071 el puesto de Apoyo Técnico reproduce **los mismos quince eventos**, con la
+misma configuración, el mismo volumen y las mismas reglas de silencio. El objetivo es
+operativo: permitir que la amplificación del salón tome el audio desde el equipo técnico.
+No es una segunda implementación sino la misma: detección de transiciones, motor de audio
+y frontera reactiva viven en `packages/frontend-shared/` y las dos pantallas los consumen.
+Todo lo que sigue en esta sección describe, por lo tanto, el comportamiento de ambas
+superficies. Apoyo Técnico obtiene el estado que sonoriza mediante una suscripción
+adicional de **solo lectura** a la proyección pública `EstadoRecinto`, la misma que ya ve
+cualquiera que mire la pantalla del salón, y tampoco agrega ningún control visible de
+audio.
+
 ### Qué dispara cada sonido
 
 Catorce de los quince eventos se deducen comparando dos estados públicos consecutivos ya
@@ -232,8 +243,11 @@ Un archivo que falta, una política de autoplay que rechaza la reproducción o u
 configuración que el backend publicó como no disponible no rompen el render ni la
 sincronización: la pantalla sigue funcionando en silencio y el problema se informa una sola
 vez por el canal técnico del navegador, sin reintentos y sin ninguna superficie visible
-nueva. La configuración del equipo que permite reproducir sin interacción humana está
-documentada en `docs/13-despliegue-y-operacion.md`.
+nueva. En Apoyo Técnico vale lo mismo, con una consecuencia adicional que conviene tener
+presente: un fallo de audio no afecta los controles de transmisión, avisos, biblioteca ni
+remapeo, porque dependen de otro canal. La configuración de los equipos que permite
+reproducir sin interacción humana está documentada en
+`docs/13-despliegue-y-operacion.md`.
 
 ## 15. Solo lectura
 

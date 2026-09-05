@@ -400,7 +400,7 @@
           <li><a href="#cap-06-votaciones">Votaciones</a></li>
           <li><a href="#cap-07-palabra">Uso de la palabra</a></li>
           <li><a href="#cap-08-apoyo-tecnico">Apoyo Técnico: avisos y transmisión</a></li>
-          <li><a href="#cap-09-sonidos">Sonidos del Recinto</a></li>
+          <li><a href="#cap-09-sonidos">Sonidos del Recinto y del puesto técnico</a></li>
           <li><a href="#cap-10-configuracion">Configuración y archivos principales</a></li>
           <li><a href="#cap-11-instalacion">Puesta en marcha e instalación inicial</a></li>
           <li><a href="#cap-12-operacion">Operación, actualización y diagnóstico</a></li>
@@ -1231,6 +1231,15 @@
             transmisión y los avisos no dependen de que haya una sesión.
           </p>
 
+          <p>
+            Además de esos cinco paneles, esta pantalla <strong>reproduce los mismos sonidos que la
+            Pantalla del Recinto</strong>, para poder usar la salida de audio del equipo técnico como
+            fuente de la amplificación del salón. No agrega ningún control ni ocupa lugar en la
+            grilla: está explicado en el <a href="#cap-09-sonidos">capítulo 9</a>, y el permiso de
+            reproducción automática que necesita el equipo, en el
+            <a href="#cap-13-navegador">capítulo 13</a>.
+          </p>
+
           <h3>8.1 Transmisión</h3>
 
           <p>
@@ -1365,13 +1374,28 @@
 
         <!-- ============================================================ 9 -->
         <section class="capitulo" id="cap-09-sonidos">
-          <h2>9. Sonidos del Recinto</h2>
+          <h2>9. Sonidos del Recinto y del puesto técnico</h2>
 
           <p>
             La Pantalla del Recinto reproduce un sonido corto ante cada hecho importante. No tiene
             ningún control visible de audio: no hay botón para activarlo, ni control de volumen, ni
             selección de archivos. Todo se decide por configuración y por la preparación del equipo
             que muestra la pantalla.
+          </p>
+
+          <p>
+            <strong>La pantalla de Apoyo Técnico reproduce exactamente los mismos sonidos.</strong>
+            Son los mismos quince eventos, los mismos archivos y los mismos volúmenes, y suenan en
+            el mismo momento. La razón es práctica: permite conectar la amplificación del salón a la
+            salida de audio del equipo técnico, en lugar de depender del equipo que proyecta la
+            pantalla del recinto. Apoyo Técnico tampoco muestra ningún control de audio.
+          </p>
+
+          <p class="nota">
+            Las dos pantallas pueden sonar a la vez. Si las dos salidas llegan al mismo amplificador
+            se escuchará un eco, así que conviene silenciar por sistema operativo el equipo que no
+            se esté usando como fuente. SISLeg no ofrece silenciar ni elegir la salida: esa decisión
+            se toma en cada equipo.
           </p>
 
           <h3>9.1 Qué suena y cuándo</h3>
@@ -1405,8 +1429,9 @@
 
           <ul>
             <li>
-              La <strong>primera carga</strong> de la pantalla. Describe lo que ya ocurrió, no un
-              hecho nuevo.
+              La <strong>primera carga</strong> de cualquiera de las dos pantallas. Describe lo que
+              ya ocurrió, no un hecho nuevo. Abrir Apoyo Técnico en mitad de una sesión avanzada no
+              reproduce de golpe todo lo que pasó antes.
             </li>
             <li>
               Una <strong>recarga</strong> o una <strong>reconexión</strong>. El estado que llega al
@@ -1433,7 +1458,9 @@
           <p>
             Si falta un archivo, si el navegador bloquea la reproducción o si la configuración de
             audio no es válida, la pantalla <strong>sigue funcionando en silencio</strong>. No
-            aparece ningún mensaje en pantalla y nada más se degrada. Por eso conviene comprobar el
+            aparece ningún mensaje en pantalla y nada más se degrada. En Apoyo Técnico esto también
+            significa que la transmisión, los avisos, los mensajes precargados y el remapeo siguen
+            funcionando con normalidad: sólo se pierde el sonido. Por eso conviene comprobar el
             sonido después de cada instalación o actualización, como indica el
             <a href="#cap-13-navegador">capítulo 13</a>.
           </p>
@@ -1444,7 +1471,9 @@
             Cada uno de los quince eventos declara en la configuración un archivo y un volumen de 0
             a 100. Un volumen 0 silencia ese evento sin borrar su configuración. Cambiar un sonido
             consiste en apuntar a otro archivo ya publicado con la Pantalla del Recinto; el detalle
-            está en el <a href="#cap-10-configuracion">capítulo 10</a>.
+            está en el <a href="#cap-10-configuracion">capítulo 10</a>. El cambio afecta a las dos
+            pantallas a la vez: la configuración es una sola y no hay una lista aparte para el
+            puesto técnico.
           </p>
 
           <a class="volver" href="#inicio">↑ Volver al índice</a>
@@ -2048,8 +2077,10 @@ curl --fail http://127.0.0.1/manual/</code></pre>
           </p>
 
           <p>
-            No hace falta ninguna configuración especial en el puesto de Moderación ni en el de
-            Apoyo Técnico.
+            No hace falta ninguna configuración especial en el puesto de Moderación. El de Apoyo
+            Técnico sólo necesita una si va a usarse como fuente de audio para la amplificación del
+            salón: en ese caso rige el mismo requisito de reproducción automática que el equipo del
+            recinto, explicado en 13.4.
           </p>
 
           <h3>13.2 Resoluciones</h3>
@@ -2076,12 +2107,19 @@ curl --fail http://127.0.0.1/manual/</code></pre>
 
           <h3>13.4 Reproducción automática de audio</h3>
 
+          <p>
+            Esta sección alcanza a <strong>las dos pantallas que reproducen sonido</strong>: la del
+            recinto y la de Apoyo Técnico. Hay que configurar la que vaya a alimentar la
+            amplificación, o las dos si se quiere tener las dos disponibles.
+          </p>
+
           <div class="cuidado">
             <strong>Requisito obligatorio</strong>
             Los navegadores bloquean la reproducción automática de sonido hasta que alguien
-            interactúa con la página. Frente al monitor del recinto no hay nadie que haga clic, y
-            SISLeg no ofrece ningún botón para activar el sonido. El permiso tiene que darse en el
-            equipo: si no se configura, la pantalla funciona en silencio y no avisa.
+            interactúa con la página. Frente al monitor del recinto no hay nadie que haga clic, y en
+            el puesto técnico puede pasar toda la sesión sin que nadie toque la pantalla. SISLeg no
+            ofrece ningún botón para activar el sonido. El permiso tiene que darse en el equipo: si
+            no se configura, la pantalla funciona en silencio y no avisa.
           </div>
 
           <p>Formas habituales de otorgarlo, a confirmar contra la versión instalada del navegador:</p>
@@ -2089,9 +2127,12 @@ curl --fail http://127.0.0.1/manual/</code></pre>
           <ul>
             <li>
               <p>
-                En navegadores basados en Chromium, agregando la opción al lanzador del modo kiosco:
+                En navegadores basados en Chromium, agregando la opción al lanzador. En el equipo
+                del recinto, junto al modo kiosco; en el puesto técnico, sin kiosco, porque es una
+                pantalla que se opera:
               </p>
-              <pre><code>chromium --kiosk --autoplay-policy=no-user-gesture-required http://&lt;servidor&gt;/recinto/</code></pre>
+              <pre><code>chromium --kiosk --autoplay-policy=no-user-gesture-required http://&lt;servidor&gt;/recinto/
+chromium --autoplay-policy=no-user-gesture-required http://&lt;servidor&gt;/tecnico/</code></pre>
             </li>
             <li>
               En equipos administrados por políticas, habilitando el sonido para la dirección de
@@ -2107,10 +2148,17 @@ curl --fail http://127.0.0.1/manual/</code></pre>
           <h3>13.5 Cómo verificarlo</h3>
 
           <ol>
-            <li>Abrir la Pantalla del Recinto en el equipo del proyector y no tocarla.</li>
+            <li>
+              Abrir la pantalla que vaya a sonar —la del Recinto en el equipo del proyector, la de
+              Apoyo Técnico en el puesto técnico, o las dos— y no tocarla.
+            </li>
             <li>Desde Moderación, preparar el recinto.</li>
             <li>Provocar un hecho audible, por ejemplo alternando la presencia de una banca.</li>
-            <li>Confirmar que el sonido se escuche sin haber interactuado con la pantalla.</li>
+            <li>Confirmar que el sonido se escuche sin haber interactuado con esa pantalla.</li>
+            <li>
+              Si se van a usar las dos, comprobar cada una por separado: el permiso de reproducción
+              automática se otorga por equipo y por navegador.
+            </li>
           </ol>
 
           <p>
