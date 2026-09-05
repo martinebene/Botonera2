@@ -216,9 +216,9 @@ WP-033 quedó integrado antes de continuar WP-026 y deja disponible el harness m
 | WP-068 | Evitar CI completa en pushes documentales a main | INTEGRADO | DEC-019 | claude |
 | WP-067 | Publicar manual de usuario y ayuda integrada de SISLeg | INTEGRADO | WP-062, WP-063, WP-064, WP-065, WP-066 | claude |
 | WP-069 | Reemplazar logo SISLeg por el asset humano corregido e integrarlo en la ayuda | INTEGRADO | WP-062, WP-067 | claude |
-| WP-070 | Corregir microcopy y geometría operativa en Moderación, Apoyo Técnico y Recinto | EN_CURSO | WP-056 | claude |
+| WP-070 | Corregir microcopy y geometría operativa en Moderación, Apoyo Técnico y Recinto | INTEGRADO | WP-056 | claude |
 | WP-071 | Replicar en Apoyo Técnico todos los eventos sonoros del Recinto | PENDIENTE | WP-056, WP-066 | claude |
-| WP-072 | Incorporar gobernanza de actualización del manual de ayuda | EN_CURSO | WP-067 | claude |
+| WP-072 | Incorporar gobernanza de actualización del manual de ayuda | INTEGRADO | WP-067 | claude |
 | WP-073 | Separar configuración operativa local de plantillas versionadas | INTEGRADO | WP-069 | claude |
 | WP-029 | Validar bridge/hardware real, regresión funcional y candidato de producción | BLOQUEADO | WP-019, WP-020, WP-027, WP-028, WP-034, WP-035, WP-036, WP-037, WP-038, WP-039, WP-040, WP-041, WP-043, WP-044, WP-045, WP-046, WP-047, WP-048, WP-049, WP-050, WP-051, WP-052, WP-053, WP-054, WP-055, WP-056, WP-057, WP-058, WP-059, WP-060, WP-061, WP-062, WP-063, WP-064, WP-065, WP-066, WP-067, WP-069, WP-070, WP-071, WP-072, WP-073 | - |
 
@@ -414,3 +414,10 @@ WP-073 quedó VERIFIED_COMPLETE. PR #77 integró por squash el candidato final `
 
 
 HUMAN_GATE activa la etapa WP-070/WP-072 después del cierre completo de WP-073. Ambos WPs usan Claude Code / Claude Opus 5 (High) como IMPLEMENTER y Antigravity/AGY / Gemini 3.8 Flash (High) como REVIEWER independiente. La ejecución local queda delegada mecánicamente a COORDINADOR_LOCAL Codex con modelo requerido Luna y `max_concurrency=1`. HUMAN_GATE asume la selección visual de Luna en la TUI de Codex antes de emitir `Seguí`; esa orden constituye la confirmación humana del modelo. No se autoriza sustitución silenciosa. WP-070 y WP-072 permanecen lógicamente paralelos pero físicamente secuenciales; el coordinador puede crear sus worktrees Orca desde este main, despachar IMPLEMENTER y atravesar únicamente la transición mecánica preautorizada IMPLEMENTER -> REVIEWER cuando todos los gates objetivos se cumplan. No puede interpretar reviews, corregir, mergear, cerrar, limpiar ni tocar WP-029.
+
+
+WP-072 quedó integrado mediante PR #80 sobre el candidato `e0869eccfe2f4a4518b05554c6fd40d3209f18a7`, revisado independientemente por Antigravity/AGY / Gemini 3.8 Flash (High) con 0 BLOQUEANTES, 0 IMPORTANTES y 0 MENORES y veredicto `LISTA PARA INTEGRAR`. El desvío blando sobre `.github/pull_request_template.md` fue revisado y aceptado por su relación directa con la verificabilidad de la nueva gobernanza del manual. El squash `ee7a0a634de3a3086bfb2f83fe85b7553c8343af` fue puramente documental y no generó CI post-merge, resultado esperado por DEC-019. Ese avance se clasificó `NO_MATERIAL_DOCUMENTAL` respecto de WP-070.
+
+WP-070 quedó integrado mediante PR #78 sobre el candidato `5d0a69ba1c82087cadca1f72d8745976d78aaed2`, revisado independientemente por Antigravity/AGY / Gemini 3.8 Flash (High) con 0 BLOQUEANTES, 0 IMPORTANTES y 0 MENORES y veredicto `LISTA PARA INTEGRAR`. El squash `6077cc7eadefed67c063c518d1f0cb786d101ca8` integró microcopy, geometría técnica y aviso de desconexión; CI candidata #469 y CI post-merge #473 terminaron `success` 8/8. Queda pendiente únicamente el cleanup local/remoto de WP-070/WP-072 antes de activar WP-071. WP-029 permanece BLOQUEADO.
+
+La gobernanza de COORDINADOR_LOCAL fue actualizada para próximas ejecuciones mediante PR #79: workers lanzados con perfil de permisos completos aprobado, coordinador reducido a scheduling/lifecycle/gates objetivos y principio de completar el lote ante `soft_deviation` confinadas al worktree. Los riesgos duros siguen deteniendo el WP/lote según alcance.
