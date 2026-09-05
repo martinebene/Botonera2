@@ -258,6 +258,71 @@ Se rechaza. La excepción queda limitada a campos operativos de `PLAN.md` para p
 
 Se rechaza para la orquestación. El orquestador debe contrastar de forma independiente el estado remoto en GitHub.
 
+## Auditoría sustantiva pre-integración del ORCHESTRATOR
+
+La revisión independiente del REVIEWER es obligatoria pero **no agota la responsabilidad de control de ChatGPT Web**.
+
+Cada vez que un turno o lote devuelve el control al ORCHESTRATOR con un candidato aparentemente listo para integrar, ChatGPT Web debe realizar una auditoría propia, profunda y explícita **antes de cualquier merge**.
+
+Esta auditoría es una segunda capa de razonamiento de alto nivel. No reemplaza al REVIEWER ni pretende duplicar sus pruebas; busca detectar incoherencias que pueden quedar fuera de una revisión local, errores de flujo, cobertura incompleta del candidato, contradicciones documentales o una cadena de revisión que no cubra realmente el SHA que se pretende integrar.
+
+El ORCHESTRATOR debe reconstruir desde GitHub y Botonera2-Control, sin depender únicamente del resumen del COORDINADOR_LOCAL:
+
+1. la asignación IMPLEMENTER original y todas sus iteraciones;
+2. el/los handoffs IMPLEMENTER;
+3. la asignación REVIEWER y su handoff;
+4. cualquier corrección, sincronización, cambio de candidate SHA o re-revisión posterior;
+5. qué agente/modelo efectivo ocupó cada rol y si se preservó independencia;
+6. el resultado final del COORDINADOR_LOCAL, si existió;
+7. la PR vigente, base, HEAD, candidate SHA, tree SHA y estado de mergeabilidad;
+8. la CI exacta que cubre el candidato final;
+9. cualquier `soft_deviation`, escalación o excepción ocurrida durante el lote.
+
+Después debe inspeccionar sustantivamente el candidato final:
+
+- diff completo y lista de archivos cambiados;
+- coherencia con objetivo, alcance, exclusiones y criterios del WP;
+- decisiones DEC/DT y documentación canónica aplicable;
+- tests agregados/modificados y si realmente ejercitan el comportamiento que dicen cubrir;
+- impacto sobre `manual/index.html` y demás documentación obligatoria;
+- posibles cambios adyacentes no declarados;
+- coherencia entre lo que afirma el IMPLEMENTER, lo que revisó el REVIEWER y lo que realmente contiene GitHub;
+- regresiones o contradicciones razonables que puedan inferirse del código/diff aunque no exista capacidad local de ejecutar tests desde ChatGPT Web.
+
+El ORCHESTRATOR **no necesita ejecutar una suite local** para cumplir esta puerta. Debe usar toda la evidencia remota disponible —código, diff, commits, PR, CI, handoffs, documentación y resultados de revisión— y aplicar análisis propio. Una CI verde o un veredicto `LISTA PARA INTEGRAR` son evidencia necesaria, no autorización automática de merge.
+
+Debe comprobar especialmente la cobertura temporal de la revisión:
+
+- si el candidate SHA cambió después del review, ese review no cubre el nuevo candidato;
+- si hubo corrección después de hallazgos, debe existir la re-revisión exigida sobre el SHA resultante;
+- si hubo varias iteraciones, debe reconstruirse cuál quedó vigente y cuáles fueron superseded;
+- si el coordinador atravesó IMPLEMENTER -> REVIEWER mecánicamente, debe verificarse retrospectivamente que todos los gates objetivos realmente se cumplieron;
+- si una desviación blanda fue enviada a REVIEWER, debe verificarse que el REVIEWER la haya inspeccionado o que el ORCHESTRATOR la resuelva explícitamente antes del merge.
+
+### Resultado de la auditoría
+
+Antes de mergear, el ORCHESTRATOR registra una evidencia append-only en Botonera2-Control:
+
+`work-packages/WP-NNN/audits/pre-merge-XXX.md`
+
+donde `XXX` comienza en `001` y aumenta si una auditoría anterior deriva en corrección/re-revisión.
+
+El registro debe contener como mínimo:
+
+- candidate/base/tree SHA auditados;
+- PR y CI exactas;
+- secuencia reconstruida de implementación/revisión/correcciones/re-revisiones;
+- staleness de `main`;
+- desvíos/excepciones detectados;
+- comprobación de cobertura del review sobre el SHA final;
+- contradicciones o riesgos encontrados;
+- veredicto `APROBADO_PARA_MERGE` o `NO_APROBADO`;
+- acciones requeridas cuando no se aprueba.
+
+Sólo `APROBADO_PARA_MERGE` habilita al ORCHESTRATOR a pasar a la puerta de integración.
+
+Si la auditoría encuentra una inconsistencia, el ORCHESTRATOR no la racionaliza para conservar velocidad: bloquea el merge y decide corrección, re-revisión, aclaración documental o rechazo según corresponda.
+
 ## Consecuencias
 
 - Menos worktrees y pasos de limpieza por WP.
