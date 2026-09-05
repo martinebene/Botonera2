@@ -104,6 +104,19 @@ Indicar decisiones reservadas por DT-038 que hayan requerido aprobación humana/
 
 - [ ] Documentación canónica/WP actualizada cuando corresponde.
 
+## Impacto en el manual de usuario y soporte
+
+Indicar exactamente una de estas opciones:
+
+- `Requiere actualización del manual.` Detallar qué se actualizó en `manual/index.html` y por qué es
+  relevante para la persona usuaria o el soporte técnico.
+- `No requiere actualización del manual.` Detallar por qué el cambio no necesita explicarse a usuario
+  ni soporte.
+
+- [ ] El impacto sobre `manual/index.html` fue evaluado explícitamente.
+- [ ] Si el cambio es relevante para usuario o soporte, `manual/index.html` quedó actualizado en esta
+      misma PR.
+
 ## Decisiones o desviaciones
 
 Indicar decisiones nuevas, desviaciones respecto del WP o `Ninguna`.

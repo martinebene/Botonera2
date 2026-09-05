@@ -199,6 +199,34 @@ Ver `docs/14-gobernanza-agentes.md` y las DEC posteriores vigentes, especialment
 - Las decisiones reservadas por DT-038 requieren aprobación humana/documentada antes de continuar el alcance afectado.
 - La coordinación de turnos, handoffs e aislamiento entre roles se rige por DEC-017 y `martinebene/Botonera2-Control`.
 
+## Evaluación obligatoria de impacto en el manual de usuario y soporte
+
+`manual/index.html` es el manual único de operación, configuración, instalación, diagnóstico y
+soporte de SISLeg. Es documentación destinada a personas que usan u operan el sistema, no
+documentación interna de desarrollo.
+
+Regla permanente, aplicable a **todo** cambio del sistema, tenga o no código:
+
+1. antes de cerrar el trabajo hay que evaluar explícitamente si el cambio necesita ser explicado
+   al usuario o al soporte técnico;
+2. si la respuesta es **sí**, `manual/index.html` se actualiza dentro del mismo WP/PR o cambio
+   autorizado, nunca en un trabajo posterior indeterminado;
+3. si la respuesta es **no**, la entrega debe dejar registrado de forma explícita que el impacto
+   sobre el manual fue evaluado y no requiere actualización.
+
+La regla alcanza tanto funciones nuevas como cambios de comportamiento, operación, configuración,
+instalación, diagnóstico, textos relevantes para quien opera y flujos de soporte.
+
+No exige documentar en el manual detalles internos de desarrollo sin utilidad para usuario o
+soporte: refactors internos, nombres de módulos, estructura de tests o decisiones puramente
+técnicas invisibles para quien opera se declaran «sin impacto» y se cierra el punto ahí.
+
+La evaluación es una obligación humana/agéntica de criterio. No existe ni se pretende una
+automatización que decida por sí sola si el manual necesita cambios.
+
+Esta regla no altera DEC-005 ni DEC-019: un cambio puramente documental autorizado sigue el
+mecanismo de DEC-005, y qué eventos ejecutan CI sigue determinándose exclusivamente por DEC-019.
+
 ## Decisiones transversales posteriores
 
 ### DEC-001 - Estilo de código y referencia a producción
@@ -433,6 +461,8 @@ Solo debe detenerse la parte dependiente de esa decisión; el trabajo independie
 - No ignorar DEC-007 al seleccionar entorno, rama/worktree, implementador o revisor.
 - No ignorar DEC-017 ni ejecutar trabajo si `Botonera2-Control` no autoriza inequívocamente el rol/turno.
 - No consumir informes privados del otro rol para eludir la mediación del ORCHESTRATOR.
+- No cerrar una entrega sin evaluar el impacto sobre `manual/index.html` y sin dejar constancia
+  de esa evaluación, actualice o no el manual.
 - No versionar credenciales o secretos de MCP ni configuración personal de agentes/Orca.
 
 Si aparece trabajo fuera de alcance, registrarlo en el WP/PR como hallazgo. Si aparece una decisión transversal nueva, detener solo el alcance afectado y elevarla para posible `DEC-XXX`.
@@ -454,6 +484,8 @@ Cada cambio debe:
 - utilizar documentación técnica externa actualizada cuando corresponda según DEC-003;
 - hacer explícito cualquier fallback por MCP no disponible;
 - respetar el entorno y la independencia de agentes definidos por DEC-007;
+- dejar `manual/index.html` consistente con el cambio cuando sea relevante para usuario/soporte, o
+  registrar explícitamente que se evaluó y no requiere actualización;
 - respetar el turno, aislamiento y handoffs definidos por DEC-017 y `Botonera2-Control`.
 
 Si aparece una contradicción real entre documentos, no adivinar: detener únicamente el alcance afectado y documentar la inconsistencia.

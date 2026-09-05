@@ -105,6 +105,11 @@ Antes de iniciar implementación, el ORCHESTRATOR:
 14. cambia PLAN a `EN_CURSO` con el implementador autorizado;
 15. prepara la primera asignación en `Botonera2-Control`.
 
+Al redactar o aprobar el WP, el ORCHESTRATOR verifica además que la sección obligatoria
+`## Impacto en el manual de usuario y soporte` exista y esté resuelta con una de las dos
+declaraciones previstas por `docs/work-packages/TEMPLATE.md`. Un WP que no declare ese impacto
+no está listo para pasar a `APROBADO`.
+
 Los agentes locales reciben un WP ya cerrado. No redefinen alcance ni decisiones reservadas.
 
 ## Calidad de las asignaciones
@@ -329,13 +334,14 @@ IMPLEMENTER:
 5. sincroniza con `origin/main` según corresponda;
 6. ejecuta validaciones aplicables;
 7. diagnostica y corrige fallos normales dentro del alcance;
-8. crea commits sin solicitar confirmación adicional;
-9. push de rama sin solicitar confirmación adicional;
-10. crea/actualiza PR;
-11. deja candidato remoto con SHA exacto;
-12. verifica CI según la asignación;
-13. publica mediante commit/push únicamente `expected_response_path` en `Botonera2-Control`;
-14. se detiene.
+8. evalúa el impacto sobre `manual/index.html`, lo actualiza dentro del mismo WP cuando el cambio es relevante para usuario o soporte, y deja constancia explícita del resultado de esa evaluación en la PR y en su informe;
+9. crea commits sin solicitar confirmación adicional;
+10. push de rama sin solicitar confirmación adicional;
+11. crea/actualiza PR;
+12. deja candidato remoto con SHA exacto;
+13. verifica CI según la asignación;
+14. publica mediante commit/push únicamente `expected_response_path` en `Botonera2-Control`;
+15. se detiene.
 
 El inicio del turno por HUMAN_GATE ya autoriza estos pasos. El IMPLEMENTER solo vuelve al humano antes del handoff ante un gate real: DT-038/aprobación reservada, contradicción material, conflicto Git no trivial, operación destructiva/no autorizada, merge/deploy/infraestructura persistente no autorizada, credencial faltante o imposibilidad técnica.
 
@@ -381,6 +387,8 @@ REVIEWER:
 - preferentemente usa otra familia de modelo;
 - revisa el SHA exacto;
 - inspecciona directamente código/diff/tests/CI;
+- comprueba que la evaluación de impacto sobre `manual/index.html` esté declarada explícitamente y
+  que el manual haya sido actualizado cuando el cambio sí es relevante para usuario o soporte;
 - ejecuta tests/builds/validaciones no destructivas sin solicitar confirmación;
 - trabaja en solo lectura respecto de Botonera2;
 - no lee el informe privado del IMPLEMENTER;
@@ -416,6 +424,7 @@ Antes de indicar que una PR puede integrarse, el ORCHESTRATOR verifica directame
 - SHA revisado igual al HEAD actual;
 - CI aplicable del candidato revisado verde;
 - revisión independiente procesada;
+- evaluación de impacto sobre `manual/index.html` declarada y resuelta;
 - cero hallazgos BLOQUEANTES pendientes;
 - cero hallazgos IMPORTANTES pendientes;
 - si `main` avanzó después de la revisión, clasificación explícita de staleness material.
