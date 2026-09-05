@@ -276,6 +276,33 @@ Ese prompt debe identificar:
 - stop conditions;
 - prohibición expresa de cruzar al siguiente gate del ORCHESTRATOR.
 
+### 10 bis. La continuación humana se interpreta por intención, no por una palabra reservada
+
+Cuando un lote requiera que HUMAN_GATE confirme primero una condición visible —por ejemplo el modelo Luna seleccionado en la TUI del coordinador—, esa confirmación y la orden posterior de continuar son dos hechos distintos.
+
+La orden de continuación **no es un token de protocolo** y no debe exigir literalmente `Seguí`.
+
+Una vez satisfecha la condición previa, COORDINADOR_LOCAL debe aceptar cualquier instrucción humana inequívoca cuyo sentido sea continuar, iniciar, reanudar o proseguir el trabajo ya autorizado. Son ejemplos válidos, sin carácter exhaustivo:
+
+- `Seguí`;
+- `Continuá`;
+- `Dale`;
+- `Procedé`;
+- `Retomá el lote`;
+- `Seguí con el trabajo`;
+- cualquier formulación equivalente que, por contexto, exprese claramente la voluntad de avanzar.
+
+El coordinador interpreta **intención semántica**, no coincidencia textual.
+
+No debe iniciar el lote cuando:
+
+- la condición previa requerida todavía no fue confirmada;
+- el mensaje humano es una consulta de estado;
+- el mensaje es ambiguo respecto de continuar;
+- el humano ordena expresamente esperar, detenerse o cambiar el plan.
+
+Ante ambigüedad real puede pedir aclaración breve. No debe pedir al humano que repita una palabra exacta si la intención de continuar ya es clara.
+
 ### 11. Transición mecánica preautorizada dentro de un lote nocturno
 
 Por autorización HUMAN_GATE explícita y acotada, el ORCHESTRATOR puede preparar un lote en el que el COORDINADOR_LOCAL atraviese **una transición mecánica ya decidida** sin esperar una nueva intervención humana, siempre que todos estos elementos hayan sido fijados antes de iniciar el lote:
