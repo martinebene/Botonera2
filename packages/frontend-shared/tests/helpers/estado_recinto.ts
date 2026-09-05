@@ -59,15 +59,13 @@ export function crearConcejalesPublicos(cantidad: number): ConcejalPublico[] {
 }
 
 /**
- * Los quince eventos sonoros, tomados del catálogo canónico del código de producción.
+ * Configuración de audio por defecto de las fixtures (WP-065).
  *
- * Antes esta lista estaba escrita a mano acá. Desde WP-071 se reexporta la constante real
- * (`EVENTOS_SONOROS_RECINTO`): si alguna vez el contrato sumara o quitara un evento, las
- * fixtures lo acompañarían solas y ninguna prueba de paridad podría quedarse comparando
- * contra una lista vieja.
+ * Recorre el catálogo canónico del código de producción —y no una lista escrita a mano— con
+ * un volumen distinto por evento, de modo que una prueba que confundiera dos sonidos se
+ * note. Si alguna vez el contrato sumara o quitara un evento, las fixtures lo acompañarían
+ * solas y ninguna prueba de paridad podría quedarse comparando contra una lista vieja.
  */
-export const EVENTOS_SONIDO_RECINTO = EVENTOS_SONOROS_RECINTO
-
 export function crearSonidosRecintoPrueba(
   parcial: Partial<SonidosRecintoProyectados> = {},
 ): SonidosRecintoProyectados {
@@ -77,7 +75,7 @@ export function crearSonidosRecintoPrueba(
     detalle: parcial.detalle ?? null,
     sonidos:
       parcial.sonidos ??
-      EVENTOS_SONIDO_RECINTO.map((evento, indice) => ({
+      EVENTOS_SONOROS_RECINTO.map((evento, indice) => ({
         evento,
         ruta: `assets/sonidos/${evento.replaceAll('_', '-')}.wav`,
         volumen: (indice * 7) % 101,

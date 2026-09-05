@@ -21,7 +21,7 @@
  */
 
 import type { EstadoRecinto, EstadoPalabraPublico, VotacionPublica } from '@botonera2/api-client'
-import { EVENTOS_SONOROS_RECINTO, type EventoSonoroRecinto } from '../../src/transiciones_sonoras'
+import type { EventoSonoroRecinto } from '../../src/transiciones_sonoras'
 import {
   crearApoyoTecnicoPrueba,
   crearConcejalesPublicos,
@@ -260,6 +260,3 @@ export function crearEscenariosSonoros(): EscenarioSonoro[] {
 export function eventosCubiertos(escenarios: EscenarioSonoro[]): EventoSonoroRecinto[] {
   return escenarios.map((escenario) => escenario.evento)
 }
-
-/** Catálogo canónico reexportado, para que las suites no vuelvan a escribir la lista. */
-export { EVENTOS_SONOROS_RECINTO }

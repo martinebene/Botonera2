@@ -20,7 +20,11 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { effectScope, ref, type Ref } from 'vue'
-import { useSonidosRecinto, type MotorSonidosRecinto } from '@botonera2/frontend-shared'
+import {
+  EVENTOS_SONOROS_RECINTO,
+  useSonidosRecinto,
+  type MotorSonidosRecinto,
+} from '@botonera2/frontend-shared'
 import type {
   ClienteApoyoTecnico,
   ClienteModeracion,
@@ -36,7 +40,6 @@ import { resolverRutaAsset } from '../app/utils/rutas'
 import {
   crearEscenariosSonoros,
   eventosCubiertos,
-  EVENTOS_SONOROS_RECINTO,
 } from '../../../packages/frontend-shared/tests/helpers/escenarios_sonoros'
 import {
   crearEstadoRecintoPrueba,

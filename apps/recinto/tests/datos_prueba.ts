@@ -14,5 +14,4 @@ export {
   crearEstadoRecintoPrueba,
   crearSonidosRecintoPrueba,
   crearVotacionPublicaPrueba,
-  EVENTOS_SONIDO_RECINTO,
 } from '../../../packages/frontend-shared/tests/helpers/estado_recinto'

@@ -14,7 +14,11 @@ import { describe, expect, it } from 'vitest'
 import { effectScope, ref, type Ref } from 'vue'
 import type { EstadoRecinto } from '@botonera2/api-client'
 import type { EstadoConexionRecinto } from '../app/composables/useEstadoRecinto'
-import { useSonidosRecinto, type MotorSonidosRecinto } from '@botonera2/frontend-shared'
+import {
+  EVENTOS_SONOROS_RECINTO,
+  useSonidosRecinto,
+  type MotorSonidosRecinto,
+} from '@botonera2/frontend-shared'
 import {
   crearApoyoTecnicoPrueba,
   crearConcejalesPublicos,
@@ -25,7 +29,6 @@ import {
 import {
   crearEscenariosSonoros,
   eventosCubiertos,
-  EVENTOS_SONOROS_RECINTO,
 } from '../../../packages/frontend-shared/tests/helpers/escenarios_sonoros'
 
 /** Motor de prueba: registra los eventos pedidos y las configuraciones adoptadas. */
