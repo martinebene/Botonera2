@@ -178,6 +178,71 @@ Cuando el COORDINADOR_LOCAL supervise la tanda, debe preferir la capa estructura
 
 No debe usar polling agresivo ni interpretar un mero cambio visual como finalización.
 
+### 8 bis. Lanzamiento de workers con permisos completos y coordinador mecánico
+
+El COORDINADOR_LOCAL es un **planificador/dispatcher mecánico**. Su inferencia no debe gastarse resolviendo prompts ordinarios de permisos de los workers.
+
+Toda asignación que HUMAN_GATE/ORCHESTRATOR ya autorizó debe iniciarse con el perfil de permisos completos aprobado para ese harness. Los permisos de herramienta **no amplían el alcance de la asignación** ni modifican las prohibiciones de Git, revisión, merge, deploy, secretos o acciones destructivas.
+
+Reglas:
+
+1. el coordinador debe lanzar cada IMPLEMENTER/REVIEWER con el modo de permisos completos aprobado, no con el modo interactivo/restringido por defecto de Orca si éste genera prompts de autorización rutinarios;
+2. perfiles actualmente aprobados:
+   - Claude Code: `claude --dangerously-skip-permissions`;
+   - Antigravity/AGY: `agy --dangerously-skip-permissions`;
+3. para cualquier harness adicional, el manifiesto del lote debe fijar previamente la invocación equivalente de permisos completos; no se adivinan flags ni se sustituye silenciosamente por un modo restringido;
+4. Orca puede seguir administrando worktrees, terminales, Runs y workers; si el lanzamiento automático `--agent` no permite expresar el perfil completo, el coordinador debe usar el mecanismo soportado por Orca para iniciar en ese worktree la invocación explícita aprobada;
+5. un prompt de permiso rutinario provocado por haber lanzado el worker en modo restringido es **un error de configuración del launcher**, no una decisión que deba razonar el COORDINADOR_LOCAL;
+6. ante ese error, el coordinador no responde aprobación por aprobación: verifica que no quede un worker duplicado, preserva el mismo worktree/estado y relanza o reanuda el worker con el perfil completo;
+7. una vez lanzado correctamente, el worker ejecuta autónomamente toda su asignación hasta `worker_done`, handoff, `quota_unavailable` o una escalación real;
+8. el COORDINADOR_LOCAL se limita a ordenar secuencialidad/paralelismo según `max_concurrency`, vigilar vida/liberación de workers, gestionar handbacks de cuota y comprobar gates objetivos ya definidos;
+9. el coordinador no interpreta si una acción rutinaria "merece permiso": esa autorización ya viene dada por HUMAN_GATE y la asignación;
+10. si un worker intenta una acción **fuera del alcance** o una operación que la gobernanza reserva (force/rebase destructivo, merge/deploy no autorizado, secreto/credencial, decisión DT-038, etc.), los permisos completos no la vuelven válida: eso sí es una escalación real.
+
+Para REVIEWER, permisos completos de CLI no eliminan el modo de solo lectura sobre Botonera2: siguen prohibidas las modificaciones del producto y sólo puede escribir el handoff autorizado en Botonera2-Control.
+
+### 8 ter. Principio de completar el lote y clasificación de desvíos
+
+El objetivo normal del COORDINADOR_LOCAL es **terminar todo el lote autorizado** y devolver al ORCHESTRATOR la mayor cantidad posible de trabajo implementado y revisado. No debe detenerse por prudencia excesiva ante desvíos de bajo riesgo que quedaron aislados en el worktree y todavía no fueron integrados.
+
+#### Desvío blando: registrar y continuar
+
+Un desvío se considera **blando** cuando, de forma objetiva:
+
+- está contenido en la rama/worktree del WP;
+- no toca secretos, infraestructura persistente, deploy ni recursos compartidos externos;
+- no requiere force/rebase destructivo;
+- no contamina otro WP/worktree;
+- no altera una decisión DT-038 ni exige una nueva decisión humana de producto para poder revisar;
+- existe candidato remoto identificable y CI/gates objetivos pueden ejecutarse;
+- el cambio adicional es razonablemente revisable junto con el candidato.
+
+Ejemplos: archivo documental adicional, test adicional, refactor auxiliar pequeño o ajuste adyacente que el IMPLEMENTER declara expresamente.
+
+Ante un desvío blando, el COORDINADOR_LOCAL:
+
+1. lo registra sin aprobarlo ni interpretarlo como correcto;
+2. **no detiene el lote**;
+3. si los gates objetivos IMPLEMENTER -> REVIEWER pasan, inicia la revisión independiente incluyendo el desvío en el candidato exacto;
+4. continúa con los demás WPs independientes autorizados;
+5. deja al ORCHESTRATOR la decisión posterior de integrar, pedir corrección o descartar el candidato.
+
+El hecho de que algo esté en revisión **no implica aceptación del alcance**. La protección principal sigue siendo que ningún candidato llega a `main` sin decisión posterior del ORCHESTRATOR.
+
+#### Desvío duro: detener sólo lo necesario
+
+Sí exige detener el WP —y el lote completo sólo si el riesgo es compartido— cualquiera de estas condiciones:
+
+- secreto/credencial o riesgo de exposición;
+- operación destructiva, force/rebase no autorizado;
+- merge/deploy o infraestructura persistente no autorizada;
+- contaminación de otro worktree/WP o recurso compartido;
+- decisión DT-038/contradicción material que impide saber qué revisar;
+- pérdida de identidad del candidato, worktree sucio no explicable o imposibilidad de fijar SHA/tree;
+- riesgo sistémico que pueda afectar a los demás workers del lote.
+
+Si el problema duro afecta sólo a un WP y los otros son materialmente independientes, el coordinador marca ese WP como detenido y **continúa los demás**.
+
 ### 9. Condiciones de detención
 
 El lote se detiene y devuelve control humano si aparece:
@@ -271,6 +336,9 @@ El manifiesto debe identificar expresamente en qué WPs está habilitada esta ex
 
 
 ## Consecuencias
+
+- Los prompts rutinarios de permisos dejan de consumir inferencia del coordinador: los workers se lanzan con permisos completos desde el inicio.
+- El COORDINADOR_LOCAL queda deliberadamente reducido a scheduling, lifecycle y gates objetivos; no actúa como aprobador interactivo de herramientas.
 
 - Se mantiene el aislamiento por worktree.
 - Se reduce la intervención humana repetitiva.
