@@ -1,5 +1,15 @@
 /**
- * Detección de las transiciones que la Pantalla del Recinto debe sonorizar (WP-066).
+ * Detección de las transiciones sonoras del Recinto (WP-066), compartida por las
+ * superficies que las reproducen (WP-071).
+ *
+ * ## Dónde vive y por qué
+ *
+ * Este módulo nació dentro de la Pantalla del Recinto. Desde WP-071 el puesto de Apoyo
+ * Técnico debe reproducir **exactamente los mismos** eventos, para poder tomar el audio
+ * del salón desde el equipo técnico. Dos implementaciones de esta semántica se separarían
+ * con el primer cambio, así que la comparación se mudó tal cual a `frontend-shared` y las
+ * dos pantallas la consumen desde acá. Sigue siendo la semántica del Recinto: lo que
+ * cambió es cuántas superficies la escuchan, no qué significa cada transición.
  *
  * ## Qué resuelve este módulo
  *
@@ -30,28 +40,38 @@
 import type { EstadoPalabraPublico, EstadoRecinto } from '@botonera2/api-client'
 
 /**
- * Los quince eventos sonoros del contrato de WP-065.
+ * Los quince eventos sonoros del contrato de WP-065, en su orden canónico.
  *
  * Los nombres son exactamente los que declara `config/system.toml` y proyecta el backend
- * en `EstadoRecinto.sonidos`: escribirlos como unión de literales hace que un typo quede
- * detenido por el compilador en lugar de convertirse en un sonido que nunca suena.
+ * en `EstadoRecinto.sonidos`. Se declaran como una tupla `as const` y no sólo como unión
+ * de tipos por dos motivos complementarios:
+ *
+ * 1. el compilador sigue deteniendo un typo, porque el tipo se deriva de la tupla;
+ * 2. existe además **en tiempo de ejecución**, de modo que una prueba de paridad puede
+ *    recorrer los quince eventos sin volver a escribirlos. Desde WP-071 hay dos pantallas
+ *    que deben reproducirlos todos: una lista repetida a mano en cada suite sería
+ *    justamente la forma más fácil de que una de las dos se quedara con catorce.
  */
-export type EventoSonoroRecinto =
-  | 'preparacion_iniciada'
-  | 'aviso_tecnico_publicado'
-  | 'aviso_tecnico_retirado'
-  | 'pedido_palabra_registrado'
-  | 'pedido_palabra_retirado'
-  | 'uso_palabra_otorgado'
-  | 'transmision_iniciada'
-  | 'transmision_detenida'
-  | 'transmision_cuenta_regresiva_tic'
-  | 'sesion_abierta'
-  | 'sesion_cerrada'
-  | 'votacion_abierta'
-  | 'votacion_cerrada'
-  | 'concejal_ausente'
-  | 'concejal_presente'
+export const EVENTOS_SONOROS_RECINTO = [
+  'preparacion_iniciada',
+  'aviso_tecnico_publicado',
+  'aviso_tecnico_retirado',
+  'pedido_palabra_registrado',
+  'pedido_palabra_retirado',
+  'uso_palabra_otorgado',
+  'transmision_iniciada',
+  'transmision_detenida',
+  'transmision_cuenta_regresiva_tic',
+  'sesion_abierta',
+  'sesion_cerrada',
+  'votacion_abierta',
+  'votacion_cerrada',
+  'concejal_ausente',
+  'concejal_presente',
+] as const
+
+/** Nombre de uno de los quince eventos sonoros del contrato de WP-065. */
+export type EventoSonoroRecinto = (typeof EVENTOS_SONOROS_RECINTO)[number]
 
 /** Estado de palabra normalizado: el contrato admite `null` fuera de una sesión. */
 const PALABRA_VACIA: EstadoPalabraPublico = { cola: [], orador: null }

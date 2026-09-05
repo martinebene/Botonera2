@@ -1,5 +1,14 @@
 /**
- * Motor de reproducción de los sonidos de la Pantalla del Recinto (WP-066).
+ * Motor de reproducción de los sonidos del Recinto (WP-066), compartido por las
+ * superficies que los emiten (WP-071).
+ *
+ * ## Dónde vive y por qué
+ *
+ * Igual que la detección de transiciones, este motor nació dentro de la Pantalla del
+ * Recinto y desde WP-071 lo usa también el puesto de Apoyo Técnico, que debe sonar
+ * exactamente igual para poder alimentar la amplificación del salón. Vive en
+ * `frontend-shared` para que exista **una sola** implementación de volumen, superposición,
+ * precarga y tolerancia a fallos: dos motores paralelos divergirían al primer ajuste.
  *
  * ## Responsabilidad
  *
@@ -24,6 +33,17 @@
  * `null` cuando `Audio` no existe (prerender de Nuxt, pruebas de componentes con DOM
  * liviano), de modo que el motor simplemente no suena en vez de romper el render.
  *
+ * ## Por qué la resolución de URL se inyecta
+ *
+ * `EstadoRecinto.sonidos` trae rutas **relativas** a la raíz pública de la aplicación
+ * (`assets/sonidos/sesion-abierta.wav`). Convertirlas en una URL servible exige conocer el
+ * `baseURL` de la aplicación que reproduce, y ese dato lo tiene Nuxt dentro de cada SPA,
+ * no este paquete. Por eso `resolverUrl` es un parámetro **obligatorio**: cada pantalla
+ * entrega su propio resolutor y ninguna corre el riesgo de heredar en silencio el prefijo
+ * de la otra. Las dos apuntan al mismo archivo versionado, publicado una sola vez en
+ * `apps/recinto/public/assets/sonidos/`; Apoyo Técnico lo sirve bajo su propio prefijo sin
+ * copiarlo al repositorio (ver `apps/tecnico/nuxt.config.ts`).
+ *
  * ## Por qué los errores no se propagan
  *
  * Una política de autoplay que rechace la reproducción, un archivo faltante o un códec no
@@ -35,7 +55,6 @@
 
 import type { SonidoRecintoProyectado, SonidosRecintoProyectados } from '@botonera2/api-client'
 import type { EventoSonoroRecinto } from './transiciones_sonoras'
-import { resolverRutaAsset } from './rutas'
 
 /**
  * Superficie mínima de `HTMLAudioElement` que necesita el motor.
@@ -58,10 +77,15 @@ export interface InstanciaAudioRecinto {
 export type FabricaAudioRecinto = (url: string) => InstanciaAudioRecinto | null
 
 export interface OpcionesMotorSonidos {
+  /**
+   * Convierte la ruta configurada por el backend en una URL servible.
+   *
+   * Obligatorio: depende del `baseURL` de la aplicación que reproduce y este paquete no
+   * puede conocerlo. Recinto y Apoyo Técnico entregan cada uno el suyo.
+   */
+  resolverUrl: (ruta: string) => string
   /** Fábrica de audio inyectable. Por defecto usa `Audio` cuando el navegador la ofrece. */
   crearAudio?: FabricaAudioRecinto
-  /** Convierte la ruta configurada en URL servible. Por defecto respeta el `baseURL` de Nuxt. */
-  resolverUrl?: (ruta: string) => string
   /** Canal técnico de diagnóstico. Por defecto, una advertencia de consola. */
   registrarDiagnostico?: (mensaje: string, detalle?: unknown) => void
 }
@@ -96,14 +120,14 @@ function crearAudioNavegador(url: string): InstanciaAudioRecinto | null {
 /**
  * Construye el motor de sonidos.
  *
- * @param opciones Puntos de inyección para pruebas; en producción se usan los valores por
- *   defecto.
+ * @param opciones `resolverUrl` es obligatorio; el resto son puntos de inyección para
+ *   pruebas y en producción se usan los valores por defecto.
  * @returns Un motor con estado propio (configuración vigente, precargas y diagnósticos ya
- *   informados). Cada Pantalla del Recinto usa uno solo.
+ *   informados). Cada pantalla que sonoriza usa uno solo.
  */
-export function crearMotorSonidos(opciones: OpcionesMotorSonidos = {}): MotorSonidosRecinto {
+export function crearMotorSonidos(opciones: OpcionesMotorSonidos): MotorSonidosRecinto {
   const crearAudio = opciones.crearAudio ?? crearAudioNavegador
-  const resolverUrl = opciones.resolverUrl ?? resolverRutaAsset
+  const resolverUrl = opciones.resolverUrl
   const registrarDiagnostico =
     opciones.registrarDiagnostico ??
     ((mensaje: string, detalle?: unknown) => console.warn(`[sonidos-recinto] ${mensaje}`, detalle))

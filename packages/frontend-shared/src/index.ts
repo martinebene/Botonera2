@@ -7,9 +7,11 @@
  * de motivos de capacidad, la presentación de la franja segura de eventos y el ajuste
  * tipográfico de los avisos de Apoyo Técnico. Desde WP-063 también incluye el formato
  * visual del factor de mayoría especial. Desde WP-067 se agrega la ubicación del manual
- * de usuario, que las cabeceras de Moderación y de Apoyo Técnico deben compartir. Si estas
- * reglas vivieran duplicadas, una corrección posterior podría aplicarse en una sola
- * interfaz.
+ * de usuario, que las cabeceras de Moderación y de Apoyo Técnico deben compartir. Desde
+ * WP-071 se agrega la sonorización completa del recinto —transiciones, motor de audio y
+ * frontera reactiva—, porque la Pantalla del Recinto y el puesto de Apoyo Técnico deben
+ * reproducir exactamente los mismos quince eventos. Si estas reglas vivieran duplicadas,
+ * una corrección posterior podría aplicarse en una sola interfaz.
  *
  * Los componentes Vue compartidos no se exportan por este índice: se importan por su
  * subruta (`@botonera2/frontend-shared/componentes/…`) para que cada aplicación cargue
@@ -61,3 +63,31 @@ export { extraerMensajeError } from './errores'
 export { formatearFactorMayoria } from './factor_mayoria'
 
 export { RUTA_MANUAL, ROTULO_ACCESO_MANUAL } from './manual'
+
+/*
+  Sonorización del recinto (WP-066, compartida por WP-071).
+
+  Se exportan las tres capas por separado —qué ocurrió, cómo suena y cuándo suena— porque
+  cada pantalla necesita cablearlas con sus propios insumos, y las pruebas de paridad
+  necesitan poder ejercitar la capa pura sin construir un motor de audio.
+*/
+export {
+  detectarTransicionesSonoras,
+  EVENTOS_SONOROS_RECINTO,
+  type EventoSonoroRecinto,
+} from './transiciones_sonoras'
+
+export {
+  crearMotorSonidos,
+  type FabricaAudioRecinto,
+  type InstanciaAudioRecinto,
+  type MotorSonidosRecinto,
+  type OpcionesMotorSonidos,
+} from './motor_sonidos'
+
+export {
+  useSonidosRecinto,
+  type EstadoConexionSuperficie,
+  type OpcionesSonidosRecinto,
+  type SonidosRecinto,
+} from './sonidos_recinto'

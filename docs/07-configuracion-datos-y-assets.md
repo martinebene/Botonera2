@@ -259,16 +259,20 @@ supera los dos segundos.
 archivo, y qué evento usa cada uno. Vive fuera de `public/` para que la salida
 servida contenga sólo los assets, igual que `assets/branding/`.
 
-Los archivos viven bajo `public/` de la Pantalla del Recinto porque es la única
-aplicación que los reproducirá y porque cada SPA se sirve bajo su propio
-prefijo, igual que ya ocurre con las imágenes de banca y la marca.
+Los archivos viven bajo `public/` de la Pantalla del Recinto y siguen versionados
+en un único lugar. Desde WP-071 también los reproduce el puesto de Apoyo
+Técnico, que **no** guarda una segunda copia: su `nuxt.config.ts` declara ese
+mismo directorio como directorio público adicional, de modo que la construcción
+los publica además bajo `/tecnico/assets/sonidos/`. Un solo origen versionado y
+dos prefijos servidos: no existe un catálogo paralelo que pueda divergir, y la
+validación de despliegue sigue comprobando la raíz pública del Recinto.
 
 WP-065 configura y versiona; la reproducción efectiva en el navegador la implementa
-WP-066. La ruta configurada se resuelve contra el prefijo público de la Pantalla del
-Recinto (`/recinto/`) y el volumen `0..100` se aplica a cada reproducción. Qué transición
-dispara cada evento está documentado en `docs/06-frontend-pantalla-recinto.md`, y la
-configuración del puesto que permite reproducir sin interacción humana, en
-`docs/13-despliegue-y-operacion.md`.
+WP-066 para el Recinto y WP-071 para Apoyo Técnico. La ruta configurada se resuelve
+contra el prefijo público de la aplicación que reproduce —`/recinto/` o `/tecnico/`— y
+el mismo volumen `0..100` se aplica en las dos. Qué transición dispara cada evento está
+documentado en `docs/06-frontend-pantalla-recinto.md`, y la configuración de los puestos
+que permite reproducir sin interacción humana, en `docs/13-despliegue-y-operacion.md`.
 
 ## 12. Mapeo físico
 

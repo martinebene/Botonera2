@@ -20,7 +20,12 @@
 
 import { mount, type VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { ClienteApoyoTecnico, ClienteModeracion, Suscripcion } from '@botonera2/api-client'
+import type {
+  ClienteApoyoTecnico,
+  ClienteModeracion,
+  ClienteRecinto,
+  Suscripcion,
+} from '@botonera2/api-client'
 import ControlTransmision from '../app/components/ControlTransmision.vue'
 import ControlAvisos from '../app/components/ControlAvisos.vue'
 import BibliotecaMensajes from '../app/components/BibliotecaMensajes.vue'
@@ -550,27 +555,34 @@ describe('Sincronización del puesto técnico', () => {
     }
   }
 
-  it('abre una suscripción a cada proyección autoritativa y no duplica ninguna', () => {
+  it('abre una suscripción a cada una de las tres proyecciones y no duplica ninguna', () => {
     const tecnico = crearClienteSuscribible()
     const moderacion = crearClienteSuscribible()
+    const recinto = crearClienteSuscribible()
 
     const sincronizacion = crearSincronizacionTecnica({
       cliente: tecnico.cliente as unknown as ClienteApoyoTecnico,
       clienteModeracion: moderacion.cliente as unknown as ClienteModeracion,
+      clienteRecinto: recinto.cliente as unknown as ClienteRecinto,
     })
     sincronizacion.iniciar()
     sincronizacion.iniciar()
 
     expect(tecnico.cliente.suscribirEstado).toHaveBeenCalledTimes(1)
     expect(moderacion.cliente.suscribirEstado).toHaveBeenCalledTimes(1)
+    // WP-071 agregó la tercera proyección autoritativa: la pública del Recinto, que
+    // alimenta la sonorización y nada más.
+    expect(recinto.cliente.suscribirEstado).toHaveBeenCalledTimes(1)
   })
 
   it('reconstruye los controles desde el snapshot autoritativo', () => {
     const tecnico = crearClienteSuscribible()
     const moderacion = crearClienteSuscribible()
+    const recinto = crearClienteSuscribible()
     const sincronizacion = crearSincronizacionTecnica({
       cliente: tecnico.cliente as unknown as ClienteApoyoTecnico,
       clienteModeracion: moderacion.cliente as unknown as ClienteModeracion,
+      clienteRecinto: recinto.cliente as unknown as ClienteRecinto,
     })
     sincronizacion.iniciar()
 
@@ -592,9 +604,11 @@ describe('Sincronización del puesto técnico', () => {
   it('conserva el último estado confirmado y lo marca desactualizado al desconectarse', () => {
     const tecnico = crearClienteSuscribible()
     const moderacion = crearClienteSuscribible()
+    const recinto = crearClienteSuscribible()
     const sincronizacion = crearSincronizacionTecnica({
       cliente: tecnico.cliente as unknown as ClienteApoyoTecnico,
       clienteModeracion: moderacion.cliente as unknown as ClienteModeracion,
+      clienteRecinto: recinto.cliente as unknown as ClienteRecinto,
     })
     sincronizacion.iniciar()
 
@@ -610,9 +624,11 @@ describe('Sincronización del puesto técnico', () => {
   it('informa DESCONECTADO si nunca hubo un snapshot previo', () => {
     const tecnico = crearClienteSuscribible()
     const moderacion = crearClienteSuscribible()
+    const recinto = crearClienteSuscribible()
     const sincronizacion = crearSincronizacionTecnica({
       cliente: tecnico.cliente as unknown as ClienteApoyoTecnico,
       clienteModeracion: moderacion.cliente as unknown as ClienteModeracion,
+      clienteRecinto: recinto.cliente as unknown as ClienteRecinto,
     })
     sincronizacion.iniciar()
 
@@ -622,12 +638,14 @@ describe('Sincronización del puesto técnico', () => {
     expect(sincronizacion.desactualizado.value).toBe(false)
   })
 
-  it('cancela ambas suscripciones sin borrar el último estado visible', () => {
+  it('cancela las tres suscripciones sin borrar el último estado visible', () => {
     const tecnico = crearClienteSuscribible()
     const moderacion = crearClienteSuscribible()
+    const recinto = crearClienteSuscribible()
     const sincronizacion = crearSincronizacionTecnica({
       cliente: tecnico.cliente as unknown as ClienteApoyoTecnico,
       clienteModeracion: moderacion.cliente as unknown as ClienteModeracion,
+      clienteRecinto: recinto.cliente as unknown as ClienteRecinto,
     })
     sincronizacion.iniciar()
     tecnico.emitir(crearEstadoTecnicoPrueba({ revision: 8 }))
@@ -636,6 +654,7 @@ describe('Sincronización del puesto técnico', () => {
 
     expect(tecnico.cancelado()).toBe(true)
     expect(moderacion.cancelado()).toBe(true)
+    expect(recinto.cancelado()).toBe(true)
     expect(sincronizacion.estado.value?.revision).toBe(8)
   })
 })
