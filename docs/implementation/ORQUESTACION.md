@@ -45,11 +45,9 @@ El operador humano conserva la compuerta entre decisiones sustantivas. Puede ini
 
 El COORDINADOR_LOCAL es un ejecutor mecánico de lotes bajo Orca, no un ORCHESTRATOR alternativo. Puede supervisar Runs/Tasks/Dispatches, limitar concurrencia física, consultar `cuotas-agentes --json`, esperar resets y reanudar workers. No puede modificar `CURRENT.json`, cambiar asignaciones, habilitar revisiones, interpretar hallazgos, mergear, desplegar ni limpiar worktrees. Su contrato completo está en DEC-018.
 
-Las frases breves normales son:
+Las frases breves como `Seguí`, `Continuá`, `Dale`, `Procedé`, `Revisá` o `Terminó el agente` son **ejemplos de intención**, no palabras reservadas del protocolo.
 
-- IMPLEMENTER: `Seguí`;
-- REVIEWER: `Revisá`;
-- ORCHESTRATOR: `Terminó el implementador`, `Terminó el revisor` o una consulta equivalente de estado.
+Una sesión debe interpretar la intención humana dentro del contexto vigente. Si HUMAN_GATE ya verificó una condición previa requerida —por ejemplo el modelo del COORDINADOR_LOCAL—, cualquier instrucción inequívoca de continuar/reanudar/iniciar el trabajo autorizado habilita la ejecución. No se exige repetir literalmente `Seguí`.
 
 Estas frases **no contienen el trabajo**. El actor descubre la tarea desde `Botonera2-Control`.
 
@@ -414,6 +412,33 @@ Si existen hallazgos que el ORCHESTRATOR considera accionables:
 8. HUMAN_GATE inicia re-revisión.
 
 El ciclo puede repetirse sin límite artificial.
+
+## Auditoría sustantiva del ORCHESTRATOR antes del merge
+
+Cuando IMPLEMENTER + REVIEWER —directamente o bajo COORDINADOR_LOCAL— terminan y el control vuelve a ChatGPT Web, **no se pasa mecánicamente al merge**.
+
+El ORCHESTRATOR debe realizar la auditoría pre-integración definida por DEC-004. Como mínimo:
+
+1. fresh-check de `main`, PR, base, HEAD, candidate/tree SHA, mergeabilidad y CI;
+2. reconstrucción completa en Botonera2-Control de asignaciones, handoffs, correcciones, sincronizaciones, reviews y re-reviews;
+3. confirmación de que el último REVIEWER cubrió exactamente el candidate SHA final;
+4. comprobación de independencia de implementador/revisor y modelos efectivos;
+5. inspección propia del diff completo y archivos cambiados;
+6. contraste contra WP, criterios, exclusiones, DECs/DTs y documentación canónica;
+7. análisis de tests modificados/agregados y de lo que realmente prueban;
+8. verificación del impacto en manual/documentación;
+9. resolución explícita de `soft_deviation`, staleness y excepciones;
+10. búsqueda activa de contradicciones entre implementación, review, CI y contenido real del candidato.
+
+ChatGPT Web no necesita ejecutar localmente la suite para esta auditoría. Debe usar el acceso independiente a GitHub y la evidencia persistida para aplicar análisis técnico propio.
+
+El informe del REVIEWER y la CI verde son entradas de la auditoría, no sustitutos de ella.
+
+La auditoría se registra append-only en:
+
+`work-packages/WP-NNN/audits/pre-merge-XXX.md`
+
+Sólo un veredicto `APROBADO_PARA_MERGE` permite continuar a la puerta de integración. Si el análisis detecta un problema, se vuelve a corrección/re-revisión o se bloquea el WP según corresponda.
 
 ## Puerta de integración
 
