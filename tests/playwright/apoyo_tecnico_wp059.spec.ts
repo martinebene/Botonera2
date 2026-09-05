@@ -13,8 +13,13 @@
  * ```
  *
  * Son cuatro columnas visuales pero **no** cuatro columnas iguales: las tres de arriba a
- * la izquierda son equivalentes entre sí y comparten dos tercios del ancho; Eventos
- * conserva el tercio restante y todo el alto útil.
+ * la izquierda comparten dos tercios del ancho y Eventos conserva el tercio restante y
+ * todo el alto útil.
+ *
+ * WP-070 matizó una sola de esas afirmaciones: las tres columnas izquierdas ya no miden
+ * exactamente lo mismo, porque Mensajes recibió el ancho mínimo que necesita para que la
+ * fila de acciones de cada mensaje precargado no envuelva a 1366×768. El reparto de dos
+ * tercios / un tercio, el alto compartido y el confinamiento del scroll no cambian.
  *
  * Las afirmaciones no se hacen sobre clases CSS sino sobre cajas reales
  * (`getBoundingClientRect`) y sobre `scrollHeight` / `clientHeight`, porque lo que el WP
@@ -356,9 +361,21 @@ for (const viewport of RESOLUCIONES) {
       Math.abs(eventosCaja.y + eventosCaja.height - (grilla.y + grilla.height)),
     ).toBeLessThanOrEqual(TOLERANCIA)
 
-    // 3. Los tres paneles superiores son equivalentes entre sí y comparten la fila.
+    /*
+      3. Los tres paneles superiores comparten la fila.
+
+      Hasta WP-070 los tres tenían además el mismo ancho. Ese empate dejó de ser posible:
+      la fila «destino + tres acciones» de cada mensaje precargado no entra en un tercio de
+      los dos tercios izquierdos a 1366×768, y HUMAN_GATE autorizó darle a Mensajes el
+      ancho mínimo que necesita. Lo que sigue siendo cierto —y es lo que WP-059 cerró— es
+      que los tres comparten fila, alto y una escala comparable entre sí; por eso acá se
+      exige que Transmisión y Remapeo sigan siendo idénticos entre ellos y que Mensajes
+      sea más ancho, pero sin llegar a duplicarlos.
+    */
+    expect(Math.abs(remapeoCaja.width - transmisionCaja.width)).toBeLessThanOrEqual(TOLERANCIA)
+    expect(bibliotecaCaja.width).toBeGreaterThan(transmisionCaja.width)
+    expect(bibliotecaCaja.width).toBeLessThan(transmisionCaja.width * 1.5)
     for (const otro of [remapeoCaja, bibliotecaCaja]) {
-      expect(Math.abs(otro.width - transmisionCaja.width)).toBeLessThanOrEqual(TOLERANCIA)
       expect(Math.abs(otro.y - transmisionCaja.y)).toBeLessThanOrEqual(TOLERANCIA)
       expect(Math.abs(otro.height - transmisionCaja.height)).toBeLessThanOrEqual(TOLERANCIA)
     }

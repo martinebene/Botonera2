@@ -14,6 +14,11 @@
  * Traducirlo siempre como "para abrir la sesión" confundía al operador durante una sesión
  * en curso, porque la sesión ya estaba abierta y lo que quedaba impedido era votar.
  *
+ * WP-070 agrega el segundo caso por la misma razón: `ESTADO_INCOMPATIBLE` es el código
+ * genérico con el que el backend rechaza cualquier acción fuera del estado global que la
+ * habilita, así que su redacción general no puede decir qué falta hacer. Leído desde
+ * `cargar_orden_del_dia` sí se sabe: el operador todavía no comenzó a preparar el recinto.
+ *
  * El contexto solo cambia la **redacción**: no agrega, quita ni reinterpreta motivos. La
  * autoridad sobre qué está permitido sigue siendo exclusivamente del backend.
  */
@@ -48,7 +53,7 @@ const DICCIONARIO_MOTIVOS: Record<string, string> = {
  * resto alcanza el texto general del diccionario, así que no se declaran contextos
  * preventivos que después nadie mantendría.
  */
-export type ContextoMotivo = 'abrir_votacion'
+export type ContextoMotivo = 'abrir_votacion' | 'cargar_orden_del_dia'
 
 /**
  * Redacciones específicas por contexto.
@@ -61,6 +66,14 @@ const MOTIVOS_POR_CONTEXTO: Record<ContextoMotivo, Record<string, string>> = {
   // poner una votación en marcha. Es el texto que pidió la prueba humana del 01/09/2026.
   abrir_votacion: {
     QUORUM_INSUFICIENTE: 'Quórum insuficiente para abrir una votación.',
+  },
+  // WP-070: antes de PREPARANDO el backend impide cargar el Orden del Día con el mismo
+  // código genérico `ESTADO_INCOMPATIBLE` que usa para cualquier otra acción fuera de
+  // estado. El operador leía "El estado actual del sistema no permite ejecutar esta
+  // acción." y no podía deducir qué le faltaba hacer. Este texto —fijado literalmente por
+  // HUMAN_GATE, sin tildes y sin punto final— nombra la acción que destraba la carga.
+  cargar_orden_del_dia: {
+    ESTADO_INCOMPATIBLE: 'Debe comenzar a preparar el recinto antes de cargar el orden del dia',
   },
 }
 

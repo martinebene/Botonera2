@@ -641,7 +641,8 @@ for (const viewport of [
     // avanzar naturalmente después de completar las fronteras de WP-026.
     await page.clock.resume()
     await cortarYRecuperar(page, reinicio)
-    await expect(page.getByTestId('estado-conexion')).toContainText('desactualizada')
+    // WP-070 acortó este aviso: la vista atrasada se señala como «(Sin conexion)».
+    await expect(page.getByTestId('estado-conexion')).toContainText('(Sin conexion)')
     await expect(page.locator('[data-banca="4"]')).toHaveAttribute('data-estado-banca', 'PALABRA')
     await expect(page.getByTestId('estado-sin-preparar')).toBeVisible({ timeout: 5000 })
     await expect(page.getByTestId('estado-conexion')).toContainText('En línea')

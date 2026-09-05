@@ -105,7 +105,18 @@ const puedeDescartar = computed(
     (capacidadDescartar.value?.habilitada ?? false) &&
     !solicitudEnCurso.value,
 )
-const motivosCargar = computed(() => traducirMotivos(capacidadCargar.value?.motivos))
+/*
+  WP-070: la carga se lee con su propio contexto.
+
+  El backend rechaza la carga fuera de PREPARANDO/SESION_ABIERTA con el código genérico
+  `ESTADO_INCOMPATIBLE`, cuya redacción general no le dice al operador qué le falta hacer.
+  Pasando el contexto `cargar_orden_del_dia`, la traducción compartida devuelve el texto
+  exacto aprobado por HUMAN_GATE. El descarte conserva a propósito la redacción general:
+  es otra capacidad y su impedimento no siempre es "todavía no preparó el recinto".
+*/
+const motivosCargar = computed(() =>
+  traducirMotivos(capacidadCargar.value?.motivos, 'cargar_orden_del_dia'),
+)
 const motivosDescartar = computed(() => traducirMotivos(capacidadDescartar.value?.motivos))
 
 function extraerMensajeError(error: unknown, mensajePorDefecto: string): string {

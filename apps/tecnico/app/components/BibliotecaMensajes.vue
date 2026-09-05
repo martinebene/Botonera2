@@ -238,17 +238,32 @@ function cargar(mensaje: MensajeTecnicoProyectado): void {
 
         <template v-else>
           <p data-testid="texto-mensaje" class="break-words text-slate-200">{{ mensaje.texto }}</p>
-          <div class="mt-1 flex flex-wrap items-center gap-2">
+          <!--
+            WP-070: destino + las tres acciones entran en un solo renglón.
+
+            La fila conserva `flex-wrap` a propósito. El envoltorio es la salida
+            defensiva por debajo de las resoluciones canónicas —donde la grilla ya se
+            apila en una columna— y no la disposición normal: a 1366×768 y 1920×1080 el
+            ancho alcanza y nada envuelve. Lo que cambia es el presupuesto de ancho: los
+            botones bajan a 10 px (el mismo cuerpo que la etiqueta de destino) con menos
+            relleno horizontal, y la separación pasa de 8 px a 6 px. El alto no se mueve,
+            porque el interlineado lo sigue fijando el `text-xs` del contenedor.
+
+            `whitespace-nowrap` es lo que garantiza el criterio "no se recorta su texto":
+            un botón sin ancho suficiente desborda de forma medible en lugar de partir su
+            rótulo en dos líneas, así que la prueba de geometría lo detecta.
+          -->
+          <div data-testid="acciones-mensaje" class="mt-1 flex flex-wrap items-center gap-1.5">
             <span
               data-testid="destino-mensaje"
-              class="rounded border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-[10px] font-bold text-slate-400"
+              class="shrink-0 whitespace-nowrap rounded border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-[10px] font-bold text-slate-400"
             >
               {{ mensaje.destino }}
             </span>
             <button
               type="button"
               data-testid="btn-cargar-mensaje"
-              class="rounded border border-sky-700 bg-sky-950 px-2 py-1 font-bold text-sky-200"
+              class="shrink-0 whitespace-nowrap rounded border border-sky-700 bg-sky-950 px-1.5 py-1 text-[10px] font-bold text-sky-200"
               @click="cargar(mensaje)"
             >
               Usar en el formulario
@@ -256,7 +271,7 @@ function cargar(mensaje: MensajeTecnicoProyectado): void {
             <button
               type="button"
               data-testid="btn-editar-mensaje"
-              class="rounded border border-slate-600 bg-slate-900 px-2 py-1 font-bold text-slate-200 disabled:cursor-not-allowed disabled:opacity-40"
+              class="shrink-0 whitespace-nowrap rounded border border-slate-600 bg-slate-900 px-1.5 py-1 text-[10px] font-bold text-slate-200 disabled:cursor-not-allowed disabled:opacity-40"
               :disabled="!operable"
               @click="comenzarEdicion(mensaje)"
             >
@@ -265,7 +280,7 @@ function cargar(mensaje: MensajeTecnicoProyectado): void {
             <button
               type="button"
               data-testid="btn-eliminar-mensaje"
-              class="rounded border border-rose-700 bg-rose-950 px-2 py-1 font-bold text-rose-200 disabled:cursor-not-allowed disabled:opacity-40"
+              class="shrink-0 whitespace-nowrap rounded border border-rose-700 bg-rose-950 px-1.5 py-1 text-[10px] font-bold text-rose-200 disabled:cursor-not-allowed disabled:opacity-40"
               :disabled="!operable"
               @click="eliminar(mensaje)"
             >
