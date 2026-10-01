@@ -621,3 +621,26 @@ Tras varios días de uso productivo se observaron cierres donde los CSV L1/L2/L3
 | WP-107 | Robustez del ACTA ante texto humano válido y advertencia persistente | INTEGRADO | WP-085, WP-078 | - |
 
 WP-107 quedó `VERIFIED_COMPLETE` tras tres iteraciones: PR #120 integrada por squash como `569dc7f2f5b51e8fd0347ddaee05270fce1b931e`, con tree `53dc63889f1e26846307cfe188be78b731030504` idéntico al candidato revisado, revisión independiente final 0 BLOQUEANTES / 0 IMPORTANTES / 0 MENORES, auditoría ORCHESTRATOR `APROBADO_PARA_MERGE`, CI candidata #564 y post-merge #565 `success` 8/8, release pública #22 y cleanup verificado sin ramas remotas ni worktree activo del WP. El 01/10/2026 la release `569dc7f2...` fue actualizada en producción mediante el mecanismo versionado. El postcheck inmediato informó transitoriamente `ESTADO_INCONSISTENTE`, pero la verificación read-only posterior confirmó `ESTABLE_SISLEG`, `current == target-release == 569dc7f2...`, health OK y un único bridge activo. El falso negativo del postcheck queda como defecto separado a corregir sin relajar la clasificación formal.
+
+
+## Convergencia fiable del postcheck de actualización productiva - WP-108 (01/10/2026)
+
+La actualización productiva de WP-107 alcanzó activación, health y actualización de `target-release`
+sobre `569dc7f2...`, pero el chequeo formal inmediato devolvió transitoriamente
+`ESTADO_INCONSISTENTE`. Minutos después, sin ninguna mutación adicional, el host fue observado
+`ESTABLE_SISLEG`, con `current == target-release == 569dc7f2...`, health OK y un único bridge
+activo. El mismo patrón había ocurrido en la actualización previa hacia `73b2c00...`.
+
+HUMAN_GATE aprueba WP-108 para corregir este falso negativo sin relajar la clasificación formal:
+la actualización en caliente debe esperar de forma acotada y basada en evidencia a la convergencia
+real del host, incluyendo readiness efectivo del bridge, y una no convergencia persistente posterior
+a la activación/target debe quedar dentro de la transacción y ejecutar rollback seguro.
+
+| WP | Objetivo | Estado | Depende de | Agente |
+|---|---|---|---|---|
+| WP-108 | Convergencia fiable del postcheck de actualización productiva | EN_CURSO | WP-107 | Claude Code / Claude Opus 5 |
+
+Implementador autorizado: Claude Code / Claude Opus 5. Revisor independiente previsto:
+Antigravity/AGY / Gemini 3.8 Flash (High). Entorno Orca, un único worktree WP-108 durante todo el
+ciclo y `max_concurrency=1`. Producción queda fuera de alcance; toda eventual validación productiva
+posterior requerirá una nueva autoridad explícita.
