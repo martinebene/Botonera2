@@ -1,4 +1,25 @@
-# 06 - Actualizador actual (estado previo a WP-100)
+# 06 - Actualizador productivo (estado vigente y evolución histórica)
+
+> **Estado vigente verificado el 2026-10-01.** WP-101B ya fue aplicado en el host institucional.
+> El punto de entrada de usuario para actualizar es
+> `/home/concejo/.local/bin/actualizar-sisleg.sh`, el mismo que invoca el lanzador
+> «Actualizar SIS-Leg». Ese wrapper está versionado como
+> `deploy/host/actualizar-sisleg.sh`, delega con `sudo` en
+> `/usr/local/bin/sisleg-operacion` y éste ejecuta la lógica versionada de la release activa.
+> En el preflight productivo del 2026-10-01 ambos wrappers instalados coincidieron byte a byte
+> (SHA-256) con sus copias de la release activa.
+>
+> El mecanismo vigente consume el canal público de releases de WP-100, sin credenciales de GitHub,
+> mantiene lock global, guard de no preparación/no sesión, validación de release, preservación de
+> configuración, health y rollback. Con SIS-Leg activo realiza actualización en caliente
+> release-a-release y no pasa por Legacy.
+>
+> **Uso operativo actual:** fuera de preparación y sesión, y con el host en estado estable, la
+> actualización normal se inicia ejecutando el wrapper anterior o el lanzador de escritorio. El
+> wrapper muestra el plan y solicita confirmación antes de la mutación.
+>
+> El contenido histórico que sigue documenta la evolución previa a WP-101B. Cuando una afirmación
+> histórica contradiga este bloque, prevalece este estado vigente.
 
 > **Este documento describe un mecanismo transitorio.** El actualizador que hoy corre en el host
 > depende de GitHub Actions **autenticado**. Esa dependencia es una limitación de la etapa actual,
