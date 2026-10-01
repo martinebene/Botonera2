@@ -638,9 +638,16 @@ a la activación/target debe quedar dentro de la transacción y ejecutar rollbac
 
 | WP | Objetivo | Estado | Depende de | Agente |
 |---|---|---|---|---|
-| WP-108 | Convergencia fiable del postcheck de actualización productiva | EN_CURSO | WP-107 | claude |
+| WP-108 | Convergencia fiable del postcheck de actualización productiva | INTEGRADO | WP-107 | - |
 
-Implementador autorizado: Claude Code / Claude Sonnet 5.5. Revisor independiente previsto:
-Antigravity/AGY / Gemini 3.8 Flash (High). Entorno Orca, un único worktree WP-108 durante todo el
-ciclo y `max_concurrency=1`. Producción queda fuera de alcance; toda eventual validación productiva
-posterior requerirá una nueva autoridad explícita.
+WP-108 quedó `VERIFIED_COMPLETE` en producto: PR #121 integrada por squash como
+`b4357f571770c1c3c1b55ff94bf29e3129941263`, con tree
+`f8ba5f291a59c6ed9d61f7863e118d4fc56daf83` idéntico al candidato final
+`8a3dd8e5d0993a1d9ecfb2a6c360109ee8da2c24`. La primera revisión detectó 1 BLOQUEANTE y
+1 MENOR, ambos corregidos en I002; la re-revisión final quedó 0 BLOQUEANTES / 0 IMPORTANTES /
+0 MENORES y la auditoría ORCHESTRATOR fue `APROBADO_PARA_MERGE`. CI candidata #567 y
+post-merge #568 terminaron `success` 8/8. La release pública #25 publicó correctamente el tag
+`sis-leg-b4357f571770c1c3c1b55ff94bf29e3129941263` con paquete SHA-256
+`17559a538e10205cc0346c5337077fbecf8e6a478517c4db99ec06cad5eb757e`.
+Producción no fue tocada; cualquier actualización productiva a esta release requiere nueva autoridad
+explícita. El cleanup local/remoto de WP-108 queda como paso mecánico posterior.
