@@ -650,4 +650,5 @@ post-merge #568 terminaron `success` 8/8. La release pública #25 publicó corre
 `sis-leg-b4357f571770c1c3c1b55ff94bf29e3129941263` con paquete SHA-256
 `17559a538e10205cc0346c5337077fbecf8e6a478517c4db99ec06cad5eb757e`.
 Producción no fue tocada; cualquier actualización productiva a esta release requiere nueva autoridad
-explícita. El cleanup local/remoto de WP-108 queda como paso mecánico posterior.
+explícita. El cleanup de WP-108 quedó verificado: worktree Orca removido sin force, rama local ausente,
+rama remota eliminada, checkout principal limpio y sincronizado, y sin ramas `*wp-108*` remanentes.
