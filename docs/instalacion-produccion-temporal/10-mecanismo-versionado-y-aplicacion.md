@@ -1,4 +1,23 @@
-# 10 - Mecanismo versionado de operación y su futura aplicación al host
+# 10 - Mecanismo versionado de operación aplicado al host
+
+> **Estado vigente verificado el 2026-10-01.** WP-101B ya fue completado en producción.
+> Los wrappers versionados están instalados y operativos. En particular:
+>
+> - `/home/concejo/.local/bin/actualizar-sisleg.sh` es el wrapper de usuario y el punto de entrada
+>   normal para «Actualizar SIS-Leg»;
+> - `/usr/local/bin/sisleg-operacion` es la entrada privilegiada y delega en
+>   `deploy/operaciones_host.py` de la release activa;
+> - el lanzador de escritorio «Actualizar SIS-Leg» invoca el wrapper de usuario;
+> - el preflight productivo del 2026-10-01 verificó que ambos archivos instalados coinciden byte a
+>   byte con sus copias versionadas de la release activa.
+>
+> Por lo tanto, una actualización productiva normal debe utilizar ese wrapper/lanzador y no un
+> procedimiento manual alternativo. La operación conserva los guards versionados: lock global,
+> estado institucional sin preparación ni sesión, canal público verificado, no regresión,
+> preservación de configuración, health y rollback.
+>
+> Las secciones siguientes conservan la historia y el plan de WP-101A/WP-101B. Las frases que
+> describen WP-101B como «pendiente» son históricas y no representan el estado actual del host.
 
 Este documento separa tres cosas que hasta ahora se confundían con facilidad:
 
