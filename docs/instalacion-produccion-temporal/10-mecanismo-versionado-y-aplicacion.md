@@ -125,15 +125,21 @@ configuración y recién entonces la acción que corresponda:
     el primer sondeo y no espera nada;
   - el presupuesto es acotado (`INTENTOS_CONVERGENCIA_FINAL` sondeos separados por
     `PAUSA_CONVERGENCIA_FINAL` segundos, unos 29 s en total);
-  - `ESTABLE_SISLEG` **no se relajó**: sigue exigiendo el puerto del bridge y todo lo demás. No se
-    toleran lecturas inconsistentes: se espera a que dejen de ocurrir, y una inconsistencia real
-    —por ejemplo, el sistema anterior activo a la vez— agota el presupuesto igual que un listener que
-    nunca aparece;
+  - `ESTABLE_SISLEG` **no se relajó**: sigue exigiendo el puerto del bridge y todo lo demás. La
+    tolerancia aplica **únicamente** al patrón exacto de la carrera: toda la evidencia es la de un
+    host `ESTABLE_SISLEG` salvo que `:8765` todavía no escucha (se comprueba preguntándole al
+    clasificador estricto qué diría si ese único dato fuera verdadero). Ante cualquier otra
+    inconsistencia —el sistema anterior activo, dos bridges, Nginx caído, un vhost equivocado, un
+    backend ausente— la operación **aborta en el primer sondeo y sin pausa**, y la transacción
+    revierte de inmediato; sólo un listener que nunca aparece agota el presupuesto;
   - si no converge, la falla entra en la misma reversión que cualquier otra posterior a la
-    activación: se restauran la release previa y `target-release` y el error conserva el **último
-    estado y evidencia observados** para el diagnóstico;
-  - restaurar la release previa reinicia otra vez el bridge, así que el rollback espera con el mismo
-    criterio antes de clasificarse. Sólo se registra `ROLLBACK_EXITOSO` si el host quedó
+    activación (la frontera captura `Exception`, de modo que ni una falla imprevista escapa sin
+    intentar el rollback; `KeyboardInterrupt` y `SystemExit` no se absorben): se restauran la
+    release previa y `target-release`, y el error conserva el **último estado y evidencia
+    observados** para el diagnóstico;
+  - restaurar la release previa reinicia otra vez el bridge, así que el rollback aplica la misma
+    política antes de clasificarse: espera ante la demora del listener y no gasta presupuesto ante
+    una inconsistencia material. Sólo se registra `ROLLBACK_EXITOSO` si el host quedó
     `ESTABLE_SISLEG` en la release previa con el objetivo idéntico al de antes; si no, se registra
     `ROLLBACK_FALLIDO` y se exige intervención humana.
 

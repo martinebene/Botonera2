@@ -2163,41 +2163,245 @@ def test_si_el_rollback_tampoco_converge_se_registra_rollback_fallido(tmp_path: 
     assert registro["estado_final"] == "ESTADO_INCONSISTENTE"
 
 
-def test_una_inconsistencia_real_no_se_convierte_en_exito_por_la_tolerancia(
-    tmp_path: Path,
-) -> None:
-    """La espera tolera demora de readiness, no un host realmente incoherente.
+def _mutar_legacy_backend(escenario: EscenarioHost) -> None:
+    escenario.host.activas.add(SERVICIO_BACKEND_LEGACY)
 
-    Después de activar, el sistema anterior queda activo a la vez que SIS-Leg: eso
-    no es una ventana transitoria del listener sino una inconsistencia real, y
-    ninguna cantidad de sondeos la vuelve éxito.
+
+def _mutar_legacy_bridge(escenario: EscenarioHost) -> None:
+    # Con el bridge de SIS-Leg ya activo: los dos device bridges a la vez.
+    escenario.host.activas.add(SERVICIO_BRIDGE_LEGACY)
+
+
+def _mutar_unidades_legacy_habilitadas(escenario: EscenarioHost) -> None:
+    escenario.host.habilitadas.update(UNIDADES_LEGACY)
+
+
+def _mutar_nginx_inactivo(escenario: EscenarioHost) -> None:
+    escenario.host.activas.discard("nginx.service")
+
+
+def _mutar_backend_sisleg_detenido(escenario: EscenarioHost) -> None:
+    # Sin backend activo tampoco hay puerto ``:8000`` ocupado.
+    escenario.host.activas.discard(SERVICIO_BACKEND)
+
+
+def _mutar_bridge_sisleg_deshabilitado(escenario: EscenarioHost) -> None:
+    escenario.host.habilitadas.discard(SERVICIO_BRIDGE)
+
+
+def _mutar_vhost_ausente(escenario: EscenarioHost) -> None:
+    escenario.ruta_vhost_sisleg.unlink(missing_ok=True)
+
+
+@pytest.mark.parametrize(
+    "mutacion",
+    [
+        _mutar_legacy_backend,
+        _mutar_legacy_bridge,
+        _mutar_unidades_legacy_habilitadas,
+        _mutar_nginx_inactivo,
+        _mutar_backend_sisleg_detenido,
+        _mutar_bridge_sisleg_deshabilitado,
+        _mutar_vhost_ausente,
+    ],
+)
+def test_una_inconsistencia_material_aborta_en_el_primer_sondeo_sin_esperar(
+    tmp_path: Path, mutacion: Callable[[EscenarioHost], None]
+) -> None:
+    """La tolerancia es sólo para la demora del listener, no para un host incoherente.
+
+    Después de activar, algo **distinto** del listener ``:8765`` deja de coincidir
+    con ``ESTABLE_SISLEG``. Esperar no lo arregla: la operación aborta en el
+    primer sondeo, sin ninguna pausa —ni durante la espera ni durante la
+    clasificación del rollback— y la transacción revierte de inmediato en lugar de
+    consumir el presupuesto de ~29 s.
     """
 
     escenario = escenario_sisleg(tmp_path)
     paquete, sidecar = construir_artefactos(tmp_path, SHA_NUEVO)
 
-    def escritor_que_deja_dos_sistemas_activos(raiz: Path, sha: str) -> Path:
-        escenario.host.activas.add(SERVICIO_BACKEND_LEGACY)
+    def escritor_que_rompe_el_host(raiz: Path, sha: str) -> Path:
+        if sha == SHA_NUEVO:
+            mutacion(escenario)
         return escribir_target_release(raiz, sha)
 
     pausas: list[float] = []
     operador = escenario.operador(
         sha_publico=SHA_NUEVO,
         release=release_descargada(paquete, sidecar, SHA_NUEVO),
-        escritor_target=escritor_que_deja_dos_sistemas_activos,
+        escritor_target=escritor_que_rompe_el_host,
         pausas=pausas,
     )
 
     with pytest.raises(ErrorOperacionHost) as excepcion:
         operador.actualizar()
 
-    assert "ESTADO_INCONSISTENTE" in str(excepcion.value)
-    assert "legacy_backend_activo=True" in str(excepcion.value)
-    assert len(pausas) >= INTENTOS_CONVERGENCIA_FINAL - 1
+    mensaje = str(excepcion.value)
+    assert "ESTADO_INCONSISTENTE" in mensaje
+    assert "sin esperar" in mensaje
+    assert "En el sondeo 1" in mensaje
+    assert pausas == []
+    # Se intentó el rollback (no quedó NO_APLICA) y su desenlace es el observado.
     assert operador.ultimo_resultado is not None
-    # El rollback no pudo dejar el host estable (Legacy sigue activo): se informa.
+    assert operador.ultimo_resultado.rollback in {"EXITOSO", "FALLIDO"}
+
+
+def test_la_evidencia_material_se_informa_en_el_error(tmp_path: Path) -> None:
+    """El error conserva los hechos que explican por qué no se esperó."""
+
+    escenario = escenario_sisleg(tmp_path)
+    paquete, sidecar = construir_artefactos(tmp_path, SHA_NUEVO)
+
+    def escritor(raiz: Path, sha: str) -> Path:
+        if sha == SHA_NUEVO:
+            _mutar_legacy_backend(escenario)
+        return escribir_target_release(raiz, sha)
+
+    operador = escenario.operador(
+        sha_publico=SHA_NUEVO,
+        release=release_descargada(paquete, sidecar, SHA_NUEVO),
+        escritor_target=escritor,
+    )
+
+    with pytest.raises(ErrorOperacionHost) as excepcion:
+        operador.actualizar()
+
+    assert "legacy_backend_activo=True" in str(excepcion.value)
+    assert operador.ultimo_resultado is not None
+    # Legacy sigue activo: el rollback no pudo dejar el host estable y se informa.
     assert operador.ultimo_resultado.rollback == "FALLIDO"
     assert operador.ultimo_resultado.estado_final == "ESTADO_INCONSISTENTE"
+
+
+def test_una_inconsistencia_material_durante_el_rollback_no_consume_el_presupuesto(
+    tmp_path: Path,
+) -> None:
+    """El rollback usa la misma política: un host incoherente no hace esperar ~29 s.
+
+    La escritura del objetivo falla (arranca el rollback) y, además, el sistema
+    anterior queda activo. Clasificar el rollback encuentra una inconsistencia
+    material: debe declararse ``ROLLBACK_FALLIDO`` sin una sola pausa.
+    """
+
+    escenario = escenario_sisleg(tmp_path)
+    paquete, sidecar = construir_artefactos(tmp_path, SHA_NUEVO)
+
+    def escritor_que_falla_y_deja_legacy_activo(raiz: Path, sha: str) -> Path:
+        del raiz, sha
+        _mutar_legacy_backend(escenario)
+        raise OSError("no queda espacio en el dispositivo")
+
+    pausas: list[float] = []
+    operador = escenario.operador(
+        sha_publico=SHA_NUEVO,
+        release=release_descargada(paquete, sidecar, SHA_NUEVO),
+        escritor_target=escritor_que_falla_y_deja_legacy_activo,
+        pausas=pausas,
+    )
+
+    with pytest.raises(ErrorOperacionHost) as excepcion:
+        operador.actualizar()
+
+    assert pausas == []
+    assert "no se pudo demostrar la restauración" in str(excepcion.value)
+    assert operador.ultimo_resultado is not None
+    assert operador.ultimo_resultado.rollback == "FALLIDO"
+
+
+def test_el_listener_demorado_junto_con_una_inconsistencia_material_aborta_igual(
+    tmp_path: Path,
+) -> None:
+    """El patrón transitorio es exacto: si hay algo más, no hay tolerancia alguna."""
+
+    escenario = escenario_sisleg(tmp_path)
+    paquete, sidecar = construir_artefactos(tmp_path, SHA_NUEVO)
+    escenario.host.demoras_listener_bridge = [10**9, 0]
+
+    def escritor(raiz: Path, sha: str) -> Path:
+        if sha == SHA_NUEVO:
+            _mutar_legacy_bridge(escenario)
+        return escribir_target_release(raiz, sha)
+
+    pausas: list[float] = []
+    operador = escenario.operador(
+        sha_publico=SHA_NUEVO,
+        release=release_descargada(paquete, sidecar, SHA_NUEVO),
+        escritor_target=escritor,
+        pausas=pausas,
+    )
+
+    with pytest.raises(ErrorOperacionHost, match="sin esperar"):
+        operador.actualizar()
+
+    assert pausas == []
+
+
+class ErrorInesperadoDePrueba(Exception):
+    """Excepción que ninguna tupla del código enumera: simula un fallo imprevisto."""
+
+
+def test_una_excepcion_inesperada_tras_mutar_tambien_dispara_el_rollback(
+    tmp_path: Path,
+) -> None:
+    """La frontera transaccional captura ``Exception`` y no deja el host a medias.
+
+    Después de activar la release nueva, la escritura del objetivo levanta una
+    excepción que no pertenece a ninguna familia prevista. Antes escapaba sin
+    intentar el rollback y dejaba ``current`` y ``target-release`` divergentes.
+    """
+
+    escenario = escenario_sisleg(tmp_path)
+    paquete, sidecar = construir_artefactos(tmp_path, SHA_NUEVO)
+
+    def escritor_con_falla_imprevista(raiz: Path, sha: str) -> Path:
+        if sha == SHA_NUEVO:
+            raise ErrorInesperadoDePrueba("falla que nadie previó")
+        return escribir_target_release(raiz, sha)
+
+    operador = escenario.operador(
+        sha_publico=SHA_NUEVO,
+        release=release_descargada(paquete, sidecar, SHA_NUEVO),
+        escritor_target=escritor_con_falla_imprevista,
+    )
+
+    with pytest.raises(ErrorOperacionHost, match="se restauró la release anterior") as excepcion:
+        operador.actualizar()
+
+    assert isinstance(excepcion.value.__cause__, ErrorInesperadoDePrueba)
+    assert escenario.gestor.current.resolve().name == SHA_VIEJO
+    assert leer_target_release(escenario.raiz) == SHA_VIEJO
+    assert escenario.inspector.clasificar() == ESTABLE_SISLEG
+    assert operador.ultimo_resultado is not None
+    assert operador.ultimo_resultado.rollback == "EXITOSO"
+    assert operador.ultimo_resultado.estado_final == ESTABLE_SISLEG
+
+
+def test_una_excepcion_inesperada_con_rollback_imposible_se_registra_fallida(
+    tmp_path: Path,
+) -> None:
+    """Si además la reversión no funciona, el desenlace honesto es ``FALLIDO``."""
+
+    escenario = escenario_sisleg(tmp_path)
+    paquete, sidecar = construir_artefactos(tmp_path, SHA_NUEVO)
+
+    def escritor(raiz: Path, sha: str) -> Path:
+        del raiz, sha
+        escenario.host.arranque_roto = frozenset({SERVICIO_BACKEND})
+        raise ErrorInesperadoDePrueba("falla que nadie previó")
+
+    operador = escenario.operador(
+        sha_publico=SHA_NUEVO,
+        release=release_descargada(paquete, sidecar, SHA_NUEVO),
+        escritor_target=escritor,
+    )
+
+    with pytest.raises(ErrorOperacionHost) as excepcion:
+        operador.actualizar()
+
+    assert "intervención humana" in str(excepcion.value)
+    assert "se restauró la release anterior" not in str(excepcion.value)
+    assert operador.ultimo_resultado is not None
+    assert operador.ultimo_resultado.rollback == "FALLIDO"
 
 
 def test_actualizar_desde_legacy_no_espera_ninguna_convergencia(tmp_path: Path) -> None:
