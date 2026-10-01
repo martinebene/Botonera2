@@ -62,6 +62,8 @@ from deploy.herramienta_despliegue import (
     ResultadoComando,
 )
 from deploy.operaciones_host import (
+    INTENTOS_CONVERGENCIA_FINAL,
+    PAUSA_CONVERGENCIA_FINAL,
     ErrorOperacionHost,
     OperadorHost,
     PlanOperacion,
@@ -252,6 +254,28 @@ class HostSimulado:
         # revienta al iniciar, y la única forma de que un rollback fallido se
         # note en el estado observado en lugar de quedar disimulado.
         self.arranque_roto: frozenset[str] = frozenset()
+        # Carrera productiva de WP-108: tras un ``start``/``restart`` del bridge,
+        # systemd lo reporta ``active`` de inmediato pero el listener ``:8765``
+        # tarda en estar disponible. Cada elemento es la cantidad de sondeos del
+        # puerto que fallan después de **un** arranque del bridge, consumidos en
+        # orden (primer arranque, segundo arranque...). Sin elementos, el
+        # listener responde desde el primer sondeo, como antes de WP-108.
+        self.demoras_listener_bridge: list[int] = []
+        self._sondeos_pendientes_bridge = 0
+        # Cantidad total de sondeos de ``:8765``: permite demostrar que la espera
+        # consulta evidencia real entre intentos y no duerme a ciegas.
+        self.sondeos_puerto_bridge = 0
+
+    def listener_bridge_listo(self) -> bool:
+        """Responde la sonda de ``:8765`` según la demora simulada del listener."""
+
+        self.sondeos_puerto_bridge += 1
+        if SERVICIO_BRIDGE not in self.activas:
+            return False
+        if self._sondeos_pendientes_bridge > 0:
+            self._sondeos_pendientes_bridge -= 1
+            return False
+        return True
 
     def _registrar_bridges(self) -> None:
         self.historia_bridges.append(
@@ -319,6 +343,13 @@ class HostSimulado:
             )
         for unidad in unidades:
             if accion in {"start", "restart"}:
+                # Un ``restart`` (o un ``start`` de una unidad apagada) abre una
+                # ventana nueva en la que el bridge figura activo sin escuchar.
+                abre_ventana = accion == "restart" or unidad not in self.activas
+                if unidad == SERVICIO_BRIDGE and abre_ventana:
+                    self._sondeos_pendientes_bridge = (
+                        self.demoras_listener_bridge.pop(0) if self.demoras_listener_bridge else 0
+                    )
                 self.activas.add(unidad)
             elif accion == "stop":
                 self.activas.discard(unidad)
@@ -484,7 +515,7 @@ class EscenarioHost:
                 or SERVICIO_BACKEND in self.host.activas
             )
         if puerto == PUERTO_BRIDGE_SISLEG:
-            return SERVICIO_BRIDGE in self.host.activas
+            return self.host.listener_bridge_listo()
         return False
 
     def preflight_simulado(self) -> None:
@@ -503,6 +534,7 @@ class EscenarioHost:
         escritor_target: Callable[[Path, str], Path] | None = None,
         sin_ancestralidad: Sequence[tuple[str, str]] = (),
         verificaciones_ancestro: list[tuple[str, str]] | None = None,
+        pausas: list[float] | None = None,
     ) -> OperadorHost:
         """Construye el operador con el canal público reemplazado por un doble.
 
@@ -518,6 +550,10 @@ class EscenarioHost:
         ``sin_ancestralidad`` lista pares ``(ancestro, descendiente)`` cuya
         relación la comparación Git pública **no** demuestra; cualquier otro par
         se considera demostrado. ``verificaciones_ancestro`` recibe cada consulta.
+
+        ``pausas`` (WP-108) recibe la duración de cada espera entre intentos que
+        pide el operador, sin dormir de verdad: permite comprobar cuántas veces
+        esperó y que la espera siempre está acotada.
         """
 
         respuestas: list[IdentidadDesplegable | Exception] = []
@@ -560,7 +596,7 @@ class EscenarioHost:
             verificar_ancestro=verificar_ancestro,
             obtener_release=obtener,
             preflight=self.preflight_simulado,
-            durmiente=lambda segundos: None,
+            durmiente=pausas.append if pausas is not None else (lambda segundos: None),
             reloj=lambda: MARCA_TEMPORAL_FIJA,
             escritor_target=escritor_target or escribir_target_release,
             ruta_lock=self.tmp_path / "operacion.lock",
@@ -1886,6 +1922,542 @@ def test_si_tambien_falla_la_reversion_se_informan_los_dos_errores(tmp_path: Pat
     assert operador.ultimo_resultado.rollback == "FALLIDO"
     assert operador.ultimo_resultado.estado_final != ESTABLE_SISLEG
     assert not escenario.host.hubo_dos_bridges_simultaneos()
+
+
+# ---------------------------------------------------------------------------
+# Convergencia final del postcheck (WP-108)
+# ---------------------------------------------------------------------------
+
+
+def test_el_bridge_activo_sin_listener_sigue_clasificandose_inconsistente(
+    tmp_path: Path,
+) -> None:
+    """El clasificador no se relajó: ``:8765`` sigue siendo parte de ESTABLE_SISLEG.
+
+    Reproduce la ventana observada en producción: ``systemctl`` dice que el
+    bridge está ``active`` pero el listener todavía no responde. En esa ventana
+    la clasificación **debe** ser inconsistente; la corrección de WP-108 no está
+    en tolerar esa lectura sino en esperar a que deje de ocurrir.
+    """
+
+    escenario = escenario_sisleg(tmp_path)
+    escenario.host.demoras_listener_bridge = [2]
+    escenario.host.ejecutar(["systemctl", "restart", SERVICIO_BRIDGE])
+
+    assert SERVICIO_BRIDGE in escenario.host.activas
+    assert escenario.inspector.clasificar() == "ESTADO_INCONSISTENTE"
+    assert escenario.inspector.clasificar() == "ESTADO_INCONSISTENTE"
+    # Recién cuando el listener aparece la misma evidencia pasa a ser estable.
+    assert escenario.inspector.clasificar() == ESTABLE_SISLEG
+
+
+def test_actualizar_en_caliente_no_falla_si_el_listener_del_bridge_demora(
+    tmp_path: Path,
+) -> None:
+    """Regresión del falso negativo de WP-107: bridge ``active`` y ``:8765`` aún no listo.
+
+    Escenario productivo: host ``ESTABLE_SISLEG``, la release nueva se activa con
+    backend, health y Nginx correctos, el bridge figura ``active`` y el primer
+    postcheck no encuentra el listener. La actualización es sana, así que tiene
+    que terminar en éxito una vez que el listener aparece, sin rollback.
+    """
+
+    escenario = escenario_sisleg(tmp_path)
+    paquete, sidecar = construir_artefactos(tmp_path, SHA_NUEVO)
+    escenario.host.demoras_listener_bridge = [3]
+    operador = escenario.operador(
+        sha_publico=SHA_NUEVO, release=release_descargada(paquete, sidecar, SHA_NUEVO)
+    )
+
+    resultado = operador.actualizar()
+
+    assert resultado.estado == "EXITO"
+    assert resultado.estado_final == ESTABLE_SISLEG
+    assert resultado.rollback == "NO_APLICA"
+    assert resultado.target_final == SHA_NUEVO
+    assert leer_target_release(escenario.raiz) == SHA_NUEVO
+    assert escenario.gestor.current.resolve().name == SHA_NUEVO
+    assert not escenario.host.hubo_dos_bridges_simultaneos()
+
+
+def test_la_espera_consulta_el_host_entre_intentos_y_no_duerme_a_ciegas(
+    tmp_path: Path,
+) -> None:
+    """La espera es por condición: una pausa por cada sondeo fallido, ni una más.
+
+    Con tres sondeos fallidos hay exactamente tres pausas y el sondeo siguiente
+    —el cuarto— encuentra el listener. Un ``sleep`` fijo no tendría ninguna
+    relación con la cantidad de sondeos del puerto.
+    """
+
+    escenario = escenario_sisleg(tmp_path)
+    paquete, sidecar = construir_artefactos(tmp_path, SHA_NUEVO)
+    escenario.host.demoras_listener_bridge = [3]
+    pausas: list[float] = []
+    operador = escenario.operador(
+        sha_publico=SHA_NUEVO,
+        release=release_descargada(paquete, sidecar, SHA_NUEVO),
+        pausas=pausas,
+    )
+
+    resultado = operador.actualizar()
+
+    assert pausas == [PAUSA_CONVERGENCIA_FINAL] * 3
+    assert any("tras 4 sondeos" in accion for accion in resultado.acciones)
+
+
+def test_la_convergencia_inmediata_no_agrega_ninguna_espera(tmp_path: Path) -> None:
+    """Un host sano converge en el primer sondeo: no se pierde tiempo ni se duerme."""
+
+    escenario = escenario_sisleg(tmp_path)
+    paquete, sidecar = construir_artefactos(tmp_path, SHA_NUEVO)
+    pausas: list[float] = []
+    operador = escenario.operador(
+        sha_publico=SHA_NUEVO,
+        release=release_descargada(paquete, sidecar, SHA_NUEVO),
+        pausas=pausas,
+    )
+
+    resultado = operador.actualizar()
+
+    assert pausas == []
+    assert resultado.estado_final == ESTABLE_SISLEG
+    assert resultado.rollback == "NO_APLICA"
+    assert any("tras 1 sondeo" in accion for accion in resultado.acciones)
+
+
+def test_un_listener_que_nunca_aparece_falla_cerrado_dentro_del_presupuesto(
+    tmp_path: Path,
+) -> None:
+    """El presupuesto es un límite duro: sin listener la actualización no es éxito.
+
+    El bridge reiniciado por la release nueva nunca escucha. La operación no
+    espera indefinidamente, no declara éxito y deja en el error el último estado
+    observado, que es lo que necesita quien diagnostica.
+    """
+
+    escenario = escenario_sisleg(tmp_path)
+    paquete, sidecar = construir_artefactos(tmp_path, SHA_NUEVO)
+    # Primer arranque (release nueva): nunca escucha. Segundo (rollback): inmediato.
+    escenario.host.demoras_listener_bridge = [10**9, 0]
+    pausas: list[float] = []
+    operador = escenario.operador(
+        sha_publico=SHA_NUEVO,
+        release=release_descargada(paquete, sidecar, SHA_NUEVO),
+        pausas=pausas,
+    )
+
+    with pytest.raises(ErrorOperacionHost) as excepcion:
+        operador.actualizar()
+
+    mensaje = str(excepcion.value)
+    assert "ESTADO_INCONSISTENTE" in mensaje
+    assert "puerto_bridge_ocupado=False" in mensaje
+    assert "sisleg_bridge_activo=True" in mensaje
+    # Presupuesto acotado: N sondeos, N-1 pausas entre ellos.
+    assert pausas == [PAUSA_CONVERGENCIA_FINAL] * (INTENTOS_CONVERGENCIA_FINAL - 1)
+    assert operador.ultimo_resultado is not None
+    assert operador.ultimo_resultado.estado_final == ESTABLE_SISLEG  # tras el rollback
+
+
+def test_la_falta_de_convergencia_revierte_release_y_target_previos(
+    tmp_path: Path,
+) -> None:
+    """La no convergencia posterior a activar y fijar el objetivo es parte de la transacción.
+
+    Cuando la release nueva ya está en ``current`` y ``target-release`` ya la
+    declara, que el host no converja revierte **las dos cosas** por los
+    mecanismos canónicos y el historial refleja el desenlace real del rollback.
+    """
+
+    escenario = escenario_sisleg(tmp_path)
+    paquete, sidecar = construir_artefactos(tmp_path, SHA_NUEVO)
+    escenario.host.demoras_listener_bridge = [10**9, 0]
+    operador = escenario.operador(
+        sha_publico=SHA_NUEVO, release=release_descargada(paquete, sidecar, SHA_NUEVO)
+    )
+    historial = tmp_path / "registros/operaciones.jsonl"
+
+    with pytest.raises(ErrorOperacionHost, match="se restauró la release anterior") as excepcion:
+        operador.actualizar()
+
+    assert SHA_VIEJO in str(excepcion.value)
+    assert escenario.gestor.current.resolve().name == SHA_VIEJO
+    assert leer_target_release(escenario.raiz) == SHA_VIEJO
+    assert escenario.inspector.clasificar() == ESTABLE_SISLEG
+    assert escenario.config_intacta()
+    assert not escenario.host.hubo_dos_bridges_simultaneos()
+    resultado = operador.ultimo_resultado
+    assert resultado is not None
+    assert resultado.rollback == "EXITOSO"
+    assert resultado.target_final == SHA_VIEJO
+    assert resultado.estado_final == ESTABLE_SISLEG
+    assert any(f"release previa {SHA_VIEJO} reactivada" in a for a in resultado.acciones)
+
+    # Historial coherente con el desenlace real: falla + rollback exitoso.
+    registrar_en_historial(historial, resultado_de_falla(operador, "actualizar", excepcion.value))
+    (registro,) = leer_historial(historial)
+    assert registro["estado"] == "FALLA"
+    assert registro["exit_code"] == 1
+    assert registro["rollback"] == "EXITOSO"
+    assert registro["estado_final"] == ESTABLE_SISLEG
+    assert registro["target_final"] == SHA_VIEJO
+    assert "ESTADO_INCONSISTENTE" in registro["error"]
+
+
+def test_el_rollback_tambien_espera_al_listener_antes_de_clasificarse(tmp_path: Path) -> None:
+    """Restaurar la release previa reinicia el bridge: la misma carrera, otra vez.
+
+    Si el rollback no esperara, un rollback que funcionó se registraría como
+    ``ROLLBACK_FALLIDO`` por leer el host un instante antes de que el listener
+    vuelva. Acá la release nueva nunca converge y el listener de la restaurada
+    tarda dos sondeos: el desenlace honesto es ``EXITOSO``.
+    """
+
+    escenario = escenario_sisleg(tmp_path)
+    paquete, sidecar = construir_artefactos(tmp_path, SHA_NUEVO)
+    escenario.host.demoras_listener_bridge = [10**9, 2]
+    operador = escenario.operador(
+        sha_publico=SHA_NUEVO, release=release_descargada(paquete, sidecar, SHA_NUEVO)
+    )
+
+    with pytest.raises(ErrorOperacionHost, match="se restauró la release anterior"):
+        operador.actualizar()
+
+    assert operador.ultimo_resultado is not None
+    assert operador.ultimo_resultado.rollback == "EXITOSO"
+    assert operador.ultimo_resultado.estado_final == ESTABLE_SISLEG
+
+
+def test_si_el_rollback_tampoco_converge_se_registra_rollback_fallido(tmp_path: Path) -> None:
+    """Sin evidencia de restauración no se afirma ninguna: ``ROLLBACK_FALLIDO``.
+
+    Ni la release nueva ni la restaurada recuperan el listener. El host queda
+    observado como inconsistente, el historial lo dice y se exige intervención.
+    """
+
+    escenario = escenario_sisleg(tmp_path)
+    paquete, sidecar = construir_artefactos(tmp_path, SHA_NUEVO)
+    escenario.host.demoras_listener_bridge = [10**9, 10**9]
+    operador = escenario.operador(
+        sha_publico=SHA_NUEVO, release=release_descargada(paquete, sidecar, SHA_NUEVO)
+    )
+    historial = tmp_path / "registros/operaciones.jsonl"
+
+    with pytest.raises(ErrorOperacionHost) as excepcion:
+        operador.actualizar()
+
+    mensaje = str(excepcion.value)
+    assert "no se pudo demostrar la restauración" in mensaje
+    assert "intervención humana" in mensaje
+    assert "se restauró la release anterior" not in mensaje
+    resultado = operador.ultimo_resultado
+    assert resultado is not None
+    assert resultado.rollback == "FALLIDO"
+    assert resultado.estado_final == "ESTADO_INCONSISTENTE"
+
+    registrar_en_historial(historial, resultado_de_falla(operador, "actualizar", excepcion.value))
+    (registro,) = leer_historial(historial)
+    assert registro["estado"] == "FALLA"
+    assert registro["rollback"] == "FALLIDO"
+    assert registro["estado_final"] == "ESTADO_INCONSISTENTE"
+
+
+def _mutar_legacy_backend(escenario: EscenarioHost) -> None:
+    escenario.host.activas.add(SERVICIO_BACKEND_LEGACY)
+
+
+def _mutar_legacy_bridge(escenario: EscenarioHost) -> None:
+    # Con el bridge de SIS-Leg ya activo: los dos device bridges a la vez.
+    escenario.host.activas.add(SERVICIO_BRIDGE_LEGACY)
+
+
+def _mutar_unidades_legacy_habilitadas(escenario: EscenarioHost) -> None:
+    escenario.host.habilitadas.update(UNIDADES_LEGACY)
+
+
+def _mutar_nginx_inactivo(escenario: EscenarioHost) -> None:
+    escenario.host.activas.discard("nginx.service")
+
+
+def _mutar_backend_sisleg_detenido(escenario: EscenarioHost) -> None:
+    # Sin backend activo tampoco hay puerto ``:8000`` ocupado.
+    escenario.host.activas.discard(SERVICIO_BACKEND)
+
+
+def _mutar_bridge_sisleg_deshabilitado(escenario: EscenarioHost) -> None:
+    escenario.host.habilitadas.discard(SERVICIO_BRIDGE)
+
+
+def _mutar_vhost_ausente(escenario: EscenarioHost) -> None:
+    escenario.ruta_vhost_sisleg.unlink(missing_ok=True)
+
+
+@pytest.mark.parametrize(
+    "mutacion",
+    [
+        _mutar_legacy_backend,
+        _mutar_legacy_bridge,
+        _mutar_unidades_legacy_habilitadas,
+        _mutar_nginx_inactivo,
+        _mutar_backend_sisleg_detenido,
+        _mutar_bridge_sisleg_deshabilitado,
+        _mutar_vhost_ausente,
+    ],
+)
+def test_una_inconsistencia_material_aborta_en_el_primer_sondeo_sin_esperar(
+    tmp_path: Path, mutacion: Callable[[EscenarioHost], None]
+) -> None:
+    """La tolerancia es sólo para la demora del listener, no para un host incoherente.
+
+    Después de activar, algo **distinto** del listener ``:8765`` deja de coincidir
+    con ``ESTABLE_SISLEG``. Esperar no lo arregla: la operación aborta en el
+    primer sondeo, sin ninguna pausa —ni durante la espera ni durante la
+    clasificación del rollback— y la transacción revierte de inmediato en lugar de
+    consumir el presupuesto de ~29 s.
+    """
+
+    escenario = escenario_sisleg(tmp_path)
+    paquete, sidecar = construir_artefactos(tmp_path, SHA_NUEVO)
+
+    def escritor_que_rompe_el_host(raiz: Path, sha: str) -> Path:
+        if sha == SHA_NUEVO:
+            mutacion(escenario)
+        return escribir_target_release(raiz, sha)
+
+    pausas: list[float] = []
+    operador = escenario.operador(
+        sha_publico=SHA_NUEVO,
+        release=release_descargada(paquete, sidecar, SHA_NUEVO),
+        escritor_target=escritor_que_rompe_el_host,
+        pausas=pausas,
+    )
+
+    with pytest.raises(ErrorOperacionHost) as excepcion:
+        operador.actualizar()
+
+    mensaje = str(excepcion.value)
+    assert "ESTADO_INCONSISTENTE" in mensaje
+    assert "sin esperar" in mensaje
+    assert "En el sondeo 1" in mensaje
+    assert pausas == []
+    # Se intentó el rollback (no quedó NO_APLICA) y su desenlace es el observado.
+    assert operador.ultimo_resultado is not None
+    assert operador.ultimo_resultado.rollback in {"EXITOSO", "FALLIDO"}
+
+
+def test_la_evidencia_material_se_informa_en_el_error(tmp_path: Path) -> None:
+    """El error conserva los hechos que explican por qué no se esperó."""
+
+    escenario = escenario_sisleg(tmp_path)
+    paquete, sidecar = construir_artefactos(tmp_path, SHA_NUEVO)
+
+    def escritor(raiz: Path, sha: str) -> Path:
+        if sha == SHA_NUEVO:
+            _mutar_legacy_backend(escenario)
+        return escribir_target_release(raiz, sha)
+
+    operador = escenario.operador(
+        sha_publico=SHA_NUEVO,
+        release=release_descargada(paquete, sidecar, SHA_NUEVO),
+        escritor_target=escritor,
+    )
+
+    with pytest.raises(ErrorOperacionHost) as excepcion:
+        operador.actualizar()
+
+    assert "legacy_backend_activo=True" in str(excepcion.value)
+    assert operador.ultimo_resultado is not None
+    # Legacy sigue activo: el rollback no pudo dejar el host estable y se informa.
+    assert operador.ultimo_resultado.rollback == "FALLIDO"
+    assert operador.ultimo_resultado.estado_final == "ESTADO_INCONSISTENTE"
+
+
+def test_una_inconsistencia_material_durante_el_rollback_no_consume_el_presupuesto(
+    tmp_path: Path,
+) -> None:
+    """El rollback usa la misma política: un host incoherente no hace esperar ~29 s.
+
+    La escritura del objetivo falla (arranca el rollback) y, además, el sistema
+    anterior queda activo. Clasificar el rollback encuentra una inconsistencia
+    material: debe declararse ``ROLLBACK_FALLIDO`` sin una sola pausa.
+    """
+
+    escenario = escenario_sisleg(tmp_path)
+    paquete, sidecar = construir_artefactos(tmp_path, SHA_NUEVO)
+
+    def escritor_que_falla_y_deja_legacy_activo(raiz: Path, sha: str) -> Path:
+        del raiz, sha
+        _mutar_legacy_backend(escenario)
+        raise OSError("no queda espacio en el dispositivo")
+
+    pausas: list[float] = []
+    operador = escenario.operador(
+        sha_publico=SHA_NUEVO,
+        release=release_descargada(paquete, sidecar, SHA_NUEVO),
+        escritor_target=escritor_que_falla_y_deja_legacy_activo,
+        pausas=pausas,
+    )
+
+    with pytest.raises(ErrorOperacionHost) as excepcion:
+        operador.actualizar()
+
+    assert pausas == []
+    assert "no se pudo demostrar la restauración" in str(excepcion.value)
+    assert operador.ultimo_resultado is not None
+    assert operador.ultimo_resultado.rollback == "FALLIDO"
+
+
+def test_el_listener_demorado_junto_con_una_inconsistencia_material_aborta_igual(
+    tmp_path: Path,
+) -> None:
+    """El patrón transitorio es exacto: si hay algo más, no hay tolerancia alguna."""
+
+    escenario = escenario_sisleg(tmp_path)
+    paquete, sidecar = construir_artefactos(tmp_path, SHA_NUEVO)
+    escenario.host.demoras_listener_bridge = [10**9, 0]
+
+    def escritor(raiz: Path, sha: str) -> Path:
+        if sha == SHA_NUEVO:
+            _mutar_legacy_bridge(escenario)
+        return escribir_target_release(raiz, sha)
+
+    pausas: list[float] = []
+    operador = escenario.operador(
+        sha_publico=SHA_NUEVO,
+        release=release_descargada(paquete, sidecar, SHA_NUEVO),
+        escritor_target=escritor,
+        pausas=pausas,
+    )
+
+    with pytest.raises(ErrorOperacionHost, match="sin esperar"):
+        operador.actualizar()
+
+    assert pausas == []
+
+
+class ErrorInesperadoDePrueba(Exception):
+    """Excepción que ninguna tupla del código enumera: simula un fallo imprevisto."""
+
+
+def test_una_excepcion_inesperada_tras_mutar_tambien_dispara_el_rollback(
+    tmp_path: Path,
+) -> None:
+    """La frontera transaccional captura ``Exception`` y no deja el host a medias.
+
+    Después de activar la release nueva, la escritura del objetivo levanta una
+    excepción que no pertenece a ninguna familia prevista. Antes escapaba sin
+    intentar el rollback y dejaba ``current`` y ``target-release`` divergentes.
+    """
+
+    escenario = escenario_sisleg(tmp_path)
+    paquete, sidecar = construir_artefactos(tmp_path, SHA_NUEVO)
+
+    def escritor_con_falla_imprevista(raiz: Path, sha: str) -> Path:
+        if sha == SHA_NUEVO:
+            raise ErrorInesperadoDePrueba("falla que nadie previó")
+        return escribir_target_release(raiz, sha)
+
+    operador = escenario.operador(
+        sha_publico=SHA_NUEVO,
+        release=release_descargada(paquete, sidecar, SHA_NUEVO),
+        escritor_target=escritor_con_falla_imprevista,
+    )
+
+    with pytest.raises(ErrorOperacionHost, match="se restauró la release anterior") as excepcion:
+        operador.actualizar()
+
+    assert isinstance(excepcion.value.__cause__, ErrorInesperadoDePrueba)
+    assert escenario.gestor.current.resolve().name == SHA_VIEJO
+    assert leer_target_release(escenario.raiz) == SHA_VIEJO
+    assert escenario.inspector.clasificar() == ESTABLE_SISLEG
+    assert operador.ultimo_resultado is not None
+    assert operador.ultimo_resultado.rollback == "EXITOSO"
+    assert operador.ultimo_resultado.estado_final == ESTABLE_SISLEG
+
+
+def test_una_excepcion_inesperada_con_rollback_imposible_se_registra_fallida(
+    tmp_path: Path,
+) -> None:
+    """Si además la reversión no funciona, el desenlace honesto es ``FALLIDO``."""
+
+    escenario = escenario_sisleg(tmp_path)
+    paquete, sidecar = construir_artefactos(tmp_path, SHA_NUEVO)
+
+    def escritor(raiz: Path, sha: str) -> Path:
+        del raiz, sha
+        escenario.host.arranque_roto = frozenset({SERVICIO_BACKEND})
+        raise ErrorInesperadoDePrueba("falla que nadie previó")
+
+    operador = escenario.operador(
+        sha_publico=SHA_NUEVO,
+        release=release_descargada(paquete, sidecar, SHA_NUEVO),
+        escritor_target=escritor,
+    )
+
+    with pytest.raises(ErrorOperacionHost) as excepcion:
+        operador.actualizar()
+
+    assert "intervención humana" in str(excepcion.value)
+    assert "se restauró la release anterior" not in str(excepcion.value)
+    assert operador.ultimo_resultado is not None
+    assert operador.ultimo_resultado.rollback == "FALLIDO"
+
+
+def test_actualizar_desde_legacy_no_espera_ninguna_convergencia(tmp_path: Path) -> None:
+    """Con el sistema anterior activo sólo se prepara y se fija el objetivo.
+
+    No se reinicia ningún servicio de SIS-Leg, no hay listener que esperar y la
+    semántica de WP-101A se conserva: sin pausas, sin ``restart`` y sin rollback.
+    """
+
+    escenario = escenario_legacy(tmp_path)
+    paquete, sidecar = construir_artefactos(tmp_path, SHA_NUEVO)
+    # Una demora configurada es irrelevante: ningún bridge de SIS-Leg se arranca.
+    escenario.host.demoras_listener_bridge = [10**9]
+    pausas: list[float] = []
+    operador = escenario.operador(
+        sha_publico=SHA_NUEVO,
+        release=release_descargada(paquete, sidecar, SHA_NUEVO),
+        pausas=pausas,
+    )
+
+    resultado = operador.actualizar()
+
+    assert resultado.estado == "EXITO"
+    assert resultado.estado_inicial == ESTABLE_LEGACY
+    assert resultado.estado_final == ESTABLE_LEGACY
+    assert resultado.rollback == "NO_APLICA"
+    assert leer_target_release(escenario.raiz) == SHA_NUEVO
+    assert pausas == []
+    assert not any(llamada[:2] == ["systemctl", "restart"] for llamada in escenario.host.llamadas)
+    assert not any("convergido" in accion for accion in resultado.acciones)
+
+
+def test_el_historial_de_una_actualizacion_con_espera_registra_exito_y_estado_estable(
+    tmp_path: Path,
+) -> None:
+    """Éxito tras una demora transitoria: historial de éxito, sin rastro de rollback."""
+
+    escenario = escenario_sisleg(tmp_path)
+    paquete, sidecar = construir_artefactos(tmp_path, SHA_NUEVO)
+    escenario.host.demoras_listener_bridge = [2]
+    operador = escenario.operador(
+        sha_publico=SHA_NUEVO, release=release_descargada(paquete, sidecar, SHA_NUEVO)
+    )
+    historial = tmp_path / "registros/operaciones.jsonl"
+
+    resultado = operador.actualizar()
+    assert registrar_en_historial(historial, resultado) is True
+
+    (registro,) = leer_historial(historial)
+    assert registro["estado"] == "EXITO"
+    assert registro["exit_code"] == 0
+    assert registro["estado_inicial"] == ESTABLE_SISLEG
+    assert registro["estado_final"] == ESTABLE_SISLEG
+    assert registro["rollback"] == "NO_APLICA"
+    assert registro["target_final"] == SHA_NUEVO
+    assert registro["error"] is None
 
 
 # ---------------------------------------------------------------------------

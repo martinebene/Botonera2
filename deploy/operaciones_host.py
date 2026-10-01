@@ -48,7 +48,7 @@ import os
 import sys
 import time
 from collections.abc import Callable, Sequence
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -80,6 +80,7 @@ from deploy.estado_host import (  # noqa: E402 - raíz preparada arriba
     ESTABLE_SISLEG,
     ESTADOS_OPERATIVOS,
     PUERTO_BACKEND,
+    PUERTO_BRIDGE_SISLEG,
     RUTA_LOCK_OPERACION,
     RUTA_VHOST_LEGACY,
     RUTA_VHOST_LEGACY_DISPONIBLE,
@@ -88,6 +89,7 @@ from deploy.estado_host import (  # noqa: E402 - raíz preparada arriba
     SERVICIO_BRIDGE_LEGACY,
     SUFIJO_VHOST_DESHABILITADO,
     ErrorEstadoHost,
+    EvidenciaEstado,
     InspectorEstadoHost,
     eliminar_target_release,
     escribir_target_release,
@@ -134,6 +136,16 @@ ESTADO_FALLA = "FALLA"
 ROLLBACK_NO_APLICA = "NO_APLICA"
 ROLLBACK_EXITOSO = "EXITOSO"
 ROLLBACK_FALLIDO = "FALLIDO"
+
+# Presupuesto de la convergencia final de una actualización en caliente (WP-108).
+# Después de reiniciar el bridge, systemd lo reporta ``active`` antes de que su
+# listener ``:8765`` esté disponible, así que el host tarda un instante en volver
+# a clasificarse ``ESTABLE_SISLEG``. Se espera como máximo ``INTENTOS`` sondeos
+# separados por ``PAUSA`` segundos (unos 29 s): alcanza con holgura para un
+# arranque lento y sigue siendo un límite duro para que una inconsistencia real
+# falle cerrado y dispare el rollback en lugar de esperar indefinidamente.
+INTENTOS_CONVERGENCIA_FINAL = 30
+PAUSA_CONVERGENCIA_FINAL = 1.0
 
 
 class ErrorOperacionHost(RuntimeError):
@@ -901,6 +913,11 @@ class OperadorHost:
                     sha_objetivo, target_previo, release_actual, resultado
                 )
 
+            # Comprobación final y estricta, sin espera. En la ruta en caliente la
+            # convergencia ya se esperó dentro de la transacción (WP-108), así que
+            # llegar acá significa que el host ya estaba estable; en la ruta con el
+            # sistema anterior activo no se tocó ningún servicio y nada tiene que
+            # converger, de modo que su semántica no cambia.
             resultado.estado_final = self.inspector.clasificar()
             if resultado.estado_final != estado:
                 raise ErrorOperacionHost(
@@ -1222,13 +1239,35 @@ class OperadorHost:
         ``target-release`` se escribe **después** de la activación, nunca antes:
         si se escribiera primero, una activación fallida dejaría el host
         declarando como objetivo una release que no está en servicio.
+
+        **La convergencia final también es parte de la transacción (WP-108).**
+        Que la activación y el health hayan salido bien no prueba que el host
+        quedó ``ESTABLE_SISLEG``: el bridge figura ``active`` apenas se reinicia,
+        pero su listener ``:8765`` aparece un instante después, y el motor
+        canónico no lo espera. Por eso, después de escribir el objetivo, se
+        espera acotadamente —observando el host, no durmiendo a ciegas— a que la
+        clasificación estricta vuelva a dar ``ESTABLE_SISLEG``. Si no converge
+        dentro del presupuesto, la falla entra en la misma reversión que las
+        anteriores: la actualización sólo termina como éxito con el host
+        realmente estable.
         """
 
         try:
             self.gestor.activar(sha_objetivo)
             resultado.acciones.append(f"release {sha_objetivo} activada con health completo")
             self.escritor_target(self.raiz, sha_objetivo)
-        except (ErrorDespliegue, ErrorConfiguracionLocal, ErrorEstadoHost, OSError) as error:
+            sondeos = self._esperar_estable_sisleg()
+            resultado.acciones.append(
+                f"host convergido a {ESTABLE_SISLEG} tras {sondeos} "
+                f"{'sondeo' if sondeos == 1 else 'sondeos'}"
+            )
+        except Exception as error:  # noqa: BLE001 - frontera transaccional deliberada
+            # Se captura ``Exception`` a propósito: desde que empieza ``activar`` el
+            # host puede estar a medio mutar, y cualquier fallo normal de ejecución
+            # —incluso uno que nadie previó— tiene que intentar la reversión en vez
+            # de escapar dejando ``current`` y ``target-release`` divergentes. No se
+            # captura ``BaseException``: ``KeyboardInterrupt`` y ``SystemExit`` son
+            # decisiones de quien opera y no deben absorberse acá.
             self._revertir_actualizacion_en_caliente(
                 release_previa, target_previo, resultado, error
             )
@@ -1284,6 +1323,102 @@ class OperadorHost:
                 release_previa, target_previo, resultado, error_original, errores_rollback
             )
         ) from error_original
+
+    def _sondear_convergencia_sisleg(self) -> tuple[bool, bool, str, EvidenciaEstado]:
+        """Hace **un** sondeo del host y lo interpreta para la espera de convergencia.
+
+        Resultado: ``(converge, transitorio, estado, evidencia)`` de una única
+        observación:
+
+        - ``converge``: el host ya es ``ESTABLE_SISLEG``;
+        - ``transitorio``: no converge **todavía**, pero la evidencia es
+          exactamente la de la carrera observada en producción;
+        - ``estado`` y ``evidencia``: lo observado, para el diagnóstico.
+
+        La evidencia se observa una vez y se clasifica esa misma evidencia, así
+        el estado informado y los hechos que lo explican nunca provienen de dos
+        lecturas distintas del host.
+
+        **Qué cuenta como «transitorio».** Únicamente el patrón exacto de la
+        carrera: toda la evidencia es la que permitiría clasificar
+        ``ESTABLE_SISLEG`` *salvo* que el listener ``:8765`` todavía no escucha.
+        Se comprueba preguntándole al clasificador estricto de siempre qué
+        diría si ese único dato fuera verdadero; no se relaja ni se duplica
+        ninguna regla. Cualquier otra diferencia —el sistema anterior activo,
+        dos bridges, Nginx caído, un vhost equivocado, un backend ausente—
+        es una inconsistencia real que esperar no arregla.
+        """
+
+        evidencia = self.inspector.evidencia()
+        estado = self.inspector.clasificar(evidencia)
+        if estado == ESTABLE_SISLEG:
+            return True, False, estado, evidencia
+        falta_solo_el_listener = (
+            not evidencia.puerto_bridge_ocupado
+            and self.inspector.clasificar(replace(evidencia, puerto_bridge_ocupado=True))
+            == ESTABLE_SISLEG
+        )
+        return False, falta_solo_el_listener, estado, evidencia
+
+    def _esperar_estable_sisleg(self) -> int:
+        """Espera acotadamente a que el host sea ``ESTABLE_SISLEG`` y lo demuestra.
+
+        Resultado: cantidad de sondeos que hicieron falta (1 si ya convergió).
+
+        Errores:
+            ErrorOperacionHost en dos situaciones, siempre con el **último**
+            estado y la evidencia observados (por ejemplo, ``legacy_backend_activo``
+            o ``puerto_bridge_ocupado``), que es lo que necesita quien diagnostica:
+
+            - **inconsistencia material**: la evidencia difiere de la estable en
+              algo más que el listener. Se aborta en el *primer* sondeo y sin
+              pausa, para que la transacción inicie el rollback de inmediato en
+              lugar de agotar el presupuesto sobre un host que no va a mejorar;
+            - **presupuesto agotado**: sólo faltaba el listener y nunca apareció.
+
+        Reutiliza :meth:`_esperar`, así que la espera es por condición observable
+        con presupuesto fijo y pausa inyectable. Cualquier otra falla —un host
+        que ni siquiera se puede observar— se propaga tal cual: tampoco eso se
+        convierte en éxito.
+        """
+
+        sondeos = 0
+        ultimo: list[tuple[str, EvidenciaEstado]] = []
+        material = False
+
+        def hechos_observados() -> str:
+            estado, evidencia = ultimo[0]
+            detalle = ", ".join(f"{campo}={valor}" for campo, valor in asdict(evidencia).items())
+            return f"el último estado observado fue {estado} (evidencia: {detalle})"
+
+        def converge() -> bool:
+            nonlocal sondeos, material
+            sondeos += 1
+            logrado, transitorio, estado, evidencia = self._sondear_convergencia_sisleg()
+            ultimo[:] = [(estado, evidencia)]
+            if not logrado and not transitorio:
+                material = True
+                raise ErrorOperacionHost(
+                    f"El host no converge a {ESTABLE_SISLEG} y la causa no es la demora del "
+                    f"listener de {PUERTO_BRIDGE_SISLEG}: se aborta sin esperar. "
+                    f"En el sondeo {sondeos} {hechos_observados()}."
+                )
+            return logrado
+
+        try:
+            self._esperar(
+                f"el host debía converger a {ESTABLE_SISLEG}",
+                converge,
+                intentos=INTENTOS_CONVERGENCIA_FINAL,
+                pausa=PAUSA_CONVERGENCIA_FINAL,
+            )
+        except ErrorOperacionHost as error:
+            if material:
+                raise
+            raise ErrorOperacionHost(
+                f"{error} Tras {sondeos} sondeos {hechos_observados()}."
+            ) from error
+        return sondeos
 
     def _restaurar_release_previa(
         self, release_previa: str | None, resultado: ResultadoOperacion
@@ -1364,12 +1499,31 @@ class OperadorHost:
         if release_previa is None:
             return ROLLBACK_NO_APLICA
         try:
-            estable = self.inspector.clasificar() == ESTABLE_SISLEG
             volvio = self._release_actual() == release_previa
             target_restaurado = self._target_coincide(target_previo)
+            # Sólo se gasta el presupuesto de espera si lo demás ya coincide: con
+            # la release o el objetivo sin restaurar el rollback falló igual.
+            estable = volvio and target_restaurado and self._convergio_a_estable_sisleg()
         except (ErrorEstadoHost, ErrorDespliegue, OSError):
             return ROLLBACK_FALLIDO
         return ROLLBACK_EXITOSO if estable and volvio and target_restaurado else ROLLBACK_FALLIDO
+
+    def _convergio_a_estable_sisleg(self) -> bool:
+        """``True`` si, dentro del presupuesto, el host quedó ``ESTABLE_SISLEG``.
+
+        Se usa para clasificar el rollback. Restaurar la release previa reinicia
+        otra vez el bridge, así que la lectura inmediata sufre la misma carrera
+        que la activación: sin esta espera, un rollback que **sí** funcionó
+        podría registrarse como ``ROLLBACK_FALLIDO`` sólo porque el listener
+        todavía no estaba. Si el host no converge se devuelve ``False`` y el
+        rollback se declara fallido: es lo que realmente se observó.
+        """
+
+        try:
+            self._esperar_estable_sisleg()
+        except ErrorOperacionHost:
+            return False
+        return True
 
     def _target_coincide(self, target_previo: str | None) -> bool:
         """``True`` si el objetivo en disco es exactamente el que había antes."""
