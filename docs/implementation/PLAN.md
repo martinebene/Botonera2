@@ -638,7 +638,7 @@ a la activación/target debe quedar dentro de la transacción y ejecutar rollbac
 
 | WP | Objetivo | Estado | Depende de | Agente |
 |---|---|---|---|---|
-| WP-108 | Convergencia fiable del postcheck de actualización productiva | EN_CURSO | WP-107 | Claude Code / Claude Opus 5 |
+| WP-108 | Convergencia fiable del postcheck de actualización productiva | EN_CURSO | WP-107 | claude |
 
 Implementador autorizado: Claude Code / Claude Opus 5. Revisor independiente previsto:
 Antigravity/AGY / Gemini 3.8 Flash (High). Entorno Orca, un único worktree WP-108 durante todo el
