@@ -88,6 +88,7 @@ from deploy.estado_host import (  # noqa: E402 - raíz preparada arriba
     SERVICIO_BRIDGE_LEGACY,
     SUFIJO_VHOST_DESHABILITADO,
     ErrorEstadoHost,
+    EvidenciaEstado,
     InspectorEstadoHost,
     eliminar_target_release,
     escribir_target_release,
@@ -134,6 +135,16 @@ ESTADO_FALLA = "FALLA"
 ROLLBACK_NO_APLICA = "NO_APLICA"
 ROLLBACK_EXITOSO = "EXITOSO"
 ROLLBACK_FALLIDO = "FALLIDO"
+
+# Presupuesto de la convergencia final de una actualización en caliente (WP-108).
+# Después de reiniciar el bridge, systemd lo reporta ``active`` antes de que su
+# listener ``:8765`` esté disponible, así que el host tarda un instante en volver
+# a clasificarse ``ESTABLE_SISLEG``. Se espera como máximo ``INTENTOS`` sondeos
+# separados por ``PAUSA`` segundos (unos 29 s): alcanza con holgura para un
+# arranque lento y sigue siendo un límite duro para que una inconsistencia real
+# falle cerrado y dispare el rollback en lugar de esperar indefinidamente.
+INTENTOS_CONVERGENCIA_FINAL = 30
+PAUSA_CONVERGENCIA_FINAL = 1.0
 
 
 class ErrorOperacionHost(RuntimeError):
@@ -901,6 +912,11 @@ class OperadorHost:
                     sha_objetivo, target_previo, release_actual, resultado
                 )
 
+            # Comprobación final y estricta, sin espera. En la ruta en caliente la
+            # convergencia ya se esperó dentro de la transacción (WP-108), así que
+            # llegar acá significa que el host ya estaba estable; en la ruta con el
+            # sistema anterior activo no se tocó ningún servicio y nada tiene que
+            # converger, de modo que su semántica no cambia.
             resultado.estado_final = self.inspector.clasificar()
             if resultado.estado_final != estado:
                 raise ErrorOperacionHost(
@@ -1222,13 +1238,35 @@ class OperadorHost:
         ``target-release`` se escribe **después** de la activación, nunca antes:
         si se escribiera primero, una activación fallida dejaría el host
         declarando como objetivo una release que no está en servicio.
+
+        **La convergencia final también es parte de la transacción (WP-108).**
+        Que la activación y el health hayan salido bien no prueba que el host
+        quedó ``ESTABLE_SISLEG``: el bridge figura ``active`` apenas se reinicia,
+        pero su listener ``:8765`` aparece un instante después, y el motor
+        canónico no lo espera. Por eso, después de escribir el objetivo, se
+        espera acotadamente —observando el host, no durmiendo a ciegas— a que la
+        clasificación estricta vuelva a dar ``ESTABLE_SISLEG``. Si no converge
+        dentro del presupuesto, la falla entra en la misma reversión que las
+        anteriores: la actualización sólo termina como éxito con el host
+        realmente estable.
         """
 
         try:
             self.gestor.activar(sha_objetivo)
             resultado.acciones.append(f"release {sha_objetivo} activada con health completo")
             self.escritor_target(self.raiz, sha_objetivo)
-        except (ErrorDespliegue, ErrorConfiguracionLocal, ErrorEstadoHost, OSError) as error:
+            sondeos = self._esperar_estable_sisleg()
+            resultado.acciones.append(
+                f"host convergido a {ESTABLE_SISLEG} tras {sondeos} "
+                f"{'sondeo' if sondeos == 1 else 'sondeos'}"
+            )
+        except (
+            ErrorDespliegue,
+            ErrorConfiguracionLocal,
+            ErrorEstadoHost,
+            ErrorOperacionHost,
+            OSError,
+        ) as error:
             self._revertir_actualizacion_en_caliente(
                 release_previa, target_previo, resultado, error
             )
@@ -1284,6 +1322,65 @@ class OperadorHost:
                 release_previa, target_previo, resultado, error_original, errores_rollback
             )
         ) from error_original
+
+    def _sondear_convergencia_sisleg(self) -> tuple[bool, str, EvidenciaEstado]:
+        """Hace **un** sondeo del host y dice si ya es ``ESTABLE_SISLEG``.
+
+        Resultado: ``(converge, estado, evidencia)`` de una única observación.
+
+        La evidencia se observa una vez y se clasifica esa misma evidencia: así
+        el estado informado y los hechos que lo explican nunca corresponden a
+        dos lecturas distintas del host. La clasificación es la estricta de
+        :class:`InspectorEstadoHost`; acá no se relaja nada, sólo se repite la
+        pregunta.
+        """
+
+        evidencia = self.inspector.evidencia()
+        estado = self.inspector.clasificar(evidencia)
+        return estado == ESTABLE_SISLEG, estado, evidencia
+
+    def _esperar_estable_sisleg(self) -> int:
+        """Espera acotadamente a que el host sea ``ESTABLE_SISLEG`` y lo demuestra.
+
+        Resultado: cantidad de sondeos que hicieron falta (1 si ya convergió).
+
+        Errores:
+            ErrorOperacionHost si el presupuesto se agota. El mensaje conserva el
+            **último** estado y la evidencia observados: es lo que necesita
+            quien diagnostica (por ejemplo, bridge activo con ``:8765`` sin
+            escuchar) y se pierde si sólo se informa «no convergió».
+
+        Reutiliza :meth:`_esperar`, así que la espera es por condición observable
+        con presupuesto fijo y pausa inyectable. Cualquier falla que no sea
+        «todavía no converge» —un host que ni siquiera se puede observar— se
+        propaga tal cual: tampoco eso se convierte en éxito.
+        """
+
+        sondeos = 0
+        ultimo: list[tuple[str, EvidenciaEstado]] = []
+
+        def converge() -> bool:
+            nonlocal sondeos
+            sondeos += 1
+            logrado, estado, evidencia = self._sondear_convergencia_sisleg()
+            ultimo[:] = [(estado, evidencia)]
+            return logrado
+
+        try:
+            self._esperar(
+                f"el host debía converger a {ESTABLE_SISLEG}",
+                converge,
+                intentos=INTENTOS_CONVERGENCIA_FINAL,
+                pausa=PAUSA_CONVERGENCIA_FINAL,
+            )
+        except ErrorOperacionHost as error:
+            estado, evidencia = ultimo[0]
+            hechos = ", ".join(f"{campo}={valor}" for campo, valor in asdict(evidencia).items())
+            raise ErrorOperacionHost(
+                f"{error} Tras {sondeos} sondeos el último estado observado fue {estado} "
+                f"(evidencia: {hechos})."
+            ) from error
+        return sondeos
 
     def _restaurar_release_previa(
         self, release_previa: str | None, resultado: ResultadoOperacion
@@ -1364,12 +1461,31 @@ class OperadorHost:
         if release_previa is None:
             return ROLLBACK_NO_APLICA
         try:
-            estable = self.inspector.clasificar() == ESTABLE_SISLEG
             volvio = self._release_actual() == release_previa
             target_restaurado = self._target_coincide(target_previo)
+            # Sólo se gasta el presupuesto de espera si lo demás ya coincide: con
+            # la release o el objetivo sin restaurar el rollback falló igual.
+            estable = volvio and target_restaurado and self._convergio_a_estable_sisleg()
         except (ErrorEstadoHost, ErrorDespliegue, OSError):
             return ROLLBACK_FALLIDO
         return ROLLBACK_EXITOSO if estable and volvio and target_restaurado else ROLLBACK_FALLIDO
+
+    def _convergio_a_estable_sisleg(self) -> bool:
+        """``True`` si, dentro del presupuesto, el host quedó ``ESTABLE_SISLEG``.
+
+        Se usa para clasificar el rollback. Restaurar la release previa reinicia
+        otra vez el bridge, así que la lectura inmediata sufre la misma carrera
+        que la activación: sin esta espera, un rollback que **sí** funcionó
+        podría registrarse como ``ROLLBACK_FALLIDO`` sólo porque el listener
+        todavía no estaba. Si el host no converge se devuelve ``False`` y el
+        rollback se declara fallido: es lo que realmente se observó.
+        """
+
+        try:
+            self._esperar_estable_sisleg()
+        except ErrorOperacionHost:
+            return False
+        return True
 
     def _target_coincide(self, target_previo: str | None) -> bool:
         """``True`` si el objetivo en disco es exactamente el que había antes."""

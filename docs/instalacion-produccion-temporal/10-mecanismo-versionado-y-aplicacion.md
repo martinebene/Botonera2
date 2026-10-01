@@ -106,6 +106,39 @@ configuración y recién entonces la acción que corresponda:
   previa y el objetivo quedó idéntico al de antes. Si la
   restauración no se puede demostrar, el mensaje lo dice y exige intervención en lugar de afirmar
   que se volvió a la versión anterior;
+
+  **Convergencia final (WP-108).** Que la activación y el health hayan salido bien no alcanza para
+  dar la actualización por terminada. Al reiniciar, systemd reporta el bridge `active` antes de que
+  su listener de control en `:8765` esté disponible, y el motor canónico sólo verifica `is-active`,
+  health HTTP y Nginx. La clasificación formal, en cambio, exige el puerto: durante esa ventana
+  devuelve `ESTADO_INCONSISTENTE` aunque el host esté sano y converja solo segundos después. Es el
+  patrón observado en las dos actualizaciones productivas hacia `73b2c00…` y hacia `569dc7f2…`, donde
+  la operación se registró como `FALLA` con `rollback=NO_APLICA` y el host resultó estar estable. Esa
+  causa se reprodujo de forma determinista con el host simulado de la suite; no se midió sobre el
+  host real, porque WP-108 no toca producción.
+
+  Por eso, después de activar y fijar `target-release`, la transacción **espera a que el host
+  vuelva a clasificarse `ESTABLE_SISLEG`**:
+
+  - la espera es por condición observable: en cada intento se observa el host completo y se
+    clasifica esa misma evidencia, y sólo se pausa entre intentos fallidos. Un host sano converge en
+    el primer sondeo y no espera nada;
+  - el presupuesto es acotado (`INTENTOS_CONVERGENCIA_FINAL` sondeos separados por
+    `PAUSA_CONVERGENCIA_FINAL` segundos, unos 29 s en total);
+  - `ESTABLE_SISLEG` **no se relajó**: sigue exigiendo el puerto del bridge y todo lo demás. No se
+    toleran lecturas inconsistentes: se espera a que dejen de ocurrir, y una inconsistencia real
+    —por ejemplo, el sistema anterior activo a la vez— agota el presupuesto igual que un listener que
+    nunca aparece;
+  - si no converge, la falla entra en la misma reversión que cualquier otra posterior a la
+    activación: se restauran la release previa y `target-release` y el error conserva el **último
+    estado y evidencia observados** para el diagnóstico;
+  - restaurar la release previa reinicia otra vez el bridge, así que el rollback espera con el mismo
+    criterio antes de clasificarse. Sólo se registra `ROLLBACK_EXITOSO` si el host quedó
+    `ESTABLE_SISLEG` en la release previa con el objetivo idéntico al de antes; si no, se registra
+    `ROLLBACK_FALLIDO` y se exige intervención humana.
+
+  Con el sistema anterior activo no se reinicia ningún servicio de SIS-Leg y no hay nada que
+  converger: ese camino no cambió.
 - si `target-release` ya es la versión pública y la release está preparada, no descarga, no prepara y
   no reinicia nada;
 - si `current` y `target-release` divergen de forma no resoluble, aborta sin mutar.
@@ -358,3 +391,9 @@ ni texto que vea quien opera el sistema o quien le da soporte habitual.
 
 Cuando WP-101B instale el mecanismo nuevo habrá que volver a evaluar el manual: ahí sí cambia qué ve
 la persona en pantalla durante una actualización, y esa evaluación corresponde a ese trabajo.
+
+WP-108 evaluó el manual con resultado **sin impacto**: el mecanismo ya está instalado y la espera de
+convergencia corrige un falso negativo interno. Una actualización sana sigue terminando bien y una
+realmente fallida sigue revirtiéndose e informando la falla; no se agrega ningún paso, opción ni
+configuración para quien opera. La única diferencia perceptible es que una actualización en caliente
+puede tardar unos segundos más en informar el resultado cuando el bridge demora en escuchar.
